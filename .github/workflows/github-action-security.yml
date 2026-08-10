@@ -24,8 +24,6 @@ jobs:
 
       - name: Run zizmor for GitHub Actions security
         uses: zizmorcore/zizmor-action@v0.6.2
-        with:
-          range: '.github/workflows/'
 
       - name: Run actionlint
         run: |
