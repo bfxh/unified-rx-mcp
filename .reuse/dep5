@@ -1,0 +1,26 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: unified-rx-mcp
+Upstream-Contact: bfxh
+Source: https://github.com/bfxh/unified-rx-mcp
+
+# 配置/文档/元数据文件——无源码头部，dep5 批量声明
+Files:
+  .mcp.json
+  reasonix-plugin.json
+  design_tokens.json
+  README.md
+  BUG_SCAN_DESIGN.md
+  .gitignore
+  assets/*
+Copyright: 2026 bfxh
+License: MIT
+
+# GitHub Actions workflows
+Files: .github/workflows/*
+Copyright: 2026 bfxh
+License: MIT
+
+# 测试文件（夹具无源码头）
+Files: test_unified_rx.py
+Copyright: 2026 bfxh
+License: MIT
