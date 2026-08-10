@@ -61,6 +61,15 @@ def _iter_py_files(root: str):
             yield os.path.join(dirpath, fn)
 
 
+# 扫描器自身文件豁免：这些文件的 docstring 描述规则关键词（"占位/假数据/魔法数字"等），
+# text_placeholder/magic_number 规则会自报噪声——自身文件跳过这两条规则
+_SELF_EXEMPT_BASENAMES = {"std_core.py", "server.py", "locate_core.py", "cb_index_core.py", "ds_core.py", "ui_check_core.py"}
+
+
+def _is_self_exempt(path: str) -> bool:
+    return os.path.basename(path) in _SELF_EXEMPT_BASENAMES
+
+
 def _is_test_file(path: str) -> bool:
     """测试文件（夹具凭据是故意数据，secret 扫描跳过；其他规则仍扫）。"""
     base = os.path.basename(path)
@@ -207,11 +216,17 @@ def scan_directory(path: str, max_files: int = 200) -> dict:
         if src is None:
             continue
         files += 1
-        _scan_text_placeholder(fp, src, issues, per_rule_limit, todo_count)
-        _scan_name_conflict(fp, src, issues, per_rule_limit)
-        _scan_ui_hardcode(fp, src, issues, per_rule_limit)
-        _scan_magic_number(fp, src, issues, per_rule_limit)
-        _scan_secret(fp, src, issues, per_rule_limit)
+        if _is_self_exempt(fp):
+            # 自身文件豁免：docstring 描述词不报（text_placeholder/magic_number 噪声）
+            _scan_name_conflict(fp, src, issues, per_rule_limit)
+            _scan_ui_hardcode(fp, src, issues, per_rule_limit)
+            _scan_secret(fp, src, issues, per_rule_limit)
+        else:
+            _scan_text_placeholder(fp, src, issues, per_rule_limit, todo_count)
+            _scan_name_conflict(fp, src, issues, per_rule_limit)
+            _scan_ui_hardcode(fp, src, issues, per_rule_limit)
+            _scan_magic_number(fp, src, issues, per_rule_limit)
+            _scan_secret(fp, src, issues, per_rule_limit)
         if len(issues) >= max_files:
             break
     return _summarize(issues, files, path, todo_count[0])
@@ -223,11 +238,17 @@ def scan_file(path: str) -> dict:
         return {"ok": False, "issues": [], "summary": {"files": 0, "rules": {}, "error": f"读取失败或超过 1MB: {path}"}}
     issues: list = []
     todo_count = [0]
-    _scan_text_placeholder(path, src, issues, 50, todo_count)
-    _scan_name_conflict(path, src, issues, 50)
-    _scan_ui_hardcode(path, src, issues, 50)
-    _scan_magic_number(path, src, issues, 50)
-    _scan_secret(path, src, issues, 50)
+    if _is_self_exempt(path):
+        # 自身文件豁免：docstring 描述词不报（text_placeholder/magic_number 噪声）
+        _scan_name_conflict(path, src, issues, 50)
+        _scan_ui_hardcode(path, src, issues, 50)
+        _scan_secret(path, src, issues, 50)
+    else:
+        _scan_text_placeholder(path, src, issues, 50, todo_count)
+        _scan_name_conflict(path, src, issues, 50)
+        _scan_ui_hardcode(path, src, issues, 50)
+        _scan_magic_number(path, src, issues, 50)
+        _scan_secret(path, src, issues, 50)
     return _summarize(issues, 1, path, todo_count[0])
 
 
