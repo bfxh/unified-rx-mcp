@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 """std_core — 通用工程标准检查（软件/游戏/前端/UI 通用）。
 
 检查维度（本地静态扫描，零网络，兼容绝大多数项目；特殊条件由调用方
