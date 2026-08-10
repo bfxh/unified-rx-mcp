@@ -16,9 +16,31 @@ import server
 # ── 注册表完整性 ──────────────────────────────────────────────
 def test_tools_count_and_schema():
     defs = server._definitions()
-    assert len(defs) == 61, f"期望 61（41 核心 + 20 扩展），实际 {len(defs)}"
+    assert len(defs) == 62, f"期望 62（42 核心 + 20 扩展），实际 {len(defs)}"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
+
+
+def test_tool_card():
+    """Tool 角色回喂：结构化卡片视图（Aether AiRole::Tool 启发）。"""
+    # 纯函数工具 → 卡片 JSON
+    r = server._call("tool_card", {"name": "math_add", "arguments": {"a": 2, "b": 3}})[0]
+    assert r.role == "tool"
+    d = json.loads(r.text)
+    assert d["ok"] is True and "math_add" in d["summary"] and d["detail"] == 5
+    # JSON 结果工具 → 透传 detail
+    r2 = server._call("tool_card", {"name": "bug_locate", "arguments": {"error_text": "server.py:1"}})[0]
+    d2 = json.loads(r2.text)
+    assert d2["ok"] is True and isinstance(d2["detail"], dict)
+    # 未知工具 → ok=False
+    r3 = server._call("tool_card", {"name": "nope"})[0]
+    assert json.loads(r3.text)["ok"] is False
+    # 工具内部错误 → ok=False
+    r4 = server._call("tool_card", {"name": "math_div", "arguments": {"a": 1, "b": 0}})[0]
+    assert json.loads(r4.text)["ok"] is False
+    # 缺 name → ok=False
+    r5 = server._call("tool_card", {"name": ""})[0]
+    assert json.loads(r5.text)["ok"] is False
 
 
 def test_prefix_groups():

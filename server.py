@@ -43,12 +43,45 @@ from pathlib import Path
 
 
 class _TC:
-    """轻量文本内容（协议层转换为 types.TextContent）。"""
-    __slots__ = ("type", "text")
+    """轻量文本内容（协议层转换为 types.TextContent）。
 
-    def __init__(self, text: str, type_: str = "text"):
+    role/summary 供 Tool 角色回喂（Aether AiRole::Tool 启发）：UI 可将
+    工具结果渲染为简洁工具卡片，不冒充用户气泡。默认 None 保持既有行为。
+    """
+    __slots__ = ("type", "text", "role", "summary")
+
+    def __init__(self, text: str, type_: str = "text", role: str | None = None, summary: str | None = None):
         self.type = type_
         self.text = text
+        self.role = role
+        self.summary = summary
+
+
+class _TR:
+    """结构化工具结果（Tool 角色回喂卡片视图）。
+
+    AetherStudio PR #106 启发：工具结果以 Tool 角色记录、UI 渲染为简洁卡片
+    （不显示为用户气泡、无角色标签）。text 为 JSON（role/ok/summary/detail），
+    协议层原样透传，RX/Aether UI 可解析为卡片；纯文本工具不受影响。
+    """
+    __slots__ = ("role", "ok", "summary", "detail")
+
+    def __init__(self, ok: bool, summary: str, detail: object | None = None):
+        self.role = "tool"
+        self.ok = bool(ok)
+        self.summary = summary
+        self.detail = detail
+
+    def to_text(self) -> str:
+        payload: dict = {"role": self.role, "ok": self.ok, "summary": self.summary}
+        if self.detail is not None:
+            payload["detail"] = self.detail
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+def _tr(ok: bool, summary: str, detail: object | None = None) -> _TC:
+    """构造 Tool 角色卡片结果（_TC 包装，role=tool）。"""
+    return _TC(_TR(ok, summary, detail).to_text(), role="tool", summary=summary)
 
 
 class _ToolDef:
@@ -863,6 +896,38 @@ def _schema(props: dict, required: list[str]) -> dict:
 
 _S = lambda t, d: {"type": t, "description": d}  # noqa: E731
 
+
+def _tool_card(args: dict) -> "list[types.TextContent]":
+    """调用任意工具并返回 Tool 角色卡片视图（Aether AiRole::Tool 启发）。
+
+    与直接调用不同：结果被封装为 {role:"tool", ok, summary, detail} JSON，
+    RX/Aether UI 据此渲染为简洁工具卡片（不冒充用户消息、无角色标签）。
+    summary 优先取原结果的 summary 字段；detail 保留完整结果。
+    _call 在模块加载完成后才被调用（运行时解析），此处定义顺序无碍。
+    """
+    name = str(args.get("name", ""))
+    sub = args.get("arguments") or {}
+    if not name:
+        return [_tr(False, "tool_card: 缺少工具名", {"error": "name 必填"})]
+    try:
+        out = _call(name, sub)
+    except Exception as exc:
+        return [_tr(False, f"tool_card: 调用 {name} 失败", {"error": str(exc)})]
+    text = "\n".join(c.text for c in out)
+    if text.startswith("Error") or text.startswith("Error in"):
+        return [_tr(False, text, None)]
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict) and "role" in parsed:
+            # 已是结构化结果：透传卡片字段
+            return [_tr(parsed.get("ok", True), parsed.get("summary", name), parsed.get("detail", parsed))]
+        summary = f"{name}: {text[:200]}{'…' if len(text) > 200 else ''}"
+        return [_tr(True, summary, parsed)]
+    except (ValueError, TypeError):
+        summary = f"{name}: {text[:200]}{'…' if len(text) > 200 else ''}"
+        return [_tr(True, summary, text)]
+
+
 _TOOLS: dict[str, tuple] = {
     # 文件层
     "fs_read": (_tool_fs_read, _schema({"path": _S("string", "文件路径")}, ["path"]), "安全读取文件（≤1MB，路径校验）"),
@@ -911,6 +976,10 @@ _TOOLS: dict[str, tuple] = {
     "list_unique": (_list_unique, _schema({"lst": _S("array", "")}, ["lst"]), "去重"),
     "list_flatten": (_list_flatten, _schema({"nested_list": _S("array", "")}, ["nested_list"]), "展平嵌套列表"),
     # 代码缺陷扫描 + 精准定位
+    "tool_card": (_tool_card, _schema({
+        "name": _S("string", "要调用的工具名"),
+        "arguments": _S("object", "工具参数（可选）"),
+    }, ["name"]), "Tool 角色回喂：调用任意工具并返回结构化卡片 {role,ok,summary,detail}（Aether AiRole::Tool 启发）"),
     "bug_scan": (_tool_bug_scan, _schema({"path": _S("string", "Python 文件或目录"), "max_files": _S("integer", "最大文件数(默认100)")}, ["path"]), "静态扫描 bug 模式（未定义变量/None 解引用/资源泄漏/除零/越界）"),
     "bug_locate": (_tool_bug_locate, _schema({"error_text": _S("string", "报错/traceback 文本")}, ["error_text"]), "报错文本 → 定位 file:line（含上下文片段）"),
     "ui_check": (_tool_ui_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描文件上限(默认100)")}, ["path"]), "Bevy UI 静态检查（崩溃/不可见模式）"),
@@ -1058,6 +1127,10 @@ def _tool_proxy(tn: str, schema: dict | None = None):
 
 def _call_ext(name: str, arguments: dict) -> "list[types.TextContent]":
     """扩展工具分发（name 带前缀）。"""
+    if not _EXT_DEFS:
+        # 防御：协议层 list_tools 已构建；直接调用（tool_card/selftest）可能未构建。
+        # _build_ext_defs 是 async，用 _ext_definitions 的同步包装（asyncio.run）。
+        _ext_definitions()
     if name not in _EXT_DEFS:
         return [_TC(f"Error: unknown tool: {name}")]
     label, kind, tdef = _EXT_DEFS[name]
