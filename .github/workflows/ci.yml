@@ -26,7 +26,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # 扩展层依赖（cae/pr-oracle/tautest 的 server.py 顶层 import）
-          python -m pip install mcp httpx
+          python -m pip install mcp httpx pytest
 
       - name: Assemble extension layout (_EXT_BASE = mcp-servers/)
         run: |
