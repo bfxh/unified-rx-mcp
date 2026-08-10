@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 """代码库认知层（codebase awareness）——不是孤立工具，而是让工具真正知道：
 1. 代码库全貌（文件树/符号/哈希持久化索引，增量更新）
 2. 你在干嘛（变更感知：本次索引与上次的差异 = 最近改动）
