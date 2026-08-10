@@ -19,7 +19,7 @@ import server
 def test_tools_count_and_schema():
     defs = server._definitions()
     # 核心 + 可用扩展；CI 上部分扩展可能加载失败（缺失依赖），只断言核心固定
-    assert len(server._TOOLS) == 44, f"核心工具数变化: {len(server._TOOLS)}"
+    assert len(server._TOOLS) == 48, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -808,3 +808,70 @@ def test_locate_edit_requires_query(tmp_path):
     r = server._call("locate_edit", {"path": str(tmp_path), "query": "  "})[0]
     assert "query" in r.text or "Error" in r.text, "空 query 应报错"
 
+
+
+# ── LSE 进化记忆（P0）───────────────────────────────
+def test_lesson_feedback_delta():
+    """lesson_feedback：采纳加分、无效减分归档（Delta 奖励）。"""
+    import time
+    lid = f"ut-lesson-{int(time.time()*1000)}"  # 唯一 ID，避免跨测试持久化污染
+    r = server._call("lesson_feedback", {"lesson_id": lid, "delta": 0.4})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert d["result"]["utility"] > 0.5, f"采纳应加分: {d}"
+    r2 = server._call("lesson_feedback", {"lesson_id": lid, "delta": -0.9})[0]
+    d2 = json.loads(r2.text)
+    assert d2["result"]["archived"] is True, f"低分应归档: {d2}"
+    # 非法 delta
+    r3 = server._call("lesson_feedback", {"lesson_id": lid, "delta": 5})[0]
+    assert "Error" in r3.text or "delta" in r3.text, "delta 超范围应报错"
+
+
+# ── LSE 规则权重（P1）───────────────────────────────
+def test_rule_feedback_weight():
+    """rule_feedback：采纳加分、忽略减分（自适应权重）。"""
+    import time
+    rule = f"ut_magic_{int(time.time()*1000)}"  # 唯一 ID，避免跨测试持久化污染
+    r = server._call("rule_feedback", {"rule": rule, "adopted": True, "delta": 0.3})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True and d["result"]["weight"] >= 1.3, f"采纳应加分: {d}"
+    r2 = server._call("rule_feedback", {"rule": rule, "adopted": False, "delta": 0.9})[0]
+    d2 = json.loads(r2.text)
+    assert d2["result"]["weight"] < 0.5, f"忽略应减分: {d2}"
+    # 非法 delta
+    r3 = server._call("rule_feedback", {"rule": rule, "adopted": True, "delta": 5})[0]
+    assert "Error" in r3.text or "delta" in r3.text, "delta 超范围应报错"
+
+
+# ── LSE UCB 树搜索（P2）──────────────────────────────
+def test_bug_locate_feedback_reward():
+    """bug_locate_feedback：命中 +1 / 未命中 -1 奖励回流。"""
+    import time
+    node = f"ut-node-{int(time.time()*1000)}"
+    r = server._call("bug_locate_feedback", {"node": node, "hit": True})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True and d["result"]["reward"] == 1.0, f"命中应 +1: {d}"
+    r2 = server._call("bug_locate_feedback", {"node": node, "hit": False})[0]
+    d2 = json.loads(r2.text)
+    assert d2["ok"] is True and d2["result"]["reward"] == -1.0, f"未命中应 -1: {d2}"
+    # 缺 node
+    r3 = server._call("bug_locate_feedback", {})[0]
+    assert "Error" in r3.text or "node" in r3.text, "缺 node 应报错"
+
+
+# ── LSE 经验迁移（P3）──────────────────────────────
+def test_tool_card_experience_field():
+    """tool_card 经验字段：model_fingerprint/context_hash/delta_score → experience_id。"""
+    import time
+    ctx = f"ut-ctx-{int(time.time()*1000)}"
+    r = server._call("tool_card", {"name": "math_add", "arguments": {"a": 1, "b": 2},
+                                   "model_fingerprint": "ut-model", "context_hash": ctx,
+                                   "delta_score": 0.7})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert d.get("experience_id"), f"应返回 experience_id: {d}"
+    # 经验可匹配（同 context_hash）
+    import lse_client as _lse
+    m = _lse.experience_match(ctx, 5)
+    assert m.get("ok") and m["result"].get("items"), f"经验应可匹配: {m}"
+    assert m["result"]["items"][0]["delta"] == 0.7, f"得分应 0.7: {m}"

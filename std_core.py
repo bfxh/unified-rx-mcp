@@ -261,13 +261,31 @@ def _summarize(issues: list, files: int, path: str, todo_count: int = 0) -> dict
     critical = sum(1 for i in issues if i["severity"] == "Critical")
     warning = sum(1 for i in issues if i["severity"] == "Warning")
     suggestion = sum(1 for i in issues if i["severity"] == "Suggestion")
+    # LSE 自适应权重（P1）：从 lse-engine 读每条规则权重（无则 1.0）
+    rule_weights: dict = {}
+    try:
+        from lse_client import state_get
+        st = state_get()
+        if st.get("ok"):
+            for rname, rdata in st.get("result", {}).get("rules", {}).items():
+                rule_weights[rname] = rdata.get("weight", 1.0)
+    except Exception:
+        pass
+    # 低权重规则（<0.3）视为已被反馈降权——suggestion 降级为 info（不阻断 ok）
+    low_weight_rules = {r for r, w in rule_weights.items() if w < 0.3}
+    effective_critical = critical
+    effective_warning = warning
+    for i in issues:
+        if i["rule"] in low_weight_rules and i["severity"] == "Suggestion":
+            i["severity"] = "Info"
     return {
-        "ok": critical == 0 and warning == 0,
+        "ok": effective_critical == 0 and effective_warning == 0,
         "issues": issues[:200],
         "summary": {
             "scanned": path, "files": files, "total": len(issues),
-            "critical": critical, "warning": warning, "suggestion": suggestion,
+            "critical": effective_critical, "warning": effective_warning, "suggestion": suggestion,
             "todo_markers": todo_count,
             "rules": rules,
+            "rule_weights": rule_weights,  # LSE 自适应权重（采纳/忽略反馈进化）
         },
     }

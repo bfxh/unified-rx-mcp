@@ -1,0 +1,46 @@
+name: rust-ci
+
+on:
+  push:
+    paths:
+      - 'lse-engine/**'
+      - '.github/workflows/rust-ci.yml'
+  pull_request:
+    paths:
+      - 'lse-engine/**'
+      - '.github/workflows/rust-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: cargo test + release
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: lse-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lse-engine
+      - name: fmt check
+        run: cargo fmt --check
+      - name: clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: test
+        run: cargo test
+      - name: build release
+        run: cargo build --release
+      - name: smoke test (CLI protocol)
+        shell: bash
+        run: |
+          echo '{"cmd":"delta_update","payload":{"kind":"lesson","id":"L1","delta":-0.5}}' | ./target/release/lse-engine.exe | grep -q '"ok":true'
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lse-engine-${{ github.sha }}-windows
+          path: lse-engine/target/release/lse-engine.exe
+          retention-days: 30

@@ -1,0 +1,18 @@
+[package]
+name = "lse-engine"
+version = "0.1.0"
+edition = "2021"
+description = "LSE (Learning to Self-Evolve) engine for unified-rx-mcp: delta-reward lesson recall, UCB tree search, adaptive rule weights, cross-model experience"
+license = "MIT"
+
+[[bin]]
+name = "lse-engine"
+path = "src/main.rs"
+
+[lib]
+name = "lse_engine"
+path = "src/lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true

@@ -824,6 +824,98 @@ def _tool_ds_check(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
+def _tool_lesson_recall_lse(args: dict) -> "list[types.TextContent]":
+    """LSE 增强版教训召回（P0：Delta 奖励进化记忆）。
+
+    调 cae_lesson_recall 获取原始教训，再用 lse-engine 的 utility 分数
+    排序（高效用优先）、标记 archived（低分降权）。返回 {lessons, utility, archived}。
+    """
+    try:
+        import lse_client as _lse
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import lse_client as _lse  # noqa: F811
+    # 调 cae 扩展的原始 lesson_recall
+    cae = _load_ext("code-analysis-enhance")
+    if cae is None:
+        return [_TC(json.dumps({"ok": False, "error": "cae 扩展不可用"}, ensure_ascii=False))]
+    try:
+        raw = cae._tool_lesson_recall({"task_description": str(args.get("task_description", "")),
+                                       "lessons_dir": str(args.get("lessons_dir", ""))})
+        text = raw[0].text if isinstance(raw, list) else str(raw)
+        data = json.loads(text)
+    except Exception as exc:
+        return [_TC(json.dumps({"ok": False, "error": f"lesson_recall 失败: {exc}"}, ensure_ascii=False))]
+    lessons = data.get("lessons", [])
+    # 每条教训按内容 hash 查 utility 分（lse-engine），降序排序
+    scored = []
+    for idx, lesson in enumerate(lessons):
+        lid = f"lesson-{abs(hash(lesson[:80])) % 10**9}"
+        st = _lse.state_get()
+        # 简化：lse 无直接 get 单条，用 delta=0 触发（返回当前值）
+        cur = _lse.delta_update_lesson(lid, 0.0)
+        utility = cur.get("result", {}).get("utility", 0.5)
+        archived = cur.get("result", {}).get("archived", False)
+        scored.append({"id": lid, "utility": utility, "archived": archived, "text": lesson})
+    scored.sort(key=lambda x: -x["utility"])
+    active = [s for s in scored if not s["archived"]]
+    archived_list = [s for s in scored if s["archived"]]
+    return [_TC(json.dumps({
+        "ok": True,
+        "task_keywords": data.get("task_keywords", []),
+        "lessons": [s["text"] for s in active],
+        "utility": [{"id": s["id"], "utility": s["utility"]} for s in active],
+        "archived": [{"id": s["id"], "utility": s["utility"], "text": s["text"][:100]} for s in archived_list],
+        "antipatterns": data.get("antipatterns", []),
+        "advice": data.get("advice", ""),
+        "note": "LSE Delta 进化记忆：utility 降序，低分自动归档" if _lse.engine_available() else "lse-engine 未构建，降级为原始召回",
+    }, ensure_ascii=False))]
+
+
+def _tool_lesson_feedback(args: dict) -> "list[types.TextContent]":
+    """LSE 反馈回路（P0）：教训被采纳/无效时更新 utility（Delta 奖励）。
+
+    采纳（bug 率下降）→ delta 加分；无效 → 减分；<0.1 自动归档。
+    """
+    try:
+        import lse_client as _lse
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import lse_client as _lse  # noqa: F811
+    lesson_id = str(args.get("lesson_id", ""))
+    delta = float(args.get("delta", 0.0))
+    if not lesson_id:
+        return [_TC(json.dumps({"ok": False, "error": "lesson_id 必填"}, ensure_ascii=False))]
+    if not -1.0 <= delta <= 1.0:
+        return [_TC(json.dumps({"ok": False, "error": "delta 须在 [-1,1]"}, ensure_ascii=False))]
+    res = _lse.delta_update_lesson(lesson_id, delta)
+    return [_TC(json.dumps(res, ensure_ascii=False))]
+
+
+def _tool_rule_feedback(args: dict) -> "list[types.TextContent]":
+    """LSE 规则权重反馈（P1）：规则被采纳 → 权重加分；被忽略 → 减分。
+
+    低权重（<0.3）规则自动降级（std_check 输出降为 Info，不阻塞）。
+    """
+    try:
+        import lse_client as _lse
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import lse_client as _lse  # noqa: F811
+    rule_id = str(args.get("rule", ""))
+    adopted = bool(args.get("adopted", True))
+    delta = float(args.get("delta", 0.2))
+    if not rule_id:
+        return [_TC(json.dumps({"ok": False, "error": "rule 必填"}, ensure_ascii=False))]
+    if not 0.0 <= delta <= 1.0:
+        return [_TC(json.dumps({"ok": False, "error": "delta 须在 [0,1]"}, ensure_ascii=False))]
+    res = _lse.delta_update_rule(rule_id, delta, adopted)
+    return [_TC(json.dumps(res, ensure_ascii=False))]
+
+
 def _tool_std_check(args: dict) -> "list[types.TextContent]":
     """通用工程标准检查（软件/游戏/前端/UI 通用，AetherStudio 启发）。
 
@@ -972,9 +1064,51 @@ def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
         locations.append({"file": str(p.resolve()), "line": line, "col": col, "func": func,
                           "status": "ok",
                           "context": [f"{i}: {src_lines[i - 1]}" for i in range(start, end + 1)]})
+    # P2: UCB 树搜索——多个 ok 候选时，用 lse-engine 历史奖励选择最优分支
+    ok_locs = [loc for loc in locations if loc["status"] == "ok"]
+    if len(ok_locs) > 1:
+        try:
+            import lse_client as _lse
+        except ImportError:
+            _dir = os.path.dirname(os.path.abspath(__file__))
+            sys.path.insert(0, _dir)
+            import lse_client as _lse  # noqa: F811
+        if _lse.engine_available():
+            node_ids = []
+            for loc in ok_locs:
+                # 稳定节点 id：file:line（去空格避免路径噪声）
+                nid = f"{loc['file']}:{loc['line']}".replace("\\", "/").lower()
+                node_ids.append(nid)
+            # UCB 选择：注册子节点并选最优（无历史 → 全未访问 → 按原序探索）
+            sel = _lse.ucb_select("bug-locate", node_ids, c=1.41)
+            if sel.get("ok") and sel.get("result", {}).get("selected"):
+                picked = sel["result"]["selected"]
+                # 把选中的节点排到最前（其余保持原序）
+                order = {nid: i for i, nid in enumerate(node_ids)}
+                ok_locs.sort(key=lambda loc: (order.get(f"{loc['file']}:{loc['line']}".replace("\\", "/").lower(), 0) != picked, 0))
     return [_TC(json.dumps({
         "ok": True, "matched": bool(locations), "locations": locations,
     }, ensure_ascii=False))]
+
+
+def _tool_bug_locate_feedback(args: dict) -> "list[types.TextContent]":
+    """P2: bug_locate UCB 反馈——候选位置命中/未命中回流奖励。
+
+    命中（用户定位到正确位置）→ reward=+1；未命中 → reward=-1。
+    奖励更新 lse-engine 树节点，下次定位更准。
+    """
+    try:
+        import lse_client as _lse
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import lse_client as _lse  # noqa: F811
+    node = str(args.get("node", "")).replace("\\", "/").lower()
+    hit = bool(args.get("hit", True))
+    if not node:
+        return [_TC(json.dumps({"ok": False, "error": "node 必填"}, ensure_ascii=False))]
+    res = _lse.ucb_backprop(node, 1.0 if hit else -1.0)
+    return [_TC(json.dumps(res, ensure_ascii=False))]
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1000,6 +1134,10 @@ def _tool_card(args: dict) -> "list[types.TextContent]":
     name = str(args.get("name", ""))
     sub = args.get("arguments") or {}
     max_detail = int(args.get("max_detail_len", 20000))
+    # P3/LSE 经验字段：模型指纹 + 上下文哈希 + 得分 → 成功后写入经验库
+    mf = str(args.get("model_fingerprint", "") or "").strip()
+    ctx = str(args.get("context_hash", "") or "").strip()
+    dscore = args.get("delta_score")
     if not 1 <= max_detail <= 500000:
         raise ValueError("max_detail_len 须在 1..500000")
     if not name:
@@ -1011,14 +1149,46 @@ def _tool_card(args: dict) -> "list[types.TextContent]":
     text = "\n".join(c.text for c in out)
     if text.startswith("Error") or text.startswith("Error in"):
         return [_tr(False, text, None)]
+    exp_id = None
+    if mf or ctx:
+        try:
+            import lse_client as _lse
+        except ImportError:
+            _dir = os.path.dirname(os.path.abspath(__file__))
+            sys.path.insert(0, _dir)
+            import lse_client as _lse  # noqa: F811
+        try:
+            delta = float(dscore) if dscore is not None else 0.0
+            if -1.0 <= delta <= 1.0:
+                res = _lse.experience_store(mf or "unknown", ctx, delta, text[:200])
+                if res.get("ok"):
+                    exp_id = res.get("result", {}).get("id")
+        except (TypeError, ValueError):
+            pass  # 经验字段可选：异常不阻断卡片
     try:
         parsed = json.loads(text)
         if isinstance(parsed, dict) and "role" in parsed:
             # 已是结构化结果：透传卡片字段（同样受 max_detail_len 约束）
             detail = parsed.get("detail", parsed)
-            return [_tr(parsed.get("ok", True), parsed.get("summary", name), _truncate_detail(detail, max_detail))]
+            card = _tr(parsed.get("ok", True), parsed.get("summary", name), _truncate_detail(detail, max_detail))
+            if exp_id and isinstance(card.text, str):
+                try:
+                    d0 = json.loads(card.text)
+                    d0["experience_id"] = exp_id
+                    card.text = json.dumps(d0, ensure_ascii=False)
+                except (ValueError, TypeError):
+                    pass
+            return [card]
         summary = f"{name}: {text[:200]}{'…' if len(text) > 200 else ''}"
-        return [_tr(True, summary, _truncate_detail(parsed, max_detail))]
+        card = _tr(True, summary, _truncate_detail(parsed, max_detail))
+        if exp_id and isinstance(card.text, str):
+            try:
+                d0 = json.loads(card.text)
+                d0["experience_id"] = exp_id
+                card.text = json.dumps(d0, ensure_ascii=False)
+            except (ValueError, TypeError):
+                pass
+        return [card]
     except (ValueError, TypeError):
         summary = f"{name}: {text[:200]}{'…' if len(text) > 200 else ''}"
         return [_tr(True, summary, text[:max_detail] + ("…(truncated)" if len(text) > max_detail else ""))]
@@ -1123,7 +1293,10 @@ _TOOLS: dict[str, tuple] = {
         "name": _S("string", "要调用的工具名"),
         "arguments": _S("object", "工具参数（可选）"),
         "max_detail_len": _S("integer", "detail 字符上限(默认20000，防大结果撑爆上下文)"),
-    }, ["name"]), "Tool 角色回喂：调用任意工具并返回结构化卡片 {role,ok,summary,detail}（Aether AiRole::Tool 启发）"),
+        "model_fingerprint": _S("string", "P3/LSE：模型指纹（可选，写入经验库）"),
+        "context_hash": _S("string", "P3/LSE：上下文哈希（可选，写入经验库）"),
+        "delta_score": _S("number", "P3/LSE：经验得分 [-1,1]（可选）"),
+    }, ["name"]), "Tool 角色回喂：调用任意工具并返回结构化卡片 {role,ok,summary,detail}（支持经验存取）"),
     "bug_scan": (_tool_bug_scan, _schema({"path": _S("string", "Python 文件或目录"), "max_files": _S("integer", "最大文件数(默认100)")}, ["path"]), "静态扫描 bug 模式（未定义变量/None 解引用/资源泄漏/除零/越界）"),
     "bug_locate": (_tool_bug_locate, _schema({"error_text": _S("string", "报错/traceback 文本")}, ["error_text"]), "报错文本 → 定位 file:line（含上下文片段）"),
     "ui_check": (_tool_ui_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描文件上限(默认100)")}, ["path"]), "Bevy UI 静态检查（崩溃/不可见模式）"),
@@ -1139,6 +1312,23 @@ _TOOLS: dict[str, tuple] = {
     "ds_lookup": (_tool_ds_lookup, _schema({}, []), "设计系统 token 查询（AI 生成 UI 时引用）"),
     "ds_check": (_tool_ds_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "设计系统合规检查（硬编码值/规则偏离）"),
     "std_check": (_tool_std_check, _schema({"path": _S("string", "文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "通用工程标准检查（占位文字/命名冲突/UI硬编码/魔法数字；默认标准兼容绝大多数项目）"),
+    "lesson_recall_lse": (_tool_lesson_recall_lse, _schema({
+        "task_description": _S("string", "任务描述（召回相关教训）"),
+        "lessons_dir": _S("string", "教训库目录（可选）"),
+    }, ["task_description"]), "LSE 进化教训召回：utility 降序排序 + 低分归档（Delta 奖励）"),
+    "lesson_feedback": (_tool_lesson_feedback, _schema({
+        "lesson_id": _S("string", "教训 ID（lesson_recall_lse 返回）"),
+        "delta": _S("number", "效用增量 [-1,1]（采纳正分/无效负分）"),
+    }, ["lesson_id", "delta"]), "LSE 教训反馈回路：Delta 更新 utility，<0.1 自动归档"),
+    "rule_feedback": (_tool_rule_feedback, _schema({
+        "rule": _S("string", "规则名（如 magic_number）"),
+        "adopted": _S("boolean", "采纳=true 加分 / 忽略=false 减分"),
+        "delta": _S("number", "权重增量 [0,1]（默认 0.2）"),
+    }, ["rule", "adopted"]), "LSE 规则权重反馈：采纳/忽略 → weight_update，低权重自动降级"),
+    "bug_locate_feedback": (_tool_bug_locate_feedback, _schema({
+        "node": _S("string", "候选节点 ID（bug_locate 返回的 file:line）"),
+        "hit": _S("boolean", "命中=true 奖励 / 未命中=false 惩罚"),
+    }, ["node", "hit"]), "P2 UCB 反馈：bug 定位候选命中/未命中 → 树奖励回流"),
 }
 
 
