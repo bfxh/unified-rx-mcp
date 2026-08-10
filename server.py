@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 """unified-rx — 极简架构单文件 MCP（适配 Reasonix）。
 
 设计目标（用户要求：强 / 性能强 / 快 / 内存小 / 架构好，运用到极致）：
