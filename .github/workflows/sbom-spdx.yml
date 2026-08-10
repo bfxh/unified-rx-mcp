@@ -11,7 +11,7 @@ on:
     - cron: '0 7 * * 1'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   spdx:
