@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run OSV-Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@v1
+        uses: google/osv-scanner-action/osv-scanner-action@v1.9.3
         with:
           scan-args: |-
             --recursive
@@ -35,7 +35,7 @@ jobs:
             ./
 
       - name: Run OSV-Scanner on commits
-        uses: google/osv-scanner-action/osv-scanner-action@v1
+        uses: google/osv-scanner-action/osv-scanner-action@v1.9.3
         if: github.event_name == 'push'
         with:
           scan-args: |-
