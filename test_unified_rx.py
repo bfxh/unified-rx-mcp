@@ -19,7 +19,7 @@ import server
 def test_tools_count_and_schema():
     defs = server._definitions()
     # 核心 + 可用扩展；CI 上部分扩展可能加载失败（缺失依赖），只断言核心固定
-    assert len(server._TOOLS) == 48, f"核心工具数变化: {len(server._TOOLS)}"
+    assert len(server._TOOLS) == 49, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -875,3 +875,85 @@ def test_tool_card_experience_field():
     m = _lse.experience_match(ctx, 5)
     assert m.get("ok") and m["result"].get("items"), f"经验应可匹配: {m}"
     assert m["result"]["items"][0]["delta"] == 0.7, f"得分应 0.7: {m}"
+
+
+# ── code_complete（LSP 自动补全）──────────────────────────────
+
+def test_code_complete_missing_path():
+    r = server._call("code_complete", {})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is False and "path" in d["summary"]
+
+
+def test_code_complete_language_detect_and_format(monkeypatch, tmp_path):
+    """按后缀探测语言 + 格式化补全项（mock LSP，不依赖真实服务器）。"""
+    src = tmp_path / "demo.py"
+    src.write_text("def greet(name):\n    return f'hi {name}'\n\n", encoding="utf-8")
+
+    fake = {
+        "ok": True, "language": "python", "position": {"line": 3, "character": 0},
+        "result": {
+            "isIncomplete": False,
+            "items": [
+                {"label": "greet", "kind": 3, "detail": "def greet(name)"},
+                {"label": "len", "kind": 3, "detail": "builtins"},
+                {"label": "foo", "kind": 6, "detail": ""},
+                {"label": "x" * 200, "kind": 6, "detail": "d" * 200},
+            ],
+        },
+    }
+    calls = {}
+
+    def fake_call_ext(name, arguments):
+        calls["args"] = arguments
+        return [server._TC(json.dumps(fake, ensure_ascii=False))]
+
+    monkeypatch.setattr(server, "_call_ext", fake_call_ext)
+    r = server._call("code_complete", {"path": str(src)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True, d
+    assert d["detail"]["language"] == "python"
+    assert calls["args"]["language_id"] == "python"
+    assert calls["args"]["request"] == "completion"
+    assert calls["args"]["text"] == src.read_text(encoding="utf-8")
+    items = d["detail"]["items"]
+    assert len(items) == 4, items
+    # kind 数字 → 名字；detail 截断 80；label 截断保护
+    assert items[0]["kind"] == "Function" and items[0]["detail"] == "def greet(name)"
+    assert items[1]["kind"] == "Function"
+    assert items[2]["kind"] == "Variable"
+    assert len(items[3]["label"]) <= 160 and len(items[3]["detail"]) <= 80
+
+
+def test_code_complete_unknown_lang_and_lsp_error(monkeypatch, tmp_path):
+    src = tmp_path / "demo.xyz"
+    src.write_text("x = 1", encoding="utf-8")
+    r = server._call("code_complete", {"path": str(src)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is False and "探测" in d["summary"]
+
+    # LSP 层错误透传（语言服务器未安装等）
+    def fake_call_ext(name, arguments):
+        return [server._TC(json.dumps(
+            {"ok": False, "error": "语言服务器未安装: pylsp"}, ensure_ascii=False))]
+
+    monkeypatch.setattr(server, "_call_ext", fake_call_ext)
+    r = server._call("code_complete", {"path": str(tmp_path / "demo.py"), "text": "x = 1"})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is False and "pylsp" in d["summary"]
+
+
+def test_code_complete_cursor_default_and_limit(monkeypatch, tmp_path):
+    src = tmp_path / "a.py"
+    src.write_text("one\ntwo\nthree", encoding="utf-8")  # 无尾换行，3 行
+    def fake_call_ext(name, arguments):
+        assert arguments["line"] == 2 and arguments["character"] == 5, arguments
+        return [server._TC(json.dumps(
+            {"ok": True, "language": "python", "position": {}, "result": {
+                "items": [{"label": f"c{i}", "kind": 1} for i in range(60)]}}, ensure_ascii=False))]
+
+    monkeypatch.setattr(server, "_call_ext", fake_call_ext)
+    r = server._call("code_complete", {"path": str(src)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert len(d["detail"]["items"]) == 50, "候选上限 50"

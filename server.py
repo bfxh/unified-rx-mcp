@@ -990,6 +990,100 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
+def _tool_code_complete(args: dict) -> "list[types.TextContent]":
+    """LSP 自动补全（基于真实语法树，不过期不污染）。
+
+    自动读文件（或传 text）→ 按后缀探测语言 → 调 cae_lsp_query(completion)
+    → 格式化候选 [{label, kind, detail}]。语言服务器未安装时返回 ok:false+hint，
+    不会伪造结果。光标默认最后一行行尾。
+    """
+    path = str(args.get("path", "") or "")
+    if not path:
+        return [_tr(False, "缺少 path")]
+    line = int(args.get("line", -1))
+    character = int(args.get("character", -1))
+    language_id = str(args.get("language_id", "") or "").lower()
+    root = str(args.get("root", "") or "")
+    text = args.get("text", "")
+    if text is None:
+        text = ""
+    text = str(text)
+
+    p = Path(path)
+    if not text:
+        try:
+            if not p.is_file():
+                return [_tr(False, f"文件不存在: {path}")]
+            if p.stat().st_size > (1 << 20):
+                return [_tr(False, "文件超过 1MB 上限")]
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            return [_tr(False, f"读取失败: {exc}")]
+    if len(text) > (1 << 20):
+        return [_tr(False, "text 超过 1MB 上限")]
+    if not language_id:
+        language_id = _LANG_BY_SUFFIX.get(p.suffix.lower(), "")
+        if not language_id:
+            return [_tr(False, "无法探测语言（传 language_id 或支持的文件后缀）",
+                        {"supported": sorted(set(_LANG_BY_SUFFIX.values()))})]
+    if language_id not in _LANG_BY_SUFFIX.values():
+        return [_tr(False, f"不支持的语言: {language_id}",
+                    {"supported": sorted(set(_LANG_BY_SUFFIX.values()))})]
+    if line < 0:
+        line = text.count("\n")
+    if character < 0:
+        lines = text.splitlines()
+        character = len(lines[line]) if line < len(lines) else 0
+
+    resp = _call_ext("cae_lsp_query", {
+        "language_id": language_id,
+        "request": "completion",
+        "path": path,
+        "line": line,
+        "character": character,
+        "text": text,
+        "root": root,
+    })
+    try:
+        data = json.loads(resp[0].text)
+    except (IndexError, json.JSONDecodeError):
+        return [_tr(False, "LSP 响应解析失败")]
+    if not data.get("ok"):
+        return [_tr(False, str(data.get("error", "LSP 补全失败")))]
+    raw = data.get("result") or {}
+    items = raw.get("items") or []
+    out = []
+    for it in items[:50]:
+        label = it.get("label") or it.get("insertText") or ""
+        if not label:
+            continue
+        kind = _LSP_KIND_NAMES.get(it.get("kind"), it.get("kind"))
+        detail = str(it.get("detail") or "")[:80]
+        out.append({"label": str(label)[:160], "kind": kind, "detail": detail})
+    return [_tr(True, f"completion {len(out)} 项",
+                {"language": language_id,
+                 "position": {"line": line, "character": character},
+                 "items": out})]
+
+
+_LANG_BY_SUFFIX = {
+    ".py": "python", ".pyw": "python",
+    ".rs": "rust",
+    ".ts": "typescript", ".mts": "typescript", ".cts": "typescript",
+    ".js": "javascript", ".mjs": "javascript", ".cjs": "javascript", ".jsx": "javascript",
+    ".c": "c", ".h": "c",
+    ".cc": "cpp", ".cpp": "cpp", ".cxx": "cpp", ".hpp": "cpp", ".hh": "cpp",
+}
+
+_LSP_KIND_NAMES = {
+    1: "Text", 2: "Method", 3: "Function", 4: "Constructor", 5: "Field",
+    6: "Variable", 7: "Class", 8: "Interface", 9: "Module", 10: "Property",
+    11: "Unit", 12: "Value", 13: "Enum", 14: "Keyword", 15: "Snippet",
+    16: "Color", 17: "File", 18: "Reference", 19: "Folder", 20: "EnumMember",
+    21: "Constant", 22: "Struct", 23: "Event", 24: "Operator", 25: "TypeParameter",
+}
+
+
 def _tool_locate_edit(args: dict) -> "list[types.TextContent]":
     """Qoder 式代码定位：自然语言/符号 → 具体修改位置（AI 引导）。
 
@@ -1309,6 +1403,14 @@ _TOOLS: dict[str, tuple] = {
         "max_files": _S("integer", "扫描上限(默认200)"),
         "limit": _S("integer", "候选数(默认10)"),
     }, ["path", "query"]), "Qoder 式定位：自然语言→代码具体位置（file:line+符号+snippet，AI 改哪里的引导）"),
+    "code_complete": (_tool_code_complete, _schema({
+        "path": _S("string", "文件路径"),
+        "line": _S("integer", "光标行(0-based，默认最后一行)"),
+        "character": _S("integer", "光标列(UTF-16 码元，默认行尾)"),
+        "language_id": _S("string", "rust/python/typescript/javascript/c/cpp（缺省按后缀探测）"),
+        "text": _S("string", "文档全文（缺省自动读文件，≤1MB）"),
+        "root": _S("string", "工作区根目录"),
+    }, ["path"]), "LSP 自动补全（基于真实语法树）：读文件→探测语言→completion→格式化候选"),
     "ds_lookup": (_tool_ds_lookup, _schema({}, []), "设计系统 token 查询（AI 生成 UI 时引用）"),
     "ds_check": (_tool_ds_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "设计系统合规检查（硬编码值/规则偏离）"),
     "std_check": (_tool_std_check, _schema({"path": _S("string", "文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "通用工程标准检查（占位文字/命名冲突/UI硬编码/魔法数字；默认标准兼容绝大多数项目）"),
