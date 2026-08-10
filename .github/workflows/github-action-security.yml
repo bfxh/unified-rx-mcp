@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run zizmor for GitHub Actions security
-        uses: satoricyborg/zizmor-action@v1
+        uses: zizmorcore/zizmor-action@v1
         with:
           range: '.github/workflows/'
 
