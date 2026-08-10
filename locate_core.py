@@ -122,7 +122,7 @@ def locate(root: str, query: str, max_files: int = 200, limit: int = 10) -> dict
 
     # 阶段 1：索引粗筛——只命中符号的文件需要读全文（行号定位）；
     # 无索引或未命中的文件走行级扫描。符号命中文件跳过行级匹配（候选已够）。
-    symbol_files: list[tuple[str, str, list[tuple[str, int]], str | None]] = []  # (rel, suffix, [(sym, strength)], preloaded_src)
+    symbol_files: list[tuple[str, str, list[tuple[str, int]], str | None, dict | None]] = []  # (rel, suffix, [(sym, strength)], preloaded_src, index_symbols)
     line_candidates: list[tuple[str, str, str | None]] = []  # (rel, suffix, preloaded_src)
     files_scanned = 0
 
@@ -131,10 +131,19 @@ def locate(root: str, query: str, max_files: int = 200, limit: int = 10) -> dict
         rel = os.path.relpath(fp, root).replace("\\", "/")
         pre = None  # 预读的 src（无索引路径下已读，行级扫描复用）
         if index and rel in index:
-            hit = [(s, _sym_strength(s)) for s in index[rel].get("symbols", []) if _sym_strength(s) > 0]
-            if hit:
-                symbol_files.append((rel, suffix, hit, None))
-                continue  # 符号命中：读文件只定位行号，不做行级扫描
+            idx_syms = index[rel].get("symbols")
+            if isinstance(idx_syms, dict):
+                hit = sorted(((s, _sym_strength(s)) for s in idx_syms if _sym_strength(s) > 0),
+                             key=lambda kv: -kv[1])[:10]
+                if hit:
+                    symbol_files.append((rel, suffix, hit, None, idx_syms))
+                    continue  # 索引带行号：阶段 2a 只读命中行，免读全文
+            elif isinstance(idx_syms, list):
+                hit = sorted(((s, _sym_strength(s)) for s in idx_syms if _sym_strength(s) > 0),
+                             key=lambda kv: -kv[1])[:10]
+                if hit:
+                    symbol_files.append((rel, suffix, hit, None, None))
+                    continue  # 旧格式无行号：阶段 2a 读全文定位
         else:
             # 无索引（或文件不在索引）→ 读文件提取符号判 hit
             try:
@@ -142,15 +151,39 @@ def locate(root: str, query: str, max_files: int = 200, limit: int = 10) -> dict
             except OSError:
                 continue
             syms = _symbol_positions(pre, suffix)
-            hit = [(s, _sym_strength(s)) for s in syms if _sym_strength(s) > 0]
+            hit = sorted(((s, _sym_strength(s)) for s in syms if _sym_strength(s) > 0),
+                         key=lambda kv: -kv[1])[:10]
             if hit:
-                symbol_files.append((rel, suffix, hit, pre))
+                symbol_files.append((rel, suffix, hit, pre, None))
                 continue
         line_candidates.append((rel, suffix, pre))
 
-    # 阶段 2a：符号命中文件——读全文提取定义行 + snippet
+    # 阶段 2a：符号命中文件——索引带行号则只读命中行；否则读全文定位行号
     candidates: list[dict] = []
-    for rel, suffix, hit, pre in symbol_files:
+    for rel, suffix, hit, pre, idx_syms in symbol_files:
+        if idx_syms is not None:
+            # 索引有行号：只读命中行取 snippet（免读全文，IO 最优）
+            fp = os.path.join(root, *rel.split("/"))
+            line_src: dict[int, str] = {}
+            try:
+                with open(fp, "r", encoding="utf-8", errors="replace") as f:
+                    target_lines = {idx_syms.get(sym, 0) for sym, _ in hit[:10] if idx_syms.get(sym, 0) > 0}
+                    for i, ln in enumerate(f, start=1):
+                        if i in target_lines:
+                            line_src[i] = ln.strip()[:160]
+                        if len(line_src) >= len(target_lines):
+                            break
+            except OSError:
+                continue
+            for sym, strength in hit[:10]:
+                line = idx_syms.get(sym, 0)
+                snippet = line_src.get(line, "")
+                score = 200 if strength == 3 else (150 if strength == 2 else 60)
+                candidates.append({
+                    "file": rel, "line": line, "symbol": sym, "snippet": snippet,
+                    "score": score, "reason": f"符号名命中: {sym}",
+                })
+            continue
         if pre is None:
             fp = os.path.join(root, *rel.split("/"))
             try:

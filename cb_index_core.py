@@ -37,14 +37,17 @@ def _file_hash(src: str) -> str:
     return hashlib.md5(src.encode("utf-8", errors="replace")).hexdigest()[:16]
 
 
-def _extract_symbols(src: str, suffix: str) -> list[str]:
+def _extract_symbols(src: str, suffix: str) -> dict[str, int]:
+    """提取符号 → 定义行号（1-based）。返回 {符号: 行号}，按行号排序。"""
     pat = _SYMBOL_PATTERNS.get(suffix)
     if not pat:
-        return []
-    syms = []
+        return {}
+    syms: dict[str, int] = {}
     for m in pat.finditer(src):
-        syms.append(m.group(1) or m.group(2))
-    return sorted(set(syms))[:200]
+        sym = m.group(1) or m.group(2)
+        if sym:
+            syms.setdefault(sym, src.count("\n", 0, m.start()) + 1)
+    return dict(list(sorted(syms.items(), key=lambda kv: kv[1]))[:200])
 
 
 def index_repo(root: str) -> dict:
@@ -95,7 +98,7 @@ def index_repo(root: str) -> dict:
             files[rel] = {
                 "hash": h,
                 "size": size,
-                "symbols": _extract_symbols(src, suffix)[:100],
+                "symbols": dict(list(_extract_symbols(src, suffix).items())[:100]),
                 "mtime": mtime,
             }
             total_files += 1
@@ -155,11 +158,15 @@ def repo_status(root: str) -> dict:
     files = data.get("files", {})
     if not isinstance(files, dict):
         return {"ok": False, "indexed": False, "msg": "索引结构损坏（files 非 dict）"}
-    # 按目录聚合
+    # 按目录聚合（symbols 兼容新旧格式：新 dict {sym:line} / 旧 list）
+    def _sym_names(symbols) -> list[str]:
+        if isinstance(symbols, dict):
+            return list(symbols.keys())
+        return symbols if isinstance(symbols, list) else []
     dirs = {}
     for rel, info in files.items():
         d = os.path.dirname(rel) or "."
-        dirs.setdefault(d, []).append({"file": os.path.basename(rel), "symbols": info.get("symbols", [])[:10]})
+        dirs.setdefault(d, []).append({"file": os.path.basename(rel), "symbols": _sym_names(info.get("symbols", []))[:10]})
     top_dirs = sorted(dirs.items(), key=lambda kv: -len(kv[1]))[:20]
     return {
         "ok": True,
