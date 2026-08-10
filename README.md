@@ -87,3 +87,11 @@ python -m pytest test_unified_rx.py -q   # 49 tests
 - **2026-08-10** 性能重构：mcp 懒加载（import 11.4× 快 / 内存 4.7× 小）、工具定义缓存、_TC/_ToolDef 轻量类
 - **2026-08-09** 安全加固：command 绝对路径、tier 无效字段清除、.mcp.json/reasonix-plugin.json 双文件部署
 - **2026-08-09** 功能：bug_scan/bug_locate、ui_check、ds_lookup/ds_check、cb_index/cb_status/cb_scan
+
+## 捐赠支持 (Donate)
+
+如果这个项目对你有帮助，可以请我喝杯咖啡 ☕ 感谢支持！
+
+If this project helps you, feel free to buy me a coffee ☕ Thanks for your support!
+
+<img src="assets/donate-qr-wechat.jpg" alt="微信赞赏码 (WeChat Donate QR)" width="240" />
