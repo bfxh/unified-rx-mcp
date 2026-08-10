@@ -47,6 +47,23 @@ def test_tool_card():
     assert json.loads(r5.text)["ok"] is False
 
 
+def test_tool_card_truncates_detail():
+    """max_detail_len 截断：大列表只留前 20 条 + truncated 标记（防撑爆上下文）。"""
+    # 大列表（10000 素数）→ 截断
+    r = server._call("tool_card", {"name": "prime_generate", "arguments": {"limit": 10000}, "max_detail_len": 200})[0]
+    d = json.loads(r.text)
+    detail = d["detail"]
+    assert isinstance(detail, dict) and detail.get("truncated") is True
+    assert detail.get("total") and detail.get("shown") == 20
+    assert len(detail.get("items", [])) == 20
+    # 小结果不受截断影响
+    r2 = server._call("tool_card", {"name": "math_add", "arguments": {"a": 2, "b": 3}})[0]
+    assert json.loads(r2.text)["detail"] == 5
+    # 非法 max_detail_len → 报错
+    r3 = server._call("tool_card", {"name": "math_add", "arguments": {"a": 1, "b": 1}, "max_detail_len": 0})[0]
+    assert "Error" in r3.text or "max_detail_len" in r3.text
+
+
 def test_prefix_groups():
     names = set(server._TOOLS)
     assert {"fs_read", "fs_write", "fs_stat", "fs_list"} <= names

@@ -959,10 +959,15 @@ def _tool_card(args: dict) -> "list[types.TextContent]":
     与直接调用不同：结果被封装为 {role:"tool", ok, summary, detail} JSON，
     RX/Aether UI 据此渲染为简洁工具卡片（不冒充用户消息、无角色标签）。
     summary 优先取原结果的 summary 字段；detail 保留完整结果。
+    可选 max_detail_len（字符上限，默认 20000）：detail 超限时截断为前 N 条
+    并附 truncated 标记——防止大结果（如全库 bug_scan）撑爆上下文（省 token）。
     _call 在模块加载完成后才被调用（运行时解析），此处定义顺序无碍。
     """
     name = str(args.get("name", ""))
     sub = args.get("arguments") or {}
+    max_detail = int(args.get("max_detail_len", 20000))
+    if not 1 <= max_detail <= 500000:
+        raise ValueError("max_detail_len 须在 1..500000")
     if not name:
         return [_tr(False, "tool_card: 缺少工具名", {"error": "name 必填"})]
     try:
@@ -975,13 +980,50 @@ def _tool_card(args: dict) -> "list[types.TextContent]":
     try:
         parsed = json.loads(text)
         if isinstance(parsed, dict) and "role" in parsed:
-            # 已是结构化结果：透传卡片字段
-            return [_tr(parsed.get("ok", True), parsed.get("summary", name), parsed.get("detail", parsed))]
+            # 已是结构化结果：透传卡片字段（同样受 max_detail_len 约束）
+            detail = parsed.get("detail", parsed)
+            return [_tr(parsed.get("ok", True), parsed.get("summary", name), _truncate_detail(detail, max_detail))]
         summary = f"{name}: {text[:200]}{'…' if len(text) > 200 else ''}"
-        return [_tr(True, summary, parsed)]
+        return [_tr(True, summary, _truncate_detail(parsed, max_detail))]
     except (ValueError, TypeError):
         summary = f"{name}: {text[:200]}{'…' if len(text) > 200 else ''}"
-        return [_tr(True, summary, text)]
+        return [_tr(True, summary, text[:max_detail] + ("…(truncated)" if len(text) > max_detail else ""))]
+
+
+def _truncate_detail(detail, max_len: int):
+    """detail 超限截断：dict/list 按条目截（保留结构），str 按字符截；附 truncated 标记。"""
+    if isinstance(detail, str):
+        if len(detail) <= max_len:
+            return detail
+        return detail[:max_len] + "…(truncated)"
+    if isinstance(detail, list):
+        if len(detail) <= 20:
+            return detail  # 小列表原样
+        return {"truncated": True, "total": len(detail), "shown": 20, "items": detail[:20]}
+    if isinstance(detail, dict):
+        try:
+            s = json.dumps(detail, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return detail
+        if len(s) <= max_len:
+            return detail
+        # 大 dict：保留 summary 级字段 + 截断大数组/大字符串
+        out: dict = {}
+        for k, v in detail.items():
+            vs = json.dumps(v, ensure_ascii=False, default=str) if not isinstance(v, str) else v
+            if len(vs) <= max_len // 4:
+                out[k] = v
+            elif isinstance(v, list) and len(v) > 10:
+                out[k] = {"truncated": True, "total": len(v), "shown": 10, "items": v[:10]}
+            elif isinstance(v, str):
+                out[k] = v[:max_len // 4] + "…(truncated)"
+            else:
+                out[k] = "…(truncated)"
+            if len(json.dumps(out, ensure_ascii=False, default=str)) > max_len:
+                break
+        out.setdefault("truncated", True)
+        return out
+    return detail
 
 
 _TOOLS: dict[str, tuple] = {
@@ -1035,6 +1077,7 @@ _TOOLS: dict[str, tuple] = {
     "tool_card": (_tool_card, _schema({
         "name": _S("string", "要调用的工具名"),
         "arguments": _S("object", "工具参数（可选）"),
+        "max_detail_len": _S("integer", "detail 字符上限(默认20000，防大结果撑爆上下文)"),
     }, ["name"]), "Tool 角色回喂：调用任意工具并返回结构化卡片 {role,ok,summary,detail}（Aether AiRole::Tool 启发）"),
     "bug_scan": (_tool_bug_scan, _schema({"path": _S("string", "Python 文件或目录"), "max_files": _S("integer", "最大文件数(默认100)")}, ["path"]), "静态扫描 bug 模式（未定义变量/None 解引用/资源泄漏/除零/越界）"),
     "bug_locate": (_tool_bug_locate, _schema({"error_text": _S("string", "报错/traceback 文本")}, ["error_text"]), "报错文本 → 定位 file:line（含上下文片段）"),

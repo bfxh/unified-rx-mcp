@@ -109,60 +109,85 @@ def locate(root: str, query: str, max_files: int = 200, limit: int = 10) -> dict
     if not tokens:
         return {"ok": False, "query": query, "error": "query 太短或无可识别关键词", "candidates": []}
 
-    index = _load_index(root)  # {rel_path: {symbols:[...]}}
-    candidates: list[dict] = []
+    index = _load_index(root)  # {rel_path: {symbols:[...]}}——符号粗筛免读文件
+    q_lower = query.lower().replace("_", "").replace("-", "")
+
+    def _sym_strength(sym: str) -> int:
+        s_lower = sym.lower().replace("_", "").replace("-", "")
+        if q_lower in s_lower:
+            return 3  # 完整 query 是符号子串
+        if all(t in s_lower for t in raw_tokens):
+            return 2  # 全部 token 命中（用未拆分的整串）
+        return 1 if any(t in s_lower for t in raw_tokens) else 0
+
+    # 阶段 1：索引粗筛——只命中符号的文件需要读全文（行号定位）；
+    # 无索引或未命中的文件走行级扫描。符号命中文件跳过行级匹配（候选已够）。
+    symbol_files: list[tuple[str, str, list[tuple[str, int]], str | None]] = []  # (rel, suffix, [(sym, strength)], preloaded_src)
+    line_candidates: list[tuple[str, str, str | None]] = []  # (rel, suffix, preloaded_src)
     files_scanned = 0
 
     for fp, suffix in _iter_files(root, max_files):
         files_scanned += 1
-        try:
-            src = open(fp, "r", encoding="utf-8", errors="replace").read()
-        except OSError:
-            continue
         rel = os.path.relpath(fp, root).replace("\\", "/")
-
-        # 1) 符号级匹配（索引优先，未命中全量）
-        symbols = {}
+        pre = None  # 预读的 src（无索引路径下已读，行级扫描复用）
         if index and rel in index:
-            symbols = _symbol_positions(src, suffix)  # 取定义行
+            hit = [(s, _sym_strength(s)) for s in index[rel].get("symbols", []) if _sym_strength(s) > 0]
+            if hit:
+                symbol_files.append((rel, suffix, hit, None))
+                continue  # 符号命中：读文件只定位行号，不做行级扫描
         else:
-            symbols = _symbol_positions(src, suffix)
-        q_lower = query.lower().replace("_", "").replace("-", "")
-        def _sym_strength(sym: str) -> int:
-            s_lower = sym.lower().replace("_", "").replace("-", "")
-            if q_lower in s_lower:
-                return 3  # 完整 query 是符号子串
-            if all(t in s_lower for t in raw_tokens):
-                return 2  # 全部 token 命中（用未拆分的整串）
-            return 1 if any(t in s_lower for t in raw_tokens) else 0
-        hit_symbols = sorted((s for s in symbols if _sym_strength(s) > 0),
-                             key=_sym_strength, reverse=True)[:10]
+            # 无索引（或文件不在索引）→ 读文件提取符号判 hit
+            try:
+                pre = open(fp, "r", encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            syms = _symbol_positions(pre, suffix)
+            hit = [(s, _sym_strength(s)) for s in syms if _sym_strength(s) > 0]
+            if hit:
+                symbol_files.append((rel, suffix, hit, pre))
+                continue
+        line_candidates.append((rel, suffix, pre))
 
-        # 2) 行级关键词匹配（内容命中：函数体里出现 query 关键词）
-        lines = src.splitlines()
-        line_hits = []
-        for i, ln in enumerate(lines[: len(lines)], start=1):
-            low = ln.lower()
-            if any(t in low for t in tokens):
-                line_hits.append((i, ln.strip()[:160]))
-
-        # 符号命中 → 高优先级候选
-        for sym in hit_symbols[:10]:
-            line = symbols[sym]
+    # 阶段 2a：符号命中文件——读全文提取定义行 + snippet
+    candidates: list[dict] = []
+    for rel, suffix, hit, pre in symbol_files:
+        if pre is None:
+            fp = os.path.join(root, *rel.split("/"))
+            try:
+                pre = open(fp, "r", encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+        lines = pre.splitlines()
+        symbols = _symbol_positions(pre, suffix)
+        for sym, strength in hit[:10]:
+            line = symbols.get(sym, 0)
             snippet = (lines[line - 1].strip()[:160] if 0 < line <= len(lines) else "")
-            strength = _sym_strength(sym)
             score = 200 if strength == 3 else (150 if strength == 2 else 60)
             candidates.append({
                 "file": rel, "line": line, "symbol": sym, "snippet": snippet,
                 "score": score, "reason": f"符号名命中: {sym}",
             })
 
-        # 行命中 → 中优先级候选（每个文件最多 3 条）
-        for line, snippet in line_hits[:3]:
-            candidates.append({
-                "file": rel, "line": line, "symbol": "", "snippet": snippet,
-                "score": 50, "reason": "行内容关键词命中",
-            })
+    # 阶段 2b：其余文件行级关键词匹配（每文件最多 3 条）
+    for rel, suffix, pre in line_candidates:
+        if pre is None:
+            fp = os.path.join(root, *rel.split("/"))
+            try:
+                pre = open(fp, "r", encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+        lines = pre.splitlines()
+        count = 0
+        for i, ln in enumerate(lines[: len(lines)], start=1):
+            low = ln.lower()
+            if any(t in low for t in tokens):
+                candidates.append({
+                    "file": rel, "line": i, "symbol": "", "snippet": ln.strip()[:160],
+                    "score": 50, "reason": "行内容关键词命中",
+                })
+                count += 1
+                if count >= 3:
+                    break
 
     # 去重（同一 file:line 只留最高分）
     seen: dict[tuple, dict] = {}
