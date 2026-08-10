@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 """locate_core — Qoder 式代码定位：自然语言/符号 → 具体修改位置（AI 引导）。
 
 核心能力（对标 Qoder 的"分析仓库 + 告诉 AI 改代码的具体位置"）：
