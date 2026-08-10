@@ -19,7 +19,7 @@ import server
 def test_tools_count_and_schema():
     defs = server._definitions()
     # 核心 + 可用扩展；CI 上部分扩展可能加载失败（缺失依赖），只断言核心固定
-    assert len(server._TOOLS) == 43, f"核心工具数变化: {len(server._TOOLS)}"
+    assert len(server._TOOLS) == 44, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -727,3 +727,33 @@ def test_std_check_directory_scan(tmp_path):
     rules = {i["rule"] for i in out["issues"]}
     assert "text_placeholder" in rules
     assert "ui_hardcode" in rules or "magic_number" in rules
+
+
+# ── locate_edit Qoder 式定位 ────────────────────────────────
+def test_locate_edit_symbol_exact(tmp_path):
+    f = tmp_path / "app.py"
+    f.write_text(
+        "def load_config(path):\n"
+        "    return path\n"
+        "\n"
+        "def save_config(cfg):\n"
+        "    pass\n",
+        encoding="utf-8",
+    )
+    out = json.loads(server._call("locate_edit", {"path": str(tmp_path), "query": "load_config", "limit": 5})[0].text)
+    assert out["ok"] is True
+    top = out["candidates"][0]
+    assert top["symbol"] == "load_config" and top["line"] == 1
+    assert top["score"] == 200, f"精确符号应 200 分: {top['score']}"
+
+
+def test_locate_edit_guidance_hint(tmp_path):
+    (tmp_path / "mod.py").write_text("def helper():\n    pass\n", encoding="utf-8")
+    out = json.loads(server._call("locate_edit", {"path": str(tmp_path), "query": "helper"})[0].text)
+    assert "AI 引导" in out["hint"], "应返回 AI 引导 hint"
+
+
+def test_locate_edit_requires_query(tmp_path):
+    r = server._call("locate_edit", {"path": str(tmp_path), "query": "  "})[0]
+    assert "query" in r.text or "Error" in r.text, "空 query 应报错"
+

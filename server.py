@@ -864,6 +864,33 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
+def _tool_locate_edit(args: dict) -> "list[types.TextContent]":
+    """Qoder 式代码定位：自然语言/符号 → 具体修改位置（AI 引导）。
+
+    输入 query（符号名/关键词/报错片段）+ path（仓库根），返回按相关度排序的
+    候选位置 [{file, line, symbol, snippet, score, reason}]，告诉 AI 改哪里。
+    引导 hint：改前用 cae_code_context 取上下文，改后跑 cae_change_impact。
+    """
+    p = _check_path(str(args["path"]))
+    query = str(args.get("query", "")).strip()
+    max_files = int(args.get("max_files", 200))
+    limit = int(args.get("limit", 10))
+    if not query:
+        raise ValueError("query 必填")
+    if not 1 <= max_files <= 500:
+        raise ValueError("max_files 须在 1..500")
+    if not 1 <= limit <= 30:
+        raise ValueError("limit 须在 1..30")
+    try:
+        from locate_core import locate
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from locate_core import locate  # noqa: F811
+    result = locate(str(p), query, max_files=max_files, limit=limit)
+    return [_TC(json.dumps(result, ensure_ascii=False))]
+
+
 def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
     """报错文本 → file:line 精准定位（含上下文片段，走沙盒校验）。"""
     text = str(args["error_text"])
@@ -1015,6 +1042,12 @@ _TOOLS: dict[str, tuple] = {
     "cb_index": (_tool_cb_index, _schema({"path": _S("string", "代码库根目录")}, ["path"]), "代码库索引（全库符号+哈希+变更感知）"),
     "cb_status": (_tool_cb_status, _schema({"path": _S("string", "代码库根目录")}, ["path"]), "代码库状态（索引摘要，不重建）"),
     "cb_scan": (_tool_cb_scan, _schema({"path": _S("string", "代码库根目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "全库扫描（变更优先 UI 规则）"),
+    "locate_edit": (_tool_locate_edit, _schema({
+        "path": _S("string", "代码库根目录"),
+        "query": _S("string", "符号名/关键词/报错片段（要改什么）"),
+        "max_files": _S("integer", "扫描上限(默认200)"),
+        "limit": _S("integer", "候选数(默认10)"),
+    }, ["path", "query"]), "Qoder 式定位：自然语言→代码具体位置（file:line+符号+snippet，AI 改哪里的引导）"),
     "ds_lookup": (_tool_ds_lookup, _schema({}, []), "设计系统 token 查询（AI 生成 UI 时引用）"),
     "ds_check": (_tool_ds_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "设计系统合规检查（硬编码值/规则偏离）"),
     "std_check": (_tool_std_check, _schema({"path": _S("string", "文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "通用工程标准检查（占位文字/命名冲突/UI硬编码/魔法数字；默认标准兼容绝大多数项目）"),

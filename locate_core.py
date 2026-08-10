@@ -1,0 +1,182 @@
+"""locate_core — Qoder 式代码定位：自然语言/符号 → 具体修改位置（AI 引导）。
+
+核心能力（对标 Qoder 的"分析仓库 + 告诉 AI 改代码的具体位置"）：
+1. 语义定位：query（符号名/自然语言关键词/报错片段）→ 候选位置列表
+   [{file, line, symbol, snippet, score, reason}]
+2. AI 引导：对每个候选给出"为什么可能是这里"（符号名命中 / 内容命中 /
+   行内关键词命中），供 AI 决定改哪里。
+3. 复用 cb_index 的符号索引（.unified-rx-index/index.json），无索引时降级全扫。
+
+Python 3.8+ 标准库零依赖。与 server.py 同目录部署。
+"""
+
+import json
+import os
+import re
+
+from pathlib import Path
+
+_MAX_FILE = 1 << 20
+_INDEX_DIR = ".unified-rx-index"
+_SKIP_DIRS = {".git", "node_modules", "target", "dist", "build", ".pytest_cache",
+              "__pycache__", ".idea", ".vscode", "vendor", _INDEX_DIR, ".codebase-memory"}
+
+_SYMBOL_PATTERNS = {
+    ".py": re.compile(r"^(?:async\s+)?def\s+(\w+)|^class\s+(\w+)", re.M),
+    ".rs": re.compile(r"^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)|^(?:pub\s+)?(?:struct|enum|trait|impl)\s+(\w+)", re.M),
+    ".go": re.compile(r"^func\s+(\w+)", re.M),
+    ".ts": re.compile(r"^(?:export\s+)?(?:function|class|interface|type|const|let)\s+(\w+)", re.M),
+    ".js": re.compile(r"^(?:export\s+)?(?:function|class)\s+(\w+)", re.M),
+    ".gd": re.compile(r"^(?:func|class_name)\s+(\w+)", re.M),
+}
+
+# 分词：query 拆成小写 token（camelCase 拆分 + 下划线拆分 + 中文逐段）
+_TOKEN_RE = re.compile(r"[a-z0-9]+|[一-龥]{2,}")
+
+
+def _tokens(query: str) -> list[str]:
+    q = query.lower()
+    q = re.sub(r"([a-z])([A-Z])", r"\1 \2", q)  # camelCase -> words
+    q = q.replace("_", " ").replace("-", " ").replace(".", " ")
+    toks = [t for t in _TOKEN_RE.findall(q) if len(t) >= 2]
+    # 中文整串拆 2-gram 滑动窗口（"修改沙盒路径校验" → 沙盒/盒路/路径/径校/校验）
+    # 仅用于行级内容匹配；符号级匹配用整串（_raw_tokens）
+    out: list[str] = []
+    for t in toks:
+        if re.fullmatch(r"[一-龥]{2,}", t):
+            out.extend(t[i:i + 2] for i in range(len(t) - 1))
+        else:
+            out.append(t)
+    return out
+
+
+def _raw_tokens(query: str) -> list[str]:
+    """未拆分的中文整串 token（符号级匹配用）。"""
+    q = query.lower()
+    q = re.sub(r"([a-z])([A-Z])", r"\1 \2", q)
+    q = q.replace("_", " ").replace("-", " ").replace(".", " ")
+    return [t for t in _TOKEN_RE.findall(q) if len(t) >= 2]
+
+
+def _load_index(root: str) -> dict | None:
+    idx_path = os.path.join(root, _INDEX_DIR, "index.json")
+    try:
+        with open(idx_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("files", {}) if isinstance(data, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _iter_files(root: str, max_files: int):
+    count = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not d.startswith(".")]
+        for name in sorted(filenames):
+            suffix = os.path.splitext(name)[1].lower()
+            if suffix not in _SYMBOL_PATTERNS:
+                continue
+            fp = os.path.join(dirpath, name)
+            try:
+                if os.path.getsize(fp) > _MAX_FILE:
+                    continue
+            except OSError:
+                continue
+            yield fp, suffix
+            count += 1
+            if count >= max_files:
+                return
+
+
+def _symbol_positions(src: str, suffix: str) -> dict[str, int]:
+    """符号名 → 定义行（1-based）。"""
+    pat = _SYMBOL_PATTERNS.get(suffix)
+    if not pat:
+        return {}
+    out: dict[str, int] = {}
+    for m in pat.finditer(src):
+        sym = m.group(1) or m.group(2)
+        if sym:
+            out.setdefault(sym, src.count("\n", 0, m.start()) + 1)
+    return out
+
+
+def locate(root: str, query: str, max_files: int = 200, limit: int = 10) -> dict:
+    """定位 query 相关的代码位置。返回 {ok, query, candidates: [{file,line,symbol,snippet,score,reason}]}。"""
+    root = str(Path(root).resolve())
+    tokens = _tokens(query)
+    raw_tokens = _raw_tokens(query)
+    if not tokens:
+        return {"ok": False, "query": query, "error": "query 太短或无可识别关键词", "candidates": []}
+
+    index = _load_index(root)  # {rel_path: {symbols:[...]}}
+    candidates: list[dict] = []
+    files_scanned = 0
+
+    for fp, suffix in _iter_files(root, max_files):
+        files_scanned += 1
+        try:
+            src = open(fp, "r", encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        rel = os.path.relpath(fp, root).replace("\\", "/")
+
+        # 1) 符号级匹配（索引优先，未命中全量）
+        symbols = {}
+        if index and rel in index:
+            symbols = _symbol_positions(src, suffix)  # 取定义行
+        else:
+            symbols = _symbol_positions(src, suffix)
+        q_lower = query.lower().replace("_", "").replace("-", "")
+        def _sym_strength(sym: str) -> int:
+            s_lower = sym.lower().replace("_", "").replace("-", "")
+            if q_lower in s_lower:
+                return 3  # 完整 query 是符号子串
+            if all(t in s_lower for t in raw_tokens):
+                return 2  # 全部 token 命中（用未拆分的整串）
+            return 1 if any(t in s_lower for t in raw_tokens) else 0
+        hit_symbols = sorted((s for s in symbols if _sym_strength(s) > 0),
+                             key=_sym_strength, reverse=True)[:10]
+
+        # 2) 行级关键词匹配（内容命中：函数体里出现 query 关键词）
+        lines = src.splitlines()
+        line_hits = []
+        for i, ln in enumerate(lines[: len(lines)], start=1):
+            low = ln.lower()
+            if any(t in low for t in tokens):
+                line_hits.append((i, ln.strip()[:160]))
+
+        # 符号命中 → 高优先级候选
+        for sym in hit_symbols[:10]:
+            line = symbols[sym]
+            snippet = (lines[line - 1].strip()[:160] if 0 < line <= len(lines) else "")
+            strength = _sym_strength(sym)
+            score = 200 if strength == 3 else (150 if strength == 2 else 60)
+            candidates.append({
+                "file": rel, "line": line, "symbol": sym, "snippet": snippet,
+                "score": score, "reason": f"符号名命中: {sym}",
+            })
+
+        # 行命中 → 中优先级候选（每个文件最多 3 条）
+        for line, snippet in line_hits[:3]:
+            candidates.append({
+                "file": rel, "line": line, "symbol": "", "snippet": snippet,
+                "score": 50, "reason": "行内容关键词命中",
+            })
+
+    # 去重（同一 file:line 只留最高分）
+    seen: dict[tuple, dict] = {}
+    for c in candidates:
+        key = (c["file"], c["line"])
+        if key not in seen or c["score"] > seen[key]["score"]:
+            seen[key] = c
+    ranked = sorted(seen.values(), key=lambda c: -c["score"])[:limit]
+
+    return {
+        "ok": True,
+        "query": query,
+        "files_scanned": files_scanned,
+        "candidates": ranked,
+        "hint": "AI 引导：按 score 从高到低检查 candidate，修改位置以 file:line 为准；"
+                "改前用 cae_code_context 取符号级上下文，改后跑 cae_change_impact 验证影响。",
+    }
