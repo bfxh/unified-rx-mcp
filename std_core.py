@@ -38,6 +38,15 @@ _UI_HARDCODE_RE = re.compile(
 
 _MAGIC_NUMBER_RE = re.compile(r"\b(?:[3-9]\d{2,}|[1-9]\d{3,})\b")
 
+# 依赖泄露（secret）检测：常见凭据/令牌模式（对标 gitleaks 子集，零依赖）。
+# 命中即 Critical——提交到仓库的凭据是真实泄露风险。
+_SECRET_RE = re.compile(
+    r"(?i)\b(ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|"
+    r"AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|"
+    r"AIza[0-9A-Za-z_-]{35}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|"
+    r"(password|passwd|secret|api[_-]?key|token)\s*[=:]\s*['\"][A-Za-z0-9_./+=-]{12,}['\"])",
+)
+
 
 def _iter_py_files(root: str):
     for dirpath, dirnames, filenames in os.walk(root):
@@ -132,6 +141,24 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
             return
 
 
+def _scan_secret(path: str, src: str, issues: list, limit: int):
+    """依赖泄露检测：命中凭据/令牌/私钥 → Critical（真实泄露风险）。"""
+    count = 0
+    for m in _SECRET_RE.finditer(src):
+        line = src.count("\n", 0, m.start()) + 1
+        secret = m.group(0)
+        # 不泄露完整值：只显示前缀 + 长度
+        shown = secret[:12] + "…" if len(secret) > 12 else secret
+        issues.append({
+            "file": path, "line": line, "rule": "secret_detection",
+            "severity": "Critical",
+            "msg": f"疑似凭据泄露: {shown}（长度 {len(secret)}）——立即轮换并移出代码库",
+        })
+        count += 1
+        if count >= limit:
+            return
+
+
 def scan_directory(path: str, max_files: int = 200) -> dict:
     """扫描目录：返回 {ok, issues, summary}。"""
     issues: list = []
@@ -149,6 +176,7 @@ def scan_directory(path: str, max_files: int = 200) -> dict:
         _scan_name_conflict(fp, src, issues, per_rule_limit)
         _scan_ui_hardcode(fp, src, issues, per_rule_limit)
         _scan_magic_number(fp, src, issues, per_rule_limit)
+        _scan_secret(fp, src, issues, per_rule_limit)
         if len(issues) >= max_files:
             break
     return _summarize(issues, files, path, todo_count[0])
@@ -164,6 +192,7 @@ def scan_file(path: str) -> dict:
     _scan_name_conflict(path, src, issues, 50)
     _scan_ui_hardcode(path, src, issues, 50)
     _scan_magic_number(path, src, issues, 50)
+    _scan_secret(path, src, issues, 50)
     return _summarize(issues, 1, path, todo_count[0])
 
 

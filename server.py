@@ -643,8 +643,64 @@ def _bug_resource_leak(tree, path, lines, issues):
     _scan_body(tree.body)
 
 
+def _bug_scan_file(path: str) -> tuple[list, int]:
+    """单文件 bug 扫描（模块级，可被 ProcessPoolExecutor pickle 进子进程）。
+
+    返回 (issues, line_count)。大文件/读错/语法错误都转为结构化 issues 而非抛异常
+    （子进程异常无法回传，全部就地消化）。
+    """
+    issues: list = []
+    f = Path(path)
+    try:
+        size = f.stat().st_size
+        if size > _MAX_READ:
+            return ([{"file": str(f), "line": 0, "col": 0, "rule": "file_too_large",
+                      "severity": "warning", "msg": f"文件过大（{size} 字节），跳过", "snippet": ""}], 0)
+        src = f.read_text(encoding="utf-8", errors="replace")
+        # 读后复核（TOCTOU：读取期间文件被替换增长，与 fs_read 一致，review nit 修复）
+        if f.stat().st_size > _MAX_READ:
+            return ([{"file": str(f), "line": 0, "col": 0, "rule": "file_too_large",
+                      "severity": "warning", "msg": "文件读取后超限（>1MB），跳过", "snippet": ""}], 0)
+    except OSError as exc:
+        return ([{"file": str(f), "line": 0, "col": 0, "rule": "read_error",
+                  "severity": "warning", "msg": f"读取失败: {exc}", "snippet": ""}], 0)
+    lines = src.splitlines()
+    try:
+        tree = ast.parse(src, filename=str(f))
+    except SyntaxError as exc:
+        return ([{"file": str(f), "line": exc.lineno or 0, "col": exc.offset or 0,
+                  "rule": "syntax_error", "severity": "error",
+                  "msg": f"语法错误: {exc.msg}",
+                  "snippet": lines[exc.lineno - 1].strip() if exc.lineno and exc.lineno <= len(lines) else ""}],
+                len(lines))
+    _bug_scope_scan(tree.body, set(), str(f), lines, issues)
+    _bug_resource_leak(tree, str(f), lines, issues)
+    for n in ast.walk(tree):
+        # 除零：字面量 0 分母（确定性）
+        if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)) \
+                and _bug_const_zero(n.right):
+            issues.append(_bug_issue(str(f), n, "divide_by_zero", "error",
+                                     "除数为字面量 0，运行期必抛 ZeroDivisionError", lines))
+        if isinstance(n, ast.AugAssign) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)) \
+                and _bug_const_zero(n.value):
+            issues.append(_bug_issue(str(f), n, "divide_by_zero", "error",
+                                     "除数为字面量 0，运行期必抛 ZeroDivisionError", lines))
+        # 越界：字面量容器 + 字面量索引（确定性）
+        seq_len = _bug_seq_len(n.value) if isinstance(n, ast.Subscript) else None
+        if seq_len is not None and isinstance(n.slice, ast.Constant) and isinstance(n.slice.value, int):
+            idx = n.slice.value
+            if idx >= seq_len or idx < -seq_len:
+                issues.append(_bug_issue(str(f), n, "index_out_of_range", "error",
+                                         f"索引 {idx} 越界（容器长度 {seq_len}）", lines))
+    return issues, len(lines)
+
+
 def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
-    """静态扫描 bug 模式：未定义变量/None 解引用/资源泄漏/除零/越界。"""
+    """静态扫描 bug 模式：未定义变量/None 解引用/资源泄漏/除零/越界。
+
+    多文件目录扫描用 ProcessPoolExecutor 并行（CPU 密集 AST，子进程不吃 GIL）；
+    进程池不可用（受限环境）时串行 fallback。结果与串行完全一致。
+    """
     p = _check_path(str(args["path"]))
     max_files = int(args.get("max_files", _BUG_MAX_FILES))
     if not 1 <= max_files <= 500:
@@ -667,55 +723,31 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     else:
         raise ValueError(f"路径不存在: {p}")
 
-    issues, total_lines = [], 0
-    for f in files:
+    issues: list = []
+    total_lines = 0
+    # 单文件直接扫；多文件并行（≥16 文件才值得起进程池——spawn 开销 vs AST 并行收益）
+    if len(files) >= 16:
         try:
-            size = f.stat().st_size
-            if size > _MAX_READ:
-                issues.append({"file": str(f), "line": 0, "col": 0, "rule": "file_too_large",
-                               "severity": "warning", "msg": f"文件过大（{size} 字节），跳过", "snippet": ""})
-                continue
-            src = f.read_text(encoding="utf-8", errors="replace")
-            # 读后复核（TOCTOU：读取期间文件被替换增长，与 fs_read 一致，review nit 修复）
-            if f.stat().st_size > _MAX_READ:
-                issues.append({"file": str(f), "line": 0, "col": 0, "rule": "file_too_large",
-                               "severity": "warning", "msg": "文件读取后超限（>1MB），跳过", "snippet": ""})
-                continue
-        except OSError as exc:
-            issues.append({"file": str(f), "line": 0, "col": 0, "rule": "read_error",
-                           "severity": "warning", "msg": f"读取失败: {exc}", "snippet": ""})
-            continue
-        lines = src.splitlines()
-        total_lines += len(lines)
-        if total_lines > _BUG_MAX_TOTAL_LINES:
-            raise ValueError(f"扫描总量超限（>{_BUG_MAX_TOTAL_LINES} 行），请缩小范围")
-        try:
-            tree = ast.parse(src, filename=str(f))
-        except SyntaxError as exc:
-            issues.append({"file": str(f), "line": exc.lineno or 0, "col": exc.offset or 0,
-                           "rule": "syntax_error", "severity": "error",
-                           "msg": f"语法错误: {exc.msg}",
-                           "snippet": lines[exc.lineno - 1].strip() if exc.lineno and exc.lineno <= len(lines) else ""})
-            continue
-        _bug_scope_scan(tree.body, set(), str(f), lines, issues)
-        _bug_resource_leak(tree, str(f), lines, issues)
-        for n in ast.walk(tree):
-            # 除零：字面量 0 分母（确定性）
-            if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)) \
-                    and _bug_const_zero(n.right):
-                issues.append(_bug_issue(str(f), n, "divide_by_zero", "error",
-                                         "除数为字面量 0，运行期必抛 ZeroDivisionError", lines))
-            if isinstance(n, ast.AugAssign) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)) \
-                    and _bug_const_zero(n.value):
-                issues.append(_bug_issue(str(f), n, "divide_by_zero", "error",
-                                         "除数为字面量 0，运行期必抛 ZeroDivisionError", lines))
-            # 越界：字面量容器 + 字面量索引（确定性）
-            seq_len = _bug_seq_len(n.value) if isinstance(n, ast.Subscript) else None
-            if seq_len is not None and isinstance(n.slice, ast.Constant) and isinstance(n.slice.value, int):
-                idx = n.slice.value
-                if idx >= seq_len or idx < -seq_len:
-                    issues.append(_bug_issue(str(f), n, "index_out_of_range", "error",
-                                             f"索引 {idx} 越界（容器长度 {seq_len}）", lines))
+            import concurrent.futures as _cf
+            with _cf.ProcessPoolExecutor(max_workers=min(4, os.cpu_count() or 2)) as ex:
+                for fi, ln in ex.map(_bug_scan_file, [str(f) for f in files]):
+                    issues.extend(fi)
+                    total_lines += ln
+        except Exception:
+            # 进程池不可用（受限环境）→ 串行 fallback
+            issues, total_lines = [], 0
+            for f in files:
+                fi, ln = _bug_scan_file(str(f))
+                issues.extend(fi)
+                total_lines += ln
+    else:
+        for f in files:
+            fi, ln = _bug_scan_file(str(f))
+            issues.extend(fi)
+            total_lines += ln
+
+    if total_lines > _BUG_MAX_TOTAL_LINES:
+        raise ValueError(f"扫描总量超限（>{_BUG_MAX_TOTAL_LINES} 行），请缩小范围")
     issues.sort(key=lambda i: (i["file"], i["line"], i["col"]))
     return [_TC(json.dumps({
         "ok": True, "files": len(files), "issue_count": len(issues), "issues": issues,

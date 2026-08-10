@@ -34,7 +34,9 @@ _SKIP_DIRS = {".git", "node_modules", "target", "dist", "build", ".pytest_cache"
 
 
 def _file_hash(src: str) -> str:
-    return hashlib.md5(src.encode("utf-8", errors="replace")).hexdigest()[:16]
+    # MD5 仅用于文件内容变更检测（非安全场景）；usedforsecurity=False 显式标记
+    # （bandit B324 消除误报；不用于密码/签名/校验和对抗）
+    return hashlib.md5(src.encode("utf-8", errors="replace"), usedforsecurity=False).hexdigest()[:16]
 
 
 def _extract_symbols(src: str, suffix: str) -> dict[str, int]:
@@ -89,7 +91,7 @@ def index_repo(root: str) -> dict:
                     src = f.read()
             except OSError:
                 continue
-            rel = os.path.relpath(fp, root)
+            rel = os.path.relpath(fp, root).replace("\\", "/")  # LOW 修复：统一正斜杠键（Windows 兼容 locate）
             h = _file_hash(src)
             try:
                 mtime = os.path.getmtime(fp)
@@ -112,6 +114,9 @@ def index_repo(root: str) -> dict:
     if is_first:
         changed, added, removed = [], [], []
     else:
+        # LOW 修复：兼容反斜杠旧键 + files 元素类型校验
+        old = {k.replace("\\", "/"): v for k, v in old.items()}
+        old = {k: v for k, v in old.items() if isinstance(v, dict)}
         changed = sorted(rel for rel, info in files.items() if old.get(rel, {}).get("hash") != info["hash"])
         added = sorted(rel for rel in files if rel not in old)
         removed = sorted(rel for rel in old if rel not in files)
@@ -158,6 +163,8 @@ def repo_status(root: str) -> dict:
     files = data.get("files", {})
     if not isinstance(files, dict):
         return {"ok": False, "indexed": False, "msg": "索引结构损坏（files 非 dict）"}
+    # LOW 修复：兼容旧反斜杠键（Windows relpath）→ 统一正斜杠
+    files = {k.replace("\\", "/"): v for k, v in files.items()}
     # 按目录聚合（symbols 兼容新旧格式：新 dict {sym:line} / 旧 list）
     def _sym_names(symbols) -> list[str]:
         if isinstance(symbols, dict):
@@ -165,6 +172,8 @@ def repo_status(root: str) -> dict:
         return symbols if isinstance(symbols, list) else []
     dirs = {}
     for rel, info in files.items():
+        if not isinstance(info, dict):  # LOW 修复：files 元素类型校验
+            continue
         d = os.path.dirname(rel) or "."
         dirs.setdefault(d, []).append({"file": os.path.basename(rel), "symbols": _sym_names(info.get("symbols", []))[:10]})
     top_dirs = sorted(dirs.items(), key=lambda kv: -len(kv[1]))[:20]

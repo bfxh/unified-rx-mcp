@@ -736,6 +736,22 @@ def test_std_check_clean_file(tmp_path):
     assert "name_conflict" not in rules
 
 
+def test_std_check_secret_detection(tmp_path):
+    """依赖泄露扫描：真实凭据 Critical 命中，普通赋值不误报。"""
+    f = tmp_path / "leak.py"
+    f.write_text(
+        "token = 'ghp_123456789012345678901234567890123456'\n"
+        "password = 'correct-horse-battery'\n"
+        "api_key = 'AKIAIOSFODNN7EXAMPLE'\n"
+        "secret = \"just a word\"\n"
+        "timeout = 30\n",
+        encoding="utf-8")
+    out = json.loads(server._call("std_check", {"path": str(f)})[0].text)
+    secrets = [i for i in out["issues"] if i["rule"] == "secret_detection"]
+    assert len(secrets) == 3, f"应命中 3 个真实凭据: {len(secrets)}"
+    assert all(s["severity"] == "Critical" for s in secrets), "凭据应为 Critical"
+
+
 def test_std_check_directory_scan(tmp_path):
     (tmp_path / "a.py").write_text("x = 'lorem ipsum'\n", encoding="utf-8")
     (tmp_path / "b.rs").write_text("fn ui() { let w = 1024; }\n", encoding="utf-8")
