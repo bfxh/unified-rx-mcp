@@ -29,3 +29,13 @@ License: MIT
 Files: vendor/*
 Copyright: 2026 各扩展作者
 License: MIT
+
+# LSE 引擎（Rust 零依赖 crate，含生成文件 Cargo.lock）
+Files: lse-engine/*
+Copyright: 2026 bfxh
+License: MIT
+
+# LSE 客户端（Python 桥接，无源码头）
+Files: lse_client.py
+Copyright: 2026 bfxh
+License: MIT
