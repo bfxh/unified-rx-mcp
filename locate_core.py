@@ -61,10 +61,15 @@ def _raw_tokens(query: str) -> list[str]:
 def _load_index(root: str) -> dict | None:
     idx_path = os.path.join(root, _INDEX_DIR, "index.json")
     try:
+        # security MEDIUM：JSON 大小上限 32MB 防 DoS；捕获 RecursionError（深嵌套）
+        if os.path.getsize(idx_path) > 32 << 20:
+            return None
         with open(idx_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return data.get("files", {}) if isinstance(data, dict) else None
-    except (OSError, json.JSONDecodeError):
+        if not isinstance(data, dict) or not isinstance(data.get("files"), dict):
+            return None
+        return data["files"]
+    except (OSError, json.JSONDecodeError, RecursionError, ValueError, TypeError):
         return None
 
 
@@ -166,12 +171,19 @@ def locate(root: str, query: str, max_files: int = 200, limit: int = 10) -> dict
             fp = os.path.join(root, *rel.split("/"))
             line_src: dict[int, str] = {}
             try:
+                # security MEDIUM：open 前复核大小（索引可能引用遍历后膨胀的文件）
+                if os.path.getsize(fp) > _MAX_FILE:
+                    continue
+                target_lines = {idx_syms.get(sym, 0) for sym, _ in hit[:10] if isinstance(idx_syms.get(sym, 0), int) and idx_syms.get(sym, 0) > 0}
+                if not target_lines:
+                    continue
                 with open(fp, "r", encoding="utf-8", errors="replace") as f:
-                    target_lines = {idx_syms.get(sym, 0) for sym, _ in hit[:10] if idx_syms.get(sym, 0) > 0}
+                    # 行号炸弹防护：只读到最大目标行即停；行号超文件实际行数则部分缺失（不读全文件）
+                    max_target = max(target_lines)
                     for i, ln in enumerate(f, start=1):
                         if i in target_lines:
                             line_src[i] = ln.strip()[:160]
-                        if len(line_src) >= len(target_lines):
+                        if i >= max_target:
                             break
             except OSError:
                 continue
@@ -206,6 +218,9 @@ def locate(root: str, query: str, max_files: int = 200, limit: int = 10) -> dict
         if pre is None:
             fp = os.path.join(root, *rel.split("/"))
             try:
+                # security MEDIUM：open 前复核大小（防 TOCTOU 膨胀）
+                if os.path.getsize(fp) > _MAX_FILE:
+                    continue
                 pre = open(fp, "r", encoding="utf-8", errors="replace").read()
             except OSError:
                 continue

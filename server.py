@@ -998,7 +998,18 @@ def _truncate_detail(detail, max_len: int):
         return detail[:max_len] + "…(truncated)"
     if isinstance(detail, list):
         if len(detail) <= 20:
-            return detail  # 小列表原样
+            # security MEDIUM：即使条数少，条目总字符超限也截断
+            total_chars = sum(len(json.dumps(x, ensure_ascii=False, default=str)) for x in detail)
+            if total_chars <= max_len:
+                return detail
+            kept, used = [], 0
+            for x in detail:
+                xs = json.dumps(x, ensure_ascii=False, default=str)
+                if used + len(xs) > max_len:
+                    break
+                kept.append(x)
+                used += len(xs)
+            return {"truncated": True, "total": len(detail), "shown": len(kept), "items": kept}
         return {"truncated": True, "total": len(detail), "shown": 20, "items": detail[:20]}
     if isinstance(detail, dict):
         try:
