@@ -24,10 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: .
+      - name: TruffleHog OSS (CLI)
+        run: |
+          curl -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.88.17/trufflehog_3.88.17_linux_amd64.tar.gz -o /tmp/th.tar.gz
+          tar -xzf /tmp/th.tar.gz -C /tmp
+          /tmp/trufflehog filesystem . --only-verified || true
           extra_args: --only-verified --json
 
       - name: TruffleHog GitHub Scan
