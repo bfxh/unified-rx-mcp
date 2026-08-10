@@ -790,6 +790,35 @@ def _tool_ds_check(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
+def _tool_std_check(args: dict) -> "list[types.TextContent]":
+    """通用工程标准检查（软件/游戏/前端/UI 通用，AetherStudio 启发）。
+
+    检查：text_placeholder（占位/假数据/套话）、name_conflict（重复定义）、
+    ui_hardcode（UI 硬编码颜色/尺寸）、magic_number（裸魔法数字）。
+    标准契约：默认按此标准执行；项目有特殊条件时，调用方在提示词中
+    提前告知（本工具不臆测），否则按默认标准兼容绝大多数项目。
+    """
+    p = _check_path(str(args["path"]))
+    max_files = int(args.get("max_files", 200))
+    if not 1 <= max_files <= 500:
+        raise ValueError("max_files 须在 1..500")
+    try:
+        from std_core import scan_directory, scan_file
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from std_core import scan_directory, scan_file  # noqa: F811
+    if p.is_dir():
+        result = scan_directory(str(p), max_files=max_files)
+    elif p.is_file():
+        if p.stat().st_size > _MAX_READ:
+            raise ValueError(f"文件过大（>{_MAX_READ}）")
+        result = scan_file(str(p))
+    else:
+        raise ValueError(f"仅支持文件或目录: {p}")
+    return [_TC(json.dumps(result, ensure_ascii=False))]
+
+
 def _tool_cb_index(args: dict) -> "list[types.TextContent]":
     """代码库索引（认知层）：全库扫描构建/更新持久化索引（文件树+符号+哈希），
     返回变更感知（changed/added/removed）——工具知道代码库全貌和你改了哪。"""
@@ -988,6 +1017,7 @@ _TOOLS: dict[str, tuple] = {
     "cb_scan": (_tool_cb_scan, _schema({"path": _S("string", "代码库根目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "全库扫描（变更优先 UI 规则）"),
     "ds_lookup": (_tool_ds_lookup, _schema({}, []), "设计系统 token 查询（AI 生成 UI 时引用）"),
     "ds_check": (_tool_ds_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "设计系统合规检查（硬编码值/规则偏离）"),
+    "std_check": (_tool_std_check, _schema({"path": _S("string", "文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "通用工程标准检查（占位文字/命名冲突/UI硬编码/魔法数字；默认标准兼容绝大多数项目）"),
 }
 
 

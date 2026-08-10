@@ -19,7 +19,7 @@ import server
 def test_tools_count_and_schema():
     defs = server._definitions()
     # 核心 + 可用扩展；CI 上部分扩展可能加载失败（缺失依赖），只断言核心固定
-    assert len(server._TOOLS) == 42, f"核心工具数变化: {len(server._TOOLS)}"
+    assert len(server._TOOLS) == 43, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -689,3 +689,41 @@ def test_ds_check_dynamic_tokens(tmp_path):
         del data["spacing"]["xl"]
         with open(tokens_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
+
+
+# ── std_check 通用工程标准检查 ───────────────────────────────
+def test_std_check_detects_placeholder_and_magic(tmp_path):
+    f = tmp_path / "sample.py"
+    f.write_text(
+        "name = 'your_name'\n"
+        "size = 4096\n"
+        "def dup():\n    pass\n"
+        "def dup():\n    pass\n",
+        encoding="utf-8",
+    )
+    out = json.loads(server._call("std_check", {"path": str(f)})[0].text)
+    rules = {i["rule"] for i in out["issues"]}
+    assert "text_placeholder" in rules, f"占位文字未检出: {rules}"
+    assert "magic_number" in rules, f"魔法数字未检出: {rules}"
+    assert "name_conflict" in rules, f"重复定义未检出: {rules}"
+    assert "todo_markers" in out["summary"]
+
+
+def test_std_check_clean_file(tmp_path):
+    f = tmp_path / "clean.py"
+    f.write_text("MAX_SIZE = 4096\n\ndef process(value):\n    return value * MAX_SIZE\n", encoding="utf-8")
+    out = json.loads(server._call("std_check", {"path": str(f)})[0].text)
+    # MAX_SIZE 命名了魔法数字；无占位/冲突 → 仅 magic_number 规则可能命中
+    rules = {i["rule"] for i in out["issues"]}
+    assert "text_placeholder" not in rules
+    assert "name_conflict" not in rules
+
+
+def test_std_check_directory_scan(tmp_path):
+    (tmp_path / "a.py").write_text("x = 'lorem ipsum'\n", encoding="utf-8")
+    (tmp_path / "b.rs").write_text("fn ui() { let w = 1024; }\n", encoding="utf-8")
+    out = json.loads(server._call("std_check", {"path": str(tmp_path)})[0].text)
+    assert out["summary"]["files"] >= 2
+    rules = {i["rule"] for i in out["issues"]}
+    assert "text_placeholder" in rules
+    assert "ui_hardcode" in rules or "magic_number" in rules

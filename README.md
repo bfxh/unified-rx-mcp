@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**62 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**63 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
 ## 定位
 
@@ -12,6 +12,7 @@
 | 🧭 **引导**（guidance） | `lesson_recall` / `ds_lookup` / `ds_check` | 教训召回（防复发）/ 设计系统 token 引用与合规 |
 | 🔍 **分析仓库**（analysis） | `change_impact` / `code_context` / `lsp_query` / `aether_*` | 变更影响 / 光标符号级 AST→Prompt / LSP 交互 |
 | 🐛 **挖漏洞**（bug hunting） | `bug_scan` / `bug_locate` / `ui_check` / `file_dedup_state` | 静态 bug 模式 / traceback 定位 / Bevy UI 检查 |
+| 📏 **工程标准**（std_check） | `std_check` | 占位文字/命名冲突/UI硬编码/魔法数字——本地直接扫，兼容游戏/UI/前端/软件 |
 | 🃏 **Tool 角色回喂** | `tool_card` | 调用任意工具 → 结构化卡片 `{role,ok,summary,detail}`（Aether AiRole::Tool 启发） |
 | ⚙️ **纯函数**（math/str/json/sort/prime/stat/geo/conv/valid/list/fib） | 33 个 | 零依赖高性能计算 |
 | 🔌 **扩展**（lazy-loaded） | `pr_oracle_*` (3) / `tautest_*` (4) / `cae_*` (13) | PR→测试影响 / 变异测试 / 代码分析增强 |
@@ -27,6 +28,17 @@ UI 渲染为**简洁工具卡片**（无角色标签）。unified-rx 在 MCP 侧
 - **所有工具结果天然是 Tool 角色**：MCP `call_tool` 响应与用户消息协议分离；
   `tool_card` 把纯文本结果也规范化为卡片结构，供需要结构化回喂的 UI 消费。
 - 错误（未知工具/工具异常）→ `ok:false` + 摘要，UI 可渲染失败卡片。
+
+## 工程标准契约（std_check）
+
+`std_check` 是**默认标准**：软件、游戏、UI 前端、文档项目通用，兼容绝大多数场景。
+本地直接扫描（零网络），检查文字规范（占位/假数据/套话）、命名冲突、UI 硬编码值、魔法数字。
+
+- **提前告知**：项目有特殊条件（如专用命名规范、非 UI 领域数字、遗留占位是故意的）时，
+  调用方在提示词中**提前告知**，工具按告知执行；否则按默认标准。
+- **默认调用**：无特殊条件时直接使用 `std_check`（配 `tool_card` 结构化回喂），
+  无需等待人工提示——这是标准流程的一部分。
+- **不臆测**：TODO/FIXME 仅统计不判违规（`summary.todo_markers`），避免误伤正常开发标记。
 
 ## 性能（用户核心诉求：内存小 / 速度快 / 高强度）
 
@@ -71,7 +83,7 @@ call_timeout_seconds = 300
 ## 验证
 
 ```bash
-python server.py --selftest    # 61 工具自检
+python server.py --selftest    # 63 工具自检
 python -m pytest test_unified_rx.py -q   # 49 tests
 ```
 
