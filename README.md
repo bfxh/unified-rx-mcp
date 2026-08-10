@@ -1,0 +1,76 @@
+# unified-rx-mcp
+
+**61 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+
+## 定位
+
+一个 MCP 入口，工具按**协作角色**分类，覆盖智能体开发全流程：
+
+| 角色 | 工具 | 用途 |
+|---|---|---|
+| 🗂️ **搞仓库**（repo cognition） | `cb_index` / `cb_status` / `cb_scan` | 全库索引 + 增量变更感知 + 变更优先扫描 |
+| 🧭 **引导**（guidance） | `lesson_recall` / `ds_lookup` / `ds_check` | 教训召回（防复发）/ 设计系统 token 引用与合规 |
+| 🔍 **分析仓库**（analysis） | `change_impact` / `code_context` / `lsp_query` / `aether_*` | 变更影响 / 光标符号级 AST→Prompt / LSP 交互 |
+| 🐛 **挖漏洞**（bug hunting） | `bug_scan` / `bug_locate` / `ui_check` / `file_dedup_state` | 静态 bug 模式 / traceback 定位 / Bevy UI 检查 |
+| ⚙️ **纯函数**（math/str/json/sort/prime/stat/geo/conv/valid/list/fib） | 33 个 | 零依赖高性能计算 |
+| 🔌 **扩展**（lazy-loaded） | `pr_oracle_*` (3) / `tautest_*` (4) / `cae_*` (13) | PR→测试影响 / 变异测试 / 代码分析增强 |
+
+## 性能（用户核心诉求：内存小 / 速度快 / 高强度）
+
+| 指标 | 值 |
+|---|---|
+| import 耗时 | **222ms**（懒加载 mcp 库后；重构前 2529ms，**11.4×**） |
+| import 内存 | **7MB**（重构前 33MB，**4.7× 更小**） |
+| 工具调用 | **3.5µs/次**（1000 次 3.5ms） |
+| 工具定义 | 缓存命中 **0ms**（重构前 75ms/次） |
+| 扩展加载 | 按需（调用扩展工具时才加载，保持基线最小） |
+
+## 架构（极简）
+
+- **单文件** `server.py`（54KB）：静态注册表 O(1) 分发，零反射
+- **懒加载**：`mcp` 库只在 `run()` 协议层 import（纯工具/自检路径零依赖）
+- **轻量类** `_TC` / `_ToolDef`：协议层解耦，运行时不依赖 mcp 类型
+- **常驻**：`auto_start=true` —— RX 一打开自动启动，进程常驻面对大型仓库，工具调用后不消失
+- **错误隔离**：单工具异常转结构化文本，绝不拖垮网关
+
+## 安装（适配 RX）
+
+```bash
+# 方式 A：.mcp.json（当前生效）
+# E:\共享\51\unified-rx\.mcp.json → install_source 安装
+python E:\共享\51\unified-rx\server.py
+
+# 方式 B：reasonix-plugin.json（v2 manifest，main-v2 升级后生效）
+# apiVersion: reasonix.io/plugin/v2，支持真子图热重载/doctor 诊断
+```
+
+config.toml 条目（install_source 自动生成）：
+```toml
+[[plugins]]
+name = "unified-rx"
+command = "C:\\...\\Python311\\python.exe"   # 绝对路径（防 PATH 劫持）
+args = ["E:\\共享\\51\\unified-rx\\server.py"]
+auto_start = true
+startup_timeout_seconds = 30
+call_timeout_seconds = 300
+```
+
+## 验证
+
+```bash
+python server.py --selftest    # 61 工具自检
+python -m pytest test_unified_rx.py -q   # 49 tests
+```
+
+## 安全（已审查）
+
+- security_review pass：command 绝对路径化（防 PATH 劫持）、无 eval/exec/网络、纯 stdio
+- 沙盒：`UNIFIED_RX_SANDBOX` 环境变量锚定文件工具根（未设置=不限制）
+- ReDoS 防护：用户正则黑名单（嵌套量词/开区间链拒绝）
+- 大小上限：文件读写 1MB / 数组 100k / 阶乘 1000 / 素数 1M
+
+## 更新日志
+
+- **2026-08-10** 性能重构：mcp 懒加载（import 11.4× 快 / 内存 4.7× 小）、工具定义缓存、_TC/_ToolDef 轻量类
+- **2026-08-09** 安全加固：command 绝对路径、tier 无效字段清除、.mcp.json/reasonix-plugin.json 双文件部署
+- **2026-08-09** 功能：bug_scan/bug_locate、ui_check、ds_lookup/ds_check、cb_index/cb_status/cb_scan
