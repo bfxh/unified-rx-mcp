@@ -27,12 +27,14 @@ jobs:
       - name: bandit
         run: |
           python -m pip install bandit==1.8.3
-          bandit -q -r . -x vendor,tests,test_unified_rx.py -f sarif -o bandit.sarif || true
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
+          bandit -q -r . -x vendor,tests,test_unified_rx.py -f json -o bandit.json --exit-zero
+      - name: Upload artifact (bandit JSON 报告)
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          sarif_file: bandit.sarif
+          name: bandit-report
+          path: bandit.json
+          retention-days: 30
 
   selfscan:
     name: bug_scan 自扫 (MCP 挖自己)
