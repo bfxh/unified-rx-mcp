@@ -255,7 +255,12 @@ pub fn delta_update_lesson(
 
 /// Update a rule's adaptive weight: `weight += delta` clamped to [0, 3].
 /// `adopted=true` credits improvement; `ignored` penalizes.
-pub fn delta_update_rule(state: &mut EngineState, id: &str, delta: f64, adopted: bool) -> RuleWeight {
+pub fn delta_update_rule(
+    state: &mut EngineState,
+    id: &str,
+    delta: f64,
+    adopted: bool,
+) -> RuleWeight {
     let rule = state
         .rules
         .entry(id.to_string())
@@ -304,7 +309,8 @@ pub fn ucb_select(
         let score = if visits == 0 {
             f64::INFINITY
         } else {
-            reward / visits as f64 + explore_c * (parent_visits as f64).ln().sqrt() / (visits as f64).sqrt()
+            reward / visits as f64
+                + explore_c * (parent_visits as f64).ln().sqrt() / (visits as f64).sqrt()
         };
         if best.as_ref().is_none_or(|b| score > b.0) {
             best = Some((score, child.clone()));
@@ -386,7 +392,11 @@ pub fn experience_match(state: &EngineState, context_hash: &str, limit: usize) -
         .filter(|e| e.context_hash == context_hash)
         .cloned()
         .collect();
-    hits.sort_by(|a, b| b.delta_score.partial_cmp(&a.delta_score).unwrap_or(std::cmp::Ordering::Equal));
+    hits.sort_by(|a, b| {
+        b.delta_score
+            .partial_cmp(&a.delta_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     hits.truncate(limit);
     hits
 }
@@ -685,7 +695,10 @@ pub fn handle_command(line: &str, state: &mut EngineState) -> String {
                         json_escape(&id), fmt_f64(r.weight), r.adopted, r.ignored
                     )
                 }
-                _ => format!("{{\"ok\":false,\"error\":\"unknown delta_update kind: {}\"}}", json_escape(&kind)),
+                _ => format!(
+                    "{{\"ok\":false,\"error\":\"unknown delta_update kind: {}\"}}",
+                    json_escape(&kind)
+                ),
             }
         }
         "ucb_select" => {
@@ -696,7 +709,10 @@ pub fn handle_command(line: &str, state: &mut EngineState) -> String {
                 ucb_register(state, &parent, ch);
             }
             match ucb_select(state, &parent, &children, c) {
-                Some(sel) => format!("{{\"ok\":true,\"result\":{{\"selected\":\"{}\"}}}}", json_escape(&sel)),
+                Some(sel) => format!(
+                    "{{\"ok\":true,\"result\":{{\"selected\":\"{}\"}}}}",
+                    json_escape(&sel)
+                ),
                 None => "{\"ok\":false,\"error\":\"no children\"}".to_string(),
             }
         }
@@ -704,7 +720,11 @@ pub fn handle_command(line: &str, state: &mut EngineState) -> String {
             let id = json_str_field(&payload, "id").unwrap_or_default();
             let reward = json_num_field(&payload, "reward").unwrap_or(0.0);
             ucb_backprop(state, &id, reward);
-            format!("{{\"ok\":true,\"result\":{{\"id\":\"{}\",\"reward\":{}}}}}", json_escape(&id), fmt_f64(reward))
+            format!(
+                "{{\"ok\":true,\"result\":{{\"id\":\"{}\",\"reward\":{}}}}}",
+                json_escape(&id),
+                fmt_f64(reward)
+            )
         }
         "experience_store" => {
             let model = json_str_field(&payload, "model").unwrap_or_default();
@@ -712,7 +732,10 @@ pub fn handle_command(line: &str, state: &mut EngineState) -> String {
             let delta = json_num_field(&payload, "delta").unwrap_or(0.0);
             let summary = json_str_field(&payload, "summary").unwrap_or_default();
             let id = experience_store(state, &model, &ctx, delta, &summary);
-            format!("{{\"ok\":true,\"result\":{{\"id\":\"{}\"}}}}", json_escape(&id))
+            format!(
+                "{{\"ok\":true,\"result\":{{\"id\":\"{}\"}}}}",
+                json_escape(&id)
+            )
         }
         "experience_match" => {
             let ctx = json_str_field(&payload, "ctx").unwrap_or_default();
@@ -729,13 +752,14 @@ pub fn handle_command(line: &str, state: &mut EngineState) -> String {
                 .join(",");
             format!("{{\"ok\":true,\"result\":{{\"items\":[{}]}}}}", items)
         }
-        "state_get" => {
-            match state.to_json() {
-                Ok(inner) => format!("{{\"ok\":true,\"result\":{}}}", inner),
-                Err(e) => format!("{{\"ok\":false,\"error\":\"{}\"}}", e),
-            }
-        }
-        _ => format!("{{\"ok\":false,\"error\":\"unknown cmd: {}\"}}", json_escape(&cmd)),
+        "state_get" => match state.to_json() {
+            Ok(inner) => format!("{{\"ok\":true,\"result\":{}}}", inner),
+            Err(e) => format!("{{\"ok\":false,\"error\":\"{}\"}}", e),
+        },
+        _ => format!(
+            "{{\"ok\":false,\"error\":\"unknown cmd: {}\"}}",
+            json_escape(&cmd)
+        ),
     }
 }
 
@@ -790,7 +814,15 @@ mod tests {
     #[test]
     fn ucb_explores_unvisited_first() {
         let mut s = EngineState::new();
-        s.tree.insert("root".into(), TreeNode { id: "root".into(), reward_sum: 0.0, visits: 2, children: vec![] });
+        s.tree.insert(
+            "root".into(),
+            TreeNode {
+                id: "root".into(),
+                reward_sum: 0.0,
+                visits: 2,
+                children: vec![],
+            },
+        );
         let picked = ucb_select(&mut s, "root", &["a".into(), "b".into()], 1.41);
         assert!(picked.is_some());
         // unvisited -> infinite score; either a or b is fine
@@ -799,9 +831,33 @@ mod tests {
     #[test]
     fn ucb_prefers_high_reward_after_visits() {
         let mut s = EngineState::new();
-        s.tree.insert("root".into(), TreeNode { id: "root".into(), reward_sum: 0.0, visits: 10, children: vec![] });
-        s.tree.insert("good".into(), TreeNode { id: "good".into(), reward_sum: 9.0, visits: 10, children: vec![] });
-        s.tree.insert("bad".into(), TreeNode { id: "bad".into(), reward_sum: 1.0, visits: 10, children: vec![] });
+        s.tree.insert(
+            "root".into(),
+            TreeNode {
+                id: "root".into(),
+                reward_sum: 0.0,
+                visits: 10,
+                children: vec![],
+            },
+        );
+        s.tree.insert(
+            "good".into(),
+            TreeNode {
+                id: "good".into(),
+                reward_sum: 9.0,
+                visits: 10,
+                children: vec![],
+            },
+        );
+        s.tree.insert(
+            "bad".into(),
+            TreeNode {
+                id: "bad".into(),
+                reward_sum: 1.0,
+                visits: 10,
+                children: vec![],
+            },
+        );
         let picked = ucb_select(&mut s, "root", &["good".into(), "bad".into()], 0.0).unwrap();
         assert_eq!(picked, "good");
     }
@@ -826,7 +882,10 @@ mod tests {
         let back = EngineState::from_json(&json).unwrap();
         assert_eq!(back.rules["ui_hardcode"].weight, 1.3);
         assert_eq!(back.experiences.len(), 1);
-        assert_eq!(back.experiences.values().next().unwrap().context_hash, "ctx1");
+        assert_eq!(
+            back.experiences.values().next().unwrap().context_hash,
+            "ctx1"
+        );
     }
 
     #[test]
@@ -861,7 +920,10 @@ mod tests {
         experience_store(&mut s, "m2", "c2", 0.1, "C:\\Users\\foo\\bar");
         let json1 = s.to_json().unwrap();
         let back1 = EngineState::from_json(&json1).unwrap();
-        assert_eq!(back1.experiences.values().next().unwrap().summary, "C:\\Users\\foo\\bar");
+        assert_eq!(
+            back1.experiences.values().next().unwrap().summary,
+            "C:\\Users\\foo\\bar"
+        );
         let json2 = back1.to_json().unwrap();
         assert_eq!(json1, json2, "load→save 必须幂等");
     }
@@ -870,7 +932,12 @@ mod tests {
     fn p2_nan_injection_sanitized() {
         // NaN 注入 → 输出不得含非法 JSON 字面量
         let mut s = EngineState::new();
-        let lesson = Lesson { id: "LNaN".into(), utility: f64::NAN, recall_count: 1, archived: false };
+        let lesson = Lesson {
+            id: "LNaN".into(),
+            utility: f64::NAN,
+            recall_count: 1,
+            archived: false,
+        };
         s.lessons.insert("LNaN".into(), lesson);
         let json = s.to_json().unwrap();
         assert!(!json.contains(":NaN"), "不得输出 NaN 值: {json}");

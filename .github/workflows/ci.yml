@@ -35,6 +35,11 @@ jobs:
           cp -r vendor/extensions/pr-oracle mcp-servers/
           cp -r vendor/extensions/tautest mcp-servers/
 
+      - name: Build lse-engine (Rust LSE 引擎，pytest 依赖其 release 二进制)
+        uses: dtolnay/rust-toolchain@stable
+      - name: cargo build release
+        run: cd lse-engine && cargo build --release
+
       - name: Run pytest suite
         run: python -m pytest test_unified_rx.py -q
 
