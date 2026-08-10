@@ -15,12 +15,17 @@ Files:
 Copyright: 2026 bfxh
 License: MIT
 
-# GitHub Actions workflows
-Files: .github/workflows/*
+# GitHub 配置（workflows/其他 yml/CODEOWNERS）
+Files: .github/*  .github/workflows/*
 Copyright: 2026 bfxh
 License: MIT
 
 # 测试文件（夹具无源码头）
 Files: test_unified_rx.py
 Copyright: 2026 bfxh
+License: MIT
+
+# vendor 扩展（第三方代码，独立许可证声明）
+Files: vendor/*
+Copyright: 2026 各扩展作者
 License: MIT
