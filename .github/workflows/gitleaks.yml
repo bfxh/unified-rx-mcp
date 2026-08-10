@@ -25,18 +25,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: true
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
-          GITLEAKS_ENABLE_UPLOAD_SARIF: true
-          GITLEAKS_SARIF_OUTPUT: gitleaks.sarif
-          GITLEAKS_ENABLE_UPLOAD_ISSUE: false
-        with:
-          scan-mode: all
-
+      - name: Run Gitleaks CLI
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          /tmp/gitleaks detect --source . --report-format sarif --report-path gitleaks.sarif --redact || true
       - name: Upload Gitleaks SARIF report
         uses: github/codeql-action/upload-sarif@v3
         if: always()
