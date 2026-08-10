@@ -31,6 +31,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: true
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+          GITLEAKS_ENABLE_UPLOAD_SARIF: true
+          GITLEAKS_SARIF_OUTPUT: gitleaks.sarif
           GITLEAKS_ENABLE_UPLOAD_ISSUE: false
         with:
           scan-mode: all
