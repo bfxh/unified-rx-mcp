@@ -95,3 +95,11 @@ python -m pytest test_unified_rx.py -q   # 49 tests
 If this project helps you, feel free to buy me a coffee ☕ Thanks for your support!
 
 <img src="assets/donate-qr-wechat.jpg" alt="微信赞赏码 (WeChat Donate QR)" width="240" />
+
+## 关联项目 (Related Projects)
+
+本 MCP 的启发与生态伙伴：
+
+- **[AetherStudio](https://github.com/aetherstudio-cn/AetherStudio)** — Windows 原生轻量代码编辑器，Tool 角色工具结果回喂（`AiRole::Tool`）与本 MCP 的 `tool_card` 结构化回喂相互印证
+- **[arch-optimize](https://github.com/bfxh/arch-optimize)** — 架构优化技能（五阶段工作流 + R1-R6 风险扫描 + 质量度量），分析仓库类工具的设计参考
+- **[Reasonix](https://github.com/esengine/DeepSeek-Reasonix)** — 本 MCP 适配的宿主（`.mcp.json` / `reasonix-plugin.json` 部署，auto_start 常驻）
