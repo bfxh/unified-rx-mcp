@@ -40,11 +40,15 @@ _MAGIC_NUMBER_RE = re.compile(r"\b(?:[3-9]\d{2,}|[1-9]\d{3,})\b")
 
 # 依赖泄露（secret）检测：常见凭据/令牌模式（对标 gitleaks 子集，零依赖）。
 # 命中即 Critical——提交到仓库的凭据是真实泄露风险。
+# 强格式密钥（ghp_/AKIA/sk- 等）在任何文件（含测试）都报——测试夹具也不该用真实格式；
+# 弱赋值模式（password=xxx）跳过测试文件（夹具常用）。
 _SECRET_RE = re.compile(
     r"(?i)\b(ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|"
     r"AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|"
-    r"AIza[0-9A-Za-z_-]{35}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|"
-    r"(password|passwd|secret|api[_-]?key|token)\s*[=:]\s*['\"][A-Za-z0-9_./+=-]{12,}['\"])",
+    r"AIza[0-9A-Za-z_-]{35}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)",
+)
+_SECRET_ASSIGN_RE = re.compile(
+    r"(?i)\b(password|passwd|secret|api[_-]?key|token)\s*[=:]\s*['\"][A-Za-z0-9_./+=-]{12,}['\"]",
 )
 
 
@@ -55,6 +59,12 @@ def _iter_py_files(root: str):
             if not fn.endswith((".py", ".rs", ".ts", ".tsx", ".js", ".jsx", ".go", ".gd", ".gdshader")):
                 continue
             yield os.path.join(dirpath, fn)
+
+
+def _is_test_file(path: str) -> bool:
+    """测试文件（夹具凭据是故意数据，secret 扫描跳过；其他规则仍扫）。"""
+    base = os.path.basename(path)
+    return base.startswith("test_") or base.endswith("_test.py") or base.endswith(".spec.ts")
 
 
 def _read(path: str) -> str | None:
@@ -89,24 +99,38 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
         tree = ast.parse(src)
     except SyntaxError:
         return
-    seen: dict = {}
     count = 0
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            name = node.name
-            if name in seen and seen[name] == node.lineno:
+
+    def _check_scope(scope_name: str, defs: list):
+        """作用域内重复定义检测（模块级或单个 class 内）。"""
+        nonlocal count
+        seen: dict = {}
+        for node in defs:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 continue
+            name = node.name
             if name in seen:
                 issues.append({
                     "file": path, "line": node.lineno, "rule": "name_conflict",
                     "severity": "Warning",
-                    "msg": f"重复定义 {name}（首次在行 {seen[name]}）",
+                    "msg": f"重复定义 {name}（{scope_name} 内，首次在行 {seen[name]}）",
                 })
                 count += 1
                 if count >= limit:
                     return
             else:
                 seen[name] = node.lineno
+
+    # 模块级
+    _check_scope("模块", [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))])
+    if count >= limit:
+        return
+    # 每个 class 内（同类方法不算重复——修复 __init__ 跨类误报）
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            _check_scope(f"类 {node.name}", node.body)
+            if count >= limit:
+                return
 
 
 def _scan_ui_hardcode(path: str, src: str, issues: list, limit: int):
@@ -142,21 +166,32 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
 
 
 def _scan_secret(path: str, src: str, issues: list, limit: int):
-    """依赖泄露检测：命中凭据/令牌/私钥 → Critical（真实泄露风险）。"""
+    """依赖泄露检测：命中凭据/令牌/私钥 → Critical（真实泄露风险）。
+
+    强格式密钥（ghp_/AKIA/sk- 等）任何文件都报（测试夹具也不该用真实格式）；
+    弱赋值模式（password=xxx）跳过测试文件（夹具常用，防误报）。
+    """
+    is_test = _is_test_file(path)
+    patterns = [_SECRET_RE] if is_test else [_SECRET_RE, _SECRET_ASSIGN_RE]
     count = 0
-    for m in _SECRET_RE.finditer(src):
-        line = src.count("\n", 0, m.start()) + 1
-        secret = m.group(0)
-        # 不泄露完整值：只显示前缀 + 长度
-        shown = secret[:12] + "…" if len(secret) > 12 else secret
-        issues.append({
-            "file": path, "line": line, "rule": "secret_detection",
-            "severity": "Critical",
-            "msg": f"疑似凭据泄露: {shown}（长度 {len(secret)}）——立即轮换并移出代码库",
-        })
-        count += 1
-        if count >= limit:
-            return
+    seen_lines: set = set()
+    for pat in patterns:
+        for m in pat.finditer(src):
+            line = src.count("\n", 0, m.start()) + 1
+            if line in seen_lines:  # 同一条行被强格式+赋值双命中时只报一次
+                continue
+            seen_lines.add(line)
+            secret = m.group(0)
+            # 不泄露完整值：只显示前缀 + 长度
+            shown = secret[:12] + "…" if len(secret) > 12 else secret
+            issues.append({
+                "file": path, "line": line, "rule": "secret_detection",
+                "severity": "Critical",
+                "msg": f"疑似凭据泄露: {shown}（长度 {len(secret)}）——立即轮换并移出代码库",
+            })
+            count += 1
+            if count >= limit:
+                return
 
 
 def scan_directory(path: str, max_files: int = 200) -> dict:

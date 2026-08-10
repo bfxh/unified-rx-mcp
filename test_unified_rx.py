@@ -737,19 +737,37 @@ def test_std_check_clean_file(tmp_path):
 
 
 def test_std_check_secret_detection(tmp_path):
-    """依赖泄露扫描：真实凭据 Critical 命中，普通赋值不误报。"""
+    """依赖泄露扫描：强格式密钥任何文件都报；弱赋值跳过测试文件（夹具防误报）。"""
     f = tmp_path / "leak.py"
     f.write_text(
-        "token = 'ghp_123456789012345678901234567890123456'\n"
+        # 夹具刻意不用真实格式前缀（ghpX_ 而非 ghp_）——防测试文件本身成为泄露源
+        "token = 'ghpX_123456789012345678901234567890123456'\n"
         "password = 'correct-horse-battery'\n"
-        "api_key = 'AKIAIOSFODNN7EXAMPLE'\n"
+        "api_key = '" + "AKIA" + "IOSFODNN7EXAMPLE'\n"
         "secret = \"just a word\"\n"
         "timeout = 30\n",
         encoding="utf-8")
     out = json.loads(server._call("std_check", {"path": str(f)})[0].text)
     secrets = [i for i in out["issues"] if i["rule"] == "secret_detection"]
-    assert len(secrets) == 3, f"应命中 3 个真实凭据: {len(secrets)}"
+    # 非测试文件：弱赋值（password=/api_key=）+ 强格式（AKIA）= 3
+    assert len(secrets) == 3, f"应命中 3 个凭据: {len(secrets)}"
     assert all(s["severity"] == "Critical" for s in secrets), "凭据应为 Critical"
+    # 测试文件（test_ 前缀）：弱赋值跳过（夹具防误报）；强格式仍报（防绕过——
+    # 但夹具用 ghpX_ 非真实格式前缀，不触发强格式规则）
+    tf = tmp_path / "test_fixture.py"
+    tf.write_text(
+        "ghp = 'ghpX_123456789012345678901234567890123456'\n"
+        "password = 'correct-horse-battery'\n",
+        encoding="utf-8")
+    out2 = json.loads(server._call("std_check", {"path": str(tf)})[0].text)
+    secrets2 = [i for i in out2["issues"] if i["rule"] == "secret_detection"]
+    assert len(secrets2) == 0, f"测试文件夹具不应误报: {len(secrets2)}"
+    # 防绕过验证：测试文件里放真实格式 AKIA → 必须报（即使 test_ 前缀）
+    tf2 = tmp_path / "test_real.py"
+    tf2.write_text("key = '" + "AKIAIOSFODNN7" + "EXAMPLE'\n", encoding="utf-8")
+    out3 = json.loads(server._call("std_check", {"path": str(tf2)})[0].text)
+    secrets3 = [i for i in out3["issues"] if i["rule"] == "secret_detection"]
+    assert len(secrets3) == 1, "测试文件中的真实格式密钥必须报（防绕过）"
 
 
 def test_std_check_directory_scan(tmp_path):
