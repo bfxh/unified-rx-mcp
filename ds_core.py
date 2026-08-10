@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 """设计系统认知层（design system awareness）——AI 懂的 UI 规范：
 1. design_tokens.json（W3C Design Tokens 格式）——单一事实源
 2. ds_lookup：查 token 值（AI 生成 UI 时引用正确 token）
