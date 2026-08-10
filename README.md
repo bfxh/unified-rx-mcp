@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**61 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**62 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
 ## 定位
 
@@ -12,8 +12,21 @@
 | 🧭 **引导**（guidance） | `lesson_recall` / `ds_lookup` / `ds_check` | 教训召回（防复发）/ 设计系统 token 引用与合规 |
 | 🔍 **分析仓库**（analysis） | `change_impact` / `code_context` / `lsp_query` / `aether_*` | 变更影响 / 光标符号级 AST→Prompt / LSP 交互 |
 | 🐛 **挖漏洞**（bug hunting） | `bug_scan` / `bug_locate` / `ui_check` / `file_dedup_state` | 静态 bug 模式 / traceback 定位 / Bevy UI 检查 |
+| 🃏 **Tool 角色回喂** | `tool_card` | 调用任意工具 → 结构化卡片 `{role,ok,summary,detail}`（Aether AiRole::Tool 启发） |
 | ⚙️ **纯函数**（math/str/json/sort/prime/stat/geo/conv/valid/list/fib） | 33 个 | 零依赖高性能计算 |
 | 🔌 **扩展**（lazy-loaded） | `pr_oracle_*` (3) / `tautest_*` (4) / `cae_*` (13) | PR→测试影响 / 变异测试 / 代码分析增强 |
+
+## Tool 角色回喂（AetherStudio PR #106/#111 启发）
+
+AetherStudio 新增 `AiRole::Tool`：工具结果以 Tool 角色记录、**不显示为用户气泡**、
+UI 渲染为**简洁工具卡片**（无角色标签）。unified-rx 在 MCP 侧提供等价能力：
+
+- **`tool_card`**：包装任意工具调用（含扩展），返回 `{role:"tool", ok, summary, detail}` JSON——
+  summary 是简洁摘要（供卡片标题），detail 是完整结果（供展开）。RX/Aether UI 据此
+  渲染为工具卡片，而非大段文本气泡。
+- **所有工具结果天然是 Tool 角色**：MCP `call_tool` 响应与用户消息协议分离；
+  `tool_card` 把纯文本结果也规范化为卡片结构，供需要结构化回喂的 UI 消费。
+- 错误（未知工具/工具异常）→ `ok:false` + 摘要，UI 可渲染失败卡片。
 
 ## 性能（用户核心诉求：内存小 / 速度快 / 高强度）
 
