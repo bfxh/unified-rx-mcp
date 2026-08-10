@@ -21,12 +21,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Run OSV-Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@v1.9.3
+        uses: google/osv-scanner-action/osv-scanner-action@v2.5.0
         with:
           scan-args: |-
             --recursive
@@ -35,7 +35,7 @@ jobs:
             ./
 
       - name: Run OSV-Scanner on commits
-        uses: google/osv-scanner-action/osv-scanner-action@v1.9.3
+        uses: google/osv-scanner-action/osv-scanner-action@v2.5.0
         if: github.event_name == 'push'
         with:
           scan-args: |-
@@ -45,13 +45,13 @@ jobs:
             ./
 
       - name: Upload OSV results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: osv-results.sarif
 
       - name: Upload OSV artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: osv-scanner-results
