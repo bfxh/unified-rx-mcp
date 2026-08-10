@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 """Bevy UI 静态检查器（程序驱动，非 skill）——ui_check 工具核心。
 
 检查 Bevy ECS UI 代码的常见崩溃/不可见模式：
