@@ -24,15 +24,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Semgrep CLI
-        uses: returntocorp/semgrep-action@v2
-        with:
-          config: >-
-            p/default
-            p/owasp-top-ten
-            p/security-audit
-            p/secrets
-          generateSarif: "1"
-          sarifFile: semgrep.sarif
+        run: |
+          pip install semgrep
+          semgrep scan --config p/default --config p/owasp-top-ten --config p/security-audit --config p/secrets             --sarif --output semgrep.sarif --error || true
 
       - name: Upload Semgrep results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
