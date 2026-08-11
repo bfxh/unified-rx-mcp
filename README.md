@@ -56,6 +56,31 @@ LSE 教训引擎借鉴《自然-通讯》「压缩学习 枢纽优先」思想�
 
 配套：`lesson_recall_lse` / `lesson_feedback` 教训召回闭环，发现幻觉模式后可记录教训防复发。
 
+## 独立常驻守护（不依赖 RX 会话，打开电脑就在跑）
+
+用户要求："智能体如 RX 存在就会运行，就会去挖漏洞，然后生成日志；
+如果打开 steam 就不会被扫到"——扫描不能依赖 RX 会话是否活跃。
+
+**`daemon.py`（独立守护进程）**：不依赖 MCP 会话，4 个并发循环线程处理不同东西：
+
+| 循环 | 处理 | 间隔（可配） |
+|---|---|---|
+| `daemon-self` | 自扫全家（core+scripts+lse-engine+vendor 扩展） | 600s |
+| `daemon-project` | 跟随话题项目（`UNIFIED_RX_PROJECT`）+ 最活跃项目 | 300s |
+| `daemon-full` | 全盘扫（多项目根并发） | 1800s |
+| `daemon-repo` | **仓库管理**：7 仓库 open PR / CI 状态轮询 → repo-log | 900s |
+
+```bash
+python daemon.py            # 常驻循环（默认）
+python daemon.py --once     # 跑一轮后退出（测试/计划任务）
+python daemon.py --repo     # 只跑仓库管理
+```
+
+- 扫描日志：`~/.unified-rx/scan-log.jsonl`；仓库日志：`~/.unified-rx/repo-log.jsonl`
+- **开机自启**：已注册 `HKCU\...\Run` → `unified-rx-daemon`（登录 Windows 即启动，
+  即使 RX 会话不活跃/玩 steam 也持续挖漏洞生成日志）
+- 间隔环境变量：`UNIFIED_RX_SCAN_INTERVAL_SELF/PROJECT/FULL/REPO`（秒，下限 10s）
+
 ## 常驻自扫与扫描日志（工具本地一直在运行）
 
 unified-rx 是**常驻工具**（`.mcp.json` `auto_start: true`，**打开 RX 即自动开启**）——

@@ -1713,3 +1713,51 @@ def test_bug_scan_still_detects_real_none_deref(tmp_path):
     d = json.loads(r.text)
     none_derefs = [i for i in d.get("issues", []) if i.get("rule") == "none_deref"]
     assert len(none_derefs) == 1, none_derefs
+
+
+# ─────────────────────────────────────────────────────────────
+# 独立常驻守护（2026-08-12：不依赖 RX 会话，打开电脑就在跑）
+# ─────────────────────────────────────────────────────────────
+
+def test_daemon_importable():
+    """daemon.py 可 import（独立于 MCP 会话的守护入口）。"""
+    import importlib.util
+    import os
+    spec = importlib.util.spec_from_file_location(
+        "unifiedrx_daemon", os.path.join(os.path.dirname(os.path.abspath(__file__)), "daemon.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert hasattr(mod, "main"), "daemon 需有 main 入口"
+    assert hasattr(mod, "_loop_self_scan"), "守护需有自扫循环"
+    assert hasattr(mod, "_loop_repo_manage"), "守护需有仓库管理循环"
+    assert hasattr(mod, "REPO_LOG"), "守护需有仓库日志路径"
+
+
+def test_daemon_repo_log_written(tmp_path, monkeypatch):
+    """仓库管理写 repo-log.jsonl（7 仓库 PR 轮询结果落盘）。"""
+    import daemon
+    # 隔离 repo-log 路径
+    log = tmp_path / "repo-log.jsonl"
+    monkeypatch.setattr(daemon, "REPO_LOG", str(log))
+    # 用假 API 避免真实网络（只验证落盘逻辑）
+    import urllib.request
+    orig = urllib.request.urlopen
+
+    def fake_urlopen(req, *a, **k):
+        import json as _json
+        class R:
+            def read(self):
+                return _json.dumps([{"number": 1, "title": "test pr"}]).encode()
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+        return R()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    daemon._repo_manage_once()
+    assert log.exists(), "repo-log 未写入"
+    lines = log.read_text(encoding="utf-8").splitlines()
+    assert len(lines) >= 5, f"应轮询多个仓库: {len(lines)}"
+    import json as _json
+    assert all("repo_manage" in _json.loads(l)["tool"] for l in lines)

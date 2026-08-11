@@ -2467,6 +2467,9 @@ def _spawn_self_scan() -> None:
 
     def _self_scan_once() -> None:
         """模式⑤自扫一轮：全家文件级并发 + 扩展目录并发。"""
+        # 暴露为模块级供独立守护（daemon.py）单轮调用
+        global _spawn_self_scan_once
+        _spawn_self_scan_once = _self_scan_once
         from concurrent.futures import ThreadPoolExecutor, as_completed
         files = scan_log_core.self_scan_files()
 
