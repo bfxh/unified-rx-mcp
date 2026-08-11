@@ -82,13 +82,16 @@ impl EngineState {
     }
 
     /// Persist state to `~/.unified-rx/lse-state.json` (best-effort, creates dir).
+    /// 原子写（tmp + rename）：parallel/to_thread 并发子进程场景防撕裂/丢更新（security review MEDIUM）。
     pub fn save(&self) {
         let path = Self::state_path();
         if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
         }
         if let Ok(s) = self.to_json() {
-            let _ = fs::write(&path, s);
+            let tmp = path.with_extension("json.tmp");
+            let _ = fs::write(&tmp, &s);
+            let _ = fs::rename(&tmp, &path);
         }
     }
 

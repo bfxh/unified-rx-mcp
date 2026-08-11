@@ -38,4 +38,4 @@ jobs:
         run: |
           curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
           ./actionlint -color .github/workflows/*.yml
-        continue-on-error: true
+        # 硬门禁（REGRESSION_GUARD：软门禁=没门禁；workflow 语法错误必须红）

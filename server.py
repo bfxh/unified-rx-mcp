@@ -515,6 +515,9 @@ def _tool_pipeline(args: dict) -> str:
     """步骤链：前一步结果注入下一步参数（${key}），实现工具间数据流协作。"""
     steps = args.get("steps") or []
     max_steps = int(args.get("max_steps", 20))
+    depth = int(args.get("_depth", 0))
+    if depth > 3:
+        raise ValueError("pipeline 嵌套深度超限（>3，防 DoS）")
     if not steps or len(steps) > max_steps:
         raise ValueError(f"steps 需 1~{max_steps} 项")
     ctx: dict = {}
@@ -523,7 +526,12 @@ def _tool_pipeline(args: dict) -> str:
         tool = str(step.get("tool", ""))
         if not tool:
             raise ValueError(f"step {i} 缺 tool")
-        sargs = _inject(step.get("args") or {}, ctx)
+        if tool in ("pipeline", "parallel"):
+            inner = dict(step.get("args") or {})
+            inner["_depth"] = depth + 1
+            sargs = _inject(inner, ctx)
+        else:
+            sargs = _inject(step.get("args") or {}, ctx)
         r = _call(tool, sargs)[0].text
         val = _parse_val(r)
         key = step.get("as")
@@ -537,6 +545,9 @@ def _tool_parallel(args: dict) -> str:
     """并发组：多工具同时执行（ThreadPoolExecutor ≤8 并发），全部完成后汇总。"""
     tasks = args.get("tasks") or []
     timeout = float(args.get("timeout", 60))
+    depth = int(args.get("_depth", 0))
+    if depth > 3:
+        raise ValueError("parallel 嵌套深度超限（>3，防 DoS）")
     if not tasks or len(tasks) > 50:
         raise ValueError("tasks 需 1~50 项")
     if timeout < 1 or timeout > 600:
@@ -547,7 +558,12 @@ def _tool_parallel(args: dict) -> str:
 
     def run(i: int, t: dict) -> None:
         try:
-            r = _call(str(t.get("tool", "")), t.get("args") or {})[0].text
+            tool = str(t.get("tool", ""))
+            targs = t.get("args") or {}
+            if tool in ("pipeline", "parallel"):
+                targs = dict(targs)
+                targs["_depth"] = depth + 1
+            r = _call(tool, targs)[0].text
             results[i] = {"tool": t.get("tool"), "ok": not r.startswith("Error"), "result": _parse_val(r)}
         except Exception as exc:
             results[i] = {"tool": t.get("tool"), "ok": False, "result": f"Error: {type(exc).__name__}: {exc}"}

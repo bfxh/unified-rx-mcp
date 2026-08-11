@@ -52,8 +52,9 @@ def _load() -> list[dict]:
 
 def _save(records: list[dict]) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    # 原子写：临时文件 + rename（高并发下防半写/写坏 JSON）
-    tmp = STATE_FILE.with_suffix(".json.tmp")
+    # 原子写：临时文件 + rename（高并发下防半写/写坏 JSON）；
+    # tmp 名含 pid——多进程共享 stats 文件时防 tmp 竞态（security review LOW）
+    tmp = STATE_FILE.with_name(f"{STATE_FILE.name}.tmp.{os.getpid()}")
     tmp.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
     tmp.replace(STATE_FILE)
 
@@ -92,19 +93,24 @@ def _summary(args: dict) -> str:
     span = max(r["ts"] for r in records) - min(r["ts"] for r in records)
     tps = n / span if span > 0 else 0.0
 
-    # 每任务聚合
+    # 每任务聚合（会话维度：task = 会话；含时长/起止）
     by_task: dict[str, dict] = {}
     for r in records:
-        t = by_task.setdefault(r["task"], {"count": 0, "ms": 0.0, "tokens_in": 0, "tokens_out": 0, "tools": set()})
+        t = by_task.setdefault(r["task"], {"count": 0, "ms": 0.0, "tokens_in": 0, "tokens_out": 0,
+                                           "tools": set(), "first_ts": None, "last_ts": None})
         t["count"] += 1
         t["ms"] += r.get("duration_ms", 0)
         t["tokens_in"] += r.get("tokens_in", 0)
         t["tokens_out"] += r.get("tokens_out", 0)
         t["tools"].add(r["tool"])
+        ts = r.get("ts", 0)
+        t["first_ts"] = ts if t["first_ts"] is None else min(t["first_ts"], ts)
+        t["last_ts"] = ts if t["last_ts"] is None else max(t["last_ts"], ts)
     tasks = [{
         "task": k,
         "actions": v["count"],
         "duration_ms_total": round(v["ms"], 1),
+        "session_span_seconds": round(v["last_ts"] - v["first_ts"], 1) if v["first_ts"] and v["last_ts"] else 0.0,
         "tokens_in": v["tokens_in"],
         "tokens_out": v["tokens_out"],
         "tools": sorted(t for t in v["tools"] if t),

@@ -130,7 +130,8 @@ def index_repo(root: str) -> dict:
         "files": files,
     }
     # 原子写（临时文件 + os.replace，崩溃/磁盘满不留截断文件，review should-fix）
-    tmp_path = index_path + ".tmp"
+    # 唯一 tmp 名（pid）：parallel 并发 cb_index 防共享 tmp 竞态（security review MEDIUM）
+    tmp_path = f"{index_path}.tmp.{os.getpid()}"
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
     os.replace(tmp_path, index_path)

@@ -27,7 +27,35 @@ def _isolate_lse_state(tmp_path, monkeypatch):
     # 引擎每次调用都持久化到临时文件；测试结束后由 tmp_path 自动清理
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _prod_state_untouched():
+    """状态效果测试（REGRESSION_GUARD P1-1）：整个测试会话前后，
+    生产 ~/.unified-rx/lse-state.json 字节必须不变——隔离 fixture 被删/改路径即失败。
+    """
+    from pathlib import Path as _P
+    p = _P.home() / ".unified-rx" / "lse-state.json"
+    before = p.read_bytes() if p.exists() else None
+    yield
+    after = p.read_bytes() if p.exists() else None
+    assert after == before, (
+        "生产 lse-state.json 被测试污染（LSE_STATE 隔离失效）——"
+        "检查 _isolate_lse_state fixture 或 lse-engine LSE_STATE 支持"
+    )
+
+
 # ── 注册表完整性 ──────────────────────────────────────────────
+def test_defs_cache_stable():
+    """契约测试（REGRESSION_GUARD P1-2）：_definitions() 重复调用逐字节一致
+    （缓存前缀 byte-stable 理念；扩展构建只走 async 路径）。"""
+    import server as s
+    a = s._definitions()
+    b = s._definitions()
+    ka = [(t.name, t.description, t.inputSchema) for t in a]
+    kb = [(t.name, t.description, t.inputSchema) for t in b]
+    assert ka == kb, "_definitions() 两次调用不一致（_DEFS_CACHE 缓存破坏）"
+    assert len(ka) >= 54, f"工具定义数异常: {len(ka)}"
+
+
 def test_tools_count_and_schema():
     defs = server._definitions()
     # 核心 + 可用扩展；CI 上部分扩展可能加载失败（缺失依赖），只断言核心固定

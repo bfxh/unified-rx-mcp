@@ -54,3 +54,6 @@ jobs:
 
       - name: Run tool_ratchet baseline check (工具清单漂移即红)
         run: python scripts/tool_ratchet.py --check
+
+      - name: Run async_guard (同步路径禁 asyncio.run，协议层崩溃防回归)
+        run: python scripts/async_guard.py server.py
