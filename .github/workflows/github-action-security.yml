@@ -38,7 +38,7 @@ jobs:
       - name: Check for pinned actions
         run: |
           echo "Checking if all actions are pinned to commit SHAs..."
-          grep -rn "uses:" .github/workflows/ | grep -v "@" | while read line; do
+          grep -rn "uses:" .github/workflows/ | grep -v "@" | while read -r line; do
             echo "WARNING: Unpinned action found: $line"
           done || true
         # 已知债务（棘轮：旧债容忍）：仓库仍有多处 @tag pin，全量 pin SHA 是独立任务；

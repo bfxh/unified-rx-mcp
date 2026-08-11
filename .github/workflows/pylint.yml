@@ -43,7 +43,7 @@ jobs:
 
       - name: Run Pylint
         run: |
-          pylint **/*.py --exit-zero --output-format=json:pylint-report.json,text:pylint-output.txt
+          pylint ./*.py **/*.py --exit-zero --output-format=json:pylint-report.json,text:pylint-output.txt
         continue-on-error: true
 
       - name: Generate HTML report
