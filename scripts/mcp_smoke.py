@@ -9,8 +9,10 @@ JSON-RPC 消息，非 LSP 的 Content-Length 帧）。验证真实协议层不�
 import json
 import subprocess
 import sys
+from pathlib import Path
 
-SERVER = r"C:\Users\lbx13\AppData\Roaming\reasonix\global-workspace\mcp-servers\unified-rx\server.py"
+# 相对路径解析（CI 可移植）：scripts/mcp_smoke.py → 仓库根 server.py
+SERVER = str(Path(__file__).resolve().parent.parent / "server.py")
 PY = sys.executable
 
 

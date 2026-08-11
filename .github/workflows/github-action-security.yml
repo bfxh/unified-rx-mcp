@@ -33,7 +33,7 @@ jobs:
         run: |
           curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
           ./actionlint -color
-        continue-on-error: true
+        # 硬门禁（P0-3）：workflow 语法错误必须红——软门禁等于没门禁
 
       - name: Check for pinned actions
         run: |
@@ -41,4 +41,5 @@ jobs:
           grep -rn "uses:" .github/workflows/ | grep -v "@" | while read line; do
             echo "WARNING: Unpinned action found: $line"
           done || true
-        continue-on-error: true
+        # 已知债务（棘轮：旧债容忍）：仓库仍有多处 @tag pin，全量 pin SHA 是独立任务；
+        # 硬门禁化之前先清零债务（新增未 pin 在 PR review 中把关）
