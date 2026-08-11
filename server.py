@@ -1574,14 +1574,19 @@ _DEFS_CACHE: list | None = None
 
 
 def _definitions() -> list:
-    """工具定义（缓存）：list_tools 重复调用零重建（性能优化）。"""
+    """工具定义（核心缓存 + 实时扩展）：list_tools 重复调用零重建（性能优化）。
+
+    注意：同步路径禁止触发扩展构建——_build_ext_defs 是 async，asyncio.run
+    在运行事件循环内会崩溃（MCP tools/list 就是 async handler）。扩展定义
+    由协议层 async list_tools 先构建，这里只读已构建部分。
+    """
     global _DEFS_CACHE
     if _DEFS_CACHE is None:
         _DEFS_CACHE = [
             _ToolDef(n, d, sc)
             for n, (_, sc, d) in _TOOLS.items()
-        ] + _ext_definitions()
-    return _DEFS_CACHE
+        ]
+    return _DEFS_CACHE + [t for (_, _, t) in _EXT_DEFS.values()]
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1706,12 +1711,10 @@ def _tool_proxy(tn: str, schema: dict | None = None):
 
 def _call_ext(name: str, arguments: dict) -> "list[types.TextContent]":
     """扩展工具分发（name 带前缀）。"""
-    if not _EXT_DEFS:
-        # 防御：协议层 list_tools 已构建；直接调用（tool_card/selftest）可能未构建。
-        # _build_ext_defs 是 async，用 _ext_definitions 的同步包装（asyncio.run）。
-        _ext_definitions()
     if name not in _EXT_DEFS:
-        return [_TC(f"Error: unknown tool: {name}")]
+        # 防御：MCP 协议层 list_tools 会先构建扩展；同步路径不可 asyncio.run
+        # （事件循环内崩溃），未构建时返回错误而不是炸进程。
+        return [_TC(f"Error: unknown tool: {name}（扩展定义未构建，协议层 list_tools 会先构建）")]
     label, kind, tdef = _EXT_DEFS[name]
     if kind == "pure":
         return _ext_call(label, "pure", tdef.name, arguments)
@@ -1755,11 +1758,13 @@ async def run() -> None:
 
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
-        # 协议层必须用 async 版（_ext_definitions 同步版内部 asyncio.run 在事件循环内会炸）
+        # 扩展定义只在此 async 路径构建（_ext_definitions_async 内部 await，
+        # 不炸事件循环）；_definitions() 只读核心 + 已构建扩展，不重复构建。
+        await _ext_definitions_async()
         return [
             types.Tool(name=t.name, description=t.description, inputSchema=t.inputSchema)
             for t in _definitions()
-        ] + await _ext_definitions_async()
+        ]
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict | None) -> "list[types.TextContent]":
