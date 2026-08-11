@@ -58,16 +58,20 @@ LSE 教训引擎借鉴《自然-通讯》「压缩学习 枢纽优先」思想�
 
 ## 常驻自扫与扫描日志（工具本地一直在运行）
 
-unified-rx 是**常驻工具**（`.mcp.json` `auto_start: true`，打开会话即运行）——
-MCP 调用只是访问它，不是启动它。**五种常态化扫描模式，全部高并发互不打扰**：
+unified-rx 是**常驻工具**（`.mcp.json` `auto_start: true`，**打开 RX 即自动开启**）——
+MCP 调用只是访问它，不是启动它。**五种常态化扫描模式，全部高并发、持续循环（不会停下）**：
 
-| 模式 | 触发 | 扫描 |
-|---|---|---|
-| ① 跟随话题项目 | `UNIFIED_RX_PROJECT` 环境变量 | `project_scan` 四路并行（bug/std/ui/cb） |
-| ② 全盘扫 | `full_scan` 工具 | 多项目根**并发**跑 project_scan，汇总落盘 |
-| ③ 被 RX 调用 | 任何扫描工具被调用 | `_scan_log_tick` 调用即记（自动落盘） |
-| ④ 最活跃就扫 | 常驻启动（无 PROJECT 时） | stats.json 统计调用最多的项目 → 并发扫 |
-| ⑤ 扫自己 | 常驻启动 | 全家自扫：20 个 core/scripts/lse-engine 文件级并发 + 4 个 vendor 扩展目录并发 |
+| 模式 | 触发 | 扫描 | 循环间隔 |
+|---|---|---|---|
+| ① 跟随话题项目 | `UNIFIED_RX_PROJECT` 环境变量 | `project_scan` 四路并行（bug/std/ui/cb） | 300s（可配） |
+| ② 全盘扫 | 后台循环（或 `full_scan` 手动） | 多项目根**并发**跑 project_scan，汇总落盘 | 1800s（可配） |
+| ③ 被 RX 调用 | 任何扫描工具被调用 | `_scan_log_tick` 调用即记（自动落盘） | 天然持续 |
+| ④ 最活跃就扫 | 后台循环（无 PROJECT 时） | stats.json 统计调用最多的项目 → 并发扫 | 300s（同①） |
+| ⑤ 扫自己 | 后台循环 | 全家自扫：20 个 core/scripts/lse-engine 文件级并发 + 4 个 vendor 扩展目录并发 | 600s（可配） |
+
+**打开 RX 自动开启**：`run()` 启动时 spawn 3 个独立 daemon 循环线程
+（`rx-scan-self` / `rx-scan-project` / `rx-scan-full`），首轮立即跑、之后按间隔循环，
+互不打扰、永不停下。间隔环境变量：`UNIFIED_RX_SCAN_INTERVAL_SELF` / `_PROJECT` / `_FULL`（秒，下限 10s 防 DoS）。
 
 扫描结果统一落盘 **`~/.unified-rx/scan-log.jsonl`**（JSONL，2000 条防膨胀）；
 专门搞某个项目的对话框，用 `scan_log` 工具按 `root` 过滤查看该项目历史扫描结果
