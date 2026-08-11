@@ -64,7 +64,8 @@ def test_tools_count_and_schema():
     # 2026-08-11 防幻觉：+hallucination_guard +capability_manifest → 32
     # 2026-08-11 扫描日志：+scan_log → 33
     # 2026-08-11 高并发项目扫描：+project_scan → 34
-    assert len(server._TOOLS) == 34, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-11 全盘扫：+full_scan → 35
+    assert len(server._TOOLS) == 35, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -1509,3 +1510,77 @@ def test_self_scan_active_project_env(tmp_path, monkeypatch):
     assert "project_scan" in tools, "活跃项目被自动扫描"
     proj = [l for l in logs if l["tool"] == "project_scan"]
     assert proj and proj[0]["root"] == str(tmp_path), proj
+
+
+# ─────────────────────────────────────────────────────────────
+# 全盘扫 + 自扫全家 + 最活跃项目（2026-08-11 五种模式）
+# ─────────────────────────────────────────────────────────────
+
+def test_full_scan_parallel(tmp_path, monkeypatch):
+    """full_scan：多项目根并发 project_scan，汇总落盘。"""
+    import scan_log_core
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    a = tmp_path / "projA"
+    b = tmp_path / "projB"
+    a.mkdir(); b.mkdir()
+    (a / "a.py").write_text("x = 1\n", encoding="utf-8")
+    (b / "b.py").write_text("y = 2\n", encoding="utf-8")
+    server._call("cb_index", {"path": str(a)})
+    server._call("cb_index", {"path": str(b)})
+
+    r = server._call("full_scan", {"roots": [str(a), str(b)], "ui": False})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True, d
+    det = d["detail"]
+    assert len(det["projects"]) == 2, det
+    assert not det["errors"], det
+    roots = {p["root"] for p in det["projects"]}
+    assert roots == {str(a), str(b)}
+    # 落盘
+    logs = scan_log_core.query_logs(tool="full_scan", limit=5)
+    assert len(logs) >= 1
+
+
+def test_self_scan_covers_all_tools():
+    """扫自己覆盖所有工具：core + scripts + lse-engine 全家都在自扫清单。"""
+    import scan_log_core
+    files = scan_log_core.self_scan_files()
+    names = [os.path.basename(f) for f in files]
+    assert "server.py" in names and "guard_core.py" in names
+    assert "lse_client.py" in names and "scan_log_core.py" in names
+    assert any("mcp_smoke.py" in n for n in names), "scripts 在自扫清单"
+    assert any("lib.rs" in n or "main.rs" in n for n in names), "lse-engine 在自扫清单"
+    assert len(files) >= 15, f"自扫文件过少: {len(files)}"
+
+
+def test_self_scan_dirs_extensions(tmp_path, monkeypatch):
+    """vendor 扩展目录并入自扫（self_scan_dirs 返回扩展目录）。"""
+    import scan_log_core
+    # 仓库有 vendor/extensions → 返回非空
+    dirs = scan_log_core.self_scan_dirs()
+    assert dirs, "vendor/extensions 存在"
+    assert all(os.path.isdir(d) for d in dirs)
+
+
+def test_active_project_most_used(monkeypatch, tmp_path):
+    """最活跃就扫：无 UNIFIED_RX_PROJECT 时从 stats 统计调用最多的项目。"""
+    import scan_log_core
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    monkeypatch.delenv("UNIFIED_RX_PROJECT", raising=False)
+    # 构造 stats.json（模拟某项目被扫最多）
+    stats_dir = tmp_path / "home" / ".unified-rx"
+    stats_dir.mkdir(parents=True)
+    stats = [{"root": r"D:\开发\VoxelForge-Nexus", "tool": "bug_scan"} for _ in range(5)] + \
+            [{"root": r"D:\开发\other", "tool": "bug_scan"} for _ in range(1)]
+    (stats_dir / "stats.json").write_text(json.dumps(stats), encoding="utf-8")
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path / "home")
+
+    # 通过 server 内部 _active_project 验证（间接：spawn 后 scan-log 应有最活跃项目）
+    server._spawn_self_scan()
+    import time
+    time.sleep(7)
+    logs = scan_log_core.query_logs(tool="project_scan", limit=5)
+    assert logs, "最活跃项目被自动扫"
+    assert logs[0]["root"] == r"D:\开发\VoxelForge-Nexus", logs[0]

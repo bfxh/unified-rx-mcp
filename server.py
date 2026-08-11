@@ -713,6 +713,49 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
         len(results["cb_scan"]) if isinstance(results["cb_scan"], list) else 0), results)]
 
 
+# ── 全盘扫（2026-08-11：多项目根并发，模式② 全盘扫）──
+_FULL_SCAN_DEFAULT_ROOTS = [r"D:\开发\VoxelForge-Nexus", r"D:\开发\reasonix-src",
+                           r"D:\开发\VoxelForge", r"D:\开发\unified-rx-mcp"]
+
+
+def _tool_full_scan(args: dict) -> "list[types.TextContent]":
+    """全盘扫：对多个项目根**并发**跑 project_scan（每个项目四路并行），
+    全部完成汇总 + 落盘 scan-log。缺省扫常见项目根，可显式传 roots 列表。"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    roots = args.get("roots") or _FULL_SCAN_DEFAULT_ROOTS
+    max_files = int(args.get("max_files", 100))
+    ui = bool(args.get("ui", True))
+    results = {"roots": roots, "projects": [], "errors": []}
+
+    def scan_project(root: str) -> None:
+        try:
+            r = _call("project_scan", {"path": root, "max_files": max_files, "ui": ui})
+            text = r[0].text if isinstance(r, list) else str(r)
+            results["projects"].append({
+                "root": root,
+                "result": json.loads(text) if text.startswith("{") else {"raw": text[:200]},
+            })
+        except Exception as e:  # noqa: BLE001
+            results["errors"].append(f"{root}: {e}")
+
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(roots)))) as pool:
+        futs = [pool.submit(scan_project, root) for root in roots]
+        for fut in as_completed(futs):
+            fut.result()
+    # 落盘
+    try:
+        import scan_log_core
+        scan_log_core.append_scan({
+            "tool": "full_scan", "root": "|".join(roots), "ok": not results["errors"],
+            "summary": "full_scan: %d projects, errors=%d" % (
+                len(results["projects"]), len(results["errors"])),
+        })
+    except Exception:
+        pass
+    return [_tr(True, "full_scan 完成(并发 %d 项目): ok=%d errors=%d" % (
+        len(roots), len(results["projects"]), len(results["errors"])), results)]
+
+
 # ─────────────────────────────────────────────────────────────
 # 防幻觉守卫（hallucination_guard + capability_manifest：AI 事实核查）
 # ─────────────────────────────────────────────────────────────
@@ -1848,6 +1891,11 @@ _TOOLS: dict[str, tuple] = {
         "max_files": _S("integer", "扫描上限(默认100)"),
         "ui": _S("boolean", "是否扫 Bevy UI（非 Rust 项目可关，默认 true）"),
     }, ["path"]), "项目级高并发扫描：bug_scan+std_check+ui_check+cb_scan 四路并行，结果自动落盘 scan-log"),
+    "full_scan": (_tool_full_scan, _schema({
+        "roots": _S("array", "项目根列表（缺省扫常见项目根）"),
+        "max_files": _S("integer", "扫描上限(默认100)"),
+        "ui": _S("boolean", "是否扫 Bevy UI（默认 true）"),
+    }, []), "全盘扫：多项目根并发跑 project_scan（每项目四路并行），汇总落盘 scan-log"),
     "hallucination_guard": (_tool_hallucination_guard, _schema({
         "text": _S("string", "AI 声明文本（含 file:line / 反引号符号）"),
         "root": _S("string", "仓库根目录（相对路径解析基准，可选）"),
@@ -2127,7 +2175,7 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
 # 扫描类工具：调用完成自动落盘 scan-log.jsonl（常驻自扫日志，专项目对话可查）
 _SCAN_LOG_TOOLS = {"bug_scan", "std_check", "vuln_scan", "ui_check",
                    "cb_scan", "cb_index", "hallucination_guard", "locate_edit",
-                   "project_scan"}
+                   "project_scan", "full_scan"}
 
 
 def _scan_log_tick(name: str, args: dict, result: "list[types.TextContent]") -> None:
@@ -2293,9 +2341,12 @@ async def run() -> None:
 def _spawn_self_scan() -> None:
     """后台自扫 + 活跃项目扫描：常驻启动即跑，互不打扰，结果落盘。
 
-    - 自扫：对 server.py 自身核心文件跑 bug_scan
-    - 活跃项目：对话在搞哪个项目就本地扫（UNIFIED_RX_PROJECT 指定；
-      缺省探测 stats/scan-log 里最近活跃 root，再缺省常见项目根）
+    五种常态化扫描模式（全部高并发）：
+      ① 跟随话题项目：UNIFIED_RX_PROJECT 指定 → project_scan 并发扫
+      ② 全盘扫：full_scan 工具（多项目根并发）
+      ③ 被 RX 调用：_scan_log_tick 调用即记（每次工具调用自动落盘）
+      ④ 最活跃就扫：stats.json 统计调用最多的项目 → 并发扫
+      ⑤ 扫自己：全家自扫（core+scripts+lse-engine 文件级并发 + vendor 扩展目录并发）
     守护线程 + 失败静默——绝不影响 MCP 协议层。CI/测试跳过
     （UNIFIED_RX_SKIP_SELF_SCAN=1）。
     """
@@ -2309,15 +2360,31 @@ def _spawn_self_scan() -> None:
         import scan_log_core  # noqa: F811
 
     def _active_project() -> str | None:
-        """当前对话活跃项目：环境变量 > scan-log 最近 root > 常见项目根。"""
+        """最活跃项目（模式④）：UNIFIED_RX_PROJECT > stats.json 调用最多 root > scan-log 最近 > 常见项目根。"""
         env = os.environ.get("UNIFIED_RX_PROJECT", "").strip()
         if env:
             return env
         try:
+            # stats.json 统计：哪个项目 root 被扫得最多就扫哪个
+            stats_path = Path.home() / ".unified-rx" / "stats.json"
+            if stats_path.exists():
+                data = json.loads(stats_path.read_text(encoding="utf-8"))
+                recs = data if isinstance(data, list) else data.get("records", [])
+                counts: dict[str, int] = {}
+                for r in recs:
+                    root = str(r.get("root", ""))
+                    if root:
+                        counts[root] = counts.get(root, 0) + 1
+                if counts:
+                    top = max(counts, key=counts.get)
+                    if counts[top] >= 3:  # 防冷启动误扫（只扫确有活跃度的）
+                        return top
+        except Exception:
+            pass
+        try:
             logs = scan_log_core.query_logs(limit=50)
             roots = [l.get("root", "") for l in logs if l.get("root")]
             if roots:
-                # 最近一条有 root 的扫描记录所在项目
                 return roots[0]
         except Exception:
             pass
@@ -2329,10 +2396,11 @@ def _spawn_self_scan() -> None:
 
     def _do() -> None:
         try:
-            # 1) 自扫（扫自己，串行小文件）
-            for f in scan_log_core.self_scan_files():
-                if not os.path.isfile(f):
-                    continue
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            # 1) 自扫全家（模式⑤，高并发：文件级并行跑 bug_scan）
+            files = scan_log_core.self_scan_files()
+
+            def scan_one(f: str) -> None:
                 try:
                     d = json.loads(_call("bug_scan", {"path": f})[0].text)
                     n = len(d.get("issues", [])) if isinstance(d, dict) else -1
@@ -2342,7 +2410,24 @@ def _spawn_self_scan() -> None:
                     })
                 except Exception:
                     pass
-            # 2) 活跃项目并发扫描（互不打扰：独立线程跑 project_scan 全部四路）
+
+            with ThreadPoolExecutor(max_workers=min(8, max(1, len(files)))) as pool:
+                futs = [pool.submit(scan_one, f) for f in files]
+                for fut in as_completed(futs):
+                    fut.result()
+            # 1b) 扩展目录并发扫（vendor/extensions/*）
+            for d in scan_log_core.self_scan_dirs():
+                try:
+                    r = _call("bug_scan", {"path": d, "max_files": 50})[0]
+                    dd = json.loads(r.text)
+                    n = len(dd.get("issues", [])) if isinstance(dd, dict) else -1
+                    scan_log_core.append_scan({
+                        "tool": "self_scan", "root": d, "ok": n == 0,
+                        "summary": f"self bug_scan {os.path.basename(d)}: issues={n}",
+                    })
+                except Exception:
+                    pass
+            # 2) 最活跃项目并发扫描（模式④：互不打扰，独立线程跑 project_scan）
             proj = _active_project()
             if proj:
                 try:

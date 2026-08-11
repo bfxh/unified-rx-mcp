@@ -26,8 +26,17 @@ from pathlib import Path
 
 # 日志上限（防膨胀：超过则截断保留最近 N 条）
 _MAX_LOG_LINES = 2000
-# 自扫对象（server.py 自身 + 核心 core 文件）
-_SELF_SCAN_FILES = ["server.py", "guard_core.py", "std_core.py", "locate_core.py"]
+# 自扫对象（覆盖所有工具：server 核心 + scripts + lse-engine）
+# 模式⑤"扫自己"= 把 unified-rx 全家（含扩展）都扫一遍，结果落盘
+_SELF_SCAN_FILES = [
+    "server.py", "guard_core.py", "std_core.py", "locate_core.py",
+    "cb_index_core.py", "ds_core.py", "ui_check_core.py",
+    "lse_client.py", "scan_log_core.py",
+    "scripts/mcp_smoke.py", "scripts/tool_ratchet.py", "scripts/wf_check.py",
+    "scripts/async_guard.py", "scripts/sync_check.py", "scripts/vf_probe.py",
+    "scripts/bench_unified_rx.py", "scripts/collab_check.py", "scripts/collab_conc_check.py",
+    "lse-engine/src/lib.rs", "lse-engine/src/main.rs",
+]
 
 
 def log_path() -> Path:
@@ -103,9 +112,20 @@ def query_logs(root: str | None = None, tool: str | None = None,
 
 
 def self_scan_files() -> list[str]:
-    """自扫文件列表（server.py 同目录的自身核心文件）。"""
+    """自扫文件列表：unified-rx 全家（core + scripts + lse-engine）。"""
     base = os.path.dirname(os.path.abspath(__file__))
-    return [os.path.join(base, f) for f in _SELF_SCAN_FILES]
+    return [os.path.join(base, f) for f in _SELF_SCAN_FILES
+            if os.path.isfile(os.path.join(base, f))]
+
+
+def self_scan_dirs() -> list[str]:
+    """自扫扩展目录（vendor/extensions/*——第三方扩展，按目录并发扫）。"""
+    base = os.path.dirname(os.path.abspath(__file__))
+    ext_root = os.path.join(base, "vendor", "extensions")
+    if not os.path.isdir(ext_root):
+        return []
+    return [os.path.join(ext_root, d) for d in sorted(os.listdir(ext_root))
+            if os.path.isdir(os.path.join(ext_root, d))]
 
 
 def main() -> None:

@@ -59,16 +59,19 @@ LSE 教训引擎借鉴《自然-通讯》「压缩学习 枢纽优先」思想�
 ## 常驻自扫与扫描日志（工具本地一直在运行）
 
 unified-rx 是**常驻工具**（`.mcp.json` `auto_start: true`，打开会话即运行）——
-MCP 调用只是访问它，不是启动它。运行形态：
+MCP 调用只是访问它，不是启动它。**五种常态化扫描模式，全部高并发互不打扰**：
 
-- **启动自扫**：每次常驻启动时，后台线程对自己核心文件（server.py/guard_core/std_core/locate_core）
-  跑一轮 bug_scan，"包括它自己也会扫自己"，结果自动落盘。
-- **调用即记**：扫描类工具（`bug_scan`/`std_check`/`vuln_scan`/`ui_check`/`cb_scan`/`cb_index`/
-  `hallucination_guard`/`locate_edit`）每次调用完成自动追加一条到
-  **`~/.unified-rx/scan-log.jsonl`**（与 lse-state.json / stats.json 同目录常驻状态区）。
-- **专项目查日志**：专门搞某个项目的对话框，用 `scan_log` 工具按 `root` 过滤，
-  即可查看该项目历史扫描结果（root/工具名/limit 过滤，默认最近 50 条）。
-- 日志上限防膨胀（2000 条截断）；写入失败静默，绝不影响工具调用。
+| 模式 | 触发 | 扫描 |
+|---|---|---|
+| ① 跟随话题项目 | `UNIFIED_RX_PROJECT` 环境变量 | `project_scan` 四路并行（bug/std/ui/cb） |
+| ② 全盘扫 | `full_scan` 工具 | 多项目根**并发**跑 project_scan，汇总落盘 |
+| ③ 被 RX 调用 | 任何扫描工具被调用 | `_scan_log_tick` 调用即记（自动落盘） |
+| ④ 最活跃就扫 | 常驻启动（无 PROJECT 时） | stats.json 统计调用最多的项目 → 并发扫 |
+| ⑤ 扫自己 | 常驻启动 | 全家自扫：20 个 core/scripts/lse-engine 文件级并发 + 4 个 vendor 扩展目录并发 |
+
+扫描结果统一落盘 **`~/.unified-rx/scan-log.jsonl`**（JSONL，2000 条防膨胀）；
+专门搞某个项目的对话框，用 `scan_log` 工具按 `root` 过滤查看该项目历史扫描结果
+（root 过滤不串项目）。写入失败静默，绝不影响工具调用。
 
 ## 工具链协作（一次调用 = 多步流程，减少调用轮次）
 
