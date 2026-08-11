@@ -156,14 +156,29 @@ def _loop_repo_manage() -> None:
         time.sleep(max(10, interval))
 
 
+def _repo_token() -> str:
+    """仓库管理 token：环境变量 GH_TOKEN > gh CLI keyring（gh auth token）。"""
+    t = os.environ.get("GH_TOKEN", "").strip()
+    if t:
+        return t
+    try:
+        import subprocess
+        r = subprocess.run(["gh", "auth", "token"], capture_output=True,
+                           text=True, timeout=10, encoding="utf-8", errors="replace")
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
+
 def _repo_manage_once() -> None:
     """仓库管理一轮：列 bfxh 各仓库 open PR + 最近 CI 状态，写入 repo-log。"""
-    # token 从环境变量 GH_TOKEN 读取（不硬编码——GitHub push 保护会拦截明文密钥）
-    token = os.environ.get("GH_TOKEN", "").strip()
+    token = _repo_token()
     if not token:
         _append_repo_log({
             "tool": "repo_manage", "ok": False,
-            "summary": "GH_TOKEN 未设置，跳过仓库轮询（设环境变量后生效）",
+            "summary": "未找到 token（GH_TOKEN 或 gh auth login），跳过仓库轮询",
         })
         return
     repos = ["unified-rx-mcp", "-BOYADENAXIESHI", "arch-optimize", "ai-platform",
