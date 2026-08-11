@@ -1,13 +1,14 @@
 """Static analysis to map changed source files to candidate test files."""
 
+import logging
 import os
 from pathlib import Path
 
-from simple_logger.logger import get_logger
-
 from pr_test_oracle.models import TestMapping
 
-logger = get_logger(name=__name__, level=os.environ.get("LOG_LEVEL", "INFO"))
+# 标准库 logging（替代 simple_logger 依赖——vendored 副本零额外依赖，CI 可移植）
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 
 # Test infrastructure files that should not be treated as test cases
 _EXCLUDED_FILES = frozenset(

@@ -27,7 +27,8 @@ jobs:
           python -m pip install --upgrade pip
           # 扩展层依赖（cae/pr-oracle/tautest 的 server.py 顶层 import）
           # mcp pin 1.26.0（FastMCP API 稳定基线；新版 list_tools 变更会炸 cae 扩展）
-          python -m pip install mcp==1.26.0 httpx pytest pydantic simple-logger
+          # pydantic：vendored pr_test_oracle（TestMapping/TestMapper）依赖
+          python -m pip install mcp==1.26.0 httpx pytest pydantic
 
       - name: Assemble extension layout (_EXT_BASE = mcp-servers/)
         run: |
