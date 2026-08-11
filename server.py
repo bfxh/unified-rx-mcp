@@ -1598,7 +1598,16 @@ def _definitions() -> list:
 # ─────────────────────────────────────────────────────────────
 import importlib.util as _ilu
 
-_EXT_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_EXT_BASE_CANDIDATES = [
+    # 开发布局：mcp-servers/unified-rx/server.py → 扩展在 mcp-servers/pr-oracle 等
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    # CI 布局：仓库根/server.py + 扩展复制到 仓库根/mcp-servers/
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcp-servers"),
+]
+_EXT_BASE = next(
+    (p for p in _EXT_BASE_CANDIDATES if os.path.isdir(os.path.join(p, "pr-oracle"))),
+    _EXT_BASE_CANDIDATES[0],
+)
 _EXT_LOADED: dict[str, object] = {}
 
 
