@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 # -*- coding: utf-8 -*-
 """
 Security Workflows 分发 / 运行 / 信息合并 / 清理 脚本

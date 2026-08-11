@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: 2026 bfxh -->
+<!-- SPDX-License-Identifier: MIT -->
 # Python → Rust 迁移方案（unified-rx-mcp）
 
 > 状态：规划中（按 CONTRIBUTING 迁移专项流程：先方案 → 评审 → 分期实施）
