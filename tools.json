@@ -1,7 +1,7 @@
 {
-  "core_count": 33,
+  "core_count": 34,
   "ext_count": 24,
-  "total": 57,
+  "total": 58,
   "core": [
     "bug_locate",
     "bug_locate_feedback",
@@ -27,6 +27,7 @@
     "parallel",
     "pipeline",
     "prime_list",
+    "project_scan",
     "rule_feedback",
     "scan_log",
     "sort_search",

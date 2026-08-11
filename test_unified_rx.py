@@ -63,7 +63,8 @@ def test_tools_count_and_schema():
     # 2026-08-11 高协作：+pipeline +parallel → 30
     # 2026-08-11 防幻觉：+hallucination_guard +capability_manifest → 32
     # 2026-08-11 扫描日志：+scan_log → 33
-    assert len(server._TOOLS) == 33, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-11 高并发项目扫描：+project_scan → 34
+    assert len(server._TOOLS) == 34, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -1438,3 +1439,73 @@ def test_scan_log_core_self_scan_files():
     files = scan_log_core.self_scan_files()
     assert any("server.py" in f for f in files)
     assert all(os.path.isfile(f) for f in files), "自扫目标必须存在"
+
+
+# ─────────────────────────────────────────────────────────────
+# 高并发扫描（2026-08-11：vuln_scan 三路并行 / project_scan 四路并行互不打扰）
+# ─────────────────────────────────────────────────────────────
+
+def test_project_scan_parallel(tmp_path, monkeypatch):
+    """project_scan：四路并行（bug/std/ui/cb），结果聚合且落盘 scan-log。"""
+    import scan_log_core
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    src = tmp_path / "demo.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    # cb_scan 需要索引，先 cb_index 建好（避免空跑报错也接受——只验证结构）
+    server._call("cb_index", {"path": str(tmp_path)})
+
+    r = server._call("project_scan", {"path": str(tmp_path), "ui": False})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True, d
+    det = d["detail"]
+    assert "bug_scan" in det and "std_check" in det and "cb_scan" in det, det.keys()
+    assert det.get("ui_check") == [], "ui=False 不跑 UI"
+    # 落盘
+    logs = scan_log_core.query_logs(tool="project_scan", limit=5)
+    assert len(logs) >= 1 and logs[0]["root"] == str(tmp_path), logs
+
+
+def test_project_scan_with_ui(tmp_path):
+    """project_scan 默认跑 ui_check（Bevy 项目）；非 Rust 目录 ui 为空数组也 ok。"""
+    src = tmp_path / "main.rs"
+    src.write_text("fn main() {}\n", encoding="utf-8")
+    server._call("cb_index", {"path": str(tmp_path)})
+    r = server._call("project_scan", {"path": str(tmp_path)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert "ui_check" in d["detail"], "默认包含 ui_check"
+
+
+def test_vuln_scan_parallel_structure(tmp_path):
+    """vuln_scan 三路并行后输出结构不变（兼容既有契约）。"""
+    src = tmp_path / "demo.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    r = server._call("vuln_scan", {"path": str(src)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    det = d["detail"]
+    assert "bug_scan" in det and "std_check" in det and "ui_check" in det
+    assert isinstance(det["bug_scan"], (list, dict))
+    assert "errors" in det
+
+
+def test_self_scan_active_project_env(tmp_path, monkeypatch):
+    """启动自扫：UNIFIED_RX_PROJECT 指定活跃项目 → 并发扫该项目（互不打扰）。"""
+    import scan_log_core
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    monkeypatch.setenv("UNIFIED_RX_PROJECT", str(tmp_path))
+    src = tmp_path / "demo.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    server._call("cb_index", {"path": str(tmp_path)})
+
+    server._spawn_self_scan()
+    import time
+    time.sleep(6)  # 后台线程：自扫 4 文件 + 项目四路扫描
+    logs = scan_log_core.query_logs(limit=50)
+    tools = {l["tool"] for l in logs}
+    assert "self_scan" in tools, tools
+    assert "project_scan" in tools, "活跃项目被自动扫描"
+    proj = [l for l in logs if l["tool"] == "project_scan"]
+    assert proj and proj[0]["root"] == str(tmp_path), proj

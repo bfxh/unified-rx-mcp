@@ -104,9 +104,12 @@ _MAX_READ = 1 << 20          # 单文件读取上限 1MB（防 OOM）
 _MAX_WRITE = 1 << 20         # 单文件写入上限 1MB
 # 默认沙盒：锚定到进程启动时的工作目录（security 审查修复——默认不允许任意路径读写）
 # 可用环境变量 UNIFIED_RX_SANDBOX 覆盖（分号分隔多个根）；空字符串 = 显式禁用沙盒
-_SANDBOX_ROOTS = [
-    r.strip() for r in os.environ.get("UNIFIED_RX_SANDBOX", os.getcwd()).split(";") if r.strip()
-]
+# UNIFIED_RX_PROJECT（常驻活跃项目）自动并入沙盒根——扫用户指定的项目必须可访问
+_sandbox_roots = [r.strip() for r in os.environ.get("UNIFIED_RX_SANDBOX", os.getcwd()).split(";") if r.strip()]
+_active_proj = os.environ.get("UNIFIED_RX_PROJECT", "").strip()
+if _active_proj and _active_proj not in _sandbox_roots:
+    _sandbox_roots.append(_active_proj)
+_SANDBOX_ROOTS = _sandbox_roots
 
 
 def _check_path(path: str) -> Path:
@@ -630,33 +633,84 @@ def _tool_parallel(args: dict) -> str:
 
 
 # ── 挖漏洞统一入口（2026-08-11 整合：bug_scan + std_check + ui_check 一次调用全跑）──
+# 2026-08-11 高并发：三路扫描并行（ThreadPoolExecutor），互不打扰，总耗时 ≈ 最慢一路
 def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
-    """统一漏洞扫描入口：对 path 依次跑 bug_scan（Python AST 缺陷）+ std_check（工程标准/密钥）+ ui_check（Bevy UI），返回聚合 JSON。"""
+    """统一漏洞扫描入口：对 path **高并发**跑 bug_scan + std_check + ui_check（三路并行，互不打扰），返回聚合 JSON。"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     path = args["path"]
     max_files = int(args.get("max_files", 100))
     results = {"path": path, "bug_scan": [], "std_check": [], "ui_check": [], "errors": []}
-    try:
-        r = _tool_bug_scan({"path": path, "max_files": max_files})
-        text = r[0].text if isinstance(r, list) else str(r)
-        results["bug_scan"] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
-    except Exception as e:  # noqa: BLE001
-        results["errors"].append("bug_scan: %s" % e)
-    try:
-        r = _tool_std_check({"path": path, "max_files": max_files})
-        text = r[0].text if isinstance(r, list) else str(r)
-        results["std_check"] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
-    except Exception as e:  # noqa: BLE001
-        results["errors"].append("std_check: %s" % e)
-    try:
-        r = _tool_ui_check({"path": path, "max_files": max_files})
-        text = r[0].text if isinstance(r, list) else str(r)
-        results["ui_check"] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
-    except Exception as e:  # noqa: BLE001
-        results["errors"].append("ui_check: %s" % e)
-    return [_tr(True, "vuln_scan 完成: bug=%d std=%d ui=%d" % (
+
+    def run_one(tool_fn: str, name: str) -> None:
+        try:
+            fn = {"bug_scan": _tool_bug_scan, "std_check": _tool_std_check,
+                  "ui_check": _tool_ui_check}[tool_fn]
+            r = fn({"path": path, "max_files": max_files})
+            text = r[0].text if isinstance(r, list) else str(r)
+            results[name] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
+        except Exception as e:  # noqa: BLE001
+            results["errors"].append(f"{name}: {e}")
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [pool.submit(run_one, t, n) for t, n in
+                   (("bug_scan", "bug_scan"), ("std_check", "std_check"), ("ui_check", "ui_check"))]
+        for fut in as_completed(futures):
+            fut.result()  # 异常已在 run_one 内捕获
+    return [_tr(True, "vuln_scan 完成(并行): bug=%d std=%d ui=%d" % (
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
         len(results["std_check"]) if isinstance(results["std_check"], list) else 0,
         len(results["ui_check"]) if isinstance(results["ui_check"], list) else 0), results)]
+
+
+# ── 项目级高并发扫描（2026-08-11：四路并行互不打扰 + 自动落盘 scan-log）──
+def _tool_project_scan(args: dict) -> "list[types.TextContent]":
+    """项目级高并发扫描：对项目根**并行**跑 bug_scan + std_check + ui_check + cb_scan
+    （四路 ThreadPoolExecutor，互不打扰，总耗时 ≈ 最慢一路），结果聚合且自动落盘
+    scan-log.jsonl。专项目对话：扫完直接看 scan_log 结果。"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    path = args["path"]
+    max_files = int(args.get("max_files", 100))
+    with_ui = bool(args.get("ui", True))  # Bevy 项目才有 .rs UI；非 Rust 项目可关
+    results = {"path": path, "bug_scan": [], "std_check": [], "ui_check": [],
+               "cb_scan": [], "errors": []}
+
+    def run_one(tool_fn, name, extra=None):
+        try:
+            a = {"path": path, "max_files": max_files}
+            if extra:
+                a.update(extra)
+            r = tool_fn(a)
+            text = r[0].text if isinstance(r, list) else str(r)
+            results[name] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
+        except Exception as e:  # noqa: BLE001
+            results["errors"].append(f"{name}: {e}")
+
+    jobs = [(_tool_bug_scan, "bug_scan", None),
+            (_tool_std_check, "std_check", None),
+            (_tool_cb_scan, "cb_scan", None)]
+    if with_ui:
+        jobs.append((_tool_ui_check, "ui_check", None))
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        futs = [pool.submit(run_one, fn, nm, ex) for fn, nm, ex in jobs]
+        for fut in as_completed(futs):
+            fut.result()
+    # 自动落盘（项目级扫描结果进 scan-log，专项目对话可查）
+    try:
+        import scan_log_core
+        n_bug = len(results["bug_scan"].get("issues", [])) if isinstance(results["bug_scan"], dict) else 0
+        scan_log_core.append_scan({
+            "tool": "project_scan", "root": path, "ok": not results["errors"],
+            "summary": "project_scan %s: bug=%d errors=%d" % (
+                os.path.basename(path.rstrip("/\\")), n_bug, len(results["errors"])),
+        })
+    except Exception:
+        pass
+    return [_tr(True, "project_scan 完成(并行 %d 路): bug=%d std=%d ui=%d cb=%d" % (
+        len(jobs),
+        len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
+        len(results["std_check"]) if isinstance(results["std_check"], list) else 0,
+        len(results["ui_check"]) if isinstance(results["ui_check"], list) else 0,
+        len(results["cb_scan"]) if isinstance(results["cb_scan"], list) else 0), results)]
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1788,7 +1842,12 @@ _TOOLS: dict[str, tuple] = {
     "vuln_scan": (_tool_vuln_scan, _schema({
         "path": _S("string", "文件或目录"),
         "max_files": _S("integer", "扫描上限(默认100)"),
-    }, ["path"]), "统一漏洞扫描：bug_scan + std_check + ui_check 一次全跑"),
+    }, ["path"]), "统一漏洞扫描：bug_scan + std_check + ui_check 一次全跑（三路并行互不打扰）"),
+    "project_scan": (_tool_project_scan, _schema({
+        "path": _S("string", "项目根目录"),
+        "max_files": _S("integer", "扫描上限(默认100)"),
+        "ui": _S("boolean", "是否扫 Bevy UI（非 Rust 项目可关，默认 true）"),
+    }, ["path"]), "项目级高并发扫描：bug_scan+std_check+ui_check+cb_scan 四路并行，结果自动落盘 scan-log"),
     "hallucination_guard": (_tool_hallucination_guard, _schema({
         "text": _S("string", "AI 声明文本（含 file:line / 反引号符号）"),
         "root": _S("string", "仓库根目录（相对路径解析基准，可选）"),
@@ -2067,7 +2126,8 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
 
 # 扫描类工具：调用完成自动落盘 scan-log.jsonl（常驻自扫日志，专项目对话可查）
 _SCAN_LOG_TOOLS = {"bug_scan", "std_check", "vuln_scan", "ui_check",
-                   "cb_scan", "cb_index", "hallucination_guard", "locate_edit"}
+                   "cb_scan", "cb_index", "hallucination_guard", "locate_edit",
+                   "project_scan"}
 
 
 def _scan_log_tick(name: str, args: dict, result: "list[types.TextContent]") -> None:
@@ -2231,10 +2291,13 @@ async def run() -> None:
 
 
 def _spawn_self_scan() -> None:
-    """后台自扫：对 server.py 自身核心文件跑 bug_scan + std_check，结果落盘。
+    """后台自扫 + 活跃项目扫描：常驻启动即跑，互不打扰，结果落盘。
 
-    守护线程 + 失败静默——自扫绝不影响 MCP 协议层。CI/测试环境跳过
-    （UNIFIED_RX_SKIP_SELF_SCAN=1 或 import 自检路径不触发）。
+    - 自扫：对 server.py 自身核心文件跑 bug_scan
+    - 活跃项目：对话在搞哪个项目就本地扫（UNIFIED_RX_PROJECT 指定；
+      缺省探测 stats/scan-log 里最近活跃 root，再缺省常见项目根）
+    守护线程 + 失败静默——绝不影响 MCP 协议层。CI/测试跳过
+    （UNIFIED_RX_SKIP_SELF_SCAN=1）。
     """
     if os.environ.get("UNIFIED_RX_SKIP_SELF_SCAN", "") == "1":
         return
@@ -2245,8 +2308,28 @@ def _spawn_self_scan() -> None:
         sys.path.insert(0, _dir)
         import scan_log_core  # noqa: F811
 
+    def _active_project() -> str | None:
+        """当前对话活跃项目：环境变量 > scan-log 最近 root > 常见项目根。"""
+        env = os.environ.get("UNIFIED_RX_PROJECT", "").strip()
+        if env:
+            return env
+        try:
+            logs = scan_log_core.query_logs(limit=50)
+            roots = [l.get("root", "") for l in logs if l.get("root")]
+            if roots:
+                # 最近一条有 root 的扫描记录所在项目
+                return roots[0]
+        except Exception:
+            pass
+        for cand in (r"D:\开发\VoxelForge-Nexus", r"D:\开发\reasonix-src",
+                     r"D:\开发\VoxelForge"):
+            if os.path.isdir(cand):
+                return cand
+        return None
+
     def _do() -> None:
         try:
+            # 1) 自扫（扫自己，串行小文件）
             for f in scan_log_core.self_scan_files():
                 if not os.path.isfile(f):
                     continue
@@ -2257,6 +2340,13 @@ def _spawn_self_scan() -> None:
                         "tool": "self_scan", "root": f, "ok": n == 0,
                         "summary": f"self bug_scan {os.path.basename(f)}: issues={n}",
                     })
+                except Exception:
+                    pass
+            # 2) 活跃项目并发扫描（互不打扰：独立线程跑 project_scan 全部四路）
+            proj = _active_project()
+            if proj:
+                try:
+                    _call("project_scan", {"path": proj, "max_files": 100})
                 except Exception:
                     pass
         except Exception:
