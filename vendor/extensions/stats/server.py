@@ -52,8 +52,10 @@ def _load() -> list[dict]:
 
 def _save(records: list[dict]) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(
-        json.dumps(records, ensure_ascii=False), encoding="utf-8")
+    # 原子写：临时文件 + rename（高并发下防半写/写坏 JSON）
+    tmp = STATE_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(STATE_FILE)
 
 
 def _truncate(records: list[dict]) -> list[dict]:

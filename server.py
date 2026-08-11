@@ -38,6 +38,7 @@ import math
 import os
 import re
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -488,6 +489,74 @@ def _tool_prime_list(args: dict):
     if fn is None:
         raise ValueError("未知 action: %s（可选 %s）" % (action, sorted(_PRIME_LIST_ACTIONS)))
     return fn(args)
+
+
+# ── 高协作（2026-08-11：pipeline 步骤链 + parallel 并发组——52 工具任意组合）──
+def _parse_val(text: str):
+    """结果解析：JSON 优先，非 JSON 原样文本。"""
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return text
+
+
+def _inject(args, ctx: dict):
+    """参数模板注入：字符串 ${key} 递归替换为 context 值。"""
+    if isinstance(args, dict):
+        return {k: _inject(v, ctx) for k, v in args.items()}
+    if isinstance(args, list):
+        return [_inject(v, ctx) for v in args]
+    if isinstance(args, str) and args.startswith("${") and args.endswith("}"):
+        return ctx.get(args[2:-1], args)
+    return args
+
+
+def _tool_pipeline(args: dict) -> str:
+    """步骤链：前一步结果注入下一步参数（${key}），实现工具间数据流协作。"""
+    steps = args.get("steps") or []
+    max_steps = int(args.get("max_steps", 20))
+    if not steps or len(steps) > max_steps:
+        raise ValueError(f"steps 需 1~{max_steps} 项")
+    ctx: dict = {}
+    out = []
+    for i, step in enumerate(steps):
+        tool = str(step.get("tool", ""))
+        if not tool:
+            raise ValueError(f"step {i} 缺 tool")
+        sargs = _inject(step.get("args") or {}, ctx)
+        r = _call(tool, sargs)[0].text
+        val = _parse_val(r)
+        key = step.get("as")
+        if key:
+            ctx[str(key)] = val
+        out.append({"step": i, "tool": tool, "ok": not r.startswith("Error"), "result": val})
+    return json.dumps({"ok": True, "steps": out, "context_keys": sorted(ctx)}, ensure_ascii=False)
+
+
+def _tool_parallel(args: dict) -> str:
+    """并发组：多工具同时执行（ThreadPoolExecutor ≤8 并发），全部完成后汇总。"""
+    tasks = args.get("tasks") or []
+    timeout = float(args.get("timeout", 60))
+    if not tasks or len(tasks) > 50:
+        raise ValueError("tasks 需 1~50 项")
+    if timeout < 1 or timeout > 600:
+        raise ValueError("timeout 需在 [1,600] 秒")
+    from concurrent.futures import ThreadPoolExecutor
+
+    results: list[dict] = [None] * len(tasks)
+
+    def run(i: int, t: dict) -> None:
+        try:
+            r = _call(str(t.get("tool", "")), t.get("args") or {})[0].text
+            results[i] = {"tool": t.get("tool"), "ok": not r.startswith("Error"), "result": _parse_val(r)}
+        except Exception as exc:
+            results[i] = {"tool": t.get("tool"), "ok": False, "result": f"Error: {type(exc).__name__}: {exc}"}
+
+    with ThreadPoolExecutor(max_workers=min(len(tasks), 8)) as ex:
+        futs = [ex.submit(run, i, t) for i, t in enumerate(tasks)]
+        for f in futs:
+            f.result(timeout=timeout)
+    return json.dumps({"ok": True, "results": results}, ensure_ascii=False)
 
 
 # ── 挖漏洞统一入口（2026-08-11 整合：bug_scan + std_check + ui_check 一次调用全跑）──
@@ -1520,6 +1589,14 @@ _TOOLS: dict[str, tuple] = {
         "path": _S("string", "文件或目录"),
         "max_files": _S("integer", "扫描上限(默认100)"),
     }, ["path"]), "统一漏洞扫描：bug_scan + std_check + ui_check 一次全跑"),
+    "pipeline": (_tool_pipeline, _schema({
+        "steps": _S("array", "步骤链：[{tool, args, as?}]——上一步结果以 ${key} 注入下一步"),
+        "max_steps": _S("integer", "步骤上限(默认20)"),
+    }, ["steps"]), "工具链协作：任意工具顺序组合，前一步输出注入下一步参数"),
+    "parallel": (_tool_parallel, _schema({
+        "tasks": _S("array", "并发任务：[{tool, args}]"),
+        "timeout": _S("number", "总超时秒(默认60，1~600)"),
+    }, ["tasks"]), "高并发：多工具同时执行（≤8 并发），全部完成后汇总"),
     # 代码缺陷扫描 + 精准定位
     "tool_card": (_tool_card, _schema({
         "name": _S("string", "要调用的工具名"),
@@ -1779,31 +1856,42 @@ def _stats_tick(tool: str, duration_ms: float) -> None:
     """工具调用自动打点：内存缓冲，满 100 条或退出时批量落盘（失败静默）。
 
     同步写文件会拖慢每次工具调用（1000 次 >500ms 性能回归），
-    缓冲批量 flush 后单次打点 O(1)。
+    缓冲批量 flush 后单次打点 O(1)。线程安全（_call 经 asyncio.to_thread 并发执行）。
     """
     global _STATS_BUF
     try:
         if "stats_record" not in _EXT_DEFS:
             return
-        _STATS_BUF.append({
-            "ts": time.time(),
-            "task": "unified-rx",
-            "tool": tool,
-            "action": tool,
-            "duration_ms": duration_ms,
-        })
-        if len(_STATS_BUF) >= _STATS_FLUSH_EVERY:
-            _stats_flush()
+        with _STATS_LOCK:
+            _STATS_BUF.append({
+                "ts": time.time(),
+                "task": "unified-rx",
+                "tool": tool,
+                "action": tool,
+                "duration_ms": duration_ms,
+            })
+            if len(_STATS_BUF) >= _STATS_FLUSH_EVERY:
+                _stats_flush_locked()
     except Exception:
         pass  # 打点失败不影响工具调用
 
 
 _STATS_BUF: list[dict] = []
 _STATS_FLUSH_EVERY = 100
+_STATS_LOCK = threading.Lock()
 
 
 def _stats_flush() -> None:
-    """缓冲批量写入 stats 文件（进程退出/满批时调用）。"""
+    """缓冲批量写入 stats 文件（进程退出/汇总前调用；线程安全）。"""
+    try:
+        with _STATS_LOCK:
+            _stats_flush_locked()
+    except Exception:
+        pass
+
+
+def _stats_flush_locked() -> None:
+    """持锁状态下落盘（调用方必须已持有 _STATS_LOCK）。"""
     global _STATS_BUF
     if not _STATS_BUF:
         return
@@ -1847,7 +1935,9 @@ async def run() -> None:
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict | None) -> "list[types.TextContent]":
-        out = _call(name, arguments)
+        # 高并发：同步工具调用放线程池（asyncio.to_thread），不阻塞事件循环——
+        # mcp SDK 并发请求可真正并行处理（此前同步阻塞会串行化所有调用）。
+        out = await asyncio.to_thread(_call, name, arguments)
         return [types.TextContent(type=getattr(c, "type", "text"), text=c.text) for c in out]
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):

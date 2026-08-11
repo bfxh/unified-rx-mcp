@@ -31,8 +31,9 @@ def _isolate_lse_state(tmp_path, monkeypatch):
 def test_tools_count_and_schema():
     defs = server._definitions()
     # 核心 + 可用扩展；CI 上部分扩展可能加载失败（缺失依赖），只断言核心固定
-    # 2026-08-11 去重：29 单工具 → 6 组合 + fib_fibonacci，核心 49 → 28
-    assert len(server._TOOLS) == 28, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-11 去重：29 单工具 → 6 组合 + fib_fibonacci，核心 49 → 28；
+    # 2026-08-11 高协作：+pipeline +parallel → 30
+    assert len(server._TOOLS) == 30, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
