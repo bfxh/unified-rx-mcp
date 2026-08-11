@@ -13,6 +13,8 @@ Files:
   .gitignore
   assets/*
   tools.json
+  CONTRIBUTING.md
+  docs/*
 Copyright: 2026 bfxh
 License: MIT
 
@@ -43,5 +45,15 @@ License: MIT
 
 # locate_core（Qoder 定位核心，与 lse_client 同模式）
 Files: locate_core.py
+Copyright: 2026 bfxh
+License: MIT
+
+# sec-workflows 源目录（GitHub 官方模板集，统一声明）
+Files: sec-workflows/*
+Copyright: 2026 bfxh
+License: MIT
+
+# 安全政策文档
+Files: SECURITY.md
 Copyright: 2026 bfxh
 License: MIT
