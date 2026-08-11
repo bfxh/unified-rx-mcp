@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**64 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**48 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
 ## 定位
 

@@ -183,16 +183,16 @@ def _tool_fs_list(args: dict) -> "list[types.TextContent]":
 # ─────────────────────────────────────────────────────────────
 # 纯函数层（CI-Optimization 内联，零依赖）
 # ─────────────────────────────────────────────────────────────
-def _math_add(args): return str(args["a"] + args["b"])
-def _math_sub(args): return str(args["a"] - args["b"])
-def _math_mul(args): return str(args["a"] * args["b"])
-def _math_div(args):
+def _m_math_add(args): return str(args["a"] + args["b"])
+def _m_math_sub(args): return str(args["a"] - args["b"])
+def _m_math_mul(args): return str(args["a"] * args["b"])
+def _m_math_div(args):
     if args["b"] == 0:
         raise ValueError("除数不能为 0")
     return str(args["a"] / args["b"])
 
 
-def _math_power(args):
+def _m_math_power(args):
     base = args["base"]
     exp = args["exponent"]
     if abs(exp) > 1000:
@@ -200,14 +200,14 @@ def _math_power(args):
     if abs(base) > 1e9:
         raise ValueError("底数过大（>1e9），拒绝计算")
     return str(base ** exp)
-def _math_sqrt(args):
+def _m_math_sqrt(args):
     if args["x"] < 0:
         raise ValueError("负数无实数平方根")
     return str(math.sqrt(args["x"]))
 
 
-def _math_abs(args): return str(abs(args["x"]))
-def _math_factorial(args):
+def _m_math_abs(args): return str(abs(args["x"]))
+def _m_math_factorial(args):
     n = int(args["n"])
     if n < 0:
         raise ValueError("阶乘要求非负整数")
@@ -216,7 +216,7 @@ def _math_factorial(args):
     return str(math.factorial(n))
 
 
-def _fib_fibonacci(args):
+def _m_fib_fibonacci(args):
     n = int(args["n"])
     if n < 0:
         raise ValueError("n 不能为负")
@@ -228,15 +228,15 @@ def _fib_fibonacci(args):
     return str(a)
 
 
-def _str_reverse(args): return args["s"][::-1]
-def _str_upper(args): return args["s"].upper()
-def _str_lower(args): return args["s"].lower()
-def _str_palindrome(args):
+def _m_str_reverse(args): return args["s"][::-1]
+def _m_str_upper(args): return args["s"].upper()
+def _m_str_lower(args): return args["s"].lower()
+def _m_str_palindrome(args):
     s = args["s"]
     return str(s == s[::-1])
 
 
-def _sort_quick(args):
+def _m_sort_quick(args):
     arr = list(args["arr"])
     if len(arr) > 100000:
         raise ValueError("数组过大（>100000）")
@@ -244,7 +244,7 @@ def _sort_quick(args):
     return json.dumps(arr)
 
 
-def _sort_bubble(args):
+def _m_sort_bubble(args):
     arr = list(args["arr"])
     if len(arr) > 2000:
         raise ValueError("数组过大（>2000，冒泡 O(n²) 防 DoS）")
@@ -256,7 +256,7 @@ def _sort_bubble(args):
     return json.dumps(arr)
 
 
-def _search_binary(args):
+def _m_search_binary(args):
     arr = list(args["arr"])
     if len(arr) > 100000:
         raise ValueError("数组过大（>100000）")
@@ -273,7 +273,7 @@ def _search_binary(args):
     return str(-1)
 
 
-def _stat_mean(args):
+def _m_stat_mean(args):
     data = list(args["data"])
     if not data:
         raise ValueError("数据为空")
@@ -282,7 +282,7 @@ def _stat_mean(args):
     return str(sum(data) / len(data))
 
 
-def _stat_median(args):
+def _m_stat_median(args):
     data = list(args["data"])
     if not data:
         raise ValueError("数据为空")
@@ -295,32 +295,32 @@ def _stat_median(args):
     return str((data[n // 2 - 1] + data[n // 2]) / 2)
 
 
-def _geo_circle(args):
+def _m_geo_circle(args):
     r = args["radius"]
     if r < 0:
         raise ValueError("半径不能为负")
     return str(math.pi * r * r)
 
 
-def _geo_rect(args):
+def _m_geo_rect(args):
     l, w = args["length"], args["width"]
     if l < 0 or w < 0:
         raise ValueError("边长不能为负")
     return str(2 * (l + w))
 
 
-def _conv_c2f(args): return str(args["celsius"] * 9 / 5 + 32)
-def _conv_f2c(args): return str((args["fahrenheit"] - 32) * 5 / 9)
+def _m_conv_c2f(args): return str(args["celsius"] * 9 / 5 + 32)
+def _m_conv_f2c(args): return str((args["fahrenheit"] - 32) * 5 / 9)
 
 
-def _json_parse(args):
+def _m_json_parse(args):
     try:
         return json.dumps(json.loads(args["json_string"]), ensure_ascii=False)
     except json.JSONDecodeError as e:
         raise ValueError(f"JSON 解析失败: {e}")
 
 
-def _json_valid(args):
+def _m_json_valid(args):
     try:
         json.loads(args["json_string"])
         return "true"
@@ -328,11 +328,11 @@ def _json_valid(args):
         return "false"
 
 
-def _valid_email(args):
+def _m_valid_email(args):
     return str(bool(re.match(r"^[\w.+-]+@[\w-]+\.[\w.]+$", args["email"])))
 
 
-def _prime_is_prime(args):
+def _m_prime_is_prime(args):
     n = int(args["n"])
     if n < 2:
         return "false"
@@ -344,7 +344,7 @@ def _prime_is_prime(args):
     return "true"
 
 
-def _prime_generate(args):
+def _m_prime_generate(args):
     limit = int(args["limit"])
     if limit > 1_000_000:
         raise ValueError("limit 过大（>1M）")
@@ -356,7 +356,7 @@ def _prime_generate(args):
     return json.dumps([i for i in range(2, limit + 1) if sieve[i]])
 
 
-def _list_unique(args):
+def _m_list_unique(args):
     seen, out = set(), []
     for x in args["lst"]:
         if x not in seen:
@@ -365,7 +365,7 @@ def _list_unique(args):
     return json.dumps(out)
 
 
-def _list_flatten(args):
+def _m_list_flatten(args):
     out = []
 
     def _flat(x):
@@ -377,6 +377,147 @@ def _list_flatten(args):
 
     _flat(args["nested_list"])
     return json.dumps(out)
+
+
+# ── 组合工具（2026-08-11 去重重构：29 单工具 → 6 组合，action 分发）──
+# 背景：原 29 个纯函数单工具与外部 ci-optimization MCP 功能重复（AI 报告 45 冲突）。
+# 方案：保留全部逻辑为 _m_* 内部函数，对外仅暴露 6 个组合工具 + fib_fibonacci，
+# 工具数 69 → 47，能力零丢失（旧名不再暴露，如需兼容可在 _ALIASES 加映射）。
+
+_MATH_ACTIONS = {
+    "add": lambda a: str(a["a"] + a["b"]),
+    "sub": lambda a: str(a["a"] - a["b"]),
+    "mul": lambda a: str(a["a"] * a["b"]),
+    "div": _m_math_div,
+    "power": _m_math_power,
+    "sqrt": _m_math_sqrt,
+    "abs": _m_math_abs,
+    "factorial": _m_math_factorial,
+    "c2f": _m_conv_c2f,
+    "f2c": _m_conv_f2c,
+}
+
+
+def _tool_math_ops(args: dict):
+    """数学运算组合：add/sub/mul/div/power/sqrt/abs/factorial + 温度换算 c2f/f2c。"""
+    action = args.get("action")
+    fn = _MATH_ACTIONS.get(action)
+    if fn is None:
+        raise ValueError("未知 action: %s（可选 %s）" % (action, sorted(_MATH_ACTIONS)))
+    return fn(args)
+
+
+_TEXT_ACTIONS = {
+    "reverse": _m_str_reverse,
+    "upper": _m_str_upper,
+    "lower": _m_str_lower,
+    "palindrome": _m_str_palindrome,
+}
+
+
+def _tool_text_ops(args: dict):
+    """文本运算组合：reverse/upper/lower/palindrome。"""
+    action = args.get("action")
+    fn = _TEXT_ACTIONS.get(action)
+    if fn is None:
+        raise ValueError("未知 action: %s（可选 %s）" % (action, sorted(_TEXT_ACTIONS)))
+    return fn(args)
+
+
+_SORT_SEARCH_ACTIONS = {
+    "quick_sort": _m_sort_quick,
+    "bubble_sort": _m_sort_bubble,
+    "binary_search": _m_search_binary,
+}
+
+
+def _tool_sort_search(args: dict):
+    """排序与查找组合：quick_sort/bubble_sort/binary_search。"""
+    action = args.get("action")
+    fn = _SORT_SEARCH_ACTIONS.get(action)
+    if fn is None:
+        raise ValueError("未知 action: %s（可选 %s）" % (action, sorted(_SORT_SEARCH_ACTIONS)))
+    return fn(args)
+
+
+_STAT_GEO_ACTIONS = {
+    "mean": _m_stat_mean,
+    "median": _m_stat_median,
+    "circle_area": _m_geo_circle,
+    "rect_perimeter": _m_geo_rect,
+}
+
+
+def _tool_stat_geo(args: dict):
+    """统计与几何组合：mean/median/circle_area/rect_perimeter。"""
+    action = args.get("action")
+    fn = _STAT_GEO_ACTIONS.get(action)
+    if fn is None:
+        raise ValueError("未知 action: %s（可选 %s）" % (action, sorted(_STAT_GEO_ACTIONS)))
+    return fn(args)
+
+
+_JSON_EMAIL_ACTIONS = {
+    "parse": _m_json_parse,
+    "valid": _m_json_valid,
+    "email": _m_valid_email,
+}
+
+
+def _tool_json_email(args: dict):
+    """JSON 与校验组合：parse/valid/email。"""
+    action = args.get("action")
+    fn = _JSON_EMAIL_ACTIONS.get(action)
+    if fn is None:
+        raise ValueError("未知 action: %s（可选 %s）" % (action, sorted(_JSON_EMAIL_ACTIONS)))
+    return fn(args)
+
+
+_PRIME_LIST_ACTIONS = {
+    "is_prime": _m_prime_is_prime,
+    "generate": _m_prime_generate,
+    "unique": _m_list_unique,
+    "flatten": _m_list_flatten,
+}
+
+
+def _tool_prime_list(args: dict):
+    """素数表与列表组合：is_prime/generate/unique/flatten。"""
+    action = args.get("action")
+    fn = _PRIME_LIST_ACTIONS.get(action)
+    if fn is None:
+        raise ValueError("未知 action: %s（可选 %s）" % (action, sorted(_PRIME_LIST_ACTIONS)))
+    return fn(args)
+
+
+# ── 挖漏洞统一入口（2026-08-11 整合：bug_scan + std_check + ui_check 一次调用全跑）──
+def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
+    """统一漏洞扫描入口：对 path 依次跑 bug_scan（Python AST 缺陷）+ std_check（工程标准/密钥）+ ui_check（Bevy UI），返回聚合 JSON。"""
+    path = args["path"]
+    max_files = int(args.get("max_files", 100))
+    results = {"path": path, "bug_scan": [], "std_check": [], "ui_check": [], "errors": []}
+    try:
+        r = _tool_bug_scan({"path": path, "max_files": max_files})
+        text = r[0].text if isinstance(r, list) else str(r)
+        results["bug_scan"] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
+    except Exception as e:  # noqa: BLE001
+        results["errors"].append("bug_scan: %s" % e)
+    try:
+        r = _tool_std_check({"path": path, "max_files": max_files})
+        text = r[0].text if isinstance(r, list) else str(r)
+        results["std_check"] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
+    except Exception as e:  # noqa: BLE001
+        results["errors"].append("std_check: %s" % e)
+    try:
+        r = _tool_ui_check({"path": path, "max_files": max_files})
+        text = r[0].text if isinstance(r, list) else str(r)
+        results["ui_check"] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
+    except Exception as e:  # noqa: BLE001
+        results["errors"].append("ui_check: %s" % e)
+    return [_tr(True, "vuln_scan 完成: bug=%d std=%d ui=%d" % (
+        len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
+        len(results["std_check"]) if isinstance(results["std_check"], list) else 0,
+        len(results["ui_check"]) if isinstance(results["ui_check"], list) else 0), results)]
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1342,46 +1483,41 @@ _TOOLS: dict[str, tuple] = {
     "fs_stat": (_tool_fs_stat, _schema({"path": _S("string", "路径")}, ["path"]), "文件元信息（存在/大小/mtime）"),
     "fs_list": (_tool_fs_list, _schema({"path": _S("string", "目录"), "depth": _S("integer", "深度(默认1)")}, ["path"]), "列目录（≤200 项）"),
     # 数学
-    "math_add": (_math_add, _schema({"a": _S("number", "加数"), "b": _S("number", "加数")}, ["a", "b"]), "加法"),
-    "math_sub": (_math_sub, _schema({"a": _S("number", ""), "b": _S("number", "")}, ["a", "b"]), "减法"),
-    "math_mul": (_math_mul, _schema({"a": _S("number", ""), "b": _S("number", "")}, ["a", "b"]), "乘法"),
-    "math_div": (_math_div, _schema({"a": _S("number", ""), "b": _S("number", "")}, ["a", "b"]), "除法（b≠0）"),
-    "math_power": (_math_power, _schema({"base": _S("number", ""), "exponent": _S("number", "")}, ["base", "exponent"]), "幂"),
-    "math_sqrt": (_math_sqrt, _schema({"x": _S("number", "")}, ["x"]), "平方根"),
-    "math_abs": (_math_abs, _schema({"x": _S("number", "")}, ["x"]), "绝对值"),
-    "math_factorial": (_math_factorial, _schema({"n": _S("integer", "≤1000")}, ["n"]), "阶乘"),
-    # 斐波那契
-    "fib_fibonacci": (_fib_fibonacci, _schema({"n": _S("integer", "≤20000")}, ["n"]), "斐波那契第 n 项"),
-    # 字符串
-    "str_reverse": (_str_reverse, _schema({"s": _S("string", "")}, ["s"]), "反转字符串"),
-    "str_upper": (_str_upper, _schema({"s": _S("string", "")}, ["s"]), "转大写"),
-    "str_lower": (_str_lower, _schema({"s": _S("string", "")}, ["s"]), "转小写"),
-    "str_palindrome": (_str_palindrome, _schema({"s": _S("string", "")}, ["s"]), "是否回文"),
-    # 排序
-    "sort_quick": (_sort_quick, _schema({"arr": _S("array", "≤100000")}, ["arr"]), "快速排序"),
-    "sort_bubble": (_sort_bubble, _schema({"arr": _S("array", "≤2000")}, ["arr"]), "冒泡排序"),
-    # 搜索
-    "search_binary": (_search_binary, _schema({"arr": _S("array", "已排序"), "target": _S("number", "")}, ["arr", "target"]), "二分查找"),
-    # 统计
-    "stat_mean": (_stat_mean, _schema({"data": _S("array", "数字")}, ["data"]), "均值"),
-    "stat_median": (_stat_median, _schema({"data": _S("array", "数字")}, ["data"]), "中位数"),
-    # 几何
-    "geo_circle_area": (_geo_circle, _schema({"radius": _S("number", "")}, ["radius"]), "圆面积"),
-    "geo_rect_perimeter": (_geo_rect, _schema({"length": _S("number", ""), "width": _S("number", "")}, ["length", "width"]), "矩形周长"),
-    # 转换
-    "conv_c2f": (_conv_c2f, _schema({"celsius": _S("number", "")}, ["celsius"]), "摄氏→华氏"),
-    "conv_f2c": (_conv_f2c, _schema({"fahrenheit": _S("number", "")}, ["fahrenheit"]), "华氏→摄氏"),
-    # JSON
-    "json_parse": (_json_parse, _schema({"json_string": _S("string", "")}, ["json_string"]), "解析 JSON"),
-    "json_valid": (_json_valid, _schema({"json_string": _S("string", "")}, ["json_string"]), "校验 JSON"),
-    # 校验
-    "valid_email": (_valid_email, _schema({"email": _S("string", "")}, ["email"]), "邮箱格式校验"),
-    # 素数
-    "prime_is_prime": (_prime_is_prime, _schema({"n": _S("integer", "≤10M")}, ["n"]), "素数判断"),
-    "prime_generate": (_prime_generate, _schema({"limit": _S("integer", "≤1M")}, ["limit"]), "生成素数"),
-    # 列表
-    "list_unique": (_list_unique, _schema({"lst": _S("array", "")}, ["lst"]), "去重"),
-    "list_flatten": (_list_flatten, _schema({"nested_list": _S("array", "")}, ["nested_list"]), "展平嵌套列表"),
+    # ── 组合工具（2026-08-11 去重：原 29 单工具 → 6 组合 + fib_fibonacci）──
+    "math_ops": (_tool_math_ops, _schema({
+        "action": _S("string", "add/sub/mul/div/power/sqrt/abs/factorial/c2f/f2c"),
+        "a": _S("number", "add/sub/mul/div 用"), "b": _S("number", "add/sub/mul/div 用"),
+        "base": _S("number", "power 用"), "exponent": _S("number", "power 用"),
+        "x": _S("number", "sqrt/abs 用"), "n": _S("integer", "factorial 用"),
+        "celsius": _S("number", "c2f 用"), "fahrenheit": _S("number", "f2c 用"),
+    }, ["action"]), "数学运算组合（原 math_add/sub/mul/div/power/sqrt/abs/factorial + conv_c2f/f2c）"),
+    "text_ops": (_tool_text_ops, _schema({
+        "action": _S("string", "reverse/upper/lower/palindrome"),
+        "s": _S("string", "文本"),
+    }, ["action", "s"]), "文本运算组合（原 str_reverse/upper/lower/palindrome）"),
+    "sort_search": (_tool_sort_search, _schema({
+        "action": _S("string", "quick_sort/bubble_sort/binary_search"),
+        "arr": _S("array", "待排序/查找数组"), "target": _S("number", "binary_search 目标"),
+    }, ["action", "arr"]), "排序查找组合（原 sort_quick/sort_bubble/search_binary）"),
+    "stat_geo": (_tool_stat_geo, _schema({
+        "action": _S("string", "mean/median/circle_area/rect_perimeter"),
+        "data": _S("array", "mean/median 用"), "radius": _S("number", "circle_area 用"),
+        "length": _S("number", "rect_perimeter 用"), "width": _S("number", "rect_perimeter 用"),
+    }, ["action"]), "统计几何组合（原 stat_mean/median + geo_circle_area/rect_perimeter）"),
+    "json_email": (_tool_json_email, _schema({
+        "action": _S("string", "parse/valid/email"),
+        "json_string": _S("string", "parse/valid 用"), "email": _S("string", "email 用"),
+    }, ["action"]), "JSON 校验组合（原 json_parse/json_valid/valid_email）"),
+    "prime_list": (_tool_prime_list, _schema({
+        "action": _S("string", "is_prime/generate/unique/flatten"),
+        "n": _S("integer", "is_prime 用 ≤10M"), "limit": _S("integer", "generate 用 ≤1M"),
+        "lst": _S("array", "unique 用"), "nested_list": _S("array", "flatten 用"),
+    }, ["action"]), "素数列表组合（原 prime_is_prime/generate + list_unique/flatten）"),
+    "fib_fibonacci": (_m_fib_fibonacci, _schema({"n": _S("integer", "≤20000")}, ["n"]), "斐波那契第 n 项"),
+    "vuln_scan": (_tool_vuln_scan, _schema({
+        "path": _S("string", "文件或目录"),
+        "max_files": _S("integer", "扫描上限(默认100)"),
+    }, ["path"]), "统一漏洞扫描：bug_scan + std_check + ui_check 一次全跑"),
     # 代码缺陷扫描 + 精准定位
     "tool_card": (_tool_card, _schema({
         "name": _S("string", "要调用的工具名"),
@@ -1654,12 +1790,12 @@ def _selftest() -> None:
     start = time.perf_counter()
     n = len(_TOOLS)
     assert n == len(_definitions()) - len(_EXT_DEFS), "定义数不一致"
-    # 抽样调用
-    assert _call("math_add", {"a": 2, "b": 3})[0].text == "5"
-    assert _call("str_reverse", {"s": "abc"})[0].text == "cba"
-    assert _call("prime_is_prime", {"n": 17})[0].text == "true"
-    assert _call("json_valid", {"json_string": "{bad}"})[0].text == "false"
-    assert "Error" in _call("math_div", {"a": 1, "b": 0})[0].text
+    # 抽样调用（组合工具）
+    assert _call("math_ops", {"action": "add", "a": 2, "b": 3})[0].text == "5"
+    assert _call("text_ops", {"action": "reverse", "s": "abc"})[0].text == "cba"
+    assert _call("prime_list", {"action": "is_prime", "n": 17})[0].text == "true"
+    assert _call("json_email", {"action": "valid", "json_string": "{bad}"})[0].text == "false"
+    assert "Error" in _call("math_ops", {"action": "div", "a": 1, "b": 0})[0].text
     # 文件层
     tmp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_selftest_tmp.txt")
     _tool_fs_write({"path": tmp, "content": "hello"})

@@ -93,6 +93,12 @@ impl EngineState {
     }
 
     fn state_path() -> PathBuf {
+        // LSE_STATE 环境变量覆盖（测试隔离用）；缺省 ~/.unified-rx/lse-state.json
+        if let Ok(override_path) = std::env::var("LSE_STATE") {
+            if !override_path.trim().is_empty() {
+                return PathBuf::from(override_path);
+            }
+        }
         let home = std::env::var("USERPROFILE")
             .or_else(|_| std::env::var("HOME"))
             .unwrap_or_else(|_| ".".to_string());

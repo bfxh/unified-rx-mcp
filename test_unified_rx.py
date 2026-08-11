@@ -15,11 +15,24 @@ os.environ["UNIFIED_RX_SANDBOX"] = ""
 import server
 
 
+@pytest.fixture(autouse=True)
+def _isolate_lse_state(tmp_path, monkeypatch):
+    """LSE 测试隔离：state 指向临时文件，不污染生产 ~/.unified-rx/lse-state.json。
+
+    lse_client 通过 subprocess 调 lse-engine（继承 os.environ），
+    Rust 引擎 LSE_STATE 环境变量覆盖 state 路径（lib.rs state_path）。
+    """
+    monkeypatch.setenv("LSE_STATE", str(tmp_path / "lse-test-state.json"))
+    yield
+    # 引擎每次调用都持久化到临时文件；测试结束后由 tmp_path 自动清理
+
+
 # ── 注册表完整性 ──────────────────────────────────────────────
 def test_tools_count_and_schema():
     defs = server._definitions()
     # 核心 + 可用扩展；CI 上部分扩展可能加载失败（缺失依赖），只断言核心固定
-    assert len(server._TOOLS) == 49, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-11 去重：29 单工具 → 6 组合 + fib_fibonacci，核心 49 → 28
+    assert len(server._TOOLS) == 28, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -28,10 +41,10 @@ def test_tools_count_and_schema():
 def test_tool_card():
     """Tool 角色回喂：结构化卡片视图（Aether AiRole::Tool 启发）。"""
     # 纯函数工具 → 卡片 JSON
-    r = server._call("tool_card", {"name": "math_add", "arguments": {"a": 2, "b": 3}})[0]
+    r = server._call("tool_card", {"name": "math_ops", "arguments": {"action": "add", "a": 2, "b": 3}})[0]
     assert r.role == "tool"
     d = json.loads(r.text)
-    assert d["ok"] is True and "math_add" in d["summary"] and d["detail"] == 5
+    assert d["ok"] is True and "math_ops" in d["summary"] and d["detail"] == 5
     # JSON 结果工具 → 透传 detail
     r2 = server._call("tool_card", {"name": "bug_locate", "arguments": {"error_text": "server.py:1"}})[0]
     d2 = json.loads(r2.text)
@@ -40,7 +53,7 @@ def test_tool_card():
     r3 = server._call("tool_card", {"name": "nope"})[0]
     assert json.loads(r3.text)["ok"] is False
     # 工具内部错误 → ok=False
-    r4 = server._call("tool_card", {"name": "math_div", "arguments": {"a": 1, "b": 0}})[0]
+    r4 = server._call("tool_card", {"name": "math_ops", "arguments": {"action": "div", "a": 1, "b": 0}})[0]
     assert json.loads(r4.text)["ok"] is False
     # 缺 name → ok=False
     r5 = server._call("tool_card", {"name": ""})[0]
@@ -50,37 +63,37 @@ def test_tool_card():
 def test_tool_card_truncates_detail():
     """max_detail_len 截断：大列表只留前 20 条 + truncated 标记（防撑爆上下文）。"""
     # 大列表（10000 素数）→ 截断
-    r = server._call("tool_card", {"name": "prime_generate", "arguments": {"limit": 10000}, "max_detail_len": 200})[0]
+    r = server._call("tool_card", {"name": "prime_list", "arguments": {"action": "generate", "limit": 10000}, "max_detail_len": 200})[0]
     d = json.loads(r.text)
     detail = d["detail"]
     assert isinstance(detail, dict) and detail.get("truncated") is True
     assert detail.get("total") and detail.get("shown") == 20
     assert len(detail.get("items", [])) == 20
     # 小结果不受截断影响
-    r2 = server._call("tool_card", {"name": "math_add", "arguments": {"a": 2, "b": 3}})[0]
+    r2 = server._call("tool_card", {"name": "math_ops", "arguments": {"action": "add", "a": 2, "b": 3}})[0]
     assert json.loads(r2.text)["detail"] == 5
     # 非法 max_detail_len → 报错
-    r3 = server._call("tool_card", {"name": "math_add", "arguments": {"a": 1, "b": 1}, "max_detail_len": 0})[0]
+    r3 = server._call("tool_card", {"name": "math_ops", "arguments": {"action": "add", "a": 1, "b": 1}, "max_detail_len": 0})[0]
     assert "Error" in r3.text or "max_detail_len" in r3.text
 
 
 def test_prefix_groups():
     names = set(server._TOOLS)
     assert {"fs_read", "fs_write", "fs_stat", "fs_list"} <= names
-    assert {"math_add", "math_div", "math_power", "math_sqrt"} <= names
-    assert {"sort_quick", "sort_bubble"} <= names
-    assert {"prime_is_prime", "prime_generate"} <= names
+    assert {"math_ops", "text_ops", "sort_search", "stat_geo", "json_email", "prime_list"} <= names
+    assert "fib_fibonacci" in names
+    assert "vuln_scan" in names
 
 
 # ── 工具正确性 ────────────────────────────────────────────────
 def test_math():
-    assert server._call("math_add", {"a": 2, "b": 3})[0].text == "5"
-    assert server._call("math_div", {"a": 7, "b": 2})[0].text == "3.5"
-    assert "Error" in server._call("math_div", {"a": 1, "b": 0})[0].text
-    assert server._call("math_power", {"base": 2, "exponent": 10})[0].text == "1024"
-    assert server._call("math_sqrt", {"x": 16})[0].text == "4.0"
-    assert server._call("math_factorial", {"n": 5})[0].text == "120"
-    assert "Error" in server._call("math_factorial", {"n": 100000})[0].text
+    assert server._call("math_ops", {"action": "add", "a": 2, "b": 3})[0].text == "5"
+    assert server._call("math_ops", {"action": "div", "a": 7, "b": 2})[0].text == "3.5"
+    assert "Error" in server._call("math_ops", {"action": "div", "a": 1, "b": 0})[0].text
+    assert server._call("math_ops", {"action": "power", "base": 2, "exponent": 10})[0].text == "1024"
+    assert server._call("math_ops", {"action": "sqrt", "x": 16})[0].text == "4.0"
+    assert server._call("math_ops", {"action": "factorial", "n": 5})[0].text == "120"
+    assert "Error" in server._call("math_ops", {"action": "factorial", "n": 100000})[0].text
 
 
 def test_fib():
@@ -90,37 +103,37 @@ def test_fib():
 
 
 def test_str():
-    assert server._call("str_reverse", {"s": "abc"})[0].text == "cba"
-    assert server._call("str_upper", {"s": "abc"})[0].text == "ABC"
-    assert server._call("str_palindrome", {"s": "abba"})[0].text == "True"
-    assert server._call("str_palindrome", {"s": "ab"})[0].text == "False"
+    assert server._call("text_ops", {"action": "reverse", "s": "abc"})[0].text == "cba"
+    assert server._call("text_ops", {"action": "upper", "s": "abc"})[0].text == "ABC"
+    assert server._call("text_ops", {"action": "palindrome", "s": "abba"})[0].text == "True"
+    assert server._call("text_ops", {"action": "palindrome", "s": "ab"})[0].text == "False"
 
 
 def test_sort_search():
-    assert json.loads(server._call("sort_quick", {"arr": [3, 1, 2]})[0].text) == [1, 2, 3]
-    assert json.loads(server._call("sort_bubble", {"arr": [3, 1, 2]})[0].text) == [1, 2, 3]
-    assert server._call("search_binary", {"arr": [1, 2, 3, 4], "target": 3})[0].text == "2"
-    assert server._call("search_binary", {"arr": [1, 2, 3], "target": 9})[0].text == "-1"
+    assert json.loads(server._call("sort_search", {"action": "quick_sort", "arr": [3, 1, 2]})[0].text) == [1, 2, 3]
+    assert json.loads(server._call("sort_search", {"action": "bubble_sort", "arr": [3, 1, 2]})[0].text) == [1, 2, 3]
+    assert server._call("sort_search", {"action": "binary_search", "arr": [1, 2, 3, 4], "target": 3})[0].text == "2"
+    assert server._call("sort_search", {"action": "binary_search", "arr": [1, 2, 3], "target": 9})[0].text == "-1"
 
 
 def test_stat_geo_conv():
-    assert server._call("stat_mean", {"data": [1, 2, 3]})[0].text == "2.0"
-    assert server._call("stat_median", {"data": [1, 2, 3]})[0].text == "2"
-    assert abs(float(server._call("geo_circle_area", {"radius": 1})[0].text) - 3.14159) < 0.001
-    assert server._call("geo_rect_perimeter", {"length": 3, "width": 4})[0].text == "14"
-    assert server._call("conv_c2f", {"celsius": 0})[0].text == "32.0"
-    assert server._call("conv_f2c", {"fahrenheit": 32})[0].text == "0.0"
+    assert server._call("stat_geo", {"action": "mean", "data": [1, 2, 3]})[0].text == "2.0"
+    assert server._call("stat_geo", {"action": "median", "data": [1, 2, 3]})[0].text == "2"
+    assert abs(float(server._call("stat_geo", {"action": "circle_area", "radius": 1})[0].text) - 3.14159) < 0.001
+    assert server._call("stat_geo", {"action": "rect_perimeter", "length": 3, "width": 4})[0].text == "14"
+    assert server._call("math_ops", {"action": "c2f", "celsius": 0})[0].text == "32.0"
+    assert server._call("math_ops", {"action": "f2c", "fahrenheit": 32})[0].text == "0.0"
 
 
 def test_json_valid_prime_list():
-    assert server._call("json_valid", {"json_string": '{"a":1}'})[0].text == "true"
-    assert server._call("json_valid", {"json_string": "{bad}"})[0].text == "false"
-    assert server._call("json_parse", {"json_string": '{"a":1}'})[0].text == '{"a": 1}'
-    assert server._call("prime_is_prime", {"n": 17})[0].text == "true"
-    assert server._call("prime_is_prime", {"n": 18})[0].text == "false"
-    assert server._call("valid_email", {"email": "a@b.com"})[0].text == "True"
-    assert json.loads(server._call("list_unique", {"lst": [1, 1, 2]})[0].text) == [1, 2]
-    assert json.loads(server._call("list_flatten", {"nested_list": [1, [2, [3]]]})[0].text) == [1, 2, 3]
+    assert server._call("json_email", {"action": "valid", "json_string": '{"a":1}'})[0].text == "true"
+    assert server._call("json_email", {"action": "valid", "json_string": "{bad}"})[0].text == "false"
+    assert server._call("json_email", {"action": "parse", "json_string": '{"a":1}'})[0].text == '{"a": 1}'
+    assert server._call("prime_list", {"action": "is_prime", "n": 17})[0].text == "true"
+    assert server._call("prime_list", {"action": "is_prime", "n": 18})[0].text == "false"
+    assert server._call("json_email", {"action": "email", "email": "a@b.com"})[0].text == "True"
+    assert json.loads(server._call("prime_list", {"action": "unique", "lst": [1, 1, 2]})[0].text) == [1, 2]
+    assert json.loads(server._call("prime_list", {"action": "flatten", "nested_list": [1, [2, [3]]]})[0].text) == [1, 2, 3]
 
 
 # ── 文件层 ───────────────────────────────────────────────────
@@ -147,7 +160,7 @@ def test_fs_errors(tmp_path):
 def test_perf_fast_dispatch():
     start = time.perf_counter()
     for _ in range(1000):
-        server._call("math_add", {"a": 1, "b": 2})
+        server._call("math_ops", {"action": "add", "a": 1, "b": 2})
     elapsed = (time.perf_counter() - start) * 1000
     assert elapsed < 500, f"1000 次调用 {elapsed:.0f}ms 过慢"
 
@@ -179,29 +192,29 @@ def test_fs_sandbox_enforced():
 
 def test_math_power_limits():
     """math_power 指数/底数上限（HIGH-2 修复验证）。"""
-    assert server._call("math_power", {"base": 2, "exponent": 10})[0].text == "1024"
-    out = server._call("math_power", {"base": 2, "exponent": 100000})[0].text
+    assert server._call("math_ops", {"action": "power", "base": 2, "exponent": 10})[0].text == "1024"
+    out = server._call("math_ops", {"action": "power", "base": 2, "exponent": 100000})[0].text
     assert "Error" in out and "指数" in out, f"指数未限制: {out}"
-    out2 = server._call("math_power", {"base": 2, "exponent": 2000})[0].text
+    out2 = server._call("math_ops", {"action": "power", "base": 2, "exponent": 2000})[0].text
     assert "Error" in out2, f"指数上限 1000 未生效: {out2}"
 
 
 def test_array_limits():
     """search/stat 数组上限（security LOW 修复验证）。"""
     big = list(range(100001))
-    assert "Error" in server._call("search_binary", {"arr": big, "target": 1})[0].text
-    assert "Error" in server._call("stat_mean", {"data": big})[0].text
-    assert "Error" in server._call("stat_median", {"data": big})[0].text
-    assert server._call("stat_median", {"data": [1, 2, 3]})[0].text == "2"
+    assert "Error" in server._call("sort_search", {"action": "binary_search", "arr": big, "target": 1})[0].text
+    assert "Error" in server._call("stat_geo", {"action": "mean", "data": big})[0].text
+    assert "Error" in server._call("stat_geo", {"action": "median", "data": big})[0].text
+    assert server._call("stat_geo", {"action": "median", "data": [1, 2, 3]})[0].text == "2"
 
 
 def test_bigint_limits():
     """factorial/fib/bubble 上限与 Python int→str 位限对齐（review should-fix 验证）。"""
-    assert server._call("math_factorial", {"n": 1000})[0].text != ""
-    assert "Error" in server._call("math_factorial", {"n": 1001})[0].text
+    assert server._call("math_ops", {"action": "factorial", "n": 1000})[0].text != ""
+    assert "Error" in server._call("math_ops", {"action": "factorial", "n": 1001})[0].text
     assert server._call("fib_fibonacci", {"n": 20000})[0].text != ""
     assert "Error" in server._call("fib_fibonacci", {"n": 20001})[0].text
-    assert "Error" in server._call("sort_bubble", {"arr": list(range(2001))})[0].text
+    assert "Error" in server._call("sort_search", {"action": "bubble_sort", "arr": list(range(2001))})[0].text
 
 
 # ── ui_check（Bevy UI 静态检查，程序驱动）────────────────────
@@ -864,7 +877,7 @@ def test_tool_card_experience_field():
     """tool_card 经验字段：model_fingerprint/context_hash/delta_score → experience_id。"""
     import time
     ctx = f"ut-ctx-{int(time.time()*1000)}"
-    r = server._call("tool_card", {"name": "math_add", "arguments": {"a": 1, "b": 2},
+    r = server._call("tool_card", {"name": "math_ops", "arguments": {"action": "add", "a": 1, "b": 2},
                                    "model_fingerprint": "ut-model", "context_hash": ctx,
                                    "delta_score": 0.7})[0]
     d = json.loads(r.text)
