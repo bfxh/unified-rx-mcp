@@ -56,6 +56,25 @@ LSE 教训引擎借鉴《自然-通讯》「压缩学习 枢纽优先」思想�
 
 配套：`lesson_recall_lse` / `lesson_feedback` 教训召回闭环，发现幻觉模式后可记录教训防复发。
 
+## 工具链协作（一次调用 = 多步流程，减少调用轮次）
+
+`pipeline` 支持**预设配方（preset）**——AI 一次调用即可跑完完整流程，
+不用手工拼 steps（1 次 MCP 调用替代 4-6 次）：
+
+```jsonc
+// 仓库审计：索引 → 漏洞 → 工程标准 → 综合（4 步 1 次调用）
+{"preset": "audit_repo", "path": "/repo"}
+// 幻觉守卫闭环：能力清单 → 声明验证
+{"preset": "guard_text", "text": "AI 的声明文本", "root": "/repo"}
+// 学习闭环：教训召回 + 能力清单
+{"preset": "learn", "task": "当前任务描述"}
+// 改代码前：定位 + 补全上下文
+{"preset": "locate_context", "path": "/repo", "query": "要改的符号"}
+```
+
+调用方顶层参数（`path`/`text`/`root`/`query`/`task`）自动注入配方步骤的 `${key}`；
+显式传 `steps` 可覆盖配方。未知 preset 报错不静默。
+
 ## Tool 角色回喂（AetherStudio PR #106/#111 启发）
 
 AetherStudio 新增 `AiRole::Tool`：工具结果以 Tool 角色记录、**不显示为用户气泡**、

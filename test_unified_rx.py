@@ -1313,3 +1313,52 @@ def test_lesson_recall_hub_priority(monkeypatch):
     util = {u["id"]: u for u in d["utility"]}
     assert util[lid_hub]["hub_score"] > util[lid_cold]["hub_score"]
     assert util[lid_hub]["hub_bonus"] == 0.12  # min(8,10)*0.015
+
+
+# ─────────────────────────────────────────────────────────────
+# pipeline preset 配方（2026-08-11：一次调用=多步流程，减少调用轮次）
+# ─────────────────────────────────────────────────────────────
+
+def test_pipeline_preset_audit_repo(tmp_path):
+    """audit_repo 配方：1 次 pipeline 调用展开 4 步（索引+漏洞+标准+综合）。"""
+    src = tmp_path / "demo.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    r = server._call("pipeline", {"preset": "audit_repo", "path": str(tmp_path)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True, d
+    assert d["preset"] == "audit_repo", "preset 标识保留"
+    tools = [s["tool"] for s in d["steps"]]
+    assert tools == ["cb_status", "bug_scan", "std_check", "vuln_scan"], tools
+    assert all(s["ok"] for s in d["steps"]), d
+
+
+def test_pipeline_preset_guard_text(tmp_path):
+    """guard_text 配方：能力清单 + 幻觉守卫一次调用。"""
+    r = server._call("pipeline", {
+        "preset": "guard_text",
+        "text": "见 missing.py:1",
+        "root": str(tmp_path),
+    })[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    tools = [s["tool"] for s in d["steps"]]
+    assert tools == ["capability_manifest", "hallucination_guard"], tools
+    guard = d["steps"][1]["result"]
+    assert guard.get("verdict") == "refuted", "幻觉声明应被证伪"
+
+
+def test_pipeline_preset_unknown_rejected():
+    """未知 preset 报错（不静默降级）。"""
+    r = server._call("pipeline", {"preset": "nope", "path": "."})[0]
+    assert "Error" in r.text and "未知 preset" in r.text, r.text
+
+
+def test_pipeline_preset_steps_override(tmp_path):
+    """调用方显式 steps 优先于 preset（显式覆盖，不冲突）。"""
+    r = server._call("pipeline", {
+        "preset": "guard_text",
+        "steps": [{"tool": "math_ops", "args": {"action": "add", "a": 1, "b": 2}}],
+    })[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert len(d["steps"]) == 1 and d["steps"][0]["tool"] == "math_ops"

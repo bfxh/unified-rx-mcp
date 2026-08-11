@@ -15,6 +15,7 @@ Python 3.8+ 标准库零依赖。与 server.py 同目录部署。
 import json
 import os
 import re
+import time
 
 from pathlib import Path
 
@@ -76,29 +77,6 @@ def _load_index(root: str) -> dict | None:
 
 
 def _index_stale(root: str, max_age: float = 3600.0) -> bool:
-    """索引新鲜度：index.json mtime 超过 max_age（默认 1h）视为过期。"""
-    try:
-        idx_path = os.path.join(root, _INDEX_DIR, "index.json")
-        if not os.path.exists(idx_path):
-            return True
-        return time.time() - os.path.getmtime(idx_path) > max_age
-    except OSError:
-        return True
-
-
-def _ensure_index(root: str) -> dict | None:
-    """确保索引新鲜：过期/缺失时尝试重建（失败降级为全文件扫描）。"""
-    if not _index_stale(root):
-        return _load_index(root)
-    try:
-        from cb_index_core import index_repo
-        index_repo(root)
-    except Exception:
-        pass
-    return _load_index(root)
-
-
-def _index_stale(root: str, max_age: float = 3600.0) -> bool:
     """索引新鲜度检查：index.json mtime 超过 max_age（默认 1h）视为过期。
 
     locate 首次调用会先触发 cb_index 重建；若重建失败（只读/受限）则降级
@@ -114,7 +92,7 @@ def _index_stale(root: str, max_age: float = 3600.0) -> bool:
 
 
 def _ensure_index(root: str) -> dict | None:
-    """确保索引新鲜：过期/缺失时尝试重建；返回 (index, rebuilt)。"""
+    """确保索引新鲜：过期/缺失时尝试重建；返回索引 dict（失败可能为 None）。"""
     if not _index_stale(root):
         return _load_index(root)
     try:

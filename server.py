@@ -511,8 +511,59 @@ def _inject(args, ctx: dict):
     return args
 
 
+# pipeline 预设配方（一次调用 = 多步流程，减少 AI 工具调用轮次）
+# 每个配方返回步骤列表；${path} 等由调用方参数注入。
+_PIPELINE_PRESETS: dict[str, list[dict]] = {
+    # 仓库审计：索引 → 状态 → 漏洞 → 工程标准（4 步 1 次调用）
+    "audit_repo": [
+        {"tool": "cb_status", "args": {"path": "${path}"}, "as": "index"},
+        {"tool": "bug_scan", "args": {"path": "${path}", "max_files": 100}, "as": "bugs"},
+        {"tool": "std_check", "args": {"path": "${path}", "max_files": 100}, "as": "std"},
+        {"tool": "vuln_scan", "args": {"path": "${path}", "max_files": 100}, "as": "vuln"},
+    ],
+    # 幻觉守卫闭环：能力边界 → 声明验证（2 步 1 次调用）
+    "guard_text": [
+        {"tool": "capability_manifest", "args": {}, "as": "caps"},
+        {"tool": "hallucination_guard", "args": {"text": "${text}", "root": "${root}"}, "as": "guard"},
+    ],
+    # 教训召回 + 反馈（学习闭环）
+    "learn": [
+        {"tool": "lesson_recall_lse", "args": {"task_description": "${task}"}, "as": "lessons"},
+        {"tool": "capability_manifest", "args": {}, "as": "caps"},
+    ],
+    # 代码定位 + 上下文（改代码前：定位 → 取上下文）
+    "locate_context": [
+        {"tool": "locate_edit", "args": {"path": "${path}", "query": "${query}"}, "as": "loc"},
+        {"tool": "code_complete", "args": {"path": "${path}"}, "as": "code"},
+    ],
+}
+
+
+def _expand_preset(args: dict) -> dict:
+    """preset 展开：把 {preset, ...vars} 转为完整 steps（保持其他参数透传）。"""
+    preset_name = args.get("preset")
+    if not preset_name:
+        return args
+    steps = _PIPELINE_PRESETS.get(str(preset_name))
+    if steps is None:
+        raise ValueError(f"未知 preset: {preset_name}（可选: {sorted(_PIPELINE_PRESETS)}）")
+    expanded = dict(args)
+    # 展开后的步骤：调用方显式 steps 优先，否则用配方
+    if not expanded.get("steps"):
+        expanded["steps"] = steps
+    return expanded
+
+
 def _tool_pipeline(args: dict) -> str:
-    """步骤链：前一步结果注入下一步参数（${key}），实现工具间数据流协作。"""
+    """步骤链：前一步结果注入下一步参数（${key}），实现工具间数据流协作。
+
+    支持 preset 配方（一次调用跑完整流程，减少调用轮次）：
+      pipeline({preset:"audit_repo", path:"..."})   → 索引+漏洞+标准 4 步
+      pipeline({preset:"guard_text", text:"...", root:"..."}) → 能力清单+幻觉守卫
+      pipeline({preset:"learn", task:"..."})        → 教训召回+能力清单
+      pipeline({preset:"locate_context", path:"...", query:"..."}) → 定位+补全
+    """
+    args = _expand_preset(args)
     steps = args.get("steps") or []
     max_steps = int(args.get("max_steps", 20))
     depth = int(args.get("_depth", 0))
@@ -520,7 +571,9 @@ def _tool_pipeline(args: dict) -> str:
         raise ValueError("pipeline 嵌套深度超限（>3，防 DoS）")
     if not steps or len(steps) > max_steps:
         raise ValueError(f"steps 需 1~{max_steps} 项")
-    ctx: dict = {}
+    # 初始上下文 = 调用方顶层参数（preset 变量如 path/text/root 可直接 ${注入}）
+    ctx: dict = {k: v for k, v in args.items()
+                 if k not in ("steps", "max_steps", "preset", "_depth")}
     out = []
     for i, step in enumerate(steps):
         tool = str(step.get("tool", ""))
@@ -538,7 +591,8 @@ def _tool_pipeline(args: dict) -> str:
         if key:
             ctx[str(key)] = val
         out.append({"step": i, "tool": tool, "ok": not r.startswith("Error"), "result": val})
-    return json.dumps({"ok": True, "steps": out, "context_keys": sorted(ctx)}, ensure_ascii=False)
+    return json.dumps({"ok": True, "preset": args.get("preset"), "steps": out,
+                       "context_keys": sorted(ctx)}, ensure_ascii=False)
 
 
 def _tool_parallel(args: dict) -> str:
@@ -1712,9 +1766,10 @@ _TOOLS: dict[str, tuple] = {
     }, ["text"]), "幻觉守卫：提取声明并对照本地验证（verified/refuted/unverifiable），refuted 即幻觉必须纠正"),
     "capability_manifest": (_tool_capability_manifest, _schema({}, []), "能力清单：全部工具 + 有什么/没有什么边界声明（防能力幻觉）"),
     "pipeline": (_tool_pipeline, _schema({
+        "preset": _S("string", "预设配方：audit_repo/guard_text/learn/locate_context（一次调用跑完整流程，减少调用轮次）"),
         "steps": _S("array", "步骤链：[{tool, args, as?}]——上一步结果以 ${key} 注入下一步"),
         "max_steps": _S("integer", "步骤上限(默认20)"),
-    }, ["steps"]), "工具链协作：任意工具顺序组合，前一步输出注入下一步参数"),
+    }, []), "工具链协作：任意工具顺序组合，前一步输出注入下一步参数；支持 preset 一键配方"),
     "parallel": (_tool_parallel, _schema({
         "tasks": _S("array", "并发任务：[{tool, args}]"),
         "timeout": _S("number", "总超时秒(默认60，1~600)"),
