@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 """guard_core.py — 防幻觉引擎（纯标准库，零依赖，零网络）。
 
 目标：AI 在引用事实（file:line / 符号 / 工具名 / 数字）前，先过本引擎验证。

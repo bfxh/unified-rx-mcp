@@ -29,17 +29,14 @@ name: APIsec
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  # Customize trigger events based on your DevSecOps processes.
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  # 仅手动触发（workflow_dispatch）：APIsec 需第三方账号 secrets
+  # （apisec_username/apisec_password），未配置时 push 必红；
+  # 且其扫描目标是外部 VAmPI demo 项目，与本仓库代码无关。
+  # 需要时在 Actions 页手动 Run workflow，并先配置 secrets。
+  workflow_dispatch:
+
   schedule:
     - cron: '42 2 * * 3'
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
 
 
 permissions:
