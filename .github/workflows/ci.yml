@@ -36,6 +36,7 @@ jobs:
           cp -r vendor/extensions/code-analysis-enhance mcp-servers/
           cp -r vendor/extensions/pr-oracle mcp-servers/
           cp -r vendor/extensions/tautest mcp-servers/
+          cp -r vendor/extensions/stats mcp-servers/
 
       - name: Build lse-engine (Rust LSE 引擎，pytest 依赖其 release 二进制)
         uses: dtolnay/rust-toolchain@stable

@@ -1145,6 +1145,7 @@ def _tool_code_complete(args: dict) -> "list[types.TextContent]":
     character = int(args.get("character", -1))
     language_id = str(args.get("language_id", "") or "").lower()
     root = str(args.get("root", "") or "")
+    timeout = float(args.get("timeout", 25.0))
     text = args.get("text", "")
     if text is None:
         text = ""
@@ -1184,6 +1185,7 @@ def _tool_code_complete(args: dict) -> "list[types.TextContent]":
         "character": character,
         "text": text,
         "root": root,
+        "timeout": timeout,
     })
     try:
         data = json.loads(resp[0].text)
@@ -1546,6 +1548,7 @@ _TOOLS: dict[str, tuple] = {
         "language_id": _S("string", "rust/python/typescript/javascript/c/cpp（缺省按后缀探测）"),
         "text": _S("string", "文档全文（缺省自动读文件，≤1MB）"),
         "root": _S("string", "工作区根目录"),
+        "timeout": _S("number", "LSP 请求超时秒数（默认 25；rust 大项目首启可调大）"),
     }, ["path"]), "LSP 自动补全（基于真实语法树）：读文件→探测语言→completion→格式化候选"),
     "ds_lookup": (_tool_ds_lookup, _schema({}, []), "设计系统 token 查询（AI 生成 UI 时引用）"),
     "ds_check": (_tool_ds_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "设计系统合规检查（硬编码值/规则偏离）"),
@@ -1681,6 +1684,14 @@ async def _build_ext_defs() -> None:
     except Exception as exc:
         print(f"[unified-rx] WARNING: tautest 扩展定义构建失败: {exc}", file=sys.stderr)
     try:
+        stats = _load_ext("stats")
+        if stats is not None and hasattr(stats, "_TOOLS"):
+            for tname, (_, sc, desc) in stats._TOOLS.items():
+                # stats 工具名自带 stats_ 前缀；pure 风格（stats._call 返回 str）
+                _EXT_DEFS[tname] = ("stats", "pure", _ToolDef(tname, desc, sc))
+    except Exception as exc:
+        print(f"[unified-rx] WARNING: stats 扩展定义构建失败: {exc}", file=sys.stderr)
+    try:
         cae = _load_ext("code-analysis-enhance")
         if cae is not None:
             # cae 用 FastMCP 装饰器（async list_tools）；工具名固定，直接建映射
@@ -1721,9 +1732,14 @@ def _tool_proxy(tn: str, schema: dict | None = None):
 def _call_ext(name: str, arguments: dict) -> "list[types.TextContent]":
     """扩展工具分发（name 带前缀）。"""
     if name not in _EXT_DEFS:
-        # 防御：MCP 协议层 list_tools 会先构建扩展；同步路径不可 asyncio.run
-        # （事件循环内崩溃），未构建时返回错误而不是炸进程。
-        return [_TC(f"Error: unknown tool: {name}（扩展定义未构建，协议层 list_tools 会先构建）")]
+        # 防御：同步上下文（测试/直接调用如 code_complete）可安全构建；
+        # async 上下文（协议层 handler）不可 asyncio.run（事件循环内崩溃），
+        # 由协议层 list_tools 先行构建，此处返回错误文本而不是炸进程。
+        try:
+            asyncio.get_running_loop()
+            return [_TC(f"Error: unknown tool: {name}（扩展定义未构建，协议层 list_tools 会先构建）")]
+        except RuntimeError:
+            _ext_definitions()
     label, kind, tdef = _EXT_DEFS[name]
     if kind == "pure":
         return _ext_call(label, "pure", tdef.name, arguments)
@@ -1738,6 +1754,7 @@ _EXT_FN_MAP = {"file_dedup_state": "file_dedup"}
 
 
 def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
+    t0 = time.perf_counter()
     try:
         if name in _TOOLS:
             fn, _, _ = _TOOLS[name]
@@ -1745,11 +1762,64 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
             if isinstance(result, list):
                 return result
             return [_TC(str(result))]
-        if name.startswith(("pr_oracle_", "tautest_", "cae_")):
+        if name in ("stats_summary", "stats_status"):
+            _stats_flush()  # 汇总/状态前落盘缓冲打点（协作：summary 能看到自动打点）
+        if name.startswith(("pr_oracle_", "tautest_", "cae_", "stats_")):
             return _call_ext(name, arguments or {})
         raise ValueError(f"unknown tool: {name}")
     except Exception as exc:
         return [_TC(f"Error: {exc}")]
+    finally:
+        # 自动打点（工具协作：每个工具调用自动记录到 stats，stats_* 自身除外）
+        if not name.startswith("stats_"):
+            _stats_tick(name, (time.perf_counter() - t0) * 1000)
+
+
+def _stats_tick(tool: str, duration_ms: float) -> None:
+    """工具调用自动打点：内存缓冲，满 100 条或退出时批量落盘（失败静默）。
+
+    同步写文件会拖慢每次工具调用（1000 次 >500ms 性能回归），
+    缓冲批量 flush 后单次打点 O(1)。
+    """
+    global _STATS_BUF
+    try:
+        if "stats_record" not in _EXT_DEFS:
+            return
+        _STATS_BUF.append({
+            "ts": time.time(),
+            "task": "unified-rx",
+            "tool": tool,
+            "action": tool,
+            "duration_ms": duration_ms,
+        })
+        if len(_STATS_BUF) >= _STATS_FLUSH_EVERY:
+            _stats_flush()
+    except Exception:
+        pass  # 打点失败不影响工具调用
+
+
+_STATS_BUF: list[dict] = []
+_STATS_FLUSH_EVERY = 100
+
+
+def _stats_flush() -> None:
+    """缓冲批量写入 stats 文件（进程退出/满批时调用）。"""
+    global _STATS_BUF
+    if not _STATS_BUF:
+        return
+    mod = _EXT_LOADED.get("stats")
+    if mod is None:
+        return
+    try:
+        records = mod._load() + _STATS_BUF
+        mod._save(mod._truncate(records))
+        _STATS_BUF = []
+    except Exception:
+        pass
+
+
+import atexit
+atexit.register(_stats_flush)
 
 
 # ─────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 {
   "core_count": 28,
-  "ext_count": 20,
-  "total": 48,
+  "ext_count": 24,
+  "total": 52,
   "core": [
     "bug_locate",
     "bug_locate_feedback",
@@ -49,6 +49,10 @@
     "pr_oracle_discover_tests",
     "pr_oracle_map_local",
     "pr_oracle_map_pr",
+    "stats_clear",
+    "stats_record",
+    "stats_status",
+    "stats_summary",
     "tautest_demo",
     "tautest_doctor",
     "tautest_init",

@@ -264,6 +264,7 @@ async def list_tools() -> list[types.Tool]:
                     "character": {"type": "integer", "description": "光标列（UTF-16 码元，0-based）"},
                     "text": {"type": "string", "description": "文档全文"},
                     "root": {"type": "string", "description": "工作区根目录"},
+                    "timeout": {"type": "number", "description": "单请求超时秒数（默认 25；rust 大项目首启可调大，如 60）"},
                 },
                 "required": ["language_id", "request", "path", "line", "character", "text"],
             },
@@ -1412,6 +1413,10 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
         return [types.TextContent(type="text", text=json.dumps(
             {"ok": False, "error": "text 超过 1MB 上限（security sa_20260809_004631）"}, ensure_ascii=False))]
     root = arguments.get("root", "")
+    timeout = float(arguments.get("timeout", 25.0))
+    if timeout < 1 or timeout > 300:
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": "timeout 需在 [1,300] 秒范围"}, ensure_ascii=False))]
 
     if language_id not in LSP_SERVER_CONFIG:
         return [types.TextContent(type="text", text=json.dumps(
@@ -1440,19 +1445,19 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
         if request_type == "completion":
             resp = client.request("textDocument/completion", {
                 "textDocument": {"uri": uri}, "position": pos, "context": {"triggerKind": 1},
-            })
+            }, timeout=timeout)
         elif request_type == "definition":
             resp = client.request("textDocument/definition", {
                 "textDocument": {"uri": uri}, "position": pos,
-            })
+            }, timeout=timeout)
         elif request_type == "references":
             resp = client.request("textDocument/references", {
                 "textDocument": {"uri": uri}, "position": pos, "context": {"includeDeclaration": True},
-            })
+            }, timeout=timeout)
         else:  # hover
             resp = client.request("textDocument/hover", {
                 "textDocument": {"uri": uri}, "position": pos,
-            })
+            }, timeout=timeout)
         # rust-analyzer 首次启动需 1~3s 做项目索引（cargo metadata），期间请求返回
         # -32801 content modified（LSP 规范要求客户端重发请求）。
         # 只对 -32801 重试（result:null 是合法空结果，不重试——review H 修复）。
@@ -1466,7 +1471,7 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
                 _time.sleep(1.5)
                 resp = client.request("textDocument/" + request_type, {
                     "textDocument": {"uri": uri}, "position": pos,
-                })
+                }, timeout=timeout)
                 _retries -= 1
         # review 复核修复：非 initialize 请求的错误也要检查，
         # 否则超时/服务器错误会被伪装成"无结果"（ok:true, result:null）
