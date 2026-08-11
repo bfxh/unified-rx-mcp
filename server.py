@@ -960,17 +960,48 @@ def _bug_func_args(node) -> set:
     return args
 
 
+def _bug_is_none_guarded(child, none_vars) -> bool:
+    """短路保护检测：X is None or X.field / X is None and X.field 模式不报。
+    沿 _p 父链向上找 BoolOp：若 X 解引用在 BoolOp 右支且左支有 'X is None'，则受保护。"""
+    cur = getattr(child, "_p", None)
+    while cur is not None:
+        if isinstance(cur, ast.BoolOp):
+            pos = None
+            for i, v in enumerate(cur.values):
+                if v is child or child in _ast_children(v):
+                    pos = i
+                    break
+            if pos is None:
+                return False
+            for v in cur.values[:pos]:
+                if isinstance(v, ast.Compare) and v.ops and isinstance(v.ops[0], ast.Is):
+                    if isinstance(v.left, ast.Name) and v.left.id in none_vars:
+                        return True
+            return False
+        if isinstance(cur, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Module,
+                            ast.ClassDef, ast.If, ast.While, ast.For)):
+            return False
+        cur = getattr(cur, "_p", None)
+    return False
+
+
+def _ast_children(n):
+    return list(ast.iter_child_nodes(n))
+
+
 def _bug_check_deref(node, none_vars, path, lines, issues):
     """None 变量被解引用（属性/下标/调用）检测；线性近似，可能漏报/误报。"""
     for child in ast.iter_child_nodes(node):
         if isinstance(child, (ast.Attribute, ast.Subscript)) and isinstance(child.value, ast.Name) \
                 and child.value.id in none_vars:
-            issues.append(_bug_issue(path, child, "none_deref", "warning",
-                                     f"'{child.value.id}' 可能为 None，此处解引用会抛异常", lines))
+            if not _bug_is_none_guarded(child, none_vars):
+                issues.append(_bug_issue(path, child, "none_deref", "warning",
+                                         f"'{child.value.id}' 可能为 None，此处解引用会抛异常", lines))
         elif isinstance(child, ast.Call) and isinstance(child.func, ast.Name) \
                 and child.func.id in none_vars:
-            issues.append(_bug_issue(path, child, "none_deref", "warning",
-                                     f"'{child.func.id}' 可能为 None，调用会抛 TypeError", lines))
+            if not _bug_is_none_guarded(child, none_vars):
+                issues.append(_bug_issue(path, child, "none_deref", "warning",
+                                         f"'{child.func.id}' 可能为 None，调用会抛 TypeError", lines))
         else:
             _bug_check_deref(child, none_vars, path, lines, issues)
 
@@ -996,6 +1027,14 @@ def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
     for stmt in stmts:
         defs |= _bug_direct_defs(stmt)
     known = defs | outer | _BUG_BUILTINS
+
+    # 设置 _p 父指针（短路保护检测需要父链）
+    def _link(node, parent):
+        node._p = parent  # type: ignore[attr-defined]
+        for c in ast.iter_child_nodes(node):
+            _link(c, node)
+    for stmt in stmts:
+        _link(stmt, None)
 
     # ── 未定义变量（跳过嵌套函数/类，由递归处理；lambda 参数并入）──
     def walk_names(node, extra):
@@ -1030,11 +1069,14 @@ def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
     for stmt in stmts:
         if isinstance(stmt, ast.Assign):
             val_none = isinstance(stmt.value, ast.Constant) and stmt.value.value is None
+            # 别名传播只认"真别名"（X = Y，Y 当前为 None 变量）；
+            # 函数/构造调用赋值（X = Foo()）绝不视为 None——修复误报（review 实测）
             val_alias = isinstance(stmt.value, ast.Name) and stmt.value.id in none_vars
+            is_call_assign = isinstance(stmt.value, ast.Call)
             seq_len = _bug_seq_len(stmt.value)
             for t in stmt.targets:
                 if isinstance(t, ast.Name):
-                    if val_none or val_alias:
+                    if (val_none or val_alias) and not is_call_assign:
                         none_vars[t.id] = stmt.lineno
                     else:
                         none_vars.pop(t.id, None)
@@ -1051,6 +1093,23 @@ def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
         if isinstance(stmt, ast.AugAssign) and isinstance(stmt.target, ast.Name) \
                 and isinstance(stmt.op, ast.Add):
             seq_vars.pop(stmt.target.id, None)
+        # try 块内联：body/handlers/orelse 的赋值流并入当前作用域——必须先于
+        # deref 检查（修复 'X=None 后 X=Foo() 构造赋值仍报 none_deref' 误报：
+        # try 内语句原本不参与外层线性跟踪，构造赋值无法清除 None 标记）
+        if isinstance(stmt, ast.Try):
+            for inner in stmt.body + stmt.handlers + stmt.orelse:
+                inner_list = inner.body if isinstance(inner, ast.ExceptHandler) else [inner]
+                for is2 in inner_list:
+                    if isinstance(is2, ast.Assign):
+                        iv = is2.value
+                        icall = isinstance(iv, ast.Call)
+                        for t in is2.targets:
+                            if isinstance(t, ast.Name):
+                                # 构造/函数调用赋值（X = Foo()）绝不视为 None；只有 X = None 才算
+                                if isinstance(iv, ast.Constant) and iv.value is None:
+                                    none_vars[t.id] = is2.lineno
+                                else:
+                                    none_vars.pop(t.id, None)
         if none_vars:
             _bug_check_deref(stmt, none_vars, path, lines, issues)
         if seq_vars:

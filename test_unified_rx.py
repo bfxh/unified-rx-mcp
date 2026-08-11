@@ -1660,3 +1660,56 @@ def test_scan_loops_skip_when_disabled(monkeypatch):
     server._spawn_self_scan()
     after = set(t.name for t in threading.enumerate())
     assert not {"rx-scan-self", "rx-scan-project", "rx-scan-full"} & (after - before), "禁用时不得启动循环"
+
+
+# ─────────────────────────────────────────────────────────────
+# bug_scan 误报修复回归（2026-08-12：try 构造赋值 + 短路保护）
+# ─────────────────────────────────────────────────────────────
+
+def test_bug_scan_no_false_positive_try_call_assign(tmp_path):
+    """X=None 后 try 内 X=Foo() 构造赋值，后续解引用不误报（修复 8 个误报）。"""
+    src = tmp_path / "t.py"
+    src.write_text(
+        "class Foo:\n"
+        "    def run(self):\n"
+        "        return 1\n"
+        "client = None\n"
+        "try:\n"
+        "    client = Foo()\n"
+        "    client.run()\n"  # 构造赋值后安全
+        "except Exception:\n"
+        "    pass\n",
+        encoding="utf-8")
+    r = server._call("bug_scan", {"path": str(src)})[0]
+    d = json.loads(r.text)
+    none_derefs = [i for i in d.get("issues", []) if i.get("rule") == "none_deref"]
+    assert not none_derefs, none_derefs
+
+
+def test_bug_scan_no_false_positive_none_short_circuit(tmp_path):
+    """X is None or X.field 短路保护不误报。"""
+    src = tmp_path / "s.py"
+    src.write_text(
+        "best = None\n"
+        "for s in [{'line': 1}]:\n"
+        "    if best is None or s['line'] > best['line']:\n"
+        "        best = s\n"
+        "print(best)\n",
+        encoding="utf-8")
+    r = server._call("bug_scan", {"path": str(src)})[0]
+    d = json.loads(r.text)
+    none_derefs = [i for i in d.get("issues", []) if i.get("rule") == "none_deref"]
+    assert not none_derefs, none_derefs
+
+
+def test_bug_scan_still_detects_real_none_deref(tmp_path):
+    """真 None 解引用仍被检测（误报修复不丢真阳性）。"""
+    src = tmp_path / "r.py"
+    src.write_text(
+        "x = None\n"
+        "print(x.field)\n",  # 真 bug
+        encoding="utf-8")
+    r = server._call("bug_scan", {"path": str(src)})[0]
+    d = json.loads(r.text)
+    none_derefs = [i for i in d.get("issues", []) if i.get("rule") == "none_deref"]
+    assert len(none_derefs) == 1, none_derefs
