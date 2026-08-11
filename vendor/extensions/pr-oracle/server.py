@@ -28,8 +28,18 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
-PR_ORACLE_SRC = r"E:\共享\51\10\pr-test-oracle\src"
-sys.path.insert(0, PR_ORACLE_SRC)
+# vendored pr_test_oracle（models/test_mapper，仅 pydantic + simple_logger 依赖）：
+# 优先 pr-oracle 目录内的 vendored 副本（CI/任意机器可移植）；
+# 回退本机开发路径（旧布局 E:\共享\51\10\pr-test-oracle）。
+# 注意：必须 append 而非 insert(0)——insert(0) 会把本目录（含 server.py）
+# 顶到 sys.path 首位，导致 import server / reload 解析到 pr-oracle 而非 unified-rx。
+_PR_ORACLE_VENDORED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pr_test_oracle")
+PR_ORACLE_SRC = (
+    os.path.dirname(os.path.abspath(__file__))
+    if os.path.isdir(_PR_ORACLE_VENDORED)
+    else r"E:\共享\51\10\pr-test-oracle\src"
+)
+sys.path.append(PR_ORACLE_SRC)
 
 from pr_test_oracle.models import TestMapping  # noqa: E402
 from pr_test_oracle.test_mapper import TestMapper  # noqa: E402

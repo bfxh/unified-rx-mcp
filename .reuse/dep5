@@ -12,6 +12,7 @@ Files:
   BUG_SCAN_DESIGN.md
   .gitignore
   assets/*
+  tools.json
 Copyright: 2026 bfxh
 License: MIT
 
