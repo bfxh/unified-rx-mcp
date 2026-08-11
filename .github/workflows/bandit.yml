@@ -51,3 +51,4 @@ jobs:
         with:
           name: bandit-results
           path: bandit-results.sarif
+          retention-days: 3

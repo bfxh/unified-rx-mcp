@@ -64,3 +64,4 @@ jobs:
         with:
           name: safety-report
           path: safety-report.json
+          retention-days: 3

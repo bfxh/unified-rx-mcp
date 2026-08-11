@@ -40,3 +40,4 @@ jobs:
         with:
           name: semgrep-results
           path: semgrep.sarif
+          retention-days: 3

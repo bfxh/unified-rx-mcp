@@ -66,6 +66,7 @@ jobs:
         with:
           name: coverage-reports
           path: |
+          retention-days: 3
             coverage.xml
             lcov.info
             coverage.out

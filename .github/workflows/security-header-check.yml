@@ -47,3 +47,4 @@ jobs:
         with:
           name: security-header-report
           path: headers.txt
+          retention-days: 3

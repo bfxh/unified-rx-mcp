@@ -56,3 +56,4 @@ jobs:
         with:
           name: osv-scanner-results
           path: osv-results.*
+          retention-days: 3

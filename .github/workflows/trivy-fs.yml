@@ -46,3 +46,4 @@ jobs:
         with:
           name: trivy-fs-results
           path: trivy-results.sarif
+          retention-days: 3

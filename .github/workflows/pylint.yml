@@ -59,6 +59,7 @@ jobs:
         with:
           name: pylint-reports
           path: |
+          retention-days: 3
             pylint-report.json
             pylint-report.html
             pylint-output.txt

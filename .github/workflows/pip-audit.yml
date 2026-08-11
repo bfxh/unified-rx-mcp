@@ -69,3 +69,4 @@ jobs:
         with:
           name: pip-audit-report
           path: pip-audit-report.json
+          retention-days: 3
