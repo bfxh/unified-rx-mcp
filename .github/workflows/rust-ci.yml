@@ -19,7 +19,7 @@ jobs:
       run:
         working-directory: lse-engine
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -39,7 +39,7 @@ jobs:
         run: |
           echo '{"cmd":"delta_update","payload":{"kind":"lesson","id":"L1","delta":-0.5}}' | ./target/release/lse-engine.exe | grep -q '"ok":true'
       - name: upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lse-engine-${{ github.sha }}-windows
           path: lse-engine/target/release/lse-engine.exe
