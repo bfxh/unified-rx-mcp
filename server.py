@@ -606,6 +606,58 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
 
 
 # ─────────────────────────────────────────────────────────────
+# 防幻觉守卫（hallucination_guard + capability_manifest：AI 事实核查）
+# ─────────────────────────────────────────────────────────────
+def _tool_hallucination_guard(args: dict) -> "list[types.TextContent]":
+    """幻觉守卫：提取 AI 声明中的可验证事实（file:line / 反引号符号 / 工具名），
+    对照本地文件系统与工具注册表逐条验证，输出 verified / refuted / unverifiable 三分级。
+    refuted（被证伪）即幻觉——必须纠正后才能继续。纯静态零 LLM 零网络。"""
+    text = str(args.get("text", ""))
+    root = args.get("root") or None
+    if not text.strip():
+        return [_TC(json.dumps({"ok": False, "error": "text 必填（AI 声明文本）"},
+                               ensure_ascii=False))]
+    if root:
+        # root 同样过沙盒（guard 引擎内部还做 root 包含校验，双保险）
+        try:
+            root = str(_check_path(root))
+        except ValueError as e:
+            return [_TC(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))]
+    try:
+        from guard_core import guard_text
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from guard_core import guard_text  # noqa: F811
+    tool_names = set(_TOOLS.keys()) | set(_EXT_DEFS.keys())
+    res = guard_text(text, root=root, tool_names=tool_names)
+    res["ok"] = True
+    res["tool_names_checked"] = len(tool_names)
+    return [_TC(json.dumps(res, ensure_ascii=False))]
+
+
+def _tool_capability_manifest(args: dict) -> "list[types.TextContent]":
+    """能力清单（动态生成）：列出全部工具 + 显式边界声明（有什么 / 没有什么），
+    防止 AI 幻觉自己具备不存在的能力。对话开始时调用一次即可。"""
+    core = [{"name": n, "desc": d} for n, (_, _, d) in _TOOLS.items()]
+    ext = []
+    for n, (_, _, t) in _EXT_DEFS.items():
+        desc = getattr(t, "description", None) or str(t)[:120]
+        ext.append({"name": n, "desc": desc})
+    try:
+        from guard_core import capability_manifest
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from guard_core import capability_manifest  # noqa: F811
+    res = capability_manifest(core, ext)
+    res["ok"] = True
+    res["core_count"] = len(core)
+    res["ext_count"] = len(ext)
+    return [_TC(json.dumps(res, ensure_ascii=False))]
+
+
+# ─────────────────────────────────────────────────────────────
 # 代码缺陷扫描层（bug_*：纯 ast/re 零依赖静态分析 + 报错精准定位）
 # ─────────────────────────────────────────────────────────────
 _BUG_MAX_FILES = 100            # 单次扫描文件数上限（防 DoS）
@@ -1605,6 +1657,11 @@ _TOOLS: dict[str, tuple] = {
         "path": _S("string", "文件或目录"),
         "max_files": _S("integer", "扫描上限(默认100)"),
     }, ["path"]), "统一漏洞扫描：bug_scan + std_check + ui_check 一次全跑"),
+    "hallucination_guard": (_tool_hallucination_guard, _schema({
+        "text": _S("string", "AI 声明文本（含 file:line / 反引号符号）"),
+        "root": _S("string", "仓库根目录（相对路径解析基准，可选）"),
+    }, ["text"]), "幻觉守卫：提取声明并对照本地验证（verified/refuted/unverifiable），refuted 即幻觉必须纠正"),
+    "capability_manifest": (_tool_capability_manifest, _schema({}, []), "能力清单：全部工具 + 有什么/没有什么边界声明（防能力幻觉）"),
     "pipeline": (_tool_pipeline, _schema({
         "steps": _S("array", "步骤链：[{tool, args, as?}]——上一步结果以 ${key} 注入下一步"),
         "max_steps": _S("integer", "步骤上限(默认20)"),
@@ -1996,6 +2053,15 @@ def _selftest() -> None:
     assert d["ok"] and "issues" in d
     d2 = json.loads(_call("bug_locate", {"error_text": f'{os.path.abspath(__file__)}:1'})[0].text)
     assert d2["matched"]
+    # 防幻觉守卫（抽样：真实声明 verified / 不存在路径 refuted）
+    dg = json.loads(_call("hallucination_guard", {
+        "text": f"见 {os.path.basename(__file__)}:1 与 no_such_file.py:9",
+        "root": os.path.dirname(os.path.abspath(__file__)),
+    })[0].text)
+    assert dg["ok"] and dg["verdict"] == "refuted" and any(
+        i["claim"] == "no_such_file.py:9" for i in dg["refuted"])
+    dm = json.loads(_call("capability_manifest", {})[0].text)
+    assert dm["ok"] and dm["core_count"] == n and dm["has_not"]
     # 扩展层（懒加载验证）
     ext_n = len(_EXT_DEFS)
     # 扩展可能不可用（CI 无扩展/依赖）：仅在有扩展时断言其非空与分发

@@ -61,7 +61,8 @@ def test_tools_count_and_schema():
     # 核心 + 可用扩展；CI 上部分扩展可能加载失败（缺失依赖），只断言核心固定
     # 2026-08-11 去重：29 单工具 → 6 组合 + fib_fibonacci，核心 49 → 28；
     # 2026-08-11 高协作：+pipeline +parallel → 30
-    assert len(server._TOOLS) == 30, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-11 防幻觉：+hallucination_guard +capability_manifest → 32
+    assert len(server._TOOLS) == 32, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -999,3 +1000,180 @@ def test_code_complete_cursor_default_and_limit(monkeypatch, tmp_path):
     d = json.loads(r.text)
     assert d["ok"] is True
     assert len(d["detail"]["items"]) == 50, "候选上限 50"
+
+
+# ─────────────────────────────────────────────────────────────
+# 防幻觉守卫（2026-08-11：hallucination_guard + capability_manifest）
+# ─────────────────────────────────────────────────────────────
+
+def test_hallucination_guard_verified_refuted_unverifiable(tmp_path):
+    src = tmp_path / "demo.py"
+    src.write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+
+    text = (
+        "函数在 demo.py:1 定义；工具 `fs_read` 可用；"
+        "引用 demo.py:99 与 no_such.py:3"
+    )
+    r = server._call("hallucination_guard", {"text": text, "root": str(tmp_path)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert d["verdict"] == "refuted", "存在被证伪声明 → 必须 refuted"
+    verified = {i["claim"] for i in d["verified"]}
+    refuted = {i["claim"] for i in d["refuted"]}
+    assert "demo.py:1" in verified, "文件存在且行号在范围内 → verified"
+    assert "fs_read" in verified, "注册表工具 → verified"
+    assert "demo.py:99" in refuted, "行号越界 → refuted（幻觉）"
+    assert "no_such.py:3" in refuted, "文件不存在 → refuted（幻觉）"
+    assert "必须纠正" in d["advice"], "refuted 时给出制止指令"
+
+
+def test_hallucination_guard_pass_and_no_claims(tmp_path):
+    src = tmp_path / "ok.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    r = server._call("hallucination_guard", {"text": "见 ok.py:1", "root": str(tmp_path)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True and d["verdict"] == "pass", d
+
+    r2 = server._call("hallucination_guard", {"text": "这个结论基于上下文分析"})[0]
+    d2 = json.loads(r2.text)
+    assert d2["verdict"] == "no_claims", "无声明 → 不冒充证据"
+
+
+def test_hallucination_guard_symbol_in_file(tmp_path):
+    src = tmp_path / "mod.py"
+    src.write_text("def helper():\n    pass\n", encoding="utf-8")
+    r = server._call("hallucination_guard", {"text": "`helper` 在 mod.py 中", "root": str(tmp_path)})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert "helper" in {i["claim"] for i in d["verified"]}, "符号在文件内 → verified"
+
+    r2 = server._call("hallucination_guard", {"text": "`nonexistent_fn` 在 mod.py 中", "root": str(tmp_path)})[0]
+    d2 = json.loads(r2.text)
+    assert any(i["claim"] == "nonexistent_fn" and i["verdict"] == "refuted"
+               for i in d2["items"]), "符号不在指定文件 → refuted（幻觉）"
+
+
+def test_hallucination_guard_requires_text():
+    r = server._call("hallucination_guard", {"text": "  "})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is False and "text 必填" in d["error"]
+
+
+def test_capability_manifest_lists_has_has_not():
+    r = server._call("capability_manifest", {})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert d["core_count"] == len(server._TOOLS)
+    assert d["ext_count"] == len(server._EXT_DEFS)
+    core_names = {t["name"] for t in d["has"]["core_tools"]}
+    assert "fs_read" in core_names and "hallucination_guard" in core_names
+    assert any("不能联网" in s for s in d["has_not"]), "显式边界：无网络"
+    assert any("不能执行任意代码" in s for s in d["has_not"]), "显式边界：无代码执行"
+    assert d["boundaries"]["file_read_write_max_bytes"] > 0
+
+
+def test_hallucination_guard_path_escape_blocked(tmp_path):
+    """越界路径（../ 逃逸 / 沙盒外绝对路径）拒绝探测，不泄露存在性。"""
+    r = server._call("hallucination_guard", {
+        "text": "见 ../outside.py:1",
+        "root": str(tmp_path),
+    })[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert d["verdict"] in ("unverified", "no_claims"), d
+    for i in d["items"]:
+        assert i["verdict"] != "verified", "越界路径不得验证通过"
+        assert "越界" in i["reason"] or "拒绝" in i["reason"], i["reason"]
+
+
+def test_hallucination_guard_all_unverifiable_not_pass():
+    """全 unverifiable（无文件上下文符号）不得判 pass——无证据不得放行。"""
+    r = server._call("hallucination_guard", {"text": "`some_symbol` 是关键"})[0]
+    d = json.loads(r.text)
+    assert d["verdict"] == "unverified", d
+    assert "不得当作事实传播" in d["advice"], "unverified 需取证指令"
+
+
+def test_hallucination_guard_definition_mode(tmp_path):
+    """“定义在”表述要求定义模式：import 行不算定义证据。"""
+    src = tmp_path / "m.py"
+    src.write_text("from helper import util\n", encoding="utf-8")
+    r = server._call("hallucination_guard", {
+        "text": "`util` 定义在 m.py",
+        "root": str(tmp_path),
+    })[0]
+    d = json.loads(r.text)
+    # 仅出现在 import 行 → 不算定义 → refuted（断言“未出现在”以兼容实现细节）
+    assert d["verdict"] == "refuted", d
+
+    src2 = tmp_path / "d.py"
+    src2.write_text("def util():\n    pass\n", encoding="utf-8")
+    r2 = server._call("hallucination_guard", {
+        "text": "`util` 定义在 d.py",
+        "root": str(tmp_path),
+    })[0]
+    d2 = json.loads(r2.text)
+    assert d2["verdict"] == "pass", d2
+
+
+def test_hallucination_guard_url_not_file(tmp_path):
+    """URL 段（example.com/data.json:80）不得误报为文件引用。"""
+    r = server._call("hallucination_guard", {
+        "text": "参考 https://example.com/data.json:80 的接口",
+        "root": str(tmp_path),
+    })[0]
+    d = json.loads(r.text)
+    assert d["verdict"] in ("no_claims", "unverified"), d
+    assert all(not i["claim"].startswith("example.com") for i in d["items"]), d
+
+
+def test_hallucination_guard_empty_and_trailing_newline(tmp_path):
+    """空文件 0 行、尾随换行单行文件 1 行（行号 off-by-one 修复）。"""
+    empty = tmp_path / "empty.py"
+    empty.write_text("", encoding="utf-8")
+    r = server._call("hallucination_guard", {"text": "见 empty.py:1", "root": str(tmp_path)})[0]
+    d = json.loads(r.text)
+    assert any(i["claim"] == "empty.py:1" and i["verdict"] == "refuted" for i in d["items"]), d
+
+    one = tmp_path / "one.py"
+    one.write_text("x = 1\n", encoding="utf-8")  # 尾随换行，1 行
+    r2 = server._call("hallucination_guard", {"text": "见 one.py:1", "root": str(tmp_path)})[0]
+    d2 = json.loads(r2.text)
+    assert any(i["claim"] == "one.py:1" and i["verdict"] == "verified" for i in d2["items"]), d2
+    r3 = server._call("hallucination_guard", {"text": "见 one.py:2", "root": str(tmp_path)})[0]
+    d3 = json.loads(r3.text)
+    assert any(i["claim"] == "one.py:2" and i["verdict"] == "refuted" for i in d3["items"]), d3
+
+
+def test_hallucination_guard_definition_with_modifiers(tmp_path):
+    """修饰符定义（async def / pub(crate) fn）不算 refuted。"""
+    src = tmp_path / "mods.py"
+    src.write_text("async def fetch():\n    pass\npub(crate) fn run() {}\n", encoding="utf-8")
+    r = server._call("hallucination_guard", {
+        "text": "`fetch` 定义在 mods.py；`run` 定义在 mods.py",
+        "root": str(tmp_path),
+    })[0]
+    d = json.loads(r.text)
+    assert d["verdict"] == "pass", d
+
+
+def test_hallucination_guard_multilevel_url(tmp_path):
+    """多级域名 URL 段不误报为文件引用。"""
+    r = server._call("hallucination_guard", {
+        "text": "sub.example.co.uk:80 与 api.test.dev:443",
+        "root": str(tmp_path),
+    })[0]
+    d = json.loads(r.text)
+    assert d["verdict"] in ("no_claims", "unverified"), d
+    items = d.get("items", [])
+    assert all("example" not in i["claim"] and "test.dev" not in i["claim"]
+               for i in items), d
+
+
+def test_hallucination_guard_line_zero_refuted(tmp_path):
+    """行号 0 无效（行号从 1 开始）。"""
+    src = tmp_path / "z.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    r = server._call("hallucination_guard", {"text": "见 z.py:0", "root": str(tmp_path)})[0]
+    d = json.loads(r.text)
+    assert any(i["claim"] == "z.py:0" and i["verdict"] == "refuted" for i in d["items"]), d

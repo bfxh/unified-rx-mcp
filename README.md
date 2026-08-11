@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**52 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**56 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
 ## 定位
 
@@ -9,6 +9,7 @@
 | 角色 | 工具 | 用途 |
 |---|---|---|
 | 🗂️ **搞仓库**（repo cognition） | `cb_index` / `cb_status` / `cb_scan` | 全库索引 + 增量变更感知 + 变更优先扫描 |
+| 🛡️ **防幻觉**（hallucination guard） | `hallucination_guard` / `capability_manifest` | AI 声明事实核查（verified/refuted/unverifiable 三分级）+ 能力边界清单（有什么/没有什么） |
 | 🧭 **引导**（guidance） | `lesson_recall` / `ds_lookup` / `ds_check` | 教训召回（防复发）/ 设计系统 token 引用与合规 |
 | 🔍 **分析仓库**（analysis） | `change_impact` / `code_context` / `lsp_query` / `aether_*` | 变更影响 / 光标符号级 AST→Prompt / LSP 交互 |
 | 🎯 **Qoder 式定位**（locate_edit） | `locate_edit` | 自然语言/符号 → 具体修改位置 `file:line` + snippet + AI 引导（改前取上下文/改后验影响） |
@@ -17,6 +18,26 @@
 | 🃏 **Tool 角色回喂** | `tool_card` | 调用任意工具 → 结构化卡片 `{role,ok,summary,detail}`（Aether AiRole::Tool 启发） |
 | ⚙️ **纯函数**（math/str/json/sort/prime/stat/geo/conv/valid/list/fib） | 33 个 | 零依赖高性能计算 |
 | 🔌 **扩展**（lazy-loaded） | `pr_oracle_*` (3) / `tautest_*` (4) / `cae_*` (13) | PR→测试影响 / 变异测试 / 代码分析增强 |
+
+## 防幻觉机制（AI 事实核查，必须使用）
+
+**Why:** AI 幻觉（编造 file:line、编造符号、冒充不存在的能力）是最大正确性风险——
+引用错误代码位置、声称工具不存在/存在、数字凭空断言，都会直接污染后续所有决策。
+
+**How to apply（三层机制，缺一不可）：**
+
+1. **引用前先验证**：AI 在声明任何代码位置（`file:line`）、反引号符号、工具名之前，
+   必须调用 `hallucination_guard` 验证。输出三分级：
+   - `verified`：有本地证据（文件存在 / 行号在范围内 / 符号在文件内 / 工具在注册表）→ 可引用
+   - `refuted`：**被证伪（幻觉）**——必须纠正后才能继续，不得引用错误位置/符号
+   - `unverifiable`：本地无法验证——不得当作事实传播，先取证再引用
+2. **开头先亮边界**：对话开始时调用一次 `capability_manifest`，明确"有什么、没有什么"。
+   工具只产出**证据与事实**，不替代 LLM 推理；不能联网、不能执行任意代码、
+   不能访问沙盒外路径——防止 AI 幻觉自己具备不存在的能力。
+3. **诚实标注**：无法验证的数字断言（如"49 个测试"）不会自动提取冒充证据——
+   需要对照时显式给出可验证项（如 `pytest --collect-only` 的实际计数）。
+
+配套：`lesson_recall_lse` / `lesson_feedback` 教训召回闭环，发现幻觉模式后可记录教训防复发。
 
 ## Tool 角色回喂（AetherStudio PR #106/#111 启发）
 
@@ -91,8 +112,8 @@ call_timeout_seconds = 300
 ## 验证
 
 ```bash
-python server.py --selftest    # 64 工具自检
-python -m pytest test_unified_rx.py -q   # 49 tests
+python server.py --selftest    # 56 工具自检（含防幻觉守卫抽样）
+python -m pytest test_unified_rx.py -q   # 72 tests
 ```
 
 ## 安全（已审查）
@@ -104,6 +125,8 @@ python -m pytest test_unified_rx.py -q   # 49 tests
 
 ## 更新日志
 
+- **2026-08-11** 防幻觉机制：`hallucination_guard`（声明三分级验证：file:line/符号/工具名）+ `capability_manifest`（能力边界清单：有什么/没有什么）+ 防回归全套（P0 mcp_smoke 入 CI / P1 tool_ratchet 棘轮 / P2 actionlint 硬门禁）+ stats 会话维度
+- **2026-08-11** 高协作：pipeline 步骤链 + parallel 并发组（54 工具）
 - **2026-08-10** 性能重构：mcp 懒加载（import 11.4× 快 / 内存 4.7× 小）、工具定义缓存、_TC/_ToolDef 轻量类
 - **2026-08-09** 安全加固：command 绝对路径、tier 无效字段清除、.mcp.json/reasonix-plugin.json 双文件部署
 - **2026-08-09** 功能：bug_scan/bug_locate、ui_check、ds_lookup/ds_check、cb_index/cb_status/cb_scan
