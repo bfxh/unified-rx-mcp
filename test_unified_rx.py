@@ -62,7 +62,8 @@ def test_tools_count_and_schema():
     # 2026-08-11 去重：29 单工具 → 6 组合 + fib_fibonacci，核心 49 → 28；
     # 2026-08-11 高协作：+pipeline +parallel → 30
     # 2026-08-11 防幻觉：+hallucination_guard +capability_manifest → 32
-    assert len(server._TOOLS) == 32, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-11 扫描日志：+scan_log → 33
+    assert len(server._TOOLS) == 33, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -1362,3 +1363,78 @@ def test_pipeline_preset_steps_override(tmp_path):
     d = json.loads(r.text)
     assert d["ok"] is True
     assert len(d["steps"]) == 1 and d["steps"][0]["tool"] == "math_ops"
+
+
+# ─────────────────────────────────────────────────────────────
+# 扫描日志（2026-08-11：常驻自扫落盘，专项目对话查日志）
+# ─────────────────────────────────────────────────────────────
+
+def test_scan_log_append_and_query(tmp_path, monkeypatch):
+    """扫描工具调用自动落盘 + 按 root 过滤查询。"""
+    import scan_log_core
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    src = tmp_path / "demo.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+
+    server._call("bug_scan", {"path": str(src)})
+    server._call("std_check", {"path": str(src)})
+
+    logs = scan_log_core.query_logs(root=str(src), limit=10)
+    assert len(logs) == 2, logs
+    tools = {l["tool"] for l in logs}
+    assert tools == {"bug_scan", "std_check"}, tools
+    assert all(l["ok"] for l in logs)
+    # 日志文件真实存在且为 JSONL
+    lines = log.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    import json as _json
+    assert _json.loads(lines[0])["tool"] == "bug_scan"
+
+
+def test_scan_log_tool_query(tmp_path, monkeypatch):
+    """scan_log 工具：按 root/tool 过滤 + limit 边界。"""
+    import scan_log_core
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    src = tmp_path / "demo.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+
+    server._call("bug_scan", {"path": str(src)})
+
+    r = server._call("scan_log", {"root": str(src), "tool": "bug_scan", "limit": 5})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert d["count"] == 1 and d["logs"][0]["tool"] == "bug_scan"
+    assert d["log_path"] == str(log)
+
+    r2 = server._call("scan_log", {"limit": 0})[0]
+    assert "Error" in r2.text and "limit" in r2.text, "limit 越界报错"
+
+
+def test_scan_log_no_cross_project_leak(tmp_path, monkeypatch):
+    """root 过滤不串项目（专项目对话只看自己的日志）。"""
+    import scan_log_core
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    a = tmp_path / "projA"
+    b = tmp_path / "projB"
+    a.mkdir(); b.mkdir()
+    (a / "a.py").write_text("x = 1\n", encoding="utf-8")
+    (b / "b.py").write_text("y = 2\n", encoding="utf-8")
+
+    server._call("bug_scan", {"path": str(a / "a.py")})
+    server._call("bug_scan", {"path": str(b / "b.py")})
+
+    logs_a = scan_log_core.query_logs(root=str(a / "a.py"), limit=10)
+    logs_b = scan_log_core.query_logs(root=str(b / "b.py"), limit=10)
+    assert len(logs_a) == 1 and len(logs_b) == 1
+    assert logs_a[0]["root"] != logs_b[0]["root"]
+
+
+def test_scan_log_core_self_scan_files():
+    """自扫文件列表 = server.py 同目录核心文件（存在性）。"""
+    import scan_log_core
+    files = scan_log_core.self_scan_files()
+    assert any("server.py" in f for f in files)
+    assert all(os.path.isfile(f) for f in files), "自扫目标必须存在"

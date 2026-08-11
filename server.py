@@ -747,6 +747,35 @@ def _tool_capability_manifest(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(res, ensure_ascii=False))]
 
 
+def _tool_scan_log(args: dict) -> "list[types.TextContent]":
+    """扫描日志查询（常驻自扫落盘）：按项目 root / 工具名过滤，返回最近记录。
+
+    机制：扫描类工具（bug_scan/std_check/vuln_scan/ui_check/cb_scan/cb_index/
+    hallucination_guard/locate_edit）每次调用自动追加到 ~/.unified-rx/scan-log.jsonl；
+    专门搞某个项目的对话，用 root 过滤即可查看该项目的历史扫描结果。
+    """
+    try:
+        import scan_log_core
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import scan_log_core  # noqa: F811
+    root = args.get("root") or None
+    tool = args.get("tool") or None
+    limit = int(args.get("limit", 50))
+    if not 1 <= limit <= 200:
+        raise ValueError("limit 须在 [1,200]")
+    logs = scan_log_core.query_logs(root=root, tool=tool, limit=limit)
+    return [_TC(json.dumps({
+        "ok": True,
+        "log_path": str(scan_log_core.log_path()),
+        "count": len(logs),
+        "filter": {"root": root, "tool": tool},
+        "logs": logs,
+        "note": "扫描类工具调用自动落盘；专项目对话按 root 过滤查看",
+    }, ensure_ascii=False))]
+
+
 # ─────────────────────────────────────────────────────────────
 # 代码缺陷扫描层（bug_*：纯 ast/re 零依赖静态分析 + 报错精准定位）
 # ─────────────────────────────────────────────────────────────
@@ -1765,6 +1794,11 @@ _TOOLS: dict[str, tuple] = {
         "root": _S("string", "仓库根目录（相对路径解析基准，可选）"),
     }, ["text"]), "幻觉守卫：提取声明并对照本地验证（verified/refuted/unverifiable），refuted 即幻觉必须纠正"),
     "capability_manifest": (_tool_capability_manifest, _schema({}, []), "能力清单：全部工具 + 有什么/没有什么边界声明（防能力幻觉）"),
+    "scan_log": (_tool_scan_log, _schema({
+        "root": _S("string", "项目根路径（过滤，可选）"),
+        "tool": _S("string", "工具名过滤（bug_scan/std_check/vuln_scan/ui_check/cb_scan 等，可选）"),
+        "limit": _S("integer", "返回条数(默认50，上限200)"),
+    }, []), "扫描日志查询：常驻自扫落盘（~/.unified-rx/scan-log.jsonl），专项目对话按 root 过滤查看历史扫描结果"),
     "pipeline": (_tool_pipeline, _schema({
         "preset": _S("string", "预设配方：audit_repo/guard_text/learn/locate_context（一次调用跑完整流程，减少调用轮次）"),
         "steps": _S("array", "步骤链：[{tool, args, as?}]——上一步结果以 ${key} 注入下一步"),
@@ -2014,7 +2048,9 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
             fn, _, _ = _TOOLS[name]
             result = fn(arguments or {})
             if isinstance(result, list):
+                _scan_log_tick(name, arguments or {}, result)
                 return result
+            _scan_log_tick(name, arguments or {}, [_TC(str(result))])
             return [_TC(str(result))]
         if name in ("stats_summary", "stats_status"):
             _stats_flush()  # 汇总/状态前落盘缓冲打点（协作：summary 能看到自动打点）
@@ -2027,6 +2063,52 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
         # 自动打点（工具协作：每个工具调用自动记录到 stats，stats_* 自身除外）
         if not name.startswith("stats_"):
             _stats_tick(name, (time.perf_counter() - t0) * 1000)
+
+
+# 扫描类工具：调用完成自动落盘 scan-log.jsonl（常驻自扫日志，专项目对话可查）
+_SCAN_LOG_TOOLS = {"bug_scan", "std_check", "vuln_scan", "ui_check",
+                   "cb_scan", "cb_index", "hallucination_guard", "locate_edit"}
+
+
+def _scan_log_tick(name: str, args: dict, result: "list[types.TextContent]") -> None:
+    """扫描工具结果落盘：抽取 summary + root，追加到 scan-log.jsonl（失败静默）。
+
+    与 stats 打点互补：stats 记调用统计（ts/tool/时长），scan-log 记扫描结果
+    （root/ok/summary）——"扫完的都放到日志里面"，专项目对话按 root 过滤查询。
+    """
+    if name not in _SCAN_LOG_TOOLS:
+        return
+    try:
+        import scan_log_core
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import scan_log_core  # noqa: F811
+    text = ""
+    for c in result:
+        text = getattr(c, "text", "") or ""
+        if text:
+            break
+    summary = text[:200]
+    # 尝试从结果 JSON 提取精简 summary（ok + 关键计数）
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            if data.get("summary") and isinstance(data["summary"], str):
+                summary = data["summary"][:200]
+            elif name == "bug_scan" and "issues" in data:
+                summary = f"issues={len(data['issues'])} ok={data.get('ok')}"
+            elif name == "std_check" and "summary" in data:
+                s = data["summary"]
+                if isinstance(s, dict):
+                    summary = (f"critical={s.get('critical',0)} warning={s.get('warning',0)} "
+                               f"suggestion={s.get('suggestion',0)}")
+            elif name == "vuln_scan":
+                summary = f"ok={data.get('ok')} errors={len(data.get('errors', []))}"
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        pass
+    root = str(args.get("path", "") or args.get("root", ""))
+    scan_log_core.append_scan({"tool": name, "root": root, "ok": True, "summary": summary})
 
 
 def _stats_tick(tool: str, duration_ms: float) -> None:
@@ -2129,6 +2211,10 @@ async def run() -> None:
         out = await asyncio.to_thread(_call, name, arguments)
         return [types.TextContent(type=getattr(c, "type", "text"), text=c.text) for c in out]
 
+    # 打开阵地即自扫（后台线程，不阻塞启动）：工具常驻运行，扫自己一遍，
+    # 结果落盘 scan-log.jsonl（"包括它自己也会扫自己，扫完的都放到日志里面"）。
+    _spawn_self_scan()
+
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -2142,6 +2228,41 @@ async def run() -> None:
                 ),
             ),
         )
+
+
+def _spawn_self_scan() -> None:
+    """后台自扫：对 server.py 自身核心文件跑 bug_scan + std_check，结果落盘。
+
+    守护线程 + 失败静默——自扫绝不影响 MCP 协议层。CI/测试环境跳过
+    （UNIFIED_RX_SKIP_SELF_SCAN=1 或 import 自检路径不触发）。
+    """
+    if os.environ.get("UNIFIED_RX_SKIP_SELF_SCAN", "") == "1":
+        return
+    try:
+        import scan_log_core
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import scan_log_core  # noqa: F811
+
+    def _do() -> None:
+        try:
+            for f in scan_log_core.self_scan_files():
+                if not os.path.isfile(f):
+                    continue
+                try:
+                    d = json.loads(_call("bug_scan", {"path": f})[0].text)
+                    n = len(d.get("issues", [])) if isinstance(d, dict) else -1
+                    scan_log_core.append_scan({
+                        "tool": "self_scan", "root": f, "ok": n == 0,
+                        "summary": f"self bug_scan {os.path.basename(f)}: issues={n}",
+                    })
+                except Exception:
+                    pass
+        except Exception:
+            pass  # 自扫失败静默
+
+    threading.Thread(target=_do, daemon=True, name="rx-self-scan").start()
 
 
 def _selftest() -> None:

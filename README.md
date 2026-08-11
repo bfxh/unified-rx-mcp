@@ -56,6 +56,20 @@ LSE 教训引擎借鉴《自然-通讯》「压缩学习 枢纽优先」思想�
 
 配套：`lesson_recall_lse` / `lesson_feedback` 教训召回闭环，发现幻觉模式后可记录教训防复发。
 
+## 常驻自扫与扫描日志（工具本地一直在运行）
+
+unified-rx 是**常驻工具**（`.mcp.json` `auto_start: true`，打开会话即运行）——
+MCP 调用只是访问它，不是启动它。运行形态：
+
+- **启动自扫**：每次常驻启动时，后台线程对自己核心文件（server.py/guard_core/std_core/locate_core）
+  跑一轮 bug_scan，"包括它自己也会扫自己"，结果自动落盘。
+- **调用即记**：扫描类工具（`bug_scan`/`std_check`/`vuln_scan`/`ui_check`/`cb_scan`/`cb_index`/
+  `hallucination_guard`/`locate_edit`）每次调用完成自动追加一条到
+  **`~/.unified-rx/scan-log.jsonl`**（与 lse-state.json / stats.json 同目录常驻状态区）。
+- **专项目查日志**：专门搞某个项目的对话框，用 `scan_log` 工具按 `root` 过滤，
+  即可查看该项目历史扫描结果（root/工具名/limit 过滤，默认最近 50 条）。
+- 日志上限防膨胀（2000 条截断）；写入失败静默，绝不影响工具调用。
+
 ## 工具链协作（一次调用 = 多步流程，减少调用轮次）
 
 `pipeline` 支持**预设配方（preset）**——AI 一次调用即可跑完完整流程，
@@ -161,6 +175,7 @@ python -m pytest test_unified_rx.py -q   # 72 tests
 
 ## 更新日志
 
+- **2026-08-11** 常驻自扫与扫描日志：scan_log_core（~/.unified-rx/scan-log.jsonl 追加落盘）+ scan_log 查询工具（按 root 过滤）+ 启动后台自扫（打开阵地即扫自己）+ 8 个扫描工具调用自动记日志
 - **2026-08-11** 防幻觉闭环 + 压缩学习枢纽优先：hallucination_guard refuted 自动回灌 LSE（负 delta + 教训卡片）；lesson_recall_lse 枢纽优先排序（recall 软加权）；lse-engine 新增 lesson_recall 查询命令（不污染 recall）+ experience summary 压缩（200 字符）
 - **2026-08-11** 防幻觉机制：`hallucination_guard`（声明三分级验证：file:line/符号/工具名）+ `capability_manifest`（能力边界清单：有什么/没有什么）+ 防回归全套（P0 mcp_smoke 入 CI / P1 tool_ratchet 棘轮 / P2 actionlint 硬门禁）+ stats 会话维度
 - **2026-08-11** 高协作：pipeline 步骤链 + parallel 并发组（54 工具）

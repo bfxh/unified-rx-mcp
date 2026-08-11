@@ -40,3 +40,8 @@ License: MIT
 Files: lse_client.py
 Copyright: 2026 bfxh
 License: MIT
+
+# locate_core（Qoder 定位核心，与 lse_client 同模式）
+Files: locate_core.py
+Copyright: 2026 bfxh
+License: MIT
