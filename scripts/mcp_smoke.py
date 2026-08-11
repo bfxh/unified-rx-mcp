@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 bfxh
+# SPDX-License-Identifier: MIT
 """unified-rx MCP stdio 冒烟测试：initialize + tools/list + tools/call。
 
 mcp python SDK >=1.9 的 stdio 传输是 newline-delimited JSON（每行一个

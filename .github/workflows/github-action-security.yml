@@ -12,6 +12,10 @@ on:
 
 permissions:
   contents: read
+  # zizmor online-audits + advanced-security 需要 API 访问
+  # （"Resource not accessible by integration" 修复）
+  actions: read
+  security-events: write
 
 jobs:
   action-security:
