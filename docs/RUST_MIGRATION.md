@@ -12,11 +12,13 @@
 | server.py | Python | 2594 | MCP 主服务：35 核心工具 + 扩展分发 |
 | core 文件（guard/std/locate/cb/ds/ui/scan_log/lse_client） | Python | 1697 | 各工具实现 |
 | scripts/ | Python | ~1100 | 冒烟/棘轮/预检工具 |
-| lse-engine | **Rust** | 1052 | 教训引擎（已是 Rust） |
+| lse-engine | **Rust** | 1041 | 教训引擎（已是 Rust，lib.rs 主实现） |
 | test_unified_rx.py | Python | ~2000 | 108 个 pytest |
 
-**依赖**：server.py 全部**标准库**（无第三方 pip 依赖）——Rust 迁移只需
-`serde_json` + 标准库，可行性高。
+**依赖**：server.py 运行时依赖仅 `mcp` SDK（PyPI，`server.py:2357` 协议层 import）+ 标准库；
+core 文件（guard/std/locate/cb/ds/ui/scan_log）零第三方依赖。Rust 迁移需：
+`serde_json` + 标准库 + **Rust MCP SDK（或自研 JSON-RPC stdio 层，替代 mcp SDK）**。
+lse-engine 已是纯 Rust 零依赖——可行性仍高，但四期协议层工作量含 MCP SDK 适配。
 
 ## 迁移收益
 

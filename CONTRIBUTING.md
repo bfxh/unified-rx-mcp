@@ -41,7 +41,8 @@ git diff --check                            # 无空白错误
 
 ### ⑥ 漏洞扫描（常态，不依赖提示词）
 ```bash
-python scripts/vuln-scan.mjs                # 本地多语言静态扫描
+node C:\Users\lbx13\AppData\Roaming\reasonix\global-workspace\scripts\vuln-scan.mjs   # 本地多语言静态扫描
+# 或仓库内工具扫描：python -m pytest 前的 bug_scan/std_check 等（结果自动落盘 scan-log）
 ```
 - 扫描类工具（bug_scan/std_check/vuln_scan/ui_check/project_scan）调用结果自动落盘
   `~/.unified-rx/scan-log.jsonl`——收尾汇报必须包含"本轮漏洞扫描结果"小节
