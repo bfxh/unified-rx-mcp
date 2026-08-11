@@ -18,8 +18,9 @@ permissions:
   security-events: write   # CodeQL/bandit SARIF 上传
 
 concurrency:
+  # 安全扫描绝不互相取消：cancelled 的扫描 = 漏洞漏扫（手动触发/push 冲突会互相 cancel）
   group: sec-matrix-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # ── 静态分析矩阵（14 项 × 2 配置 = 28 检查）──
