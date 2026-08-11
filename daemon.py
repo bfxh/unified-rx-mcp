@@ -76,7 +76,7 @@ def _ensure_self_scan_once():
 
 
 def _loop_self_scan() -> None:
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_SELF", "600"))
+    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_SELF", "300"))
     once = _ensure_self_scan_once()
     while True:
         try:
@@ -90,7 +90,7 @@ def _loop_self_scan() -> None:
 # 2. 项目扫描（模式①④）——跟随话题 + 最活跃
 # ─────────────────────────────────────────────────────────────
 def _loop_project_scan() -> None:
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_PROJECT", "300"))
+    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_PROJECT", "120"))
     while True:
         try:
             proj = os.environ.get("UNIFIED_RX_PROJECT", "").strip()
@@ -134,7 +134,7 @@ def _most_active_project() -> str | None:
 # 3. 全盘扫（模式②）
 # ─────────────────────────────────────────────────────────────
 def _loop_full_scan() -> None:
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_FULL", "1800"))
+    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_FULL", "600"))
     while True:
         try:
             server._call("full_scan", {"max_files": 100, "ui": False})
@@ -147,7 +147,7 @@ def _loop_full_scan() -> None:
 # 4. 仓库管理（GitHub PR/CI/issue 状态轮询）
 # ─────────────────────────────────────────────────────────────
 def _loop_repo_manage() -> None:
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_REPO", "900"))
+    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_REPO", "300"))
     while True:
         try:
             _repo_manage_once()
