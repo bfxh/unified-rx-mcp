@@ -1177,3 +1177,139 @@ def test_hallucination_guard_line_zero_refuted(tmp_path):
     r = server._call("hallucination_guard", {"text": "见 z.py:0", "root": str(tmp_path)})[0]
     d = json.loads(r.text)
     assert any(i["claim"] == "z.py:0" and i["verdict"] == "refuted" for i in d["items"]), d
+
+
+# ─────────────────────────────────────────────────────────────
+# 防幻觉闭环（2026-08-11：refuted 自动回灌 LSE）+ 枢纽优先排序
+# ─────────────────────────────────────────────────────────────
+
+def test_hallucination_guard_auto_feedback_loop(tmp_path, monkeypatch):
+    """refuted（幻觉）自动回灌：负 delta 惩罚 + 教训卡片入库。"""
+    calls = {"delta": [], "store": []}
+
+    class FakeLSE:
+        @staticmethod
+        def delta_update_lesson(lid, delta, threshold=0.1):
+            calls["delta"].append((lid, delta))
+            return {"ok": True, "result": {"id": lid, "utility": 0.3,
+                                           "recall": 1, "archived": False}}
+
+        @staticmethod
+        def experience_store(model, ctx, delta, summary):
+            calls["store"].append((model, ctx, delta, summary))
+            return {"ok": True, "result": {"id": "e1"}}
+
+    monkeypatch.setattr(server, "lse_client", FakeLSE) if hasattr(server, "lse_client") else None
+    # 直接注入 import 路径：monkeypatch sys.modules 让 server 内 import lse_client 命中
+    import types
+    mod = types.ModuleType("lse_client")
+    mod.delta_update_lesson = FakeLSE.delta_update_lesson
+    mod.experience_store = FakeLSE.experience_store
+    monkeypatch.setitem(sys.modules, "lse_client", mod)
+
+    r = server._call("hallucination_guard", {
+        "text": "见 no_such_file.py:9",
+        "root": str(tmp_path),
+    })[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    assert d["verdict"] == "refuted"
+    assert d["feedback_recorded"], d
+    rec = d["feedback_recorded"][0]
+    assert rec["recorded"] is True
+    assert rec["lesson_id"].startswith("hallucination-")
+    assert calls["delta"] and calls["delta"][0][1] == -0.2, "负 delta 惩罚幻觉"
+    assert calls["store"] and calls["store"][0][0] == "hallucination_guard"
+    assert "已自动回灌" in d["feedback_note"]
+
+
+def test_hallucination_guard_no_feedback_when_clean(tmp_path, monkeypatch):
+    """无 refuted 时不触发回灌（verified/pass 不惩罚）。"""
+    src = tmp_path / "ok.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    import types
+    mod = types.ModuleType("lse_client")
+    mod.delta_update_lesson = lambda *a, **k: {"ok": True, "result": {}}
+    mod.experience_store = lambda *a, **k: {"ok": True}
+    monkeypatch.setitem(sys.modules, "lse_client", mod)
+
+    r = server._call("hallucination_guard", {"text": "见 ok.py:1", "root": str(tmp_path)})[0]
+    d = json.loads(r.text)
+    assert d["verdict"] == "pass"
+    assert "feedback_recorded" not in d, "无幻觉不惩罚"
+
+
+def test_hallucination_guard_feedback_degrades_without_engine(tmp_path, monkeypatch):
+    """lse-engine 未构建（ok:false）→ 回灌跳过但幻觉仍被检测（降级不阻塞）。"""
+    import types
+    mod = types.ModuleType("lse_client")
+    mod.delta_update_lesson = lambda *a, **k: {"ok": False, "error": "lse-engine 未构建"}
+    mod.experience_store = lambda *a, **k: {"ok": False, "error": "lse-engine 未构建"}
+    monkeypatch.setitem(sys.modules, "lse_client", mod)
+
+    r = server._call("hallucination_guard", {
+        "text": "见 no_such_file.py:9",
+        "root": str(tmp_path),
+    })[0]
+    d = json.loads(r.text)
+    assert d["verdict"] == "refuted", "幻觉检测不受引擎缺失影响"
+    assert d["feedback_recorded"][0]["recorded"] is False
+    assert "回灌跳过" in d["feedback_note"]
+
+
+def test_lesson_recall_hub_priority(monkeypatch):
+    """枢纽优先：recall 高的教训 hub_bonus 加权排序。"""
+    import types
+    mod = types.ModuleType("lse_client")
+    state = {}
+
+    def lesson_recall(lid):
+        if lid in state:
+            return {"ok": True, "result": state[lid]}
+        return {"ok": False, "error": "not found"}
+
+    def delta_update_lesson(lid, delta, threshold=0.1):
+        if lid not in state:
+            state[lid] = {"id": lid, "utility": 0.5, "recall": 0, "archived": False}
+        return {"ok": True, "result": state[lid]}
+
+    def engine_available():
+        return True
+
+    mod.lesson_recall = lesson_recall
+    mod.delta_update_lesson = delta_update_lesson
+    mod.engine_available = engine_available
+    monkeypatch.setitem(sys.modules, "lse_client", mod)
+
+    # 模拟 cae 扩展返回 3 条教训（同 utility，recall 不同）
+    class FakeCAE:
+        @staticmethod
+        def _tool_lesson_recall(args):
+            return [server._TC(json.dumps({
+                "ok": True,
+                "task_keywords": [],
+                "lessons": ["枢纽教训AAA", "普通教训BBB", "冷门教训CCC"],
+                "antipatterns": [], "advice": "",
+            }, ensure_ascii=False))]
+
+    monkeypatch.setattr(server, "_load_ext", lambda label: FakeCAE() if label == "code-analysis-enhance" else None)
+
+    # 预置 recall：枢纽教训 recall=8 → hub_bonus 0.12；普通=2 → 0.03；冷门=0
+    lid_hub = f"lesson-{abs(hash('枢纽教训AAA'[:80])) % 10**9}"
+    lid_norm = f"lesson-{abs(hash('普通教训BBB'[:80])) % 10**9}"
+    lid_cold = f"lesson-{abs(hash('冷门教训CCC'[:80])) % 10**9}"
+    state[lid_hub] = {"id": lid_hub, "utility": 0.5, "recall": 8, "archived": False}
+    state[lid_norm] = {"id": lid_norm, "utility": 0.5, "recall": 2, "archived": False}
+    state[lid_cold] = {"id": lid_cold, "utility": 0.5, "recall": 0, "archived": False}
+
+    r = server._call("lesson_recall_lse", {"task_description": "测试枢纽优先"})[0]
+    d = json.loads(r.text)
+    assert d["ok"] is True
+    # 同 utility 时枢纽（recall 高）优先
+    hub_rank = d["lessons"].index("枢纽教训AAA")
+    norm_rank = d["lessons"].index("普通教训BBB")
+    cold_rank = d["lessons"].index("冷门教训CCC")
+    assert hub_rank < norm_rank < cold_rank, (hub_rank, norm_rank, cold_rank)
+    util = {u["id"]: u for u in d["utility"]}
+    assert util[lid_hub]["hub_score"] > util[lid_cold]["hub_score"]
+    assert util[lid_hub]["hub_bonus"] == 0.12  # min(8,10)*0.015

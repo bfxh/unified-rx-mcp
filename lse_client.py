@@ -64,6 +64,11 @@ def delta_update_lesson(lesson_id: str, delta: float, threshold: float = 0.1) ->
     return _call("delta_update", {"kind": "lesson", "id": lesson_id, "delta": delta, "threshold": threshold})
 
 
+def lesson_recall(lesson_id: str) -> dict:
+    """查询单条教训（不触发 recall_count++，防查询污染枢纽信号）。"""
+    return _call("lesson_recall", {"id": lesson_id})
+
+
 def delta_update_rule(rule_id: str, delta: float, adopted: bool = True) -> dict:
     return _call("delta_update", {"kind": "rule", "id": rule_id, "delta": delta, "adopted": adopted})
 

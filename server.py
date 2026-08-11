@@ -633,6 +633,42 @@ def _tool_hallucination_guard(args: dict) -> "list[types.TextContent]":
     res = guard_text(text, root=root, tool_names=tool_names)
     res["ok"] = True
     res["tool_names_checked"] = len(tool_names)
+    # 防幻觉闭环：refuted（被证伪=幻觉）自动回灌 LSE——负 delta 惩罚该模式
+    # + 经验教训卡片入库，下次 lesson_recall/experience_match 可召回防复发。
+    if res.get("refuted"):
+        try:
+            import lse_client as _lse
+        except ImportError:
+            _dir = os.path.dirname(os.path.abspath(__file__))
+            sys.path.insert(0, _dir)
+            import lse_client as _lse  # noqa: F811
+        recorded = []
+        for item in res["refuted"]:
+            claim = item.get("claim", "")
+            reason = item.get("reason", "")
+            # 教训 ID = 内容 hash（同模式幻觉汇聚同一 lesson，形成枢纽）
+            lid = f"hallucination-{abs(hash(claim)) % 10**9}"
+            r = _lse.delta_update_lesson(lid, -0.2, threshold=0.05)
+            ok = r.get("ok", False)
+            # 经验教训卡片：记录声明+证伪原因，供 experience_match 召回
+            if ok:
+                _lse.experience_store(
+                    model="hallucination_guard", ctx=claim[:120],
+                    delta=-0.2, summary=f"幻觉被证伪: {claim[:80]} — {reason[:80]}",
+                )
+            recorded.append({
+                "claim": claim,
+                "lesson_id": lid,
+                "recorded": ok,
+                "utility": (r.get("result") or {}).get("utility"),
+            })
+        res["feedback_recorded"] = recorded
+        res["feedback_note"] = (
+            "幻觉模式已自动回灌 LSE（负 delta 惩罚 + 教训卡片入库）。"
+            "下次 lesson_recall_lse 可召回该模式防复发。" if recorded and
+            all(x["recorded"] for x in recorded)
+            else "幻觉已检测，但 lse-engine 未构建，回灌跳过（本地降级）。"
+        )
     return [_TC(json.dumps(res, ensure_ascii=False))]
 
 
@@ -1127,27 +1163,40 @@ def _tool_lesson_recall_lse(args: dict) -> "list[types.TextContent]":
         return [_TC(json.dumps({"ok": False, "error": f"lesson_recall 失败: {exc}"}, ensure_ascii=False))]
     lessons = data.get("lessons", [])
     # 每条教训按内容 hash 查 utility 分（lse-engine），降序排序
+    # 枢纽优先（Hub-Priority，Nature Communications「压缩学习 枢纽优先」启发）：
+    # recall_count = 该教训被验证/召回的次数——反复被证实有效的教训是"枢纽"，
+    # 排序时 utility 相近则枢纽教训优先（hub_bonus = recall 的软加权，非硬覆盖）。
     scored = []
     for idx, lesson in enumerate(lessons):
         lid = f"lesson-{abs(hash(lesson[:80])) % 10**9}"
-        st = _lse.state_get()
-        # 简化：lse 无直接 get 单条，用 delta=0 触发（返回当前值）
-        cur = _lse.delta_update_lesson(lid, 0.0)
+        # 查询命令（不污染 recall_count）；教训不存在时用 delta=0 建初始条目
+        cur = _lse.lesson_recall(lid)
+        if not cur.get("ok"):
+            cur = _lse.delta_update_lesson(lid, 0.0)
         utility = cur.get("result", {}).get("utility", 0.5)
         archived = cur.get("result", {}).get("archived", False)
-        scored.append({"id": lid, "utility": utility, "archived": archived, "text": lesson})
-    scored.sort(key=lambda x: -x["utility"])
+        recall = cur.get("result", {}).get("recall", 0)
+        # 枢纽优先：recall 每 +1 给少量加权（cap 0.15），utility 仍为主排序键
+        hub_bonus = min(recall, 10) * 0.015
+        scored.append({"id": lid, "utility": utility, "hub_bonus": hub_bonus,
+                       "hub_score": utility + hub_bonus, "recall": recall,
+                       "archived": archived, "text": lesson})
+    scored.sort(key=lambda x: (-x["hub_score"], -x["utility"]))
     active = [s for s in scored if not s["archived"]]
     archived_list = [s for s in scored if s["archived"]]
     return [_TC(json.dumps({
         "ok": True,
         "task_keywords": data.get("task_keywords", []),
         "lessons": [s["text"] for s in active],
-        "utility": [{"id": s["id"], "utility": s["utility"]} for s in active],
+        "utility": [{"id": s["id"], "utility": s["utility"], "recall": s["recall"],
+                     "hub_bonus": s["hub_bonus"], "hub_score": s["hub_score"]}
+                    for s in active],
         "archived": [{"id": s["id"], "utility": s["utility"], "text": s["text"][:100]} for s in archived_list],
         "antipatterns": data.get("antipatterns", []),
         "advice": data.get("advice", ""),
-        "note": "LSE Delta 进化记忆：utility 降序，低分自动归档" if _lse.engine_available() else "lse-engine 未构建，降级为原始召回",
+        "note": ("LSE 进化记忆 + 枢纽优先：utility 为主键、recall（反复验证次数）加权排序，"
+                 "低分自动归档（「压缩学习 枢纽优先」Nature Communications 启发）"
+                 if _lse.engine_available() else "lse-engine 未构建，降级为原始召回"),
     }, ensure_ascii=False))]
 
 
@@ -1928,8 +1977,10 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
 def _stats_tick(tool: str, duration_ms: float) -> None:
     """工具调用自动打点：内存缓冲，满 100 条或退出时批量落盘（失败静默）。
 
-    同步写文件会拖慢每次工具调用（1000 次 >500ms 性能回归），
-    缓冲批量 flush 后单次打点 O(1)。线程安全（_call 经 asyncio.to_thread 并发执行）。
+    性能约束：打点路径必须 O(1)——纯函数调用（math_ops 等）1000 次 <50ms。
+    - 锁内只做 append（微秒级），绝不做文件 IO
+    - flush 用快照交换 + 后台 daemon 线程异步落盘——_call 路径零阻塞
+    - stats_summary/stats_status 调用前仍同步 _stats_flush() 取最新数据
     """
     global _STATS_BUF
     try:
@@ -1943,38 +1994,48 @@ def _stats_tick(tool: str, duration_ms: float) -> None:
                 "action": tool,
                 "duration_ms": duration_ms,
             })
-            if len(_STATS_BUF) >= _STATS_FLUSH_EVERY:
-                _stats_flush_locked()
+            if len(_STATS_BUF) < _STATS_FLUSH_EVERY:
+                return
+            # 快照交换：锁内 O(1) 取走缓冲；锁外异步落盘（不阻塞调用方）
+            batch, _STATS_BUF = _STATS_BUF, []
+        threading.Thread(target=_stats_flush_batch, args=(batch,),
+                         daemon=True).start()
     except Exception:
         pass  # 打点失败不影响工具调用
 
 
-_STATS_BUF: list[dict] = []
-_STATS_FLUSH_EVERY = 100
-_STATS_LOCK = threading.Lock()
+_STATS_FLUSH_LOCK = threading.Lock()
 
 
-def _stats_flush() -> None:
-    """缓冲批量写入 stats 文件（进程退出/汇总前调用；线程安全）。"""
-    try:
-        with _STATS_LOCK:
-            _stats_flush_locked()
-    except Exception:
-        pass
-
-
-def _stats_flush_locked() -> None:
-    """持锁状态下落盘（调用方必须已持有 _STATS_LOCK）。"""
-    global _STATS_BUF
-    if not _STATS_BUF:
+def _stats_flush_batch(batch: list) -> None:
+    """异步批量落盘（后台线程；与 _stats_flush 串行化，失败静默）。"""
+    if not batch:
         return
     mod = _EXT_LOADED.get("stats")
     if mod is None:
         return
     try:
-        records = mod._load() + _STATS_BUF
-        mod._save(mod._truncate(records))
-        _STATS_BUF = []
+        with _STATS_FLUSH_LOCK:
+            records = mod._load() + batch
+            mod._save(mod._truncate(records))
+    except Exception:
+        pass
+
+
+_STATS_BUF: list[dict] = []
+_STATS_FLUSH_EVERY = 100
+_STATS_LOCK = threading.Lock()
+_STATS_FLUSH_LOCK = threading.Lock()
+
+
+def _stats_flush() -> None:
+    """缓冲批量写入 stats 文件（进程退出/汇总前调用；与后台 flush 串行化）。"""
+    global _STATS_BUF
+    try:
+        with _STATS_LOCK:
+            batch, _STATS_BUF = _STATS_BUF, []
+        if batch:
+            _stats_flush_batch(batch)
     except Exception:
         pass
 

@@ -381,16 +381,31 @@ pub fn experience_store(
     delta_score: f64,
     summary: &str,
 ) -> String {
+    // 压缩学习：经验卡片 summary 截断（防状态文件膨胀），context_hash 归一化
     let id = format!("{}-{}", context_hash, model);
     let exp = Experience {
         id: id.clone(),
         model_fingerprint: model.to_string(),
         context_hash: context_hash.to_string(),
         delta_score,
-        summary: summary.to_string(),
+        summary: compress_summary(summary, 200),
     };
     state.experiences.insert(id.clone(), exp);
     id
+}
+
+/// 压缩学习：摘要截断至 200 字符（保留关键信息，去冗余）。
+pub fn compress_summary(s: &str, max_len: usize) -> String {    if s.chars().count() <= max_len {
+        return s.to_string();
+    }
+    let mut out: String = s.chars().take(max_len).collect();
+    out.push('…');
+    out
+}
+
+/// 压缩学习：lesson_recall 用查询（delta=0 会污染 recall_count，故独立命令）。
+pub fn lesson_recall_query(state: &EngineState, id: &str) -> Option<Lesson> {
+    state.lessons.get(id).cloned()
 }
 
 /// Find reusable experiences matching a context hash, sorted by delta_score desc.
@@ -765,6 +780,20 @@ pub fn handle_command(line: &str, state: &mut EngineState) -> String {
             Ok(inner) => format!("{{\"ok\":true,\"result\":{}}}", inner),
             Err(e) => format!("{{\"ok\":false,\"error\":\"{}\"}}", e),
         },
+        "lesson_recall" => {
+            // 查询单条教训（不触发 recall_count++，防查询污染枢纽信号）
+            let id = json_str_field(&payload, "id").unwrap_or_default();
+            match lesson_recall_query(state, &id) {
+                Some(l) => format!(
+                    "{{\"ok\":true,\"result\":{{\"id\":\"{}\",\"utility\":{},\"recall\":{},\"archived\":{}}}}}",
+                    json_escape(&l.id), fmt_f64(l.utility), l.recall_count, l.archived
+                ),
+                None => format!(
+                    "{{\"ok\":false,\"error\":\"lesson not found: {}\"}}",
+                    json_escape(&id)
+                ),
+            }
+        }
         _ => format!(
             "{{\"ok\":false,\"error\":\"unknown cmd: {}\"}}",
             json_escape(&cmd)
@@ -905,6 +934,44 @@ mod tests {
             &mut s,
         );
         assert!(resp.contains("\"archived\":true"));
+    }
+
+    // ── 压缩学习 + 枢纽优先（Nature Communications 启发）──
+    #[test]
+    fn lesson_recall_query_does_not_pollute_recall() {
+        // 查询不得触发 recall_count++（delta=0 查询会污染枢纽信号）
+        let mut s = EngineState::new();
+        delta_update_lesson(&mut s, "L1", 0.2, 0.1); // recall=1
+        let r1 = lesson_recall_query(&s, "L1").unwrap();
+        let r2 = lesson_recall_query(&s, "L1").unwrap();
+        assert_eq!(r1.recall_count, 1);
+        assert_eq!(r2.recall_count, 1, "查询不增 recall");
+    }
+
+    #[test]
+    fn cli_lesson_recall_command() {
+        let mut s = EngineState::new();
+        delta_update_lesson(&mut s, "L1", 0.2, 0.1);
+        let resp = handle_command(r#"{"cmd":"lesson_recall","payload":{"id":"L1"}}"#, &mut s);
+        assert!(resp.contains("\"ok\":true"), "{}", resp);
+        assert!(resp.contains("\"recall\":1"), "{}", resp);
+        let miss = handle_command(r#"{"cmd":"lesson_recall","payload":{"id":"NOPE"}}"#, &mut s);
+        assert!(miss.contains("\"ok\":false"), "{}", miss);
+    }
+
+    #[test]
+    fn experience_summary_compressed() {
+        // 压缩学习：长 summary 截断至 200 字符 + 省略号
+        let mut s = EngineState::new();
+        let long = "x".repeat(500);
+        experience_store(&mut s, "m1", "c1", -0.2, &long);
+        let e = s.experiences.values().next().unwrap();
+        assert!(e.summary.chars().count() <= 201, "压缩后长度: {}", e.summary.chars().count());
+        assert!(e.summary.ends_with('…'), "压缩需省略号标记");
+        // 短 summary 原样保留
+        experience_store(&mut s, "m2", "c2", 0.5, "short ok");
+        let short = s.experiences.values().find(|e| e.model_fingerprint == "m2").unwrap();
+        assert_eq!(short.summary, "short ok");
     }
 
     // ── P1/P2 回归：JSON 解析健壮性 ─────────────────────────

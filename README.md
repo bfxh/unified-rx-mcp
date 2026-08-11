@@ -37,6 +37,23 @@
 3. **诚实标注**：无法验证的数字断言（如"49 个测试"）不会自动提取冒充证据——
    需要对照时显式给出可验证项（如 `pytest --collect-only` 的实际计数）。
 
+**防幻觉闭环（自动回灌）**：`hallucination_guard` 发现 `refuted`（被证伪=幻觉）时，
+自动回灌 LSE 引擎——①负 delta 惩罚该幻觉模式（同内容教训汇聚同一 ID，形成枢纽）；
+②经验教训卡片入库（`experience_store`），下次 `lesson_recall_lse`/`experience_match`
+可召回防复发。lse-engine 未构建时降级为"检测但不回灌"，幻觉检测不受影响。
+
+## 压缩学习 + 枢纽优先（Nature Communications 启发）
+
+LSE 教训引擎借鉴《自然-通讯》「压缩学习 枢纽优先」思想：
+
+- **枢纽优先（Hub-Priority）**：`lesson_recall_lse` 排序时，utility 为主键、
+  recall_count（教训被反复验证/召回的次数）软加权——反复被证实有效的教训是"枢纽"，
+  同等效用下优先召回（hub_bonus = min(recall,10)×0.015，不硬覆盖 utility）。
+- **查询不污染枢纽信号**：新增 `lesson_recall` 查询命令（不触发 recall_count++），
+  替代旧的 delta=0 查询方式（旧方式每次查询都 +1，枢纽信号失真）。
+- **压缩学习（Compression）**：`experience_store` 经验卡片 summary 自动截断至
+  200 字符（保留关键信息 + 省略号标记），防状态文件膨胀、防上下文污染。
+
 配套：`lesson_recall_lse` / `lesson_feedback` 教训召回闭环，发现幻觉模式后可记录教训防复发。
 
 ## Tool 角色回喂（AetherStudio PR #106/#111 启发）
@@ -125,6 +142,7 @@ python -m pytest test_unified_rx.py -q   # 72 tests
 
 ## 更新日志
 
+- **2026-08-11** 防幻觉闭环 + 压缩学习枢纽优先：hallucination_guard refuted 自动回灌 LSE（负 delta + 教训卡片）；lesson_recall_lse 枢纽优先排序（recall 软加权）；lse-engine 新增 lesson_recall 查询命令（不污染 recall）+ experience summary 压缩（200 字符）
 - **2026-08-11** 防幻觉机制：`hallucination_guard`（声明三分级验证：file:line/符号/工具名）+ `capability_manifest`（能力边界清单：有什么/没有什么）+ 防回归全套（P0 mcp_smoke 入 CI / P1 tool_ratchet 棘轮 / P2 actionlint 硬门禁）+ stats 会话维度
 - **2026-08-11** 高协作：pipeline 步骤链 + parallel 并发组（54 工具）
 - **2026-08-10** 性能重构：mcp 懒加载（import 11.4× 快 / 内存 4.7× 小）、工具定义缓存、_TC/_ToolDef 轻量类
