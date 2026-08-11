@@ -2319,8 +2319,8 @@ async def run() -> None:
         out = await asyncio.to_thread(_call, name, arguments)
         return [types.TextContent(type=getattr(c, "type", "text"), text=c.text) for c in out]
 
-    # 打开阵地即自扫（后台线程，不阻塞启动）：工具常驻运行，扫自己一遍，
-    # 结果落盘 scan-log.jsonl（"包括它自己也会扫自己，扫完的都放到日志里面"）。
+    # 打开 RX 即自动开启后台扫描循环（daemon 线程持续跑，不会停下）：
+    # 5 模式各自独立循环线程并发（自扫/项目/全盘），互不打扰，结果落盘 scan-log。
     _spawn_self_scan()
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
@@ -2338,20 +2338,32 @@ async def run() -> None:
         )
 
 
-def _spawn_self_scan() -> None:
-    """后台自扫 + 活跃项目扫描：常驻启动即跑，互不打扰，结果落盘。
+_SCAN_LOOPS_STARTED = False  # 防重复启动后台扫描循环（见 _spawn_self_scan）
 
-    五种常态化扫描模式（全部高并发）：
-      ① 跟随话题项目：UNIFIED_RX_PROJECT 指定 → project_scan 并发扫
-      ② 全盘扫：full_scan 工具（多项目根并发）
-      ③ 被 RX 调用：_scan_log_tick 调用即记（每次工具调用自动落盘）
-      ④ 最活跃就扫：stats.json 统计调用最多的项目 → 并发扫
-      ⑤ 扫自己：全家自扫（core+scripts+lse-engine 文件级并发 + vendor 扩展目录并发）
-    守护线程 + 失败静默——绝不影响 MCP 协议层。CI/测试跳过
+
+def _spawn_self_scan() -> None:
+    """后台扫描循环：打开 RX 即自动开启，5 模式各自独立 daemon 线程**持续循环**（不会停下），互不打扰，结果落盘。
+
+    五种常态化扫描模式（全部高并发 + 持续）：
+      ① 跟随话题项目：UNIFIED_RX_PROJECT 指定 → project_scan 并发扫（循环）
+      ② 全盘扫：full_scan 多项目根并发（低频循环）
+      ③ 被 RX 调用：_scan_log_tick 调用即记（每次工具调用自动落盘，天然持续）
+      ④ 最活跃就扫：stats.json 统计调用最多的项目 → 并发扫（循环）
+      ⑤ 扫自己：全家自扫（core+scripts+lse-engine 文件级并发 + vendor 扩展目录并发）（循环）
+
+    循环间隔可用环境变量覆盖（秒）：
+      UNIFIED_RX_SCAN_INTERVAL_SELF=600（自扫，默认 10 分钟）
+      UNIFIED_RX_SCAN_INTERVAL_PROJECT=300（项目 ①④，默认 5 分钟）
+      UNIFIED_RX_SCAN_INTERVAL_FULL=1800（全盘 ②，默认 30 分钟）
+    daemon 线程 + 失败静默——绝不影响 MCP 协议层。CI/测试跳过
     （UNIFIED_RX_SKIP_SELF_SCAN=1）。
     """
     if os.environ.get("UNIFIED_RX_SKIP_SELF_SCAN", "") == "1":
         return
+    global _SCAN_LOOPS_STARTED
+    if _SCAN_LOOPS_STARTED:
+        return  # 防重复启动（多次调用/重连不堆积线程）
+    _SCAN_LOOPS_STARTED = True
     try:
         import scan_log_core
     except ImportError:
@@ -2394,50 +2406,74 @@ def _spawn_self_scan() -> None:
                 return cand
         return None
 
-    def _do() -> None:
+    def _self_scan_once() -> None:
+        """模式⑤自扫一轮：全家文件级并发 + 扩展目录并发。"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        files = scan_log_core.self_scan_files()
+
+        def scan_one(f: str) -> None:
+            try:
+                d = json.loads(_call("bug_scan", {"path": f})[0].text)
+                n = len(d.get("issues", [])) if isinstance(d, dict) else -1
+                scan_log_core.append_scan({
+                    "tool": "self_scan", "root": f, "ok": n == 0,
+                    "summary": f"self bug_scan {os.path.basename(f)}: issues={n}",
+                })
+            except Exception:
+                pass
+
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(files)))) as pool:
+            futs = [pool.submit(scan_one, f) for f in files]
+            for fut in as_completed(futs):
+                fut.result()
+        for d in scan_log_core.self_scan_dirs():
+            try:
+                r = _call("bug_scan", {"path": d, "max_files": 50})[0]
+                dd = json.loads(r.text)
+                n = len(dd.get("issues", [])) if isinstance(dd, dict) else -1
+                scan_log_core.append_scan({
+                    "tool": "self_scan", "root": d, "ok": n == 0,
+                    "summary": f"self bug_scan {os.path.basename(d)}: issues={n}",
+                })
+            except Exception:
+                pass
+
+    def _project_scan_once() -> None:
+        """模式①④ 一轮：跟随话题项目（无则最活跃）并发扫。"""
+        proj = _active_project()
+        if proj:
+            try:
+                _call("project_scan", {"path": proj, "max_files": 100})
+            except Exception:
+                pass
+
+    def _full_scan_once() -> None:
+        """模式② 一轮：多项目根并发全盘扫。"""
         try:
-            from concurrent.futures import ThreadPoolExecutor, as_completed
-            # 1) 自扫全家（模式⑤，高并发：文件级并行跑 bug_scan）
-            files = scan_log_core.self_scan_files()
-
-            def scan_one(f: str) -> None:
-                try:
-                    d = json.loads(_call("bug_scan", {"path": f})[0].text)
-                    n = len(d.get("issues", [])) if isinstance(d, dict) else -1
-                    scan_log_core.append_scan({
-                        "tool": "self_scan", "root": f, "ok": n == 0,
-                        "summary": f"self bug_scan {os.path.basename(f)}: issues={n}",
-                    })
-                except Exception:
-                    pass
-
-            with ThreadPoolExecutor(max_workers=min(8, max(1, len(files)))) as pool:
-                futs = [pool.submit(scan_one, f) for f in files]
-                for fut in as_completed(futs):
-                    fut.result()
-            # 1b) 扩展目录并发扫（vendor/extensions/*）
-            for d in scan_log_core.self_scan_dirs():
-                try:
-                    r = _call("bug_scan", {"path": d, "max_files": 50})[0]
-                    dd = json.loads(r.text)
-                    n = len(dd.get("issues", [])) if isinstance(dd, dict) else -1
-                    scan_log_core.append_scan({
-                        "tool": "self_scan", "root": d, "ok": n == 0,
-                        "summary": f"self bug_scan {os.path.basename(d)}: issues={n}",
-                    })
-                except Exception:
-                    pass
-            # 2) 最活跃项目并发扫描（模式④：互不打扰，独立线程跑 project_scan）
-            proj = _active_project()
-            if proj:
-                try:
-                    _call("project_scan", {"path": proj, "max_files": 100})
-                except Exception:
-                    pass
+            _call("full_scan", {"max_files": 100, "ui": False})
         except Exception:
-            pass  # 自扫失败静默
+            pass
 
-    threading.Thread(target=_do, daemon=True, name="rx-self-scan").start()
+    def _loop(name: str, interval_env: str, default: float, fn) -> None:
+        """持续循环线程：首轮立即跑，之后每 interval 秒跑一轮（永不停下）。"""
+        interval = float(os.environ.get(interval_env, default))
+        if interval < 10:
+            interval = 10  # 防 DoS：间隔下限 10s
+
+        def runner() -> None:
+            while True:
+                try:
+                    fn()
+                except Exception:
+                    pass
+                time.sleep(interval)
+
+        threading.Thread(target=runner, daemon=True, name=f"rx-scan-{name}").start()
+
+    # 三个持续循环线程（互不打扰，各自独立）：自扫 / 项目 / 全盘
+    _loop("self", "UNIFIED_RX_SCAN_INTERVAL_SELF", 600, _self_scan_once)
+    _loop("project", "UNIFIED_RX_SCAN_INTERVAL_PROJECT", 300, _project_scan_once)
+    _loop("full", "UNIFIED_RX_SCAN_INTERVAL_FULL", 1800, _full_scan_once)
 
 
 def _selftest() -> None:

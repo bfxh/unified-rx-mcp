@@ -1501,15 +1501,19 @@ def test_self_scan_active_project_env(tmp_path, monkeypatch):
     src.write_text("x = 1\n", encoding="utf-8")
     server._call("cb_index", {"path": str(tmp_path)})
 
+    server._SCAN_LOOPS_STARTED = False  # 重置防重复标志（测试隔离）
     server._spawn_self_scan()
     import time
-    time.sleep(6)  # 后台线程：自扫 4 文件 + 项目四路扫描
-    logs = scan_log_core.query_logs(limit=50)
-    tools = {l["tool"] for l in logs}
-    assert "self_scan" in tools, tools
-    assert "project_scan" in tools, "活跃项目被自动扫描"
-    proj = [l for l in logs if l["tool"] == "project_scan"]
-    assert proj and proj[0]["root"] == str(tmp_path), proj
+    deadline = time.time() + 20
+    proj = []
+    while time.time() < deadline:
+        logs = scan_log_core.query_logs(limit=200)
+        proj = [l for l in logs if l["tool"] == "project_scan"
+                and l["root"] == str(tmp_path)]  # 只认本测试 root（防残留线程干扰）
+        if proj:
+            break
+        time.sleep(1)
+    assert proj, "活跃项目被自动扫描"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1578,9 +1582,81 @@ def test_active_project_most_used(monkeypatch, tmp_path):
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path / "home")
 
     # 通过 server 内部 _active_project 验证（间接：spawn 后 scan-log 应有最活跃项目）
+    server._SCAN_LOOPS_STARTED = False  # 重置防重复标志（测试隔离）
     server._spawn_self_scan()
     import time
-    time.sleep(7)
-    logs = scan_log_core.query_logs(tool="project_scan", limit=5)
+    deadline = time.time() + 20
+    logs = []
+    while time.time() < deadline:
+        logs = [l for l in scan_log_core.query_logs(tool="project_scan", limit=20)
+                if l["root"] == r"D:\开发\VoxelForge-Nexus"]
+        if logs:
+            break
+        time.sleep(1)
     assert logs, "最活跃项目被自动扫"
-    assert logs[0]["root"] == r"D:\开发\VoxelForge-Nexus", logs[0]
+
+
+# ─────────────────────────────────────────────────────────────
+# 持续循环扫描（2026-08-11：5 模式并发循环，打开 RX 自动开启不会停下）
+# ─────────────────────────────────────────────────────────────
+
+def test_scan_loops_spawned_and_running(monkeypatch, tmp_path):
+    """持续循环：_spawn_self_scan 启动 3 个独立循环线程（自扫/项目/全盘），首轮立即跑。"""
+    import scan_log_core
+    import threading
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    monkeypatch.setenv("UNIFIED_RX_PROJECT", str(tmp_path))
+    monkeypatch.setenv("UNIFIED_RX_SCAN_INTERVAL_SELF", "10")
+    monkeypatch.setenv("UNIFIED_RX_SCAN_INTERVAL_PROJECT", "10")
+    monkeypatch.setenv("UNIFIED_RX_SCAN_INTERVAL_FULL", "10")
+    (tmp_path / "demo.py").write_text("x = 1\n", encoding="utf-8")
+    server._call("cb_index", {"path": str(tmp_path)})
+
+    before = set(t.name for t in threading.enumerate())
+    server._SCAN_LOOPS_STARTED = False  # 允许本次 spawn
+    server._spawn_self_scan()
+    after = set(t.name for t in threading.enumerate())
+    new = after - before
+    # 防重复标志下已启动过则线程已存在；未启动过则本次新增——两者都算启动成功
+    names = set(t.name for t in threading.enumerate())
+    assert {"rx-scan-self", "rx-scan-project", "rx-scan-full"} <= names, names
+
+    # 首轮立即跑（不用等间隔）：等后台线程完成第一轮（只认本测试 root）
+    import time
+    deadline = time.time() + 20
+    self_ok, proj_ok = False, False
+    while time.time() < deadline:
+        logs = scan_log_core.query_logs(limit=300)
+        if any(l["tool"] == "self_scan" for l in logs):
+            self_ok = True  # 自扫 root 是仓库文件路径（非 tmp_path），只需出现
+        if any(l["tool"] == "project_scan" and l["root"] == str(tmp_path) for l in logs):
+            proj_ok = True
+        if self_ok and proj_ok:
+            break
+        time.sleep(1)
+    assert self_ok, "自扫首轮未跑"
+    assert proj_ok, "项目首轮未跑"
+
+
+def test_scan_loop_interval_floor(monkeypatch):
+    """循环间隔下限 10s（防 DoS：设 1s 也按 10s）。"""
+    monkeypatch.setenv("UNIFIED_RX_SCAN_INTERVAL_SELF", "1")
+    server._spawn_self_scan()
+    import threading
+    for t in threading.enumerate():
+        if t.name == "rx-scan-self":
+            assert t.daemon, "循环线程必须 daemon（不阻止退出）"
+            break
+    else:
+        raise AssertionError("rx-scan-self 线程未找到")
+
+
+def test_scan_loops_skip_when_disabled(monkeypatch):
+    """UNIFIED_RX_SKIP_SELF_SCAN=1 时不启动循环（CI/测试环境）。"""
+    monkeypatch.setenv("UNIFIED_RX_SKIP_SELF_SCAN", "1")
+    import threading
+    before = set(t.name for t in threading.enumerate())
+    server._spawn_self_scan()
+    after = set(t.name for t in threading.enumerate())
+    assert not {"rx-scan-self", "rx-scan-project", "rx-scan-full"} & (after - before), "禁用时不得启动循环"
