@@ -53,7 +53,8 @@ def test_defs_cache_stable():
     ka = [(t.name, t.description, t.inputSchema) for t in a]
     kb = [(t.name, t.description, t.inputSchema) for t in b]
     assert ka == kb, "_definitions() 两次调用不一致（_DEFS_CACHE 缓存破坏）"
-    assert len(ka) >= 54, f"工具定义数异常: {len(ka)}"
+    # 只断言核心固定（35）；扩展懒加载，同步 _definitions() 不构建扩展
+    assert len(ka) >= 35, f"工具定义数异常: {len(ka)}"
 
 
 def test_tools_count_and_schema():
