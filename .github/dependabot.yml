@@ -18,6 +18,19 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
+    ignore:
+      # 大版本跳跃有破坏性变更（checkout@v7/setup-python@v7/codeql v4 导致 CI 失败）
+      # 目标版本 v6（Node 24 兼容），ignore >=7
+      - dependency-name: "github/codeql-action"
+        versions: [">=4.0.0"]
+      - dependency-name: "actions/checkout"
+        versions: [">=7.0.0"]
+      - dependency-name: "actions/setup-python"
+        versions: [">=7.0.0"]
+      - dependency-name: "actions/upload-artifact"
+        versions: [">=6.0.0"]
+      - dependency-name: "codecov/codecov-action"
+        versions: [">=6.0.0"]
     reviewers:
       - "security-team"
     groups:

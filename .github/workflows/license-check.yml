@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: REUSE Compliance Check
         uses: fsfe/reuse-action@v4
@@ -32,7 +32,7 @@ jobs:
           cat license-report.json
 
       - name: Upload license report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: license-report
           path: license-report.json
