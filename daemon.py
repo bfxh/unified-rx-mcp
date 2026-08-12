@@ -156,6 +156,86 @@ def _loop_repo_manage() -> None:
         time.sleep(max(10, interval))
 
 
+# ─────────────────────────────────────────────────────────────
+# 模式⑤ 影子扫描：RX 调用哪个文件，影子跟着扫哪个（30s 轮询）
+# ─────────────────────────────────────────────────────────────
+def _shadow_scan_callback(path: str):
+    """影子扫描回调：对单个文件跑 bug_scan + std_check（走 server 工具）。"""
+    try:
+        r = server._call("bug_scan", {"path": path})
+        d = json.loads(r[0].text if isinstance(r, list) else str(r))
+        n = len(d.get("issues", [])) if isinstance(d, dict) else -1
+        r2 = server._call("std_check", {"path": path})
+        d2 = json.loads(r2[0].text if isinstance(r2, list) else str(r2))
+        s = d2.get("summary", {}) if isinstance(d2, dict) else {}
+        summary = f"bug={n} std={s.get('critical', 0)}/{s.get('warning', 0)}"
+        return True, summary
+    except Exception as e:  # noqa: BLE001
+        return False, str(e)[:60]
+
+
+def _loop_shadow_scan() -> None:
+    import shadow_core
+    # 注入真实沙盒校验（shadow 候选路径必须通过 server._check_path）
+    shadow_core._check_path = server._check_path
+    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_SHADOW", "30"))
+    while True:
+        try:
+            n = shadow_core.shadow_scan_once(_shadow_scan_callback)
+            if n:
+                scan_log_core.append_scan({
+                    "tool": "shadow_scan", "root": "batch", "ok": True,
+                    "summary": f"影子扫描补扫 {n} 个文件",
+                })
+        except Exception:
+            pass
+        time.sleep(max(10, interval))
+
+
+# ─────────────────────────────────────────────────────────────
+# 模式② 按窗口扫：活动窗口项目 → project_scan（120s）
+# ─────────────────────────────────────────────────────────────
+def _loop_window_scan() -> None:
+    import window_core
+    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_WINDOW", "120"))
+    last_proj = None
+    while True:
+        try:
+            proj = window_core.active_project()
+            if proj and proj != last_proj:
+                # 排除清单：不扫 Steam/AppData 下无关项目（复用 server 排除）
+                if server._scan_excluded(proj):
+                    last_proj = proj  # 记录但跳过（避免每轮重试）
+                    continue
+                last_proj = proj
+                server._call("project_scan", {"path": proj, "max_files": 100})
+                scan_log_core.append_scan({
+                    "tool": "window_scan", "root": proj, "ok": True,
+                    "summary": f"按窗口扫: {os.path.basename(proj)}",
+                })
+        except Exception:
+            pass
+        time.sleep(max(10, interval))
+
+
+# ─────────────────────────────────────────────────────────────
+# 缓存维护：扫描缓存 LRU 清理 + 状态
+# ─────────────────────────────────────────────────────────────
+def _loop_cache_maintain() -> None:
+    import scan_cache
+    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_CACHE", "600"))
+    while True:
+        try:
+            st = scan_cache.stats()
+            scan_log_core.append_scan({
+                "tool": "cache_maintain", "root": "cache", "ok": True,
+                "summary": f"扫描缓存 {st['entries']} 条",
+            })
+        except Exception:
+            pass
+        time.sleep(max(10, interval))
+
+
 def _repo_token() -> str:
     """仓库管理 token：环境变量 GH_TOKEN > gh CLI keyring（gh auth token）。"""
     t = os.environ.get("GH_TOKEN", "").strip()
@@ -244,16 +324,19 @@ def main() -> None:
         _loop_repo_manage()
         return
 
-    # 常驻：4 个并发循环线程（多并发处理不同东西）
+    # 常驻：8 个并发循环线程（多并发处理不同东西，互不打扰）
     threads = [
         threading.Thread(target=_loop_self_scan, daemon=True, name="daemon-self"),
         threading.Thread(target=_loop_project_scan, daemon=True, name="daemon-project"),
         threading.Thread(target=_loop_full_scan, daemon=True, name="daemon-full"),
         threading.Thread(target=_loop_repo_manage, daemon=True, name="daemon-repo"),
+        threading.Thread(target=_loop_shadow_scan, daemon=True, name="daemon-shadow"),
+        threading.Thread(target=_loop_window_scan, daemon=True, name="daemon-window"),
+        threading.Thread(target=_loop_cache_maintain, daemon=True, name="daemon-cache"),
     ]
     for t in threads:
         t.start()
-    print(f"[daemon] 4 并发循环已启动: self/project/full/repo — 常驻挖漏洞 + 仓库管理")
+    print(f"[daemon] {len(threads)} 并发循环已启动: self/project/full/repo/shadow/window/cache")
     print(f"[daemon] 日志: {scan_log_core.log_path()} / {REPO_LOG}")
     # 主线程保持（daemon 线程随进程退出，这里用 join 常驻）
     try:

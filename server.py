@@ -106,9 +106,16 @@ _MAX_WRITE = 1 << 20         # 单文件写入上限 1MB
 # 可用环境变量 UNIFIED_RX_SANDBOX 覆盖（分号分隔多个根）；空字符串 = 显式禁用沙盒
 # UNIFIED_RX_PROJECT（常驻活跃项目）自动并入沙盒根——扫用户指定的项目必须可访问
 _sandbox_roots = [r.strip() for r in os.environ.get("UNIFIED_RX_SANDBOX", os.getcwd()).split(";") if r.strip()]
+# UNIFIED_RX_PROJECT（常驻活跃项目）自动并入沙盒根——扫用户指定的项目必须可访问
 _active_proj = os.environ.get("UNIFIED_RX_PROJECT", "").strip()
 if _active_proj and _active_proj not in _sandbox_roots:
     _sandbox_roots.append(_active_proj)
+# 开发项目根（D:\开发）自动并入——全盘扫/窗口扫的目标目录（用户明确要求扫）
+# 仅沙盒启用时并入；UNIFIED_RX_SANDBOX=""（显式禁用）不污染
+if _sandbox_roots:
+    for _dev in (r"D:\开发",):
+        if _dev not in _sandbox_roots:
+            _sandbox_roots.append(_dev)
 _SANDBOX_ROOTS = _sandbox_roots
 
 
@@ -716,6 +723,20 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
 # ── 全盘扫（2026-08-11：多项目根并发，模式② 全盘扫）──
 _FULL_SCAN_DEFAULT_ROOTS = [r"D:\开发\VoxelForge-Nexus", r"D:\开发\reasonix-src",
                            r"D:\开发\VoxelForge", r"D:\开发\unified-rx-mcp"]
+# 全盘扫排除目录（用户要求：不扫 Steam、不扫其他无关目录）
+# 注意：排除只作用于"自动发现的默认 roots"层面，显式传入的 roots 不过滤
+# （测试/用户指定路径必须可扫，防误伤）
+_SCAN_EXCLUDE_DIRS = (
+    "steam", "steamapps", "appdata", "node_modules", "target", "dist",
+    ".git", "__pycache__", "windows", "program files", "games", "downloads",
+    ".cargo", ".rustup", ".npm",
+)
+
+def _scan_excluded(path: str) -> bool:
+    """路径是否命中排除清单（只用于自动发现的默认 roots）。"""
+    low = path.lower().replace("\\", "/")
+    return any(f"/{e}/" in f"/{low}/" or low.endswith(f"/{e}")
+               for e in _SCAN_EXCLUDE_DIRS)
 
 
 def _tool_full_scan(args: dict) -> "list[types.TextContent]":
@@ -723,11 +744,14 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
     全部完成汇总 + 落盘 scan-log。缺省扫常见项目根，可显式传 roots 列表。"""
     from concurrent.futures import ThreadPoolExecutor, as_completed
     roots = args.get("roots") or _FULL_SCAN_DEFAULT_ROOTS
+    auto_roots = not args.get("roots")  # 未显式传 roots = 自动默认（过排除清单）
     max_files = int(args.get("max_files", 100))
     ui = bool(args.get("ui", True))
     results = {"roots": roots, "projects": [], "errors": []}
 
     def scan_project(root: str) -> None:
+        if auto_roots and _scan_excluded(root):
+            return  # 自动发现的默认 roots 过排除清单（不扫 Steam/无关目录）
         try:
             r = _call("project_scan", {"path": root, "max_files": max_files, "ui": ui})
             text = r[0].text if isinstance(r, list) else str(r)
@@ -1255,11 +1279,21 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
 
     多文件目录扫描用 ProcessPoolExecutor 并行（CPU 密集 AST，子进程不吃 GIL）；
     进程池不可用（受限环境）时串行 fallback。结果与串行完全一致。
+    单文件走 scan_cache（mtime/size 未变直接返回缓存，省重复扫描）。
     """
     p = _check_path(str(args["path"]))
     max_files = int(args.get("max_files", _BUG_MAX_FILES))
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
+    # 单文件缓存（幂等只读；文件变了缓存失效）
+    if p.is_file():
+        try:
+            import scan_cache
+            hit = scan_cache.get("bug_scan", str(p))
+            if hit is not None:
+                return [_TC(json.dumps(hit, ensure_ascii=False))]
+        except ImportError:
+            pass
     files = []
     if p.is_file():
         if p.suffix == ".py":
@@ -1304,9 +1338,17 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     if total_lines > _BUG_MAX_TOTAL_LINES:
         raise ValueError(f"扫描总量超限（>{_BUG_MAX_TOTAL_LINES} 行），请缩小范围")
     issues.sort(key=lambda i: (i["file"], i["line"], i["col"]))
-    return [_TC(json.dumps({
+    result = {
         "ok": True, "files": len(files), "issue_count": len(issues), "issues": issues,
-    }, ensure_ascii=False))]
+    }
+    # 单文件成功结果入缓存（幂等只读；mtime/size 变了自动失效）
+    if p.is_file():
+        try:
+            import scan_cache
+            scan_cache.put("bug_scan", str(p), result)
+        except ImportError:
+            pass
+    return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
 def _tool_ui_check(args: dict) -> "list[types.TextContent]":
@@ -2215,6 +2257,8 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
             result = fn(arguments or {})
             if isinstance(result, list):
                 _scan_log_tick(name, arguments or {}, result)
+                # 日志闯进调用：扫描工具返回时附带该 root 已知问题（scan-log 反馈）
+                result = _attach_known_issues(name, arguments or {}, result)
                 return result
             _scan_log_tick(name, arguments or {}, [_TC(str(result))])
             return [_TC(str(result))]
@@ -2229,6 +2273,48 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
         # 自动打点（工具协作：每个工具调用自动记录到 stats，stats_* 自身除外）
         if not name.startswith("stats_"):
             _stats_tick(name, (time.perf_counter() - t0) * 1000)
+
+
+# 日志闯进调用（总线反馈链路）：扫描工具返回时，从 scan-log 读取该 root 的
+# 最近已知问题并附到结果 JSON——智能体不用额外查日志就知道"这文件出过什么 bug"。
+_KNOWN_ISSUE_TOOLS = {"bug_scan", "std_check", "locate_edit", "vuln_scan",
+                      "project_scan", "ui_check"}
+
+
+def _attach_known_issues(name: str, args: dict,
+                         result: "list[types.TextContent]") -> "list[types.TextContent]":
+    if name not in _KNOWN_ISSUE_TOOLS:
+        return result
+    try:
+        import scan_log_core
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import scan_log_core  # noqa: F811
+    root = str(args.get("path", "") or args.get("root", ""))
+    if not root:
+        return result
+    # 读该 root 最近的扫描日志（按 root 过滤，最多 3 条非本轮记录）
+    logs = scan_log_core.query_logs(root=root, limit=50)
+    known = [l for l in logs if l.get("tool") != name][:3]
+    if not known:
+        return result
+    text = getattr(result[0], "text", "") if result else ""
+    if not text.startswith("{"):
+        return result  # 非 JSON 结果不注入
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict) and "known_issues" not in data:
+            data["known_issues"] = [{
+                "tool": l.get("tool", ""),
+                "ts": l.get("ts", ""),
+                "summary": str(l.get("summary", ""))[:120],
+            } for l in known]
+            data["known_issues_note"] = "来自 scan-log（日志闯进调用）：该路径最近的已知问题，修复进展可查 scan_log"
+            result[0] = _TC(json.dumps(data, ensure_ascii=False))
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        pass
+    return result
 
 
 # 扫描类工具：调用完成自动落盘 scan-log.jsonl（常驻自扫日志，专项目对话可查）

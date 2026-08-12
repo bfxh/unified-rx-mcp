@@ -57,3 +57,8 @@ License: MIT
 Files: SECURITY.md
 Copyright: 2026 bfxh
 License: MIT
+
+# rx-core（Rust crate：Cargo.lock 生成文件等）
+Files: rx-core/*
+Copyright: 2026 bfxh
+License: MIT
