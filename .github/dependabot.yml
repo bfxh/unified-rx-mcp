@@ -18,6 +18,21 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
+    ignore:
+      # 大版本跳跃有破坏性变更（checkout@v7/setup-python@v7/codeql v4 等导致 CI 失败）
+      # 保持当前已验证版本
+      - dependency-name: "github/codeql-action"
+        versions: [">=4.0.0"]
+      - dependency-name: "actions/checkout"
+        versions: [">=7.0.0"]
+      - dependency-name: "actions/setup-python"
+        versions: [">=7.0.0"]
+      - dependency-name: "actions/upload-artifact"
+        versions: [">=6.0.0"]
+      - dependency-name: "actions/setup-node"
+        versions: [">=6.0.0"]
+      - dependency-name: "codecov/codecov-action"
+        versions: [">=6.0.0"]
     reviewers:
       - "security-team"
     groups:
@@ -114,9 +129,3 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
-
-    ignore:
-      # github/codeql-action v4 有破坏性变更（upload-sarif 行为变化导致 CI 失败）
-      # 保持 v3（pin 到 commit SHA），避免 dependabot 反复升级
-      - dependency-name: "github/codeql-action"
-        versions: [">=4.0.0"]
