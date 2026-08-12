@@ -114,3 +114,9 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
+
+    ignore:
+      # github/codeql-action v4 有破坏性变更（upload-sarif 行为变化导致 CI 失败）
+      # 保持 v3（pin 到 commit SHA），避免 dependabot 反复升级
+      - dependency-name: "github/codeql-action"
+        versions: [">=4.0.0"]
