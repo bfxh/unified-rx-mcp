@@ -134,9 +134,14 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         # diagnose 记录问题数（bug_scan 对 unwrap 至少报 warn）
         diag = next(c for c in d["chain"] if c["step"] == "diagnose")
         assert diag["ok"] is True
-        # locate 定位到 bug.rs 的具体行
+        # locate 定位到 bug.rs 的具体行 + 上下文 + 符号线索（IDE 增强十）
         loc = next(c for c in d["chain"] if c["step"] == "locate")
         assert "bug.rs" in loc["summary"], f"locate 应定位 bug.rs: {loc['summary']}"
+        ql = ide_quest.resume_quest(d["quest_id"])
+        loc_result = ql.state["steps"]["locate"]["result"]
+        assert "context" in loc_result and len(loc_result["context"]) >= 1, (
+            f"locate 应附行上下文: {loc_result}")
+        assert loc_result.get("symbol_hint", ""), "locate 应提取符号线索"
         # fix 生成修复建议（unwrap → 安全处理）
         fix = next(c for c in d["chain"] if c["step"] == "fix")
         assert fix["summary"].startswith("2 条修复建议"), f"两个 unwrap 应有 2 条建议: {fix}"

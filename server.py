@@ -1901,19 +1901,53 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                      "severity_counts": scan_data.get("severity_counts", {})},
                     "diagnose", "bug_scan",
                     f"{len(issues)} 问题（{len(errors)} error）")
-            # 2. locate：top 问题位置（error 优先）
+            # 2. locate：top 问题位置（error 优先）+ 行上下文 + 符号线索（IDE 增强十）
             top = (errors or issues or [{}])[0]
             loc = {"tool": "locate", "file": top.get("file", ""),
                    "line": top.get("line", 0), "rule": top.get("rule", ""),
                    "message": str(top.get("msg", ""))[:120]}
+            if loc["file"] and os.path.isfile(loc["file"]):
+                try:
+                    with open(loc["file"], encoding="utf-8", errors="replace") as f:
+                        f_lines = f.readlines()
+                    ln = int(loc.get("line", 0) or 0)
+                    ctx: list[str] = []
+                    for i in range(max(1, ln - 2), min(len(f_lines), ln + 2) + 1):
+                        ctx.append(f"{i}: {f_lines[i - 1].rstrip()}")
+                    loc["context"] = ctx
+                    if 1 <= ln <= len(f_lines):
+                        _sym = re.search(r"\b([A-Za-z_][A-Za-z0-9_]*)\b", f_lines[ln - 1])
+                        loc["symbol_hint"] = _sym.group(1) if _sym else ""
+                except OSError:
+                    pass
             _finish(loc, "locate", "locate",
                     f"{loc['file']}:{loc['line']} [{loc['rule']}]" if loc["file"] else "未发现问题")
-            # 3. impact：top 文件影响面（文件级问题数）+ 深化提示
+            # 3. impact：文件级影响面 + 尽力接 cae_change_impact（符号级深化）
             file_issues = [i for i in issues if i.get("file") == loc["file"]]
-            _finish({"tool": "impact", "file": loc["file"],
-                     "file_issue_count": len(file_issues),
-                     "note": "文件级影响面；符号级深化用 change_impact/lsp_query"},
-                    "impact", "impact", f"{loc['file']} 共 {len(file_issues)} 个问题")
+            impact_result = {"tool": "impact", "file": loc["file"],
+                             "file_issue_count": len(file_issues),
+                             "note": "文件级影响面；符号级深化用 change_impact/lsp_query"}
+            if os.path.isdir(path) and loc.get("file"):
+                try:
+                    rel = os.path.relpath(loc["file"], path)
+                    ci = json.loads(_call("cae_change_impact",
+                                          {"repo_path": path,
+                                           "changed_files": [rel]})[0].text)
+                    r0 = (ci.get("results") or [{}])[0]
+                    if ci.get("ok") and r0.get("ok"):
+                        impact_result["change_impact"] = {
+                            "symbols": r0.get("symbols", [])[:10],
+                            "referenced_by_count": len(r0.get("referenced_by", [])),
+                            "suggested_tests": r0.get("suggested_tests", []),
+                        }
+                        impact_result["note"] = ("符号级影响面（cae_change_impact）"
+                                                 "——调用方/建议测试见 change_impact")
+                except Exception:
+                    pass  # 扩展不可用/超时 → 降级文件级影响面
+            _finish(impact_result, "impact", "impact",
+                    f"{loc['file']} 共 {len(file_issues)} 个问题" +
+                    (f"，影响 {impact_result['change_impact']['referenced_by_count']} 处引用"
+                     if "change_impact" in impact_result else ""))
             # 4. fix：ide_actions 单文件
             if loc["file"] and os.path.isfile(loc["file"]):
                 try:
