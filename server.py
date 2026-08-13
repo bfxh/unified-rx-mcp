@@ -2167,6 +2167,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             else:
                 result_verdict = "success"
                 result_note = "未发现问题——链路正常"
+            # IDE 增强二十七：顶层 summary 附 result 前缀（扫 log/汇报一眼见成败）
+            chain_summary = f"[{result_verdict}] {chain_summary}"
             # IDE 增强十二：auto 完成 → scan-log 落盘（链路记忆，项目维度可查）
             try:
                 import scan_log_core as _slc

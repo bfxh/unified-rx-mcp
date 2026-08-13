@@ -135,6 +135,8 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         # IDE 增强二十六：结果分类写入 report_md 头部
         assert "**结果**：⚠️ partial" in d["report_md"], (
             f"报告头部应含结果徽标: {d['report_md'][:120]}")
+        # IDE 增强二十七：顶层 summary 附 result 前缀
+        assert d["summary"].startswith("[partial]"), f"summary 应含结果前缀: {d['summary'][:60]}"
         # IDE 增强十一：顶层 summary 一句话总览（省 token）
         assert "summary" in d and "bug.rs" in d["summary"], f"summary 应含定位: {d.get('summary')}"
         assert "cargo test" in d["summary"], f"summary 应含回归命令: {d.get('summary')}"
