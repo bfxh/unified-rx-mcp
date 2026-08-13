@@ -2215,6 +2215,14 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 with open(_rep_file, "w", encoding="utf-8") as _f:
                     _f.write(report_md)
                 report_path = _rep_file
+                # IDE 增强二十九：只保留最近 N 份报告（防目录膨胀）
+                try:
+                    _MAX_REPORTS = 20
+                    _reports = sorted(os.listdir(_rep_dir))
+                    for _old in _reports[:-_MAX_REPORTS] if len(_reports) > _MAX_REPORTS else []:
+                        os.remove(os.path.join(_rep_dir, _old))
+                except Exception:
+                    pass  # 清理失败静默
             except Exception:
                 pass  # 落盘失败静默（报告仍经返回值/note/scan-log 可查）
             return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
