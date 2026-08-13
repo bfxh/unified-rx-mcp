@@ -240,6 +240,15 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
             used.add(node.id)
         elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
             used.add(node.value.id)
+    # 2026-08-14 修复误报边界：__all__ 再导出（__init__ 常见模式——
+    # import 的名字在 __all__ 字符串列表里视为使用）
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and isinstance(node.value, (ast.List, ast.Tuple)):
+            if any(isinstance(t, ast.Name) and t.id == "__all__"
+                   for t in node.targets):
+                for elt in node.value.elts:
+                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                        used.add(elt.value)
     for name, lineno in imported.items():
         if name not in used and name not in ("_", "annotations"):
             _add(lineno, f"未使用 import：`{name}`（文件内零引用）")

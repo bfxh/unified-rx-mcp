@@ -2420,3 +2420,21 @@ def test_fs_write_safety_gates(tmp_path, monkeypatch):
     txt = server._call("fs_write", {"path": str(out / "b.txt"),
                                     "content": "x", "__authorized": True})[0].text
     assert "拒绝" in txt or "越界" in txt, f"沙盒外应拒绝: {txt[:60]}"
+
+
+def test_dead_code_all_reexport(tmp_path):
+    """dead_code __all__ 再导出误报修复（2026-08-14）：再导出不算未使用。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "pkg.py").write_text(
+        "import math\n"
+        "import sys\n"
+        "import time\n"  # 未使用且不在 __all__
+        "__all__ = ['math', 'sys']\n"
+        "def f():\n    return math.floor(1.5)\n",
+        encoding="utf-8")
+    d = json.loads(server._call("std_check", {"path": str(proj / "pkg.py")})[0].text)
+    msgs = " ".join(i.get("msg", "") for i in d["issues"]
+                    if i.get("rule") == "dead_code")
+    assert "sys" not in msgs, f"__all__ 再导出不应报: {msgs}"
+    assert "time" in msgs, f"未使用且不在 __all__ 应报: {msgs}"
