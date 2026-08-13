@@ -2371,6 +2371,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _step_titles = {"diagnose": "诊断", "locate": "定位", "impact": "影响面",
                             "fix": "修复建议", "verify": "验证", "lesson": "教训"}
             _report = [f"# 自动诊断报告",
+                       # IDE 增强八十二：任务名归档（多任务报告可区分）
+                       f"**任务名**：{str(args.get('task', ''))[:60] or '（未命名）'}",
                        f"**结果**：{'✅ success' if result_verdict == 'success' else '⚠️ partial' if result_verdict == 'partial' else '❌ failed'}",  # IDE 增强二十六
                        f"**模式**：{'⚡ quick（未深查影响面）' if mode == 'quick' else 'full'}",  # IDE 增强三十三
                        f"**时间**：{time.strftime('%Y-%m-%d %H:%M:%S')}",  # IDE 增强四十三
