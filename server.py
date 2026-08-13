@@ -2012,6 +2012,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                         lines.append(f"- fs_template 就绪（`fs_write` L4 授权应用）")
                 elif name == "verify":
                     lines.append(f"- 回归命令：`{r.get('command', '')}`")
+                    # IDE 增强六十七：fix_scope 显示（修复前 diff 摘要）
+                    if r.get("fix_scope"):
+                        lines.append(f"- 修复范围：{r['fix_scope']}")
                     # IDE 增强四十：checklist 完整显示（不再截断前 5 项）
                     for c in (r.get("checklist") or []):
                         lines.append(f"- {c}")
