@@ -1911,6 +1911,54 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                     "advice": ("对比上次 auto diagnose 问题数：减少=修复生效；"
                                                "未变化=复查 fix 步 checklist/fs_template")},
                                    ensure_ascii=False, indent=2))]
+        if action == "report":
+            # IDE 增强二十一：从 quest 状态导出完整 markdown 报告（auto 后随时可查）
+            q = resume_quest(quest_id)
+            if q is None:
+                return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"},
+                                       ensure_ascii=False))]
+            st = q.state
+            steps = st.get("steps", {})
+            lines = [f"# 自动诊断报告：{q.task}", f"**仓库**：`{q.repo}`",
+                     f"**状态**：{'已完成' if st.get('finished') else '进行中'}"
+                     f"{'（已放弃）' if st.get('aborted') else ''}", ""]
+            _T = {"diagnose": "诊断", "locate": "定位", "impact": "影响面",
+                  "fix": "修复建议", "verify": "验证", "lesson": "教训"}
+            for name, title in _T.items():
+                r = (steps.get(name) or {}).get("result") or {}
+                if not r:
+                    continue
+                lines.append(f"## {title}")
+                if name == "diagnose":
+                    lines.append(f"- 问题 {r.get('issue_count', 0)} 个（error {r.get('error_count', 0)}）")
+                elif name == "locate":
+                    lines.append(f"- `{r.get('file', '')}:{r.get('line', 0)}` [{r.get('rule', '')}] {r.get('message', '')}")
+                    for c in (r.get("context") or [])[:5]:
+                        lines.append(f"  ```{c}```")
+                elif name == "impact":
+                    lines.append(f"- 文件级问题 {r.get('file_issue_count', 0)} 个")
+                    ci = r.get("change_impact")
+                    if ci:
+                        lines.append(f"- 符号级：引用 {ci.get('referenced_by_count', 0)} 处，"
+                                     f"建议测试 {len(ci.get('suggested_tests', []))} 个")
+                elif name == "fix":
+                    for a in (r.get("actions") or [])[:10]:
+                        lines.append(f"- L{a.get('line', '?')} {a.get('title', '')}")
+                    if r.get("fs_template"):
+                        lines.append(f"- fs_template 就绪（`fs_write` L4 授权应用）")
+                elif name == "verify":
+                    lines.append(f"- 回归命令：`{r.get('command', '')}`")
+                    for c in (r.get("checklist") or [])[:5]:
+                        lines.append(f"- {c}")
+                else:
+                    lines.append(f"- {r.get('advice', '')}")
+                lines.append("")
+            lines.append("---")
+            lines.append("> 验证修复：`ide_quest action=verify_fix`；按步查详情：`action=result`。")
+            return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
+                                    "report_md": "\n".join(lines),
+                                    "finished": bool(st.get("finished"))},
+                                   ensure_ascii=False, indent=2))]
         if action == "list":
             # IDE 增强十七：status 过滤（all/active/finished/aborted）
             status_filter = str(args.get("status", "all"))
@@ -3231,7 +3279,7 @@ _TOOLS: dict[str, tuple] = {
         "lsp_refs": _S("array", "impact 时：LSP 引用文件路径列表（可空）"),
     }, ["path"]), "IDE 融合：诊断→符号图聚合 / 双引擎影响面校验（LSP vs 引用扫描）"),
     "ide_quest": (_tool_ide_quest, _schema({
-        "action": _S("string", "new/resume/status/step/list/abort/note/auto/result/clean/verify_fix"),
+        "action": _S("string", "new/resume/status/step/list/abort/note/auto/result/clean/verify_fix/report"),
         "quest_id": _S("string", "任务 ID（new/resume/step 必需；auto 省略自动生成）"),
         "task": _S("string", "任务描述（new 时）"),
         "repo": _S("string", "仓库根（new 时）"),

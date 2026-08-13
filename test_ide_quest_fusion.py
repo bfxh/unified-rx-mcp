@@ -143,6 +143,13 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         assert qn.status()["notes_count"] >= 1, "报告摘要应入 note"
         assert any("自动诊断报告" in n["text"] for n in qn.state.get("notes", [])), (
             f"note 应含报告摘要: {qn.state.get('notes')}")
+        # IDE 增强二十一：action=report 导出完整 markdown 报告
+        rp = json.loads(server._call("ide_quest", {"action": "report",
+                                                   "quest_id": d["quest_id"]})[0].text)
+        assert rp["ok"] and "report_md" in rp, "report 应返回 markdown"
+        assert "## 修复建议" in rp["report_md"] and "## 验证" in rp["report_md"], (
+            f"报告应含步骤: {rp['report_md'][:200]}")
+        assert rp["finished"] is True
         # IDE 增强十二：auto 完成落盘 scan-log（链路记忆，项目维度可查）
         monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(tmp_path / "scan-log.jsonl"))
         server._call("ide_quest", {"action": "auto", "path": repo, "task": "修 bug.rs 2"})
