@@ -148,9 +148,13 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         assert tpl["tool"] == "fs_write"
         assert tpl["args"]["path"].endswith("bug.rs"), f"模板路径: {tpl}"
         assert "__authorized" in tpl.get("auth_hint", ""), "应含 L4 授权提示"
-        # verify 给回归命令
+        # verify 给回归命令 + 自检清单
         ver = next(c for c in d["chain"] if c["step"] == "verify")
         assert "cargo test" in ver["summary"], f"Rust 文件应建议 cargo test: {ver}"
+        qv = ide_quest.resume_quest(d["quest_id"])
+        ver_result = qv.state["steps"]["verify"]["result"]
+        assert "checklist" in ver_result and len(ver_result["checklist"]) >= 3, (
+            f"verify 步应附自检清单: {ver_result}")
         # 断点续查：quest 状态保留六步结果
         r2 = server._call("ide_quest", {"action": "status", "quest_id": d["quest_id"]})
         st = json.loads(r2[0].text)["status"]

@@ -1937,14 +1937,22 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             else:
                 _finish({"tool": "ide_actions", "file": loc["file"], "action_count": 0,
                          "skipped": True}, "fix", "ide_actions", "无目标文件，跳过")
-            # 5. verify：回归提示
+            # 5. verify：回归提示 + 修复后自检清单（IDE 增强九）
             ext = os.path.splitext(loc.get("file", ""))[1].lower()
             cmd = ("cargo test" if ext == ".rs"
                    else "pytest" if ext in (".py",) else "构建/测试")
             _finish({"tool": "verify",
                      "advice": f"应用 fix 步的修复建议后跑 `{cmd}` 回归；"
                                f"完成后可用 ide_quest note 记录结果",
-                     "command": cmd},
+                     "command": cmd,
+                     # IDE 增强九：修复后自检清单（逐项确认防遗漏）
+                     "checklist": [
+                         f"1. 应用 fix 步的修复建议/fs_template 到 {loc.get('file', '目标文件')}",
+                         f"2. 跑回归：{cmd}",
+                         "3. 复查：修复行不再触发原规则（可重跑本 auto 链或 bug_scan 验证）",
+                         "4. 通过后用 ide_quest note 记录验证结果",
+                         "5. lesson 步提示：用 lesson_recall 记录教训防复发",
+                     ]},
                     "verify", "verify", f"回归命令：{cmd}")
             # 6. lesson：自动链收尾（STEPS 六步闭环）
             _finish({"tool": "lesson",
