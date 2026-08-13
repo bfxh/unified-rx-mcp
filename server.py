@@ -2282,6 +2282,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 result_note = "未发现问题——链路正常"
             # IDE 增强二十七：顶层 summary 附 result 前缀（扫 log/汇报一眼见成败）
             chain_summary = f"[{result_verdict}] {chain_summary}"
+            # IDE 增强六十四：result_note 附 quest_id（断点续跑/verify_fix 直达）
+            result_note = f"{result_note}（quest_id: {quest_id}）"
             # IDE 增强十二：auto 完成 → scan-log 落盘（链路记忆，项目维度可查）
             try:
                 import scan_log_core as _slc
