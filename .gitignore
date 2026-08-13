@@ -4,3 +4,6 @@ __pycache__/
 
 # 模型文件不进 git（94MB+，运行时按需下载/本地放置）
 models/
+
+# 探针运行时临时目录
+_probe_tmp/
