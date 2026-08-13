@@ -35,7 +35,8 @@ _TODO_RE = re.compile(r"TODO\s*[:：]|FIXME\s*[:：]|XXX\s*[:：]", re.IGNORECAS
 _UI_HARDCODE_RE = re.compile(
     r"(#[0-9a-fA-F]{3,8}\b)|(rgba?\(\s*\d+)|(Color::rgb)|(Color::rgba)|(Color::hex)|"
     r"(width\s*[:=]\s*\d{3,})|(height\s*[:=]\s*\d{3,})|(font_size\s*[:=]\s*\d{2,})|"
-    r"(padding\s*[:=]\s*\d{2,})|(margin\s*[:=]\s*\d{2,})",
+    r"(padding\s*[:=]\s*\d{2,})|(margin\s*[:=]\s*\d{2,})|"
+    r"(Val::Px\(\s*\d{2,})",  # 2026-08-14 补齐：Bevy 最常见写法（原只认裸数字）
 )
 
 _MAGIC_NUMBER_RE = re.compile(r"\b(?:[3-9]\d{2,}|[1-9]\d{3,})\b")

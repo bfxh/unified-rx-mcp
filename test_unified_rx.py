@@ -2193,3 +2193,18 @@ def test_std_dead_code_rules(tmp_path):
     assert "todo_fn" in msgs, f"空实现应检出: {msgs}"
     assert "os" not in msgs.replace("json", ""), f"os 被使用不应报: {msgs}"
     assert "doc_fn" not in msgs, f"docstring+pass 不应报（防误报）: {msgs}"
+
+
+def test_std_ui_hardcode_valpx(tmp_path):
+    """ui_hardcode 补齐（2026-08-14）：Val::Px(999)（Bevy 常见写法）检出。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "ui.rs").write_text(
+        "fn ui() {\n    let w = Val::Px(999.0);\n}\n", encoding="utf-8")
+    r = server._call("std_check", {"path": str(proj / "ui.rs")})
+    d = json.loads(r[0].text)
+    rules = {i["rule"] for i in d["issues"]}
+    assert "ui_hardcode" in rules, f"Val::Px(999) 应报 ui_hardcode: {rules}"
+    sm = d.get("summary", {})
+    assert isinstance(sm.get("rules"), dict) and sm["rules"], f"summary.rules 应非空: {sm}"
+    assert d.get("severity_counts") is not None, "severity_counts 应存在"
