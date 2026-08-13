@@ -2059,3 +2059,24 @@ def test_explore_code_param_bounds(tmp_path):
     r5 = server._call("explore_code", {"root": str(proj), "goal": "main",
                                        "budget": 5, "max_depth": 2})
     assert "Error" not in r5[0].text, f"正常参数应通过: {r5[0].text[:100]}"
+
+
+def test_ext_load_failure_degrades(monkeypatch):
+    """扩展加载失败降级（2026-08-14）：模块加载失败 → Error 文本，网关存活。"""
+    monkeypatch.setitem(server._EXT_LOADED, "pr-oracle", None)
+    r = server._ext_call("pr-oracle", "pure", "pr_oracle_map_pr", {})
+    text = r[0].text
+    assert "Error" in text and "不可用" in text, f"加载失败应返回 Error 文本: {text[:100]}"
+    monkeypatch.delitem(server._EXT_LOADED, "pr-oracle")
+
+
+def test_ext_call_exception_degrades(monkeypatch):
+    """扩展调用异常降级：模块内抛异常 → Error in label.name，不炸网关。"""
+    class _Fake:
+        def _call(self, name, args):
+            raise RuntimeError("模拟故障")
+    monkeypatch.setitem(server._EXT_LOADED, "tautest", _Fake())
+    r = server._ext_call("tautest", "pure", "tautest_run", {})
+    text = r[0].text
+    assert "Error in tautest" in text and "模拟故障" in text, f"调用异常应转 Error: {text[:120]}"
+    monkeypatch.delitem(server._EXT_LOADED, "tautest")

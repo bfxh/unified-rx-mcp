@@ -1931,6 +1931,11 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 lines.append(f"## {title}")
                 if name == "diagnose":
                     lines.append(f"- 问题 {r.get('issue_count', 0)} 个（error {r.get('error_count', 0)}）")
+                    # IDE 增强三十九：severity 分布表
+                    _sev = r.get("severity_counts") or {}
+                    if _sev:
+                        lines.append(f"- severity: error {_sev.get('error', 0)} / "
+                                     f"warn {_sev.get('warn', 0)} / info {_sev.get('info', 0)}")
                 elif name == "locate":
                     lines.append(f"- `{r.get('file', '')}:{r.get('line', 0)}` [{r.get('rule', '')}] {r.get('message', '')}")
                     for c in (r.get("context") or [])[:5]:
