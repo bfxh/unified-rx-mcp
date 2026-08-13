@@ -138,6 +138,9 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         assert "report_md" in d and "自动诊断报告" in d["report_md"], "应附 markdown 报告"
         assert "### 定位" in d["report_md"] and "### 修复建议" in d["report_md"], (
             f"报告应含步骤小节: {d['report_md'][:200]}")
+        # IDE 增强二十三：报告附耗时分布表
+        assert "耗时分布" in d["report_md"] and "| 步骤 | 耗时 |" in d["report_md"], (
+            f"报告应含耗时表: {d['report_md'][:200]}")
         # IDE 增强二十：报告摘要入 quest note（断点续跑可见）
         qn = ide_quest.resume_quest(d["quest_id"])
         assert qn.status()["notes_count"] >= 1, "报告摘要应入 note"

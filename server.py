@@ -2166,6 +2166,15 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 _report.append(c.get("summary", ""))
                 _report.append("")
             _report.append("---")
+            # IDE 增强二十三：各步耗时表（性能分布一眼可见）
+            _report.append("### 耗时分布")
+            _report.append("| 步骤 | 耗时 |")
+            _report.append("|---|---|")
+            for c in chain:
+                _report.append(f"| {_step_titles.get(c['step'], c['step'])} | "
+                               f"{c.get('elapsed_s', 0)}s |")
+            _report.append("")
+            _report.append("---")
             _report.append("> 完整结果：`ide_quest action=result` 按步查询；"
                            "修复应用后：`action=verify_fix` 验证生效。")
             report_md = "\n".join(_report)
