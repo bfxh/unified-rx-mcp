@@ -1939,6 +1939,13 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                     continue
                 lines.append(f"## {title}")
                 if name == "diagnose":
+                    if r.get("tool") == "std_check":
+                        # IDE 增强五十八：std_check 步显示工程标准分布
+                        _ss = r.get("std_severity_counts") or {}
+                        lines.append(f"- 工程标准：Critical {_ss.get('Critical', 0)}"
+                                     f" / Error {_ss.get('Error', 0)}"
+                                     f" / Warning {_ss.get('Warning', 0)}")
+                        continue
                     lines.append(f"- 问题 {r.get('issue_count', 0)} 个（error {r.get('error_count', 0)}）")
                     # IDE 增强三十九：severity 分布表
                     _sev = r.get("severity_counts") or {}
