@@ -2377,6 +2377,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        f"**文件**：{scan_data.get('files', '?')}",
                        # IDE 增强七十三：诊断扫描耗时（性能分布头部一览）
                        f"**扫描耗时**：{next((c.get('elapsed_s') for c in chain if c.get('tool') == 'bug_scan'), '?')}s",
+                       # IDE 增强七十八：定位信息（top 问题位置头部一览）
+                       f"**定位**：`{loc.get('file', '')}:{loc.get('line', 0)}`"
+                       f" [{loc.get('rule', '')}]" if loc.get("file") else "",
                        # IDE 增强六十九：force 重跑标记（报告归档区分首次/重跑）
                        *(["**重跑**：force（覆盖上次链）"] if args.get("force") else []),
                        # IDE 增强六十八：quest_id 头部归档（断点续跑直达）
