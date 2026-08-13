@@ -2054,7 +2054,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                      "error_count": len(errors),
                      "severity_counts": scan_data.get("severity_counts", {})},
                     "diagnose", "bug_scan",
-                    f"{len(issues)} 问题（{len(errors)} error）")
+                    f"{len(issues)} 问题（{len(errors)} error）"
+                    + ("" if scan_data.get("ok")
+                       else " ⚠ 扫描失败（可用 force=True 重试整链）"))  # IDE 增强二十四
             # 2. locate：top 问题位置（error 优先）+ 行上下文 + 符号线索（IDE 增强十）
             top = (errors or issues or [{}])[0]
             loc = {"tool": "locate", "file": top.get("file", ""),
