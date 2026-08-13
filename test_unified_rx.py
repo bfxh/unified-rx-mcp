@@ -2503,3 +2503,22 @@ def test_quest_resume_semantics(tmp_path, monkeypatch):
     d = json.loads(server._call("ide_quest", {"action": "resume",
                                               "quest_id": "nosuch"})[0].text)
     assert d["ok"] is False and "不存在" in str(d.get("error", "")), d
+
+
+def test_guard_tool_and_symbol_dedup(tmp_path):
+    """guard 工具名引用（注册表内 pass/外保守）+ cb_index 符号去重（2026-08-14）。"""
+    d = json.loads(server._call("hallucination_guard",
+                                {"text": "用 `bug_scan` 扫描代码"})[0].text)
+    assert d["verdict"] == "pass", d
+    d = json.loads(server._call("hallucination_guard",
+                                {"text": "用 `nosuch_tool_xyz` 扫描"})[0].text)
+    assert d["verdict"] == "unverified", "注册表外保守（不臆断 refuted）"
+    # cb_index 符号去重：重复定义只记首定义
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "dup.rs").write_text("fn dup() {}\nfn dup() {}\nfn other() {}\n",
+                                 encoding="utf-8")
+    d = json.loads(server._call("cb_index", {"path": str(repo)})[0].text)
+    idx = json.load(open(repo / ".unified-rx-index" / "index.json", encoding="utf-8"))
+    syms = idx["files"]["dup.rs"]["symbols"]
+    assert syms == {"dup": 1, "other": 3}, f"dup 只记首定义: {syms}"
