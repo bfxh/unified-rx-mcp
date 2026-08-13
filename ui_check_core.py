@@ -75,8 +75,16 @@ def scan_ui_source(src: str, path: str = "", dir_mode: bool = False) -> list[dic
 
         # focus_pass: 全屏绝对定位 Node 无 FocusPolicy::Pass（块检测，兼容多行 Node 写法）
         if "PositionType::Absolute" in line:
-            block = "\n".join(lines[max(0, i - 1) : i + 10])
-            if "width: Val::Percent(100" in block and "FocusPolicy" not in block:
+            # 2026-08-14 补齐：等号写法（style.width = Val::Percent）+ 窗口前移
+            # 3 行（width/height 常写在 position 前——Bevy style 赋值顺序任意）
+            # + FocusPolicy 检查限当前节点（原实现块跨节点——第二个覆盖层的
+            # FocusPolicy 会豁免第一个，同文件双覆盖层漏检）
+            block = "\n".join(lines[max(0, i - 3) : i + 10])
+            nxt = next((j for j in range(i + 1, min(len(lines), i + 30))
+                        if "PositionType::Absolute" in lines[j]), len(lines))
+            node_block = "\n".join(lines[i:nxt])
+            if re.search(r"width\s*[:=]\s*Val::Percent\(100", block) \
+                    and "FocusPolicy" not in node_block:
                 issues.append({"rule": "focus_pass", "severity": "warning",
                                "line": i, "msg": "全屏绝对定位 Node 无 FocusPolicy::Pass（点击穿透）"})
 

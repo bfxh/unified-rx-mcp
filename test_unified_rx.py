@@ -2438,3 +2438,29 @@ def test_dead_code_all_reexport(tmp_path):
                     if i.get("rule") == "dead_code")
     assert "sys" not in msgs, f"__all__ 再导出不应报: {msgs}"
     assert "time" in msgs, f"未使用且不在 __all__ 应报: {msgs}"
+
+
+def test_ui_check_focus_pass_style(tmp_path):
+    """focus_pass 等号写法 + 节点内 FocusPolicy（2026-08-14 修复）。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "overlay.rs").write_text(
+        "fn ui() {\n"
+        "    spawn(Node) {\n"
+        "        style.position_type = PositionType::Absolute;\n"
+        "        style.width = Val::Percent(100.0);\n"
+        "    };\n"
+        "    spawn(Node) {\n"
+        "        style.position_type = PositionType::Absolute;\n"
+        "        style.width = Val::Percent(100.0);\n"
+        "        focus_policy = FocusPolicy::Pass;\n"
+        "    };\n"
+        "}\n", encoding="utf-8")
+    d = json.loads(server._call("ui_check", {"path": str(proj / "overlay.rs")})[0].text)
+    fp = [i for i in d["issues"] if i.get("rule") == "focus_pass"]
+    assert len(fp) == 1 and fp[0]["line"] == 3, f"只报无 FocusPolicy 的覆盖层: {fp}"
+    # ds_check 合规分支：字体兜底
+    (proj / "hud.rs").write_text("fn hud() {\n    spawn(Text::new(\"你好\"));\n}\n",
+                                 encoding="utf-8")
+    d = json.loads(server._call("ds_check", {"path": str(proj / "hud.rs")})[0].text)
+    assert "font_fallback_missing" in {i.get("rule") for i in d["issues"]}
