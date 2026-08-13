@@ -2429,14 +2429,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _qstatus = q.status()
             _report.append(f"> 任务状态：{'✅ 已完成' if _qstatus.get('finished') else '⏳ 进行中'}"
                            f"（`ide_quest action=resume quest_id={quest_id}` 断点续跑）")
-            # IDE 增强八十三：shadow 补扫提示（扫描文件被修改后 daemon 自动补扫）
-            _report.append("> 提示：扫描过的文件若被修改，shadow 扫描会在下次窗口感知时自动补扫。")
-            # IDE 增强八十五：stats 查询提示（工具调用统计入口）
-            _report.append("> 工具调用统计：`stats_summary` 查询（自动打点闭环）。")
-            # IDE 增强八十六：一键审计提示（pipeline preset 入口）
-            _report.append("> 一键审计：`pipeline preset=audit_repo path=...` 全链复跑。")
-            # IDE 增强八十七：漏洞闭环提示（常态挖漏洞三引擎）
-            _report.append("> 漏洞闭环：`vuln_scan` 三引擎全链（bug+std+ui）随时复扫。")
+            # IDE 增强八十八：尾部提示合并为 2 行（省 token——原 4 条独立 append）
+            _report.append("> 后续：`stats_summary` 统计 / `vuln_scan` 三引擎复扫 / "
+                           "`pipeline preset=audit_repo` 一键审计；扫描文件被修改后 "
+                           "shadow 扫描自动补扫。")
             report_md = "\n".join(_report)
             # IDE 增强二十：报告摘要入 quest note（断点续跑可见上轮报告）
             try:
