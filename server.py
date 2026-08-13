@@ -1904,11 +1904,17 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 chain.append({"step": step_name, "tool": tool,
                               "summary": summary, "ok": r.get("ok", True)})
 
-            # 1. diagnose：bug_scan
-            try:
-                scan_data = json.loads(_call("bug_scan", {"path": path})[0].text)
-            except (json.JSONDecodeError, IndexError, KeyError):
-                scan_data = {"ok": False, "issues": []}
+            # 1. diagnose：bug_scan（IDE 增强十四：幂等只读重试一次——
+            #    扩展懒加载/首扫慢等瞬时失败不拖垮整链）
+            def _run_scan() -> dict:
+                try:
+                    return json.loads(_call("bug_scan", {"path": path})[0].text)
+                except (json.JSONDecodeError, IndexError, KeyError):
+                    return {"ok": False, "issues": []}
+
+            scan_data = _run_scan()
+            if not scan_data.get("ok"):
+                scan_data = _run_scan()  # 重试一次（bug_scan 幂等只读）
             issues = scan_data.get("issues", []) if scan_data.get("ok") else []
             errors = [i for i in issues
                       if str(i.get("severity", "")).lower() in ("error", "critical")]
