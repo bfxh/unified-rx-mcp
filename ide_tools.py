@@ -355,7 +355,17 @@ def _actions_for_file(file_path: str) -> list[dict]:
             })
         if len(actions) >= 20:
             break
-    return actions
+    # IDE 增强三十五：相邻同规则建议合并（连续行同 title → 区间 + count）——
+    # 报告更紧凑（连续 3 个 unwrap 不再刷 3 条）
+    merged: list[dict] = []
+    for a in actions:
+        if merged and merged[-1]["title"] == a["title"] \
+                and a["line"] == merged[-1].get("line_end", merged[-1]["line"]) + 1:
+            merged[-1]["line_end"] = a["line"]
+            merged[-1]["count"] = merged[-1].get("count", 1) + 1
+        else:
+            merged.append(dict(a))
+    return merged
 
 
 # 目录批量上限（IDE 增强四 2026-08-13：防 DoS）

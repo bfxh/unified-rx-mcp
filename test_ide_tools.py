@@ -354,3 +354,25 @@ def test_rename_apply_plan():
     # 默认不生成 plan（向后兼容、省 token）
     r2 = ide_rename(root, "velocity", "speed")
     assert "apply_plan" not in r2
+
+
+def test_actions_adjacent_merge():
+    """IDE 增强三十五：相邻同规则建议合并（连续行 → 区间 + count）。"""
+    import tempfile as _tf
+    p = os.path.join(_tf.mkdtemp(prefix="ide_merge_"), "m.rs")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(
+            "fn main() {\n"
+            "    let a = foo().unwrap();\n"   # L2
+            "    let b = bar().unwrap();\n"   # L3 连续 → 合并
+            "    let c = baz().unwrap();\n"   # L4 连续 → 合并
+            "    let d = ok();\n"
+            "}\n"
+        )
+    r = ide_actions(p)
+    assert r["ok"]
+    # 3 个连续 unwrap 合并为 1 条（count=3，line_end=4）
+    unwraps = [a for a in r["actions"] if a["title"].startswith("unwrap")]
+    assert len(unwraps) == 1, f"连续 unwrap 应合并: {r['actions']}"
+    assert unwraps[0]["line"] == 2 and unwraps[0].get("line_end") == 4
+    assert unwraps[0].get("count") == 3

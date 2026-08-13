@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**59 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**81 工具的统一 MCP（57 核心 + 24 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
 > **定位：工具集，不是智能体** —— 本 MCP 产出证据与事实，不替代 LLM 推理。
 > 工具行为契约见 [`spec/`](spec/README.md)，契约验证探针见 [`probes/`](probes/run_all.py)，
@@ -217,8 +217,8 @@ python scripts/install_agents.py --list           # 支持的智能体与配置�
 ## 验证
 
 ```bash
-python server.py --selftest    # 59 工具自检（含防幻觉守卫抽样）
-python -m pytest test_unified_rx.py -q   # 113 tests
+python server.py --selftest    # 81 工具自检（含防幻觉守卫抽样）
+python -m pytest test_unified_rx.py -q   # 116 tests（全量 242）
 ```
 
 ## 安全（已审查）

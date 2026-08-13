@@ -189,9 +189,10 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         assert "context" in loc_result and len(loc_result["context"]) >= 1, (
             f"locate 应附行上下文: {loc_result}")
         assert loc_result.get("symbol_hint", ""), "locate 应提取符号线索"
-        # fix 生成修复建议（unwrap → 安全处理）
+        # fix 生成修复建议（unwrap → 安全处理；相邻合并后 1 条 count=2——IDE 增强三十五）
         fix = next(c for c in d["chain"] if c["step"] == "fix")
-        assert fix["summary"].startswith("2 条修复建议"), f"两个 unwrap 应有 2 条建议: {fix}"
+        assert fix["summary"].startswith("1 条修复建议"), (
+            f"连续两个 unwrap 应合并为 1 条: {fix['summary']}")
         # IDE 增强八：fix 步 result 附 fs_template（fs_write 骨架 + L4 授权提示）
         q = ide_quest.resume_quest(d["quest_id"])
         fix_result = q.state["steps"]["fix"]["result"]
