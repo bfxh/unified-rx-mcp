@@ -2171,6 +2171,16 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             impact_result = {"tool": "impact", "file": loc["file"],
                              "file_issue_count": len(file_issues),
                              "note": "文件级影响面；符号级深化用 change_impact/lsp_query"}
+            # IDE 增强六十五：impact 附 std_check 文件级分布（工程标准在该文件
+            # 的严重度——修复目标文件的标准问题一览）
+            if loc.get("file") and os.path.isfile(loc["file"]):
+                try:
+                    _std_f = json.loads(
+                        _call("std_check", {"path": loc["file"]})[0].text)
+                    impact_result["std_file_severity"] = (
+                        _std_f.get("severity_counts") or {})
+                except Exception:
+                    pass  # std 单文件扫描失败静默
             if mode == "full" and os.path.isdir(path) and loc.get("file"):
                 try:
                     rel = os.path.relpath(loc["file"], path)
