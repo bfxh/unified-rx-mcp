@@ -2604,3 +2604,11 @@ def test_scan_trend_multi_logs(tmp_path, monkeypatch):
     txt = server._call("scan_trend", {})[0].text
     assert '"total_logs": 3' in txt and '"recent_logs": 3' in txt, \
         f"≥3 条日志不应炸（原 NameError）: {txt[:150]}"
+
+
+def test_local_intel_degrade(tmp_path):
+    """local_intel 无模型降级（2026-08-14 验证）：探测/embed 不崩溃。"""
+    import local_intel as _li
+    li = _li.LocalIntel(models_dir=str(tmp_path / "models"))
+    assert isinstance(li.available(), dict), "available 应 dict"
+    assert li.embed("测试") is None, "无模型 embed 应降级 None"
