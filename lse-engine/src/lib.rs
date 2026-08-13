@@ -562,11 +562,17 @@ fn json_str_field(inner: &str, key: &str) -> Option<String> {
 /// Parse a string array field `"key":[...]` with quote-aware element splitting
 /// (P2 fix: elements containing `,` or `]` no longer break parsing).
 fn json_str_array_field(inner: &str, key: &str) -> Vec<String> {
-    let pat = format!("\"{}\":[", key);
-    let Some(start_rel) = inner.find(&pat) else {
-        return Vec::new();
+    // 手写解析（空格兼容 2026-08-13 修复）：`"key":[` 与 `"key": [` 都接受
+    let pat1 = format!("\"{}\":[", key);
+    let pat2 = format!("\"{}\": [", key);
+    let (start_rel, pat_len) = match inner.find(&pat1) {
+        Some(i) => (i, pat1.len()),
+        None => match inner.find(&pat2) {
+            Some(i) => (i, pat2.len()),
+            None => return Vec::new(),
+        },
     };
-    let start = start_rel + pat.len();
+    let start = start_rel + pat_len;
     let bytes = inner.as_bytes();
     let mut i = start;
     let mut in_str = false;

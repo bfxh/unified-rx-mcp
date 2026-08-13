@@ -9,8 +9,13 @@
 - experience_match(ctx, limit): 按上下文指纹匹配经验
 
 零第三方依赖（subprocess + json）。lse-engine exe 路径：同目录 ../lse-engine/target/release/lse-engine.exe
+
+P1c 升级（2026-08-12，抄 mem0 自动提取 + Letta 三层）：
+- lesson_store_tiered: 三层存教训（core/work/archive）
+- auto_extract_lessons: 规则版自动教训提取（信号词匹配，零 LLM）
 """
 
+import hashlib
 import json
 import os
 import subprocess
@@ -91,3 +96,60 @@ def experience_match(ctx: str, limit: int = 5) -> dict:
 
 def state_get() -> dict:
     return _call("state_get", {})
+
+
+# ── P1c 进化记忆升级（2026-08-12，抄 mem0 自动提取 + Letta 三层）──
+# 三层：core(核心教训，长期) / work(工作教训，短期) / archive(归档)
+_LSE_TIERS = ("core", "work", "archive")
+# 每条教训 ID 前缀分层：core_ / work_ / archive_
+_TIER_PREFIX = {"core": "core_", "work": "work_", "archive": "archive_"}
+
+
+def lesson_store_tiered(tier: str, content: str, delta: float = 0.0,
+                        threshold: float = 0.1) -> dict:
+    """分层存教训：core/work/archive 三级（Letta 启发）。
+
+    tier: core(核心，长期保留)/work(工作，短期)/archive(归档)
+    实际调用 lse-engine delta_update，ID 加分层前缀。
+    """
+    if tier not in _LSE_TIERS:
+        return {"ok": False, "error": f"未知层级: {tier}（可选 {_LSE_TIERS}）"}
+    # 内容哈希 → 稳定 ID（同内容汇聚，防重复；枢纽优先的汇聚基础）
+    h = hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+    lesson_id = f"{_TIER_PREFIX[tier]}{h}"
+    return delta_update_lesson(lesson_id, delta, threshold)
+
+
+def auto_extract_lessons(text: str, tier: str = "work",
+                         patterns: list[str] | None = None) -> dict:
+    """自动教训提取（抄 mem0 自动记忆提取）：从工具结果/对话文本中提取教训。
+
+    零 LLM 规则版：识别文本中的教训模式（"教训/注意/避免/必须/不要/经验"等信号），
+    每条约 200 字符，自动入库（分层）。LLM 版可在后续接 kb_query/蒸馏模型。
+
+    text:     源文本（工具结果/错误信息/对话）
+    tier:     默认层级 work（短期），核心教训可显式传 core
+    patterns: 自定义教训信号词（默认内置中英信号词）
+    """
+    if not text or not text.strip():
+        return {"ok": False, "error": "text 为空"}
+    default_signals = [
+        "教训", "注意", "避免", "必须", "不要", "切记", "经验",
+        "lesson", "avoid", "never", "always", "remember", "pitfall",
+        "错误", "失败", "问题", "bug",
+    ]
+    signals = patterns or default_signals
+    # 统一换行符后按行切分（跳过空/过短行）
+    sentences = [s.strip() for s in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+                 if len(s.strip()) >= 8]
+    extracted = []
+    for sent in sentences:
+        if any(sig in sent for sig in signals):
+            # 截断 200 字符（压缩学习：防状态文件膨胀）
+            summary = sent if len(sent) <= 200 else sent[:197] + "..."
+            r = lesson_store_tiered(tier, summary)
+            if r.get("ok", False) and r.get("result", {}).get("ok", True):
+                extracted.append(summary)
+    return {"ok": True, "tier": tier, "extracted": len(extracted),
+            "lessons": extracted[:20],
+            "note": "规则版自动提取（信号词匹配）；LLM 版可接蒸馏模型升级"}

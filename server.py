@@ -37,6 +37,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -390,22 +391,137 @@ def _m_list_flatten(args):
     return json.dumps(out)
 
 
+# ─────────────────────────────────────────────────────────────
+# R1: rx-core (Rust) 接线层（2026-08-12）
+# 纯函数优先走 Rust 常驻子进程（stdin 行协议 → stdout），失败/未编译回退 Python。
+# 环境变量 RX_CORE=0 可整体禁用（全走 Python）。
+# ─────────────────────────────────────────────────────────────
+_RX_CORE_EXE = None
+for _cand in (
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "rx-core", "target", "release", "rx-core.exe"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "rx-core", "target", "debug", "rx-core.exe"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "rx-core", "target", "release", "rx-core"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "rx-core", "target", "debug", "rx-core"),
+):
+    if os.path.exists(_cand):
+        _RX_CORE_EXE = _cand
+        break
+
+# Rust 实际支持的工具白名单（main.rs dispatch 表；不在名单的直接走 Python，零开销）
+_RX_CORE_TOOLS = frozenset({
+    "math_div", "math_power", "math_sqrt", "math_factorial", "fib",
+    "str_reverse", "str_upper", "str_lower", "str_palindrome",
+    "sort_quick", "sort_bubble", "search_binary",
+    "stat_mean", "stat_median", "geo_circle", "geo_rect",
+    "c2f", "f2c", "json_parse", "json_valid", "email",
+    "is_prime", "gen_primes", "list_unique", "list_flatten",
+})
+
+_rxcore_proc = None
+_rxcore_lock = threading.Lock()
+
+
+def _rxcore_enabled() -> bool:
+    """运行时读取开关（import 后改环境变量也生效）。"""
+    return os.environ.get("RX_CORE", "1") != "0"
+
+
+def _rxcore_proc_get():
+    """获取常驻子进程（懒启动 + 崩溃自动重启）。"""
+    global _rxcore_proc
+    if _RX_CORE_EXE is None:
+        raise ValueError("rx-core 未编译（回退 Python）")
+    if _rxcore_proc is None or _rxcore_proc.poll() is not None:
+        _rxcore_proc = subprocess.Popen(
+            [_RX_CORE_EXE], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
+    return _rxcore_proc
+
+
+def _rxcore_normalize(tool: str, args: dict, out: str) -> str:
+    """对齐 Python 整数语义：输入全 int 时 Python 输出不带 .0（Rust f64 带）。
+
+    仅对 Python 侧会输出 int 的少数工具做处理（parity 已验证其余一致）：
+      - math_power:  base/exponent 均 int → Python 2**10 = "1024"
+      - stat_median: 奇数长度 + 全 int → Python str(元素) 保持 int
+      - geo_rect:    length/width 均 int → Python 2*(l+w) 保持 int
+    """
+    if not out.endswith(".0"):
+        return out
+    if tool == "math_power":
+        if (isinstance(args.get("base"), int) and not isinstance(args.get("base"), bool)
+                and isinstance(args.get("exponent"), int) and not isinstance(args.get("exponent"), bool)):
+            return out[:-2]
+    elif tool == "stat_median":
+        data = args.get("data") or []
+        if (len(data) % 2 == 1
+                and all(isinstance(x, int) and not isinstance(x, bool) for x in data)):
+            return out[:-2]
+    elif tool == "geo_rect":
+        if (isinstance(args.get("length"), int) and not isinstance(args.get("length"), bool)
+                and isinstance(args.get("width"), int) and not isinstance(args.get("width"), bool)):
+            return out[:-2]
+    return out
+
+
+def _rxcore_call(tool: str, args: dict) -> str:
+    """调用 rx-core(Rust)：stdin 行协议 → stdout 结果字符串。失败抛 ValueError。"""
+    if tool not in _RX_CORE_TOOLS:
+        raise ValueError(f"rx-core 不支持工具 {tool}（回退 Python）")
+    payload = json.dumps({"tool": tool, "args": args})
+    with _rxcore_lock:
+        p = _rxcore_proc_get()
+        try:
+            p.stdin.write(payload + "\n")
+            p.stdin.flush()
+            out = p.stdout.readline().rstrip("\n")
+        except (BrokenPipeError, OSError) as e:
+            # 子进程崩溃 → 重启一次再试
+            global _rxcore_proc
+            _rxcore_proc = None
+            p = _rxcore_proc_get()
+            try:
+                p.stdin.write(payload + "\n")
+                p.stdin.flush()
+                out = p.stdout.readline().rstrip("\n")
+            except Exception as e2:
+                raise ValueError(f"rx-core 调用失败: {e2}") from e2
+        if not out:
+            raise ValueError(f"rx-core 无输出（进程退出码 {p.poll()}）")
+    if out.startswith("ERR: "):
+        # Rust 侧错误（含 unknown tool）→ 转异常，由 _rxcore_wrap 回退 Python
+        raise ValueError(out[5:])
+    return _rxcore_normalize(tool, args, out)
+
+
+def _rxcore_wrap(rust_tool: str, py_fn):
+    """Rust 优先执行，失败/禁用时回退 Python 纯函数。"""
+    def wrapped(args):
+        if _rxcore_enabled():
+            try:
+                return _rxcore_call(rust_tool, args)
+            except Exception:
+                pass  # 回退 Python
+        return py_fn(args)
+    return wrapped
+
+
 # ── 组合工具（2026-08-11 去重重构：29 单工具 → 6 组合，action 分发）──
 # 背景：原 29 个纯函数单工具与外部 ci-optimization MCP 功能重复（AI 报告 45 冲突）。
 # 方案：保留全部逻辑为 _m_* 内部函数，对外仅暴露 6 个组合工具 + fib_fibonacci，
 # 工具数 69 → 47，能力零丢失（旧名不再暴露，如需兼容可在 _ALIASES 加映射）。
 
 _MATH_ACTIONS = {
-    "add": lambda a: str(a["a"] + a["b"]),
-    "sub": lambda a: str(a["a"] - a["b"]),
-    "mul": lambda a: str(a["a"] * a["b"]),
-    "div": _m_math_div,
-    "power": _m_math_power,
-    "sqrt": _m_math_sqrt,
-    "abs": _m_math_abs,
-    "factorial": _m_math_factorial,
-    "c2f": _m_conv_c2f,
-    "f2c": _m_conv_f2c,
+    "add": _rxcore_wrap("math_add", lambda a: str(a["a"] + a["b"])),
+    "sub": _rxcore_wrap("math_sub", lambda a: str(a["a"] - a["b"])),
+    "mul": _rxcore_wrap("math_mul", lambda a: str(a["a"] * a["b"])),
+    "div": _rxcore_wrap("math_div", _m_math_div),
+    "power": _rxcore_wrap("math_power", _m_math_power),
+    "sqrt": _rxcore_wrap("math_sqrt", _m_math_sqrt),
+    "abs": _rxcore_wrap("math_abs", _m_math_abs),
+    "factorial": _rxcore_wrap("math_factorial", _m_math_factorial),
+    "c2f": _rxcore_wrap("c2f", _m_conv_c2f),
+    "f2c": _rxcore_wrap("f2c", _m_conv_f2c),
 }
 
 
@@ -419,10 +535,10 @@ def _tool_math_ops(args: dict):
 
 
 _TEXT_ACTIONS = {
-    "reverse": _m_str_reverse,
-    "upper": _m_str_upper,
-    "lower": _m_str_lower,
-    "palindrome": _m_str_palindrome,
+    "reverse": _rxcore_wrap("str_reverse", _m_str_reverse),
+    "upper": _rxcore_wrap("str_upper", _m_str_upper),
+    "lower": _rxcore_wrap("str_lower", _m_str_lower),
+    "palindrome": _rxcore_wrap("str_palindrome", _m_str_palindrome),
 }
 
 
@@ -436,9 +552,9 @@ def _tool_text_ops(args: dict):
 
 
 _SORT_SEARCH_ACTIONS = {
-    "quick_sort": _m_sort_quick,
-    "bubble_sort": _m_sort_bubble,
-    "binary_search": _m_search_binary,
+    "quick_sort": _rxcore_wrap("sort_quick", _m_sort_quick),
+    "bubble_sort": _rxcore_wrap("sort_bubble", _m_sort_bubble),
+    "binary_search": _rxcore_wrap("search_binary", _m_search_binary),
 }
 
 
@@ -452,10 +568,10 @@ def _tool_sort_search(args: dict):
 
 
 _STAT_GEO_ACTIONS = {
-    "mean": _m_stat_mean,
-    "median": _m_stat_median,
-    "circle_area": _m_geo_circle,
-    "rect_perimeter": _m_geo_rect,
+    "mean": _rxcore_wrap("stat_mean", _m_stat_mean),
+    "median": _rxcore_wrap("stat_median", _m_stat_median),
+    "circle_area": _rxcore_wrap("geo_circle", _m_geo_circle),
+    "rect_perimeter": _rxcore_wrap("geo_rect", _m_geo_rect),
 }
 
 
@@ -469,9 +585,9 @@ def _tool_stat_geo(args: dict):
 
 
 _JSON_EMAIL_ACTIONS = {
-    "parse": _m_json_parse,
-    "valid": _m_json_valid,
-    "email": _m_valid_email,
+    "parse": _rxcore_wrap("json_parse", _m_json_parse),
+    "valid": _rxcore_wrap("json_valid", _m_json_valid),
+    "email": _rxcore_wrap("email", _m_valid_email),
 }
 
 
@@ -485,10 +601,10 @@ def _tool_json_email(args: dict):
 
 
 _PRIME_LIST_ACTIONS = {
-    "is_prime": _m_prime_is_prime,
-    "generate": _m_prime_generate,
-    "unique": _m_list_unique,
-    "flatten": _m_list_flatten,
+    "is_prime": _rxcore_wrap("is_prime", _m_prime_is_prime),
+    "generate": _rxcore_wrap("gen_primes", _m_prime_generate),
+    "unique": _rxcore_wrap("list_unique", _m_list_unique),
+    "flatten": _rxcore_wrap("list_flatten", _m_list_flatten),
 }
 
 
@@ -531,6 +647,21 @@ _PIPELINE_PRESETS: dict[str, list[dict]] = {
         {"tool": "std_check", "args": {"path": "${path}", "max_files": 100}, "as": "std"},
         {"tool": "vuln_scan", "args": {"path": "${path}", "max_files": 100}, "as": "vuln"},
     ],
+    # 挖漏洞默认链（2026-08-13 M1）：生产危险规则 → Python bug → 质量后端 → 符号聚合
+    # 智能体做任何改动默认先跑——不用问用户"要不要扫描"
+    "bug_hunt": [
+        {"tool": "rust_scan", "args": {"path": "${path}"}, "as": "panic"},
+        {"tool": "bug_scan", "args": {"path": "${path}", "max_files": 100}, "as": "bugs"},
+        {"tool": "quality_scan", "args": {"path": "${path}", "max_files": 100}, "as": "quality"},
+        {"tool": "ide_fusion", "args": {"path": "${path}"}, "as": "annotated"},
+    ],
+    # IDE 基线（2026-08-13 M2）：文件/符号/热点/已知问题——改动前自动上下文
+    "ide_context": [
+        {"tool": "cb_index", "args": {"path": "${path}"}, "as": "index"},
+        {"tool": "cb_status", "args": {"path": "${path}"}, "as": "status"},
+        {"tool": "repo_wiki", "args": {"path": "${path}"}, "as": "wiki"},
+        {"tool": "bug_hunt", "args": {"path": "${path}"}, "as": "known"},
+    ],
     # 幻觉守卫闭环：能力边界 → 声明验证（2 步 1 次调用）
     "guard_text": [
         {"tool": "capability_manifest", "args": {}, "as": "caps"},
@@ -545,6 +676,28 @@ _PIPELINE_PRESETS: dict[str, list[dict]] = {
     "locate_context": [
         {"tool": "locate_edit", "args": {"path": "${path}", "query": "${query}"}, "as": "loc"},
         {"tool": "code_complete", "args": {"path": "${path}"}, "as": "code"},
+    ],
+    # ── P0a 语义管线三步走（2026-08-12，抄 AetherStudio LSP 三件套）──
+    # 改代码前：定位 → 光标符号级上下文（传统引擎先跑，模型最后上场）
+    "semantic_before": [
+        {"tool": "locate_edit", "args": {"path": "${path}", "query": "${query}"}, "as": "loc"},
+        {"tool": "cae_code_context", "args": {"path": "${path}", "cursor_line": "${cursor_line}", "search_repo": "${search_repo}"}, "as": "ctx"},
+        {"tool": "cae_lsp_query", "args": {"path": "${path}", "cursor_line": "${cursor_line}"}, "as": "lsp"},
+        {"tool": "lesson_recall_lse", "args": {"task_description": "${task}"}, "as": "lessons"},
+    ],
+    # 改代码后：变更影响 → 引用链 → 教训反馈（防回归）
+    "semantic_after": [
+        {"tool": "cae_change_impact", "args": {"repo_path": "${repo}", "changed_files": "${changed_files}"}, "as": "impact"},
+        {"tool": "cae_lsp_query", "args": {"path": "${path}", "cursor_line": "${cursor_line}"}, "as": "lsp_verify"},
+        {"tool": "hallucination_guard", "args": {"text": "${text}", "root": "${repo}"}, "as": "guard"},
+    ],
+    # 完整闭环：改前（定位+上下文+教训）→ 修改 → 改后（影响+验证+防幻觉）
+    "semantic_edit": [
+        {"tool": "locate_edit", "args": {"path": "${path}", "query": "${query}"}, "as": "loc"},
+        {"tool": "cae_code_context", "args": {"path": "${path}", "cursor_line": "${cursor_line}", "search_repo": "${search_repo}"}, "as": "ctx"},
+        {"tool": "lesson_recall_lse", "args": {"task_description": "${task}"}, "as": "lessons"},
+        {"tool": "cae_change_impact", "args": {"repo_path": "${repo}", "changed_files": "${changed_files}"}, "as": "impact"},
+        {"tool": "hallucination_guard", "args": {"text": "${text}", "root": "${repo}"}, "as": "guard"},
     ],
 }
 
@@ -637,6 +790,231 @@ def _tool_parallel(args: dict) -> str:
         for f in futs:
             f.result(timeout=timeout)
     return json.dumps({"ok": True, "results": results}, ensure_ascii=False)
+
+
+# ── P0b 混合检索（2026-08-12：BM25 全文 + 向量接口 + RRF 融合，抄 tantivy/BGE 思路）──
+def _tool_kb_query(args: dict) -> str:
+    """知识库/代码语义检索：对索引目录做混合检索（BM25 全文 + 可选向量，RRF 融合）。
+
+    index_dir: 索引文件目录（首次调用自动建索引；传源码目录时懒加载构建）
+    query:     检索词
+    index_file: 可选，直接指定 .db 文件（默认 index_dir/search-index.db）
+    limit:     返回条数（默认 20）
+    向量路：search_index.py 预留 embed_fn 接口，未配置时自动降级纯 BM25。
+    """
+    index_dir = str(args.get("index_dir") or "")
+    query = str(args.get("query") or "")
+    index_file = str(args.get("index_file") or "")
+    limit = min(int(args.get("limit", 20)), 100)
+    if not index_dir or not query.strip():
+        raise ValueError("index_dir 和 query 必填")
+    if not os.path.isdir(index_dir):
+        raise ValueError(f"索引目录不存在: {index_dir}")
+    try:
+        from search_index import SearchIndex
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from search_index import SearchIndex  # noqa: F811
+    db = index_file or os.path.join(index_dir, ".unified-rx-index", "search-index.db")
+    # 确保索引目录存在（默认路径进 .unified-rx-index/，与 repo_graph 图索引一致，不污染项目根）
+    os.makedirs(os.path.dirname(db), exist_ok=True)
+    try:
+        idx = SearchIndex(db)
+        hits = idx.search_hybrid(query, embed_fn=None, limit=limit)
+        return json.dumps({
+            "ok": True, "query": query, "count": len(hits), "db": db,
+            "hits": [{"id": h["id"], "title": h.get("title", ""),
+                      "meta": h.get("meta", {}),
+                      "snippet": (h.get("content") or "")[:200]} for h in hits],
+            "note": "BM25 全文检索（向量路未配置时自动降级；配置 embed_fn 后启用 RRF 融合）",
+        }, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": f"检索失败: {exc}"}, ensure_ascii=False)
+
+
+# ── P1a/P1b 掌握引擎（2026-08-12：tree-sitter 符号图，抄 codebase-memory 图查询）──
+def _tool_repo_graph(args: dict) -> str:
+    """代码库符号图查询：调用链/影响面/核心模块/符号搜索（tree-sitter 多语言图索引）。
+
+    root:    代码库根目录（首次调用自动建图索引，缓存到 <root>/.unified-rx-index/graph.db）
+    query:   查询类型：callers(谁调用我)/callees(我调用谁)/impact(影响面 BFS)/hubs(核心符号)/search(符号搜索)
+    symbol:  callers/callees 用：符号名（如 _tool_math_ops）或 'file:符号名'
+    file:    impact 用：文件路径（相对 root）
+    name:    search 用：符号名模糊
+    depth:   impact 用：BFS 深度（默认 3）
+    top:     hubs 用：返回条数（默认 10）
+    """
+    root = str(args.get("root") or "")
+    query = str(args.get("query") or "search")
+    symbol = str(args.get("symbol") or "")
+    file = str(args.get("file") or "")
+    name = str(args.get("name") or "")
+    depth = min(int(args.get("depth", 3)), 6)
+    top = min(int(args.get("top", 10)), 50)
+    if not root or not os.path.isdir(root):
+        raise ValueError(f"root 必须存在: {root}")
+    try:
+        from graph_index import GraphIndex
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from graph_index import GraphIndex  # noqa: F811
+    idx_dir = os.path.join(root, ".unified-rx-index")
+    os.makedirs(idx_dir, exist_ok=True)
+    db = os.path.join(idx_dir, "graph.db")
+    gi = GraphIndex(db)
+    # 懒建索引：图不存在或为空时构建
+    if gi.stats()["nodes"] == 0:
+        stats = gi.index_directory(root)
+    else:
+        stats = gi.stats()
+    try:
+        if query == "callers":
+            if not symbol:
+                raise ValueError("callers 需要 symbol")
+            hits = gi.callers_of(_resolve_symbol(gi, root, symbol))
+            return json.dumps({"ok": True, "query": "callers", "symbol": symbol,
+                               "count": len(hits), "callers": hits,
+                               "index": stats}, ensure_ascii=False, indent=2)
+        if query == "callees":
+            if not symbol:
+                raise ValueError("callees 需要 symbol")
+            hits = gi.callees_of(_resolve_symbol(gi, root, symbol))
+            return json.dumps({"ok": True, "query": "callees", "symbol": symbol,
+                               "count": len(hits), "callees": hits,
+                               "index": stats}, ensure_ascii=False, indent=2)
+        if query == "impact":
+            if not file:
+                raise ValueError("impact 需要 file")
+            fpath = os.path.join(root, file) if not os.path.isabs(file) else file
+            # 路径规范化：graph.db 存的是 os.walk 产出的原生分隔符路径，
+            # 正斜杠/混合分隔符会导致 SQL 精确匹配失败（实测踩坑）
+            fpath = os.path.normpath(fpath).replace("/", os.sep)
+            hits = gi.impact(fpath, depth=depth)
+            return json.dumps({"ok": True, "query": "impact", "file": file,
+                               "depth": depth, "count": len(hits), "affected": hits,
+                               "index": stats}, ensure_ascii=False, indent=2)
+        if query == "hubs":
+            hits = gi.hubs(top=top)
+            return json.dumps({"ok": True, "query": "hubs", "count": len(hits),
+                               "hubs": hits, "index": stats}, ensure_ascii=False, indent=2)
+        if query == "communities":
+            hits = gi.communities(max_communities=top)
+            return json.dumps({"ok": True, "query": "communities",
+                               "count": len(hits), "communities": hits,
+                               "index": stats}, ensure_ascii=False, indent=2)
+        # search
+        hits = gi.search_symbols(name or symbol, limit=top)
+        return json.dumps({"ok": True, "query": "search", "name": name or symbol,
+                           "count": len(hits), "symbols": hits,
+                           "index": stats}, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": f"图查询失败: {exc}"}, ensure_ascii=False)
+
+
+# ── P2a 质量引擎（2026-08-12：ruff/semgrep/gitleaks/pyright 多后端，抄 ruff★49k）──
+def _tool_quality_scan(args: dict) -> str:
+    """质量多后端扫描：ruff(Python lint) + semgrep(跨语言模式) + gitleaks(密钥) + pyright(类型)。
+
+    path:      文件或目录
+    backends:  指定后端（可选，默认全部可用后端）
+    后端未安装时自动降级（返回 available:false，不炸）。
+    """
+    path = str(args.get("path") or "")
+    backends = args.get("backends") or None
+    if not path:
+        raise ValueError("path 必填")
+    try:
+        from quality_engine import QualityEngine
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from quality_engine import QualityEngine  # noqa: F811
+    qe = QualityEngine()
+    return json.dumps(qe.scan(path, backends=backends), ensure_ascii=False, indent=2)
+
+
+def _resolve_symbol(gi, root: str, symbol: str) -> str:
+    """符号名 → 完整 node id。已含路径前缀则直接用；否则全库模糊匹配第一个。"""
+    if "::" in symbol:
+        return symbol
+    hits = gi.search_symbols(symbol, limit=1)
+    if hits:
+        return hits[0]["id"]
+    return f"{root}::{symbol}"
+
+
+# ── repo_wiki（2026-08-12：抄 Qoder Repo Wiki——自动生成代码库结构文档）──
+def _tool_repo_wiki(args: dict) -> str:
+    """一键生成代码库结构文档（Qoder Repo Wiki 对齐）。
+
+    从 tree-sitter 符号图 + 目录结构生成 markdown：
+    模块地图 / 核心符号(hubs) / 模块依赖，落盘 <root>/.unified-rx-index/WIKI.md。
+    AI 一次调用即"看全"仓库结构（省几十次 fs_read）。
+    """
+    root = str(args.get("root") or "")
+    out = str(args.get("out") or "")
+    if not root or not os.path.isdir(root):
+        raise ValueError(f"root 必须存在: {root}")
+    try:
+        from repo_wiki import generate_wiki
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from repo_wiki import generate_wiki  # noqa: F811
+    if not out:
+        out = os.path.join(root, ".unified-rx-index", "WIKI.md")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    return json.dumps(generate_wiki(root, out), ensure_ascii=False, indent=2)
+
+
+# ── 多智能体编排（2026-08-12：抄 crewAI/autogen 角色分工 + 并行协作）──
+def _tool_agent_orchestrate(args: dict) -> str:
+    """多智能体编排：按角色分工并行执行多个工具任务，汇总结果。
+
+    tasks: [{id, role, tool, args}]——role: analyst/quality/memory/writer/explorer
+    角色是工具白名单（防越权）：analyst=图查询/检索/扫描；quality=质检；memory=记忆。
+    同角色任务并行（ThreadPool），结果按 id 汇总。
+    """
+    tasks = args.get("tasks")
+    if not isinstance(tasks, list) or not tasks:
+        raise ValueError("tasks 必填: [{id, role, tool, args}]")
+    try:
+        import multi_agent as _ma
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import multi_agent as _ma  # noqa: F811
+
+    def call_fn(tool: str, targs: dict):
+        # _call 返回 [_TC(text)]，提取 .text 为可序列化值（防 "not JSON serializable"）
+        res = _call(tool, targs)
+        if isinstance(res, list):
+            parts = []
+            for item in res:
+                txt = getattr(item, "text", None)
+                if txt is not None:
+                    parts.append(txt)
+                else:
+                    parts.append(str(item))
+            return "\n".join(parts)
+        return res
+
+    result = _ma.orchestrate(tasks, call_fn)
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+def _tool_agent_roles(args: dict) -> str:
+    """角色目录：查看各角色的工具集与用途（配合 agent_orchestrate）。"""
+    try:
+        import multi_agent as _ma
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import multi_agent as _ma  # noqa: F811
+    return json.dumps({"ok": True, "roles": _ma.role_catalog()},
+                      ensure_ascii=False, indent=2)
 
 
 # ── 挖漏洞统一入口（2026-08-11 整合：bug_scan + std_check + ui_check 一次调用全跑）──
@@ -1274,6 +1652,23 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
     return issues, len(lines)
 
 
+def _scan_file_dispatch(f: str) -> tuple[list, int]:
+    """按后缀分发扫描：.py 用 _bug_scan_file（Python AST），.rs 用 rust_scan（tree-sitter）。"""
+    if f.endswith(".rs"):
+        try:
+            from rust_scan import scan_rust_file
+        except ImportError:
+            _dir = os.path.dirname(os.path.abspath(__file__))
+            sys.path.insert(0, _dir)
+            from rust_scan import scan_rust_file  # noqa: F811
+        issues, ln = scan_rust_file(f)
+        # 规范化为统一 issue 结构（补 col 供排序）
+        for i in issues:
+            i.setdefault("col", 0)
+        return issues, ln
+    return _bug_scan_file(f)
+
+
 def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     """静态扫描 bug 模式：未定义变量/None 解引用/资源泄漏/除零/越界。
 
@@ -1296,14 +1691,14 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
             pass
     files = []
     if p.is_file():
-        if p.suffix == ".py":
+        if p.suffix in (".py", ".rs"):
             files = [p]
         else:
-            raise ValueError(f"仅支持 Python 文件: {p}")
+            raise ValueError(f"仅支持 Python/Rust 文件: {p}")
     elif p.is_dir():
         for root, _, names in os.walk(p):
             for name in sorted(names):
-                if name.endswith(".py"):
+                if name.endswith((".py", ".rs")):
                     files.append(Path(root) / name)
                     if len(files) >= max_files:
                         break
@@ -1319,19 +1714,19 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
         try:
             import concurrent.futures as _cf
             with _cf.ProcessPoolExecutor(max_workers=min(4, os.cpu_count() or 2)) as ex:
-                for fi, ln in ex.map(_bug_scan_file, [str(f) for f in files]):
+                for fi, ln in ex.map(_scan_file_dispatch, [str(f) for f in files]):
                     issues.extend(fi)
                     total_lines += ln
         except Exception:
             # 进程池不可用（受限环境）→ 串行 fallback
             issues, total_lines = [], 0
             for f in files:
-                fi, ln = _bug_scan_file(str(f))
+                fi, ln = _scan_file_dispatch(str(f))
                 issues.extend(fi)
                 total_lines += ln
     else:
         for f in files:
-            fi, ln = _bug_scan_file(str(f))
+            fi, ln = _scan_file_dispatch(str(f))
             issues.extend(fi)
             total_lines += ln
 
@@ -1349,6 +1744,417 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
         except ImportError:
             pass
     return [_TC(json.dumps(result, ensure_ascii=False))]
+
+
+def _tool_ide_rename(args: dict) -> "list[types.TextContent]":
+    from ide_tools import ide_rename
+    return [_TC(json.dumps(ide_rename(args.get("root", ""), args.get("symbol", ""),
+                                       args.get("new_name", "")), ensure_ascii=False, indent=2))]
+
+
+def _tool_ide_complete(args: dict) -> "list[types.TextContent]":
+    from ide_tools import ide_complete
+    return [_TC(json.dumps(ide_complete(args.get("root", ""), args.get("file", ""),
+                                        args.get("prefix", "")), ensure_ascii=False, indent=2))]
+
+
+def _tool_ide_actions(args: dict) -> "list[types.TextContent]":
+    from ide_tools import ide_actions
+    return [_TC(json.dumps(ide_actions(args.get("path", "")), ensure_ascii=False, indent=2))]
+
+
+def _tool_ide_fusion(args: dict) -> "list[types.TextContent]":
+    """IDE 诊断→符号图融合：bug_scan 生产规则结果按符号聚合。"""
+    from ide_fusion import annotate_issues
+    path = args.get("path", "")
+    if not path or not os.path.isdir(path):
+        return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {path}"}, ensure_ascii=False))]
+    issues: list[dict] = []
+    # 用 rust_scan 危险规则扫（unwrap/expect/as 收窄——生产风险）
+    try:
+        from rust_scan import scan_rust_file
+        exts = (".rs",)
+        for dirpath, dirnames, filenames in os.walk(path):
+            dirnames[:] = [d for d in dirnames if d not in ("target", "node_modules", ".git", "release")]
+            for fn in filenames:
+                if not fn.endswith(exts):
+                    continue
+                p = os.path.join(dirpath, fn)
+                found, _ = scan_rust_file(p)
+                for it in found:
+                    issues.append({"file": p, "line": it.get("line", 0),
+                                   "kind": it.get("kind", "issue"),
+                                   "message": str(it.get("message", ""))[:100]})
+    except ImportError:
+        pass
+    return [_TC(json.dumps(annotate_issues(path, issues), ensure_ascii=False, indent=2))]
+
+
+def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
+    """Quest 状态机：new/resume/status/step/list。"""
+    from ide_quest import Quest, new_quest, resume_quest, list_quests, STEPS
+    action = args.get("action", "status")
+    quest_id = str(args.get("quest_id", ""))
+    try:
+        if action == "new":
+            q = new_quest(quest_id, args.get("task", ""), args.get("repo", ""))
+            q._save()
+            return [_TC(json.dumps({"ok": True, "status": q.status(),
+                                    "steps": [s for s, _ in STEPS]}, ensure_ascii=False, indent=2))]
+        if action == "resume":
+            q = resume_quest(quest_id)
+            if q is None:
+                return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"}, ensure_ascii=False))]
+            return [_TC(json.dumps({"ok": True, "status": q.status(),
+                                    "steps": [s for s, _ in STEPS]}, ensure_ascii=False, indent=2))]
+        if action == "status":
+            q = resume_quest(quest_id)
+            if q is None:
+                return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"}, ensure_ascii=False))]
+            return [_TC(json.dumps({"ok": True, "status": q.status()}, ensure_ascii=False, indent=2))]
+        if action == "step":
+            q = resume_quest(quest_id)
+            if q is None:
+                return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"}, ensure_ascii=False))]
+            return [_TC(json.dumps(q.complete_step(args.get("result", {})), ensure_ascii=False, indent=2))]
+        if action == "list":
+            return [_TC(json.dumps({"ok": True, "quests": list_quests()}, ensure_ascii=False, indent=2))]
+        return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]
+    except Exception as e:
+        return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False))]
+
+
+def _tool_explore_code(args: dict) -> "list[types.TextContent]":
+    """LATS 探索：目标词 → 树搜索代码库（ExploreEngine 接线）。
+
+    内置策略：
+      expand_fn  — 候选文件里找含目标词/相关词的行与调用
+      evaluate_fn — 目标词重合度打分（命中词数/长度）
+    """
+    from explore_engine import ExploreEngine
+    root = args.get("root", "")
+    goal = args.get("goal", "")
+    budget = int(args.get("budget", 20))
+    max_depth = int(args.get("max_depth", 4))
+    if not root or not os.path.isdir(root):
+        return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {root}"}, ensure_ascii=False))]
+    if not goal:
+        return [_TC(json.dumps({"ok": False, "error": "需要 goal（探索目标描述）"}, ensure_ascii=False))]
+    goals = [g for g in goal.lower().replace(",", " ").split() if len(g) > 1]
+    # 中英同义映射（中文目标 → 英文代码常用词——代码里多是英文标识符）
+    _SYN = {
+        "车轮": "wheel", "驱动": "drive", "物理": "physic", "地形": "terrain",
+        "粒子": "particle", "光影": "light", "材质": "material", "模块": "module",
+        "放置": "place", "拾取": "pickup", "载具": "vehicle", "燃料": "fuel",
+        "碰撞": "collision", "相机": "camera", "输入": "input", "渲染": "render",
+        "任务": "quest", "任务目标": "task", "血量": "health", "伤害": "damage",
+        "存储": "storage", "缓存": "cache", "索引": "index", "搜索": "search",
+    }
+    for g in list(goals):
+        if g in _SYN:
+            goals.append(_SYN[g])
+
+    # 预扫：目标词相关文件作为起始候选
+    import re as _re
+    candidates: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in ("target", "node_modules", ".git", "release")]
+        for fn in filenames:
+            if not fn.endswith((".rs", ".py", ".ts", ".js", ".gd")):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    text = f.read(4096)
+            except OSError:
+                continue
+            if any(g in text.lower() for g in goals):
+                candidates.append(p)
+        if len(candidates) >= 30:
+            break
+    if not candidates:
+        return [_TC(json.dumps({"ok": False, "error": f"未找到含目标词的文件: {goal}",
+                                "hint": "换更短的关键词或检查 root"}, ensure_ascii=False, indent=2))]
+
+    def expand_fn(cand: str) -> list[str]:
+        """展开：候选文件内相关行 → 相关文件（含目标词的近邻文件）。"""
+        out = []
+        try:
+            with open(cand, encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+        except OSError:
+            return out
+        for i, line in enumerate(lines):
+            if any(g in line.lower() for g in goals):
+                out.append(f"{cand}:{i + 1}")
+        return out[:10]
+
+    def evaluate_fn(cand: str) -> float:
+        """打分：目标词命中密度。"""
+        try:
+            with open(cand.split(":")[0], encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        except OSError:
+            return 0.0
+        low = text.lower()
+        hits = sum(low.count(g) for g in goals)
+        return hits / (len(text) + 1)
+
+    engine = ExploreEngine()
+    try:
+        result = engine.search("root", candidates, expand_fn=expand_fn,
+                               evaluate_fn=evaluate_fn, budget=budget, max_depth=max_depth)
+    except Exception as e:
+        return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False))]
+    result["goal"] = goal
+    result["candidates_found"] = len(candidates)
+    return [_TC(json.dumps(result, ensure_ascii=False, indent=2))]
+
+
+def _cjk_bigram_query(query: str) -> str:
+    """CJK 切词：连续汉字段单字空格化（与索引侧一致——FTS5 unicode61 按空白分词）。"""
+    import re as _re
+    out_parts = []
+    for seg in _re.split(r"([\u4e00-\u9fff]+)", query):
+        if _re.fullmatch(r"[\u4e00-\u9fff]+", seg):
+            out_parts.append(" ".join(seg))
+        else:
+            out_parts.append(seg)
+    return " ".join(p for p in out_parts if p)
+
+
+def _cjk_space_content(text: str) -> str:
+    """索引侧 CJK 切词：连续汉字字符间插空格（与查询侧一致）。"""
+    import re as _re
+    return _re.sub(r"([\u4e00-\u9fff])", r"\1 ", text)
+
+
+def _tool_semantic_search(args: dict) -> "list[types.TextContent]":
+    """全库语义检索（SearchIndex 接线）：扫代码库 → FTS5 BM25 索引 → 查询。
+
+    向量增强：无 embed_fn 时纯 BM25（诚实降级）；有本地 embedding 可加。
+    索引增量：复用文件 mtime 指纹（ide_cache 思想）——只索引变化文件。
+    """
+    from search_index import SearchIndex
+    root = args.get("root", "")
+    query = args.get("query", "")
+    limit = int(args.get("limit", 15))
+    db_path = args.get("db", os.path.join(root or ".", ".unified-rx-index", "semantic.db"))
+    if not root or not os.path.isdir(root):
+        return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {root}"}, ensure_ascii=False))]
+    if not query:
+        return [_TC(json.dumps({"ok": False, "error": "需要 query"}, ensure_ascii=False))]
+
+    idx = None
+    try:
+        os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)  # 索引目录先建（SearchIndex init 即开库）
+        idx = SearchIndex(db_path)
+    except Exception as e:
+        return [_TC(json.dumps({"ok": False, "error": f"索引库打开失败: {e}"}, ensure_ascii=False))]
+    # 增量索引：文件 mtime+size 指纹（存 SQLite 侧表由 SearchIndex.add_document 幂等处理）
+    added = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in ("target", "node_modules", ".git", "release", ".unified-rx-index")]
+        for fn in filenames:
+            if not fn.endswith((".rs", ".py", ".ts", ".js", ".gd", ".toml", ".md", ".ron")):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+            except OSError:
+                continue
+            try:
+                idx.add_document(p, _cjk_space_content(content), title=fn)
+                added += 1
+            except Exception:
+                continue
+    try:
+        # 混合检索（2026-08-13 向量增强）：BM25 召回 top-20 → 本地 embedding 余弦重排 → RRF
+        results = idx.search(_cjk_bigram_query(query), limit=20)
+        vector_used = False
+        try:
+            from local_intel import LocalIntel
+            li = LocalIntel()
+            embed_fn = li.make_embed_fn()
+            if embed_fn is not None:
+                q_vec = embed_fn(query)
+                if q_vec is not None:
+                    # 对召回候选做向量重排（batch embed 候选标题/内容前缀）
+                    cand_texts = [str(r.get("title", "") or r.get("id", "")) + " " + str(r.get("content", ""))[:400] for r in results]
+                    cand_vecs = []
+                    for ct in cand_texts:
+                        v = embed_fn(ct)
+                        cand_vecs.append(v if v else None)
+                    scored = []
+                    for r, cv in zip(results, cand_vecs):
+                        if cv is None:
+                            continue
+                        sim = sum(a * b for a, b in zip(q_vec, cv))
+                        scored.append((sim, r))
+                    scored.sort(key=lambda x: -x[0])
+                    vec_ranked = [r for _, r in scored]
+                    # RRF 融合：BM25 排名 + 向量排名
+                    import math as _m
+                    scores: dict[str, float] = {}
+                    for rank, hit in enumerate(results):
+                        scores[hit["id"]] = scores.get(hit["id"], 0.0) + 1.0 / (60 + rank)
+                    for rank, hit in enumerate(vec_ranked):
+                        scores[hit["id"]] = scores.get(hit["id"], 0.0) + 1.0 / (60 + rank)
+                    merged = {h["id"]: h for h in results}
+                    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+                    results = [merged[i] for i, _ in ranked[:limit]]
+                    vector_used = True
+        except ImportError:
+            pass
+        results = results[:limit]
+    except Exception as e:
+        return [_TC(json.dumps({"ok": False, "error": f"检索失败: {e}"}, ensure_ascii=False))]
+    return [_TC(json.dumps({"ok": True, "query": query, "indexed_files": added,
+                            "results": results,
+                            "note": ("BM25+向量 RRF 混合检索（bge-small-zh 本地 embedding）" if vector_used
+                                     else "BM25 全文检索（无 embedding 模型——纯 BM25 降级）")},
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_local_intel(args: dict) -> "list[types.TextContent]":
+    """本地智能：status/embed/similarity。"""
+    from local_intel import LocalIntel
+    li = LocalIntel()
+    action = args.get("action", "status")
+    if action == "status":
+        return [_TC(json.dumps({"ok": True, "available": li.available(),
+                                "models_dir": str(li._dir)}, ensure_ascii=False, indent=2))]
+    if action == "embed":
+        v = li.embed(args.get("text", ""))
+        if v is None:
+            return [_TC(json.dumps({"ok": False, "error": "embedding 模型不可用（模型缺失或推理失败）"},
+                                   ensure_ascii=False))]
+        return [_TC(json.dumps({"ok": True, "dim": len(v),
+                                "vector_preview": v[:8], "norm": round(sum(x*x for x in v) ** 0.5, 4)},
+                               ensure_ascii=False, indent=2))]
+    if action == "similarity":
+        v1, v2 = li.embed(args.get("text", "")), li.embed(args.get("text2", ""))
+        if v1 is None or v2 is None:
+            return [_TC(json.dumps({"ok": False, "error": "embedding 模型不可用"}, ensure_ascii=False))]
+        sim = sum(a * b for a, b in zip(v1, v2))
+        return [_TC(json.dumps({"ok": True, "similarity": round(sim, 4),
+                                "verdict": ("相关" if sim > 0.5 else "不相关")},
+                               ensure_ascii=False, indent=2))]
+    return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]
+
+
+def _tool_lesson_learn(args: dict) -> "list[types.TextContent]":
+    """记忆维深化：分层教训存取 + UCB 主动学习闭环。
+
+    action:
+      store      — lesson_store_tiered（tier=core/work/learn 分层教训）
+      recall     — lesson_recall（按 id 召回）
+      delta      — delta_update_lesson/rule（经验得分更新）
+      experience — experience_store（模型+上下文+delta 存经验）
+      ucb_select — UCB 选最优经验节点（探索/利用平衡）
+      ucb_backprop — UCB 反馈奖励（学习闭环）
+      state      — LSE 引擎状态
+    """
+    import lse_client as _lse
+    action = args.get("action", "state")
+    try:
+        if action == "store":
+            r = _lse.lesson_store_tiered(
+                args.get("tier", "work"), args.get("content", ""),
+                float(args.get("delta", 0.0)), float(args.get("threshold", 0.1)))
+        elif action == "recall":
+            r = _lse.lesson_recall(args.get("lesson_id", ""))
+        elif action == "delta":
+            if args.get("kind") == "rule":
+                r = _lse.delta_update_rule(args.get("id", ""), float(args.get("delta", 0.0)),
+                                           bool(args.get("adopted", True)))
+            else:
+                r = _lse.delta_update_lesson(args.get("id", ""), float(args.get("delta", 0.0)),
+                                             float(args.get("threshold", 0.1)))
+        elif action == "experience":
+            r = _lse.experience_store(args.get("model", "default"),
+                                      args.get("ctx", ""), float(args.get("delta", 0.0)),
+                                      args.get("summary", ""))
+        elif action == "ucb_select":
+            r = _lse.ucb_select(args.get("parent", ""), args.get("children", []),
+                                float(args.get("c", 1.41)))
+        elif action == "ucb_backprop":
+            r = _lse.ucb_backprop(args.get("node_id", ""), float(args.get("reward", 0.0)))
+        elif action == "state":
+            r = _lse.state_get()
+        else:
+            return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"},
+                                   ensure_ascii=False))]
+        return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
+    except Exception as e:
+        return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"},
+                               ensure_ascii=False))]
+
+
+def _tool_cmd_cheatsheet(args: dict) -> "list[types.TextContent]":
+    from ide_commands import cheatsheet
+    return [_TC(json.dumps(cheatsheet(args.get("domain")), ensure_ascii=False, indent=2))]
+
+
+def _tool_local_run(args: dict) -> "list[types.TextContent]":
+    from ide_commands import local_run
+    r = local_run(args.get("domain", ""), args.get("name", ""),
+                  args.get("args"), args.get("workdir"),
+                  int(args.get("timeout", 300)))
+    return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
+
+
+def _tool_skill_fetch(args: dict) -> "list[types.TextContent]":
+    """技能申请制：request/list/approve（用户批准才下载）。"""
+    from skill_fetch import request_skill, approve_skill, list_approvals
+    action = args.get("action", "list")
+    skills_dir = args.get("skills_dir") or os.path.join(
+        os.path.expanduser("~"), ".hermes", "skills")
+    try:
+        if action == "request":
+            r = request_skill(args.get("task", ""), skills_dir)
+        elif action == "list":
+            r = list_approvals()
+        elif action == "approve":
+            r = approve_skill(args.get("id", ""), bool(args.get("approved", False)), skills_dir)
+        else:
+            r = {"ok": False, "error": f"未知 action: {action}"}
+        return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
+    except Exception as e:
+        return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"},
+                               ensure_ascii=False))]
+
+
+def _tool_design_note(args: dict) -> "list[types.TextContent]":
+    """项目本质三分（settled/adjustable/doubts）。"""
+    from design_notes import add_note, list_notes, get_note
+    action = args.get("action", "list")
+    root = args.get("root", "")
+    kind = args.get("kind", "")
+    try:
+        if action == "add":
+            r = add_note(root, kind, args.get("text", ""), args.get("tag", ""))
+        elif action == "get":
+            r = get_note(root, kind)
+        else:
+            r = list_notes(root)
+        return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
+    except Exception as e:
+        return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"},
+                               ensure_ascii=False))]
+
+
+def _tool_scan_trend(args: dict) -> "list[types.TextContent]":
+    """扫描日志趋势分析（M6：日志→统计→增强闭环）。"""
+    from scan_trend import analyze
+    import scan_log_core as _scl
+    try:
+        logs = _scl.query_logs(limit=2000)
+    except Exception:
+        logs = []
+    r = analyze(logs, int(args.get("window_days", 7)))
+    return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
 
 
 def _tool_ui_check(args: dict) -> "list[types.TextContent]":
@@ -1479,6 +2285,27 @@ def _tool_lesson_recall_lse(args: dict) -> "list[types.TextContent]":
                  "低分自动归档（「压缩学习 枢纽优先」Nature Communications 启发）"
                  if _lse.engine_available() else "lse-engine 未构建，降级为原始召回"),
     }, ensure_ascii=False))]
+
+
+def _tool_lesson_extract(args: dict) -> "list[types.TextContent]":
+    """自动教训提取（P1c，抄 mem0 自动记忆提取 + Letta 三层）。
+
+    从工具结果/错误信息/对话文本中识别教训信号（"教训/注意/避免/必须"等），
+    自动入库（分层：core 核心长期 / work 工作短期 / archive 归档），
+    内容哈希稳定 ID（同内容汇聚，防重复）。
+    """
+    try:
+        import lse_client as _lse
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        import lse_client as _lse  # noqa: F811
+    text = str(args.get("text", ""))
+    tier = str(args.get("tier", "work"))
+    if not text.strip():
+        return [_TC(json.dumps({"ok": False, "error": "text 必填"}, ensure_ascii=False))]
+    result = _lse.auto_extract_lessons(text, tier=tier)
+    return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
 def _tool_lesson_feedback(args: dict) -> "list[types.TextContent]":
@@ -1982,7 +2809,7 @@ _TOOLS: dict[str, tuple] = {
         "n": _S("integer", "is_prime 用 ≤10M"), "limit": _S("integer", "generate 用 ≤1M"),
         "lst": _S("array", "unique 用"), "nested_list": _S("array", "flatten 用"),
     }, ["action"]), "素数列表组合（原 prime_is_prime/generate + list_unique/flatten）"),
-    "fib_fibonacci": (_m_fib_fibonacci, _schema({"n": _S("integer", "≤20000")}, ["n"]), "斐波那契第 n 项"),
+    "fib_fibonacci": (_rxcore_wrap("fib", _m_fib_fibonacci), _schema({"n": _S("integer", "≤20000")}, ["n"]), "斐波那契第 n 项"),
     "vuln_scan": (_tool_vuln_scan, _schema({
         "path": _S("string", "文件或目录"),
         "max_files": _S("integer", "扫描上限(默认100)"),
@@ -2007,8 +2834,35 @@ _TOOLS: dict[str, tuple] = {
         "tool": _S("string", "工具名过滤（bug_scan/std_check/vuln_scan/ui_check/cb_scan 等，可选）"),
         "limit": _S("integer", "返回条数(默认50，上限200)"),
     }, []), "扫描日志查询：常驻自扫落盘（~/.unified-rx/scan-log.jsonl），专项目对话按 root 过滤查看历史扫描结果"),
+    "kb_query": (_tool_kb_query, _schema({
+        "index_dir": _S("string", "索引目录（源码/知识库目录，懒构建）"),
+        "query": _S("string", "检索词"),
+        "index_file": _S("string", "可选：直接指定 .db 文件"),
+        "limit": _S("integer", "返回条数(默认20，上限100)"),
+    }, ["index_dir", "query"]), "混合语义检索：BM25 全文 + 可选向量（RRF 融合）——对代码/知识库做语义查询（P0b）"),
+    "repo_graph": (_tool_repo_graph, _schema({
+        "root": _S("string", "代码库根目录（首次自动建 tree-sitter 图索引）"),
+        "query": _S("string", "callers/callees/impact/hubs/communities/search（默认 search）"),
+        "symbol": _S("string", "callers/callees 用：符号名"),
+        "file": _S("string", "impact 用：文件路径（相对 root）"),
+        "name": _S("string", "search 用：符号名模糊"),
+        "depth": _S("integer", "impact BFS 深度(默认3，上限6)"),
+        "top": _S("integer", "返回条数(默认10，上限50)"),
+    }, ["root"]), "代码库符号图：调用链/影响面/核心符号/符号搜索（tree-sitter 18 语言图索引，P1）"),
+    "repo_wiki": (_tool_repo_wiki, _schema({
+        "root": _S("string", "代码库根目录（首次自动建图索引）"),
+        "out": _S("string", "可选：输出路径（默认 <root>/.unified-rx-index/WIKI.md）"),
+    }, ["root"]), "一键生成代码库结构文档（Qoder Repo Wiki 对齐：模块地图/核心符号/依赖，一次看全仓库）"),
+    "agent_orchestrate": (_tool_agent_orchestrate, _schema({
+        "tasks": _S("array", "[{id, role, tool, args}]——role: analyst/quality/memory/writer/explorer（角色=工具白名单）"),
+    }, ["tasks"]), "多智能体编排：角色分工并行执行工具任务（抄 crewAI/autogen，P4）"),
+    "agent_roles": (_tool_agent_roles, _schema({}, []), "角色目录：各角色工具集与用途（配合 agent_orchestrate）"),
+    "quality_scan": (_tool_quality_scan, _schema({
+        "path": _S("string", "文件或目录"),
+        "backends": _S("array", "可选：指定后端 [ruff/semgrep/gitleaks/pyright]（默认全部可用）"),
+    }, ["path"]), "质量多后端扫描：ruff+semgrep+gitleaks+pyright（可用即用，缺失降级，P2a）"),
     "pipeline": (_tool_pipeline, _schema({
-        "preset": _S("string", "预设配方：audit_repo/guard_text/learn/locate_context（一次调用跑完整流程，减少调用轮次）"),
+        "preset": _S("string", "预设配方：audit_repo/guard_text/learn/locate_context/semantic_before/semantic_after/semantic_edit（一次调用跑完整流程）"),
         "steps": _S("array", "步骤链：[{tool, args, as?}]——上一步结果以 ${key} 注入下一步"),
         "max_steps": _S("integer", "步骤上限(默认20)"),
     }, []), "工具链协作：任意工具顺序组合，前一步输出注入下一步参数；支持 preset 一键配方"),
@@ -2028,6 +2882,87 @@ _TOOLS: dict[str, tuple] = {
     "bug_scan": (_tool_bug_scan, _schema({"path": _S("string", "Python 文件或目录"), "max_files": _S("integer", "最大文件数(默认100)")}, ["path"]), "静态扫描 bug 模式（未定义变量/None 解引用/资源泄漏/除零/越界）"),
     "bug_locate": (_tool_bug_locate, _schema({"error_text": _S("string", "报错/traceback 文本")}, ["error_text"]), "报错文本 → 定位 file:line（含上下文片段）"),
     "ui_check": (_tool_ui_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描文件上限(默认100)")}, ["path"]), "Bevy UI 静态检查（崩溃/不可见模式）"),
+    # IDE 全家桶（R4）
+    "ide_rename": (_tool_ide_rename, _schema({
+        "root": _S("string", "代码库根目录"),
+        "symbol": _S("string", "要重命名的符号"),
+        "new_name": _S("string", "新名字"),
+    }, ["root", "symbol", "new_name"]), "安全重命名：全库找引用→建议（L3 不落盘，确认后 fs_write 应用）"),
+    "ide_complete": (_tool_ide_complete, _schema({
+        "root": _S("string", "代码库根目录"),
+        "file": _S("string", "当前文件"),
+        "prefix": _S("string", "补全前缀"),
+    }, ["root", "prefix"]), "符号补全（tree-sitter 图降级版，无 LSP 可用）"),
+    "ide_actions": (_tool_ide_actions, _schema({
+        "path": _S("string", "文件路径"),
+    }, ["path"]), "快速修复建议（unwrap/expect/as 收窄等安全规则→code action）"),
+    "ide_fusion": (_tool_ide_fusion, _schema({
+        "path": _S("string", "代码库根目录"),
+    }, ["path"]), "IDE 诊断→符号图融合（bug 问题按符号聚合标注）"),
+    "ide_quest": (_tool_ide_quest, _schema({
+        "action": _S("string", "new/resume/status/step/list"),
+        "quest_id": _S("string", "任务 ID（new/resume/step 必需）"),
+        "task": _S("string", "任务描述（new 时）"),
+        "repo": _S("string", "仓库根（new 时）"),
+        "result": _S("object", "步骤结果（step 时——当前步完成的证据）"),
+    }, ["action"]), "Quest 任务状态机（诊断→定位→影响→修复→验证→教训，断点续跑）"),
+    "explore_code": (_tool_explore_code, _schema({
+        "root": _S("string", "代码库根目录"),
+        "goal": _S("string", "探索目标（如 'physics 模块初始化处'）"),
+        "budget": _S("integer", "搜索预算（默认 20）"),
+        "max_depth": _S("integer", "最大深度（默认 4）"),
+    }, ["root", "goal"]), "LATS 探索：目标描述 → 树搜索代码库（值函数+回溯）"),
+    "semantic_search": (_tool_semantic_search, _schema({
+        "root": _S("string", "代码库根目录"),
+        "query": _S("string", "检索词"),
+        "limit": _S("integer", "结果数（默认 15）"),
+        "db": _S("string", "索引库路径（默认 .unified-rx-index/semantic.db）"),
+    }, ["root", "query"]), "全库语义检索（BM25+本地向量 RRF 混合）"),
+    "local_intel": (_tool_local_intel, _schema({
+        "action": _S("string", "status/embed/similarity"),
+        "text": _S("string", "embed/similarity 时文本"),
+        "text2": _S("string", "similarity 时第二段文本"),
+    }, ["action"]), "本地智能（bge-small-zh embedding——状态/嵌入/相似度）"),
+    "lesson_learn": (_tool_lesson_learn, _schema({
+        "action": _S("string", "store/recall/delta/experience/ucb_select/ucb_backprop/state"),
+        "tier": _S("string", "store 时层级（core/work/learn）"),
+        "content": _S("string", "store 时教训内容"),
+        "lesson_id": _S("string", "recall 时教训 id"),
+        "id": _S("string", "delta 时教训/规则 id"),
+        "delta": _S("number", "经验得分变化 [-1,1]"),
+        "model": _S("string", "experience 时模型名"),
+        "ctx": _S("string", "experience 时上下文"),
+        "summary": _S("string", "experience 时摘要"),
+        "children": _S("array", "ucb_select 子节点列表"),
+        "reward": _S("number", "ucb_backprop 奖励"),
+    }, ["action"]), "记忆维：分层教训存取 + UCB 主动学习闭环"),
+    "cmd_cheatsheet": (_tool_cmd_cheatsheet, _schema({
+        "domain": _S("string", "cargo/git/python/blender/voxelforge/unifiedrx（缺省全部）"),
+    }, []), "内建命令手册（省 token——不用试错找命令）"),
+    "local_run": (_tool_local_run, _schema({
+        "domain": _S("string", "命令域"),
+        "name": _S("string", "命令名（查 cmd_cheatsheet）"),
+        "args": _S("object", "占位符参数 {pkg}/{msg} 等"),
+        "workdir": _S("string", "工作目录（默认当前）"),
+        "timeout": _S("integer", "超时秒（默认 300）"),
+    }, ["domain", "name"]), "执行内建命令模板（白名单——本地运行省 token）"),
+    "skill_fetch": (_tool_skill_fetch, _schema({
+        "action": _S("string", "request/list/approve"),
+        "task": _S("string", "request 时任务描述"),
+        "id": _S("string", "approve 时申请 id"),
+        "approved": _S("boolean", "approve 时 true=批准下载 / false=拒绝"),
+        "skills_dir": _S("string", "skills 目录（默认 hermes-home/skills）"),
+    }, ["action"]), "技能申请制：没 skill 时申请→用户批准才下载（不批不装）"),
+    "design_note": (_tool_design_note, _schema({
+        "action": _S("string", "add/list"),
+        "root": _S("string", "项目根目录"),
+        "kind": _S("string", "settled(设定性)/adjustable(设计性)/doubts(疑点)"),
+        "text": _S("string", "add 时内容"),
+        "tag": _S("string", "add 时可选标签"),
+    }, ["action", "root"]), "项目本质三分（设定性原样/设计性可调/疑点标记）"),
+    "scan_trend": (_tool_scan_trend, _schema({
+        "window_days": _S("integer", "分析窗口天数（默认 7）"),
+    }, []), "扫描日志趋势分析（规则命中率→提权/降噪）"),
     "cb_index": (_tool_cb_index, _schema({"path": _S("string", "代码库根目录")}, ["path"]), "代码库索引（全库符号+哈希+变更感知）"),
     "cb_status": (_tool_cb_status, _schema({"path": _S("string", "代码库根目录")}, ["path"]), "代码库状态（索引摘要，不重建）"),
     "cb_scan": (_tool_cb_scan, _schema({"path": _S("string", "代码库根目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "全库扫描（变更优先 UI 规则）"),
@@ -2053,6 +2988,10 @@ _TOOLS: dict[str, tuple] = {
         "task_description": _S("string", "任务描述（召回相关教训）"),
         "lessons_dir": _S("string", "教训库目录（可选）"),
     }, ["task_description"]), "LSE 进化教训召回：utility 降序排序 + 低分归档（Delta 奖励）"),
+    "lesson_extract": (_tool_lesson_extract, _schema({
+        "text": _S("string", "源文本（工具结果/错误信息/对话，自动提取教训）"),
+        "tier": _S("string", "层级：core 核心长期/work 工作短期/archive 归档（默认 work）"),
+    }, ["text"]), "自动教训提取（P1c，抄 mem0 自动记忆提取 + Letta 三层）：信号词识别自动入库，内容哈希稳定 ID"),
     "lesson_feedback": (_tool_lesson_feedback, _schema({
         "lesson_id": _S("string", "教训 ID（lesson_recall_lse 返回）"),
         "delta": _S("number", "效用增量 [-1,1]（采纳正分/无效负分）"),
@@ -2162,7 +3101,7 @@ def _ext_definitions() -> "list[types.Tool]":
 
 
 async def _build_ext_defs() -> None:
-    """构建扩展工具定义（pr-oracle 3 + tautest 4 + cae 13 = 20）。"""
+    """构建扩展工具定义（pr-oracle 3 + tautest 4 + stats 4 + cae 13 = 24）。"""
     try:
         pr = _load_ext("pr-oracle")
         if pr is not None:
@@ -2252,6 +3191,12 @@ _EXT_FN_MAP = {"file_dedup_state": "file_dedup"}
 def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
     t0 = time.perf_counter()
     try:
+        # R2 权限检查（L4 写工具需显式授权——越权在分发前拒绝）
+        from ide_permission import check as _perm_check, strip_auth as _perm_strip
+        ok, reason = _perm_check(name, arguments or {})
+        if not ok:
+            return [_TC(f"Error: {reason}")]
+        arguments = _perm_strip(arguments or {})
         if name in _TOOLS:
             fn, _, _ = _TOOLS[name]
             result = fn(arguments or {})

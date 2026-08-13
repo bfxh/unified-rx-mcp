@@ -66,7 +66,23 @@ def test_tools_count_and_schema():
     # 2026-08-11 扫描日志：+scan_log → 33
     # 2026-08-11 高并发项目扫描：+project_scan → 34
     # 2026-08-11 全盘扫：+full_scan → 35
-    assert len(server._TOOLS) == 35, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-12 P0b 混合检索：+kb_query → 36
+    # 2026-08-12 P1 掌握引擎：+repo_graph → 37
+    # 2026-08-12 P1c 进化记忆：+lesson_extract → 38
+    # 2026-08-12 P2a 质量引擎：+quality_scan → 39
+    # 2026-08-12 repo_wiki：+repo_wiki → 40
+    # 2026-08-12 多智能体：+agent_orchestrate/+agent_roles → 42
+    # 2026-08-13 R4 IDE 全家桶：+ide_rename/+ide_complete/+ide_actions → 45
+    # 2026-08-13 R6 融合：+ide_fusion → 46
+    # 2026-08-13 R7 Quest：+ide_quest → 47
+    # 2026-08-13 探索/搜索接线：+explore_code/+semantic_search → 49
+    # 2026-08-13 本地智能：+local_intel → 50
+    # 2026-08-13 记忆维深化：+lesson_learn → 51
+    # 2026-08-13 M3 命令内建：+cmd_cheatsheet/+local_run → 53
+    # 2026-08-13 M4 技能申请制：+skill_fetch → 54
+    # 2026-08-13 M5 本质三分：+design_note → 55
+    # 2026-08-13 M6 趋势分析：+scan_trend → 56
+    assert len(server._TOOLS) == 56, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -171,7 +187,16 @@ def test_json_valid_prime_list():
 
 
 # ── 文件层 ───────────────────────────────────────────────────
+def _sandbox_allow(p: str) -> str:
+    """把 pytest 临时目录加入沙盒根（fs 测试自洽——不依赖 UNIFIED_RX_UNSAFE 环境）。"""
+    root = str(p)
+    if root not in server._SANDBOX_ROOTS:
+        server._SANDBOX_ROOTS.append(root)
+    return root
+
+
 def test_fs_roundtrip(tmp_path):
+    _sandbox_allow(tmp_path)
     f = tmp_path / "t.txt"
     server._tool_fs_write({"path": str(f), "content": "hello"})
     assert server._tool_fs_read({"path": str(f)})[0].text == "hello"
@@ -183,6 +208,7 @@ def test_fs_roundtrip(tmp_path):
 
 def test_fs_errors(tmp_path):
     # 网关层统一返回错误文本（不抛异常）
+    _sandbox_allow(tmp_path)
     out = server._call("fs_read", {"path": str(tmp_path / "nope.txt")})[0].text
     assert "Error" in out and "不存在" in out
     # NUL 拒绝（工具函数层抛 ValueError，网关转文本）

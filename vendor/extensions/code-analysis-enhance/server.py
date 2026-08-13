@@ -39,6 +39,11 @@ app = Server("code-analysis-enhance")
 # 文件状态缓存: path -> {mtime, size, sha256}
 _FILE_STATE: dict[str, dict] = {}
 
+# LSP 结果缓存（R1 增量同步）：path -> {fingerprint: str, results: {kind_key: data}}
+# 版本未变 → 直接返回缓存（省 LSP spawn + token）；变了 → 重新查询
+_LSP_CACHE: dict[str, dict] = {}
+_LSP_CACHE_LIMIT = 256  # LRU 上限（文件数）
+
 
 def _file_fingerprint(path: Path) -> dict | None:
     try:
@@ -1169,6 +1174,16 @@ def _tool_lsp_edit_merge(arguments: dict) -> list[types.TextContent]:
     仅合并真正相邻（next.start == current.end）的编辑，避免丢文本。
     """
     edits = arguments.get("edits", [])
+    # 类型校验（2026-08-13 R0 修复）：str 输入（如 '[]'）先 json 解析；非法输入明确报错不炸
+    if isinstance(edits, str):
+        try:
+            edits = json.loads(edits)
+        except json.JSONDecodeError as e:
+            return [types.TextContent(type="text", text=json.dumps(
+                {"ok": False, "error": f"edits 解析失败: {e}"}, ensure_ascii=False))]
+    if not isinstance(edits, list):
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": f"edits 必须是列表，收到 {type(edits).__name__}"}, ensure_ascii=False))]
     if len(edits) <= 1:
         return [types.TextContent(type="text", text=json.dumps(
             {"ok": True, "merged": edits, "merged_count": len(edits)}, ensure_ascii=False, indent=2))]
@@ -1404,6 +1419,16 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
     文档文本与请求在单次调用内完成，服务器进程用完即关（无状态）。
     """
     language_id = arguments.get("language_id", "").lower()
+    # 后缀自动推断（2026-08-13 R0 提升）：未显式给 language_id 时从 path 推断
+    if not language_id:
+        path_arg = arguments.get("path", "")
+        suffix = path_arg.rsplit(".", 1)[-1].lower() if "." in path_arg else ""
+        suffix_map = {
+            "rs": "rust", "py": "python", "ts": "typescript", "tsx": "typescript",
+            "js": "javascript", "jsx": "javascript", "c": "c", "h": "c",
+            "cpp": "cpp", "hpp": "cpp", "cc": "cpp",
+        }
+        language_id = suffix_map.get(suffix, "")
     request_type = arguments.get("request", "hover")
     path = arguments.get("path", "")
     line = int(arguments.get("line", 0))
@@ -1422,6 +1447,25 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
         return [types.TextContent(type="text", text=json.dumps(
             {"ok": False, "error": f"不支持的语言: {language_id}",
              "supported": list(LSP_SERVER_CONFIG.keys())}, ensure_ascii=False))]
+    # R1 增量同步：text 未提供时从文件读（否则 didOpen 空文本 → line index 错误）
+    if not text and path and os.path.isfile(path):
+        try:
+            with open(path, "rb") as f:
+                text = f.read().decode("utf-8", errors="replace")
+        except OSError:
+            text = ""
+    # R1 缓存：文件版本未变 → 直接返回缓存（省 LSP spawn + token）
+    cache_key = f"{request_type}:{line}:{character}"
+    if text:
+        fp = _file_fingerprint(Path(path)) if path and os.path.isfile(path) else None
+        if fp:
+            fp_sig = f"{fp['mtime']}:{fp['size']}:{fp['sha256']}"
+            cached_entry = _LSP_CACHE.get(path)
+            if cached_entry and cached_entry.get("fingerprint") == fp_sig \
+                    and cache_key in cached_entry.get("results", {}):
+                _cached_result = cached_entry["results"][cache_key]
+                return [types.TextContent(type="text", text=json.dumps(
+                    dict(_cached_result, cached=True), ensure_ascii=False, indent=2))]
     cmd, args = LSP_SERVER_CONFIG[language_id]
     # 检查命令可用
     if not _command_available(cmd):
@@ -1482,9 +1526,20 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
                 {"ok": False, "request": request_type, "language": language_id,
                  "error": f"语言服务器错误: {msg}"}, ensure_ascii=False, indent=2))]
         result = resp.get("result")
+        success_payload = {"ok": True, "request": request_type, "language": language_id,
+                           "position": pos, "result": result}
+        # R1 缓存：成功结果存入（LRU 上限防膨胀）
+        if text and path and os.path.isfile(path):
+            fp = _file_fingerprint(Path(path))
+            if fp:
+                fp_sig = f"{fp['mtime']}:{fp['size']}:{fp['sha256']}"
+                entry = _LSP_CACHE.setdefault(path, {"fingerprint": fp_sig, "results": {}})
+                entry["fingerprint"] = fp_sig
+                entry["results"][cache_key] = success_payload
+                if len(_LSP_CACHE) > _LSP_CACHE_LIMIT:
+                    _LSP_CACHE.pop(next(iter(_LSP_CACHE)), None)  # 简单 FIFO 淘汰
         return [types.TextContent(type="text", text=json.dumps(
-            {"ok": True, "request": request_type, "language": language_id,
-             "position": pos, "result": result}, ensure_ascii=False, indent=2))]
+            success_payload, ensure_ascii=False, indent=2))]
     except FileNotFoundError:
         return [types.TextContent(type="text", text=json.dumps(
             {"ok": False, "error": f"无法启动语言服务器: {cmd}"}, ensure_ascii=False))]
