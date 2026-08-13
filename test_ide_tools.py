@@ -217,6 +217,44 @@ def test_complete_current_file_priority():
     assert [d["name"] for d in det[:2]] == ["helper_local", "helper_local2"]
 
 
+# ── IDE 增强五（2026-08-13）：子串降级 + 热度排序 ──
+def test_complete_substring_fallback():
+    """前缀无命中时自动子串降级（输入 "rea" 补出 computeArea）。"""
+    root = _tmp_project({
+        "lib.rs": "pub fn compute_area(w: f32) -> f32 { w }\nfn main() {}\n",
+    })
+    r = ide_complete(root, os.path.join(root, "lib.rs"), "rea")
+    assert r["ok"]
+    names = r["items"]
+    assert "compute_area" in names, f"子串应补出 compute_area: {names}"
+    assert r["match_mode"] in ("auto", "substring")
+    # 强制 prefix：无前缀命中 → 空
+    r2 = ide_complete(root, os.path.join(root, "lib.rs"), "rea", match="prefix")
+    assert r2["count"] == 0, "prefix 强制模式不应子串补全"
+
+
+def test_complete_heat_ranking():
+    """符号热度：引用次数多的排前（同前缀下）。"""
+    root = _tmp_project({
+        "a.rs": (
+            "fn main() {\n"
+            "    do_work(1);\n"      # do_work 引用×3
+            "    do_work(2);\n"
+            "    do_work(3);\n"
+            "    do_wrap(1);\n"      # do_wrap 引用×1
+            "}\n"
+        ),
+    })
+    r = ide_complete(root, os.path.join(root, "a.rs"), "do_w")
+    assert r["ok"]
+    names = r["items"]
+    assert names.index("do_work") < names.index("do_wrap"), (
+        f"热度排序：do_work（3 次）应排 do_wrap（1 次）前: {names}"
+    )
+    det = {d["name"]: d for d in r["detailed"]}
+    assert det["do_work"]["refs"] >= 3, f"热度计数: {det['do_work']}"
+
+
 # ── Bug 修复回归（2026-08-13）：跨行块注释行号错位 + Python # 注释 ──
 def test_rename_line_numbers_survive_block_comments():
     """跨行块注释不得导致行号错位（实测旧版 9 行文件错位 3 行）。"""

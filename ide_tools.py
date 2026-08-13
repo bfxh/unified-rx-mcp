@@ -144,20 +144,55 @@ def _find_symbol_refs(root: str, symbol: str, max_refs: int,
 
 
 # ── ide_complete ───────────────────────────────────────────
-def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20) -> dict:
+# 标识符模式（Rust/Python/TS/JS 通用）
+_IDENT_RE = r"[A-Za-z_][A-Za-z0-9_]*"
+
+
+def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20,
+                 match: str = "auto") -> dict:
     """补全：同库符号匹配前缀（tree-sitter 图降级版——无 LSP 也可用）。
 
-    IDE 强度增强：
-    - 排除注释/字符串里的假符号（_strip_comments_strings）
-    - **当前文件符号优先**（IDE 直觉：正在编辑的文件排最前）
-    - 声明优先：fn/struct/class/def/let 等行首声明排前（kind 标注）
-    - items 保持字符串列表（向后兼容）；新增 detailed（name/kind/file/line/current）
+    IDE 增强五（2026-08-13）：
+    - **子串降级**：match="auto"（默认）前缀命中不足时自动子串匹配
+      （输入 "rea" 也能补出 computeArea）；"prefix"/"substring" 可强制
+    - **符号热度排序**：引用次数多的符号排前（在 当前文件/声明 之后）
+    - 排除注释/字符串里的假符号；当前文件符号优先；detailed 加 refs（热度）
+    - items 保持字符串列表（向后兼容）
     """
     if not prefix:
         return {"ok": True, "items": [], "note": "空前缀"}
-    cands: dict[str, dict] = {}  # name -> {kind, file, line, current}
+    prefix_re = re.compile(rf"\b{re.escape(prefix)}{_IDENT_RE}")
+    # 子串匹配：先匹配"含 prefix 的标识符片段"（[A-Za-z0-9_]* 允许 _ 前导——
+    # compute_area 中 area 前是 _），再向左右扩展成完整符号名（防 \b 挡中间子串、
+    # 防取到 _area 这类半截名）
+    substring_frag_re = re.compile(rf"[A-Za-z0-9_]*{re.escape(prefix)}[A-Za-z0-9_]*")
+    _IDENT_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
 
-    def scan_file(p: str, current: bool) -> None:
+    def _expand_ident(line: str, start: int, end: int) -> str:
+        while start > 0 and line[start - 1] in _IDENT_CHARS:
+            start -= 1
+        while end < len(line) and line[end] in _IDENT_CHARS:
+            end += 1
+        return line[start:end]
+
+    cands: dict[str, dict] = {}  # name -> {kind, file, line, current, prefix_match, refs}
+
+    def _record_decl(name: str, line: int, p: str, current: bool,
+                     is_prefix: bool, decl_name: str | None) -> None:
+        cur = cands.get(name)
+        if cur is None:
+            kind = "decl" if decl_name == name else "ref"
+            cands[name] = {"name": name, "kind": kind, "file": p, "line": line,
+                           "current": current, "prefix_match": is_prefix, "refs": 1}
+        else:
+            cur["refs"] += 1
+            if is_prefix and not cur["prefix_match"]:
+                cur["prefix_match"] = True
+            if decl_name == name and cur["kind"] != "decl":
+                cur["kind"] = "decl"
+
+    # 声明优先判定需要行内容——scan_file_full 内联声明检测（单次读文件）
+    def scan_file_full(p: str, current: bool) -> None:
         try:
             with open(p, encoding="utf-8", errors="replace") as f:
                 text = f.read()
@@ -165,35 +200,50 @@ def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20) -> dic
             return
         code = _strip_comments_strings(text)
         for i, line in enumerate(code.splitlines(), 1):
-            for m in re.finditer(rf"\b{re.escape(prefix)}[A-Za-z0-9_]*\b", line):
-                name = m.group(0)
-                dm = _DECL_RE.match(line)
-                kind = "decl" if (dm and dm.group(1) == name) else "ref"
-                cur = cands.get(name)
-                if cur is None or (kind == "decl" and cur["kind"] != "decl"):
-                    cands[name] = {"name": name, "kind": kind,
-                                   "file": p, "line": i, "current": current}
+            dm = _DECL_RE.match(line)
+            decl_name = dm.group(1) if dm else None
+            if match != "substring":
+                for m in prefix_re.finditer(line):
+                    _record_decl(m.group(0), i, p, current, True, decl_name)
+            if match != "prefix":
+                # 子串命中：片段扩展为完整符号名；已建档的加热度
+                for m in substring_frag_re.finditer(line):
+                    name = _expand_ident(line, m.start(), m.end())
+                    if not name or name[0].isdigit() or prefix not in name:
+                        continue
+                    if name in cands:
+                        cands[name]["refs"] += 1
+                    else:
+                        _record_decl(name, i, p, current, False, decl_name)
 
-    # 当前文件优先（正在编辑的符号排最前）；其余文件在 walk 中扫
+    # 当前文件优先；其余文件在 walk 中扫
     if file_path and os.path.isfile(file_path):
-        scan_file(file_path, True)
+        scan_file_full(file_path, True)
     exts = (".rs", ".py", ".ts", ".js")
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in ("target", "node_modules", ".git", "release")]
         for fn in filenames:
             if not fn.endswith(exts) or os.path.abspath(fn) == os.path.abspath(file_path):
                 continue
-            scan_file(os.path.join(dirpath, fn), False)
-    # 排序：当前文件 → 声明 → 名字字典序
+            scan_file_full(os.path.join(dirpath, fn), False)
+    if not cands:
+        return {"ok": True, "prefix": prefix, "items": [], "count": 0,
+                "match_mode": match, "note": "无匹配"}
+    # 排序：当前文件 → 声明 → 前缀命中 → 热度（引用次数降序）→ 名字字典序
     ranked = sorted(cands.values(),
                     key=lambda c: (0 if c["current"] else 1,
                                    0 if c["kind"] == "decl" else 1,
+                                   0 if c["prefix_match"] else 1,
+                                   -c["refs"],
                                    c["name"]))
     ranked = ranked[:max(limit, 1)]
+    used_mode = ("prefix" if all(c["prefix_match"] for c in ranked)
+                 else "substring" if match == "substring" else "auto")
     return {"ok": True, "prefix": prefix,
             "items": [c["name"] for c in ranked],
             "detailed": ranked,
-            "count": len(ranked)}
+            "count": len(ranked),
+            "match_mode": used_mode}
 
 
 # ── ide_references（新 IDE 增强 2026-08-13：定义/引用区分）──
