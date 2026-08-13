@@ -11,7 +11,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ide_tools import ide_actions, ide_complete, ide_rename  # noqa: E402
+from ide_tools import ide_actions, ide_complete, ide_references, ide_rename  # noqa: E402
 
 
 def _tmp_project(files: dict[str, str]) -> str:
@@ -111,3 +111,59 @@ def test_actions_no_false_positive_on_normal_code():
         f.write("def ok():\n    return 42\n")
     r = ide_actions(p)
     assert r["ok"] and r["count"] == 0, f"干净代码不应有 action: {r}"
+
+
+# ── IDE 增强二（2026-08-13）：ide_references 定义/引用区分 + complete 当前文件优先 ──
+def test_references_definitions_and_calls():
+    root = _tmp_project({
+        "lib.rs": (
+            "pub fn compute_area(w: f32) -> f32 { w }\n"
+            "fn main() {\n"
+            "    let a = compute_area(2.0);\n"   # 引用（调用）
+            "    // compute_area 注释（排除）\n"
+            "}\n"
+        ),
+    })
+    r = ide_references(root, "compute_area")
+    assert r["ok"]
+    # 定义 1 处（行 1 pub fn）+ 引用 1 处（行 3 调用）
+    assert r["definition_count"] == 1, f"定义数: {r['definition_count']}"
+    assert r["reference_count"] == 1, f"引用数: {r['reference_count']}"
+    assert r["definitions"][0]["line"] == 1
+    assert r["references"][0]["line"] == 3
+
+
+def test_references_no_fakes_from_comments():
+    root = _tmp_project({
+        "a.py": (
+            "def ghost(): pass\n"           # 定义
+            "x = ghost()\n"                 # 引用
+            "# ghost 注释（排除）\n"
+            's = "ghost 字符串"（排除）\n'
+        ),
+    })
+    r = ide_references(root, "ghost")
+    assert r["ok"]
+    assert r["definition_count"] == 1
+    assert r["reference_count"] == 1, f"注释/字符串里的 ghost 不应计入: {r['references']}"
+
+
+def test_references_unknown_symbol():
+    root = _tmp_project({"a.rs": "fn main() {}\n"})
+    r = ide_references(root, "nope_symbol")
+    assert not r["ok"]
+
+
+def test_complete_current_file_priority():
+    root = _tmp_project({
+        "current.rs": "fn helper_local() {}\nfn helper_local2() {}\n",
+        "other.rs": "fn helper_remote() {}\n",
+    })
+    cur = os.path.join(root, "current.rs")
+    r = ide_complete(root, cur, "helper")
+    assert r["ok"]
+    det = r["detailed"]
+    # 当前文件符号（helper_local/helper_local2）应排在其他文件符号（helper_remote）前
+    assert det[0]["current"] is True and det[1]["current"] is True
+    assert det[2]["current"] is False
+    assert [d["name"] for d in det[:2]] == ["helper_local", "helper_local2"]

@@ -1771,6 +1771,12 @@ def _tool_ide_complete(args: dict) -> "list[types.TextContent]":
                                         args.get("prefix", "")), ensure_ascii=False, indent=2))]
 
 
+def _tool_ide_references(args: dict) -> "list[types.TextContent]":
+    from ide_tools import ide_references
+    return [_TC(json.dumps(ide_references(args.get("root", ""), args.get("symbol", "")),
+                           ensure_ascii=False, indent=2))]
+
+
 def _tool_ide_actions(args: dict) -> "list[types.TextContent]":
     from ide_tools import ide_actions
     return [_TC(json.dumps(ide_actions(args.get("path", "")), ensure_ascii=False, indent=2))]
@@ -1804,7 +1810,7 @@ def _tool_ide_fusion(args: dict) -> "list[types.TextContent]":
 
 
 def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
-    """Quest 状态机：new/resume/status/step/list。"""
+    """Quest 状态机：new/resume/status/step/list/abort/note。"""
     from ide_quest import Quest, new_quest, resume_quest, list_quests, STEPS
     action = args.get("action", "status")
     quest_id = str(args.get("quest_id", ""))
@@ -1830,6 +1836,16 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             if q is None:
                 return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"}, ensure_ascii=False))]
             return [_TC(json.dumps(q.complete_step(args.get("result", {})), ensure_ascii=False, indent=2))]
+        if action == "abort":
+            q = resume_quest(quest_id)
+            if q is None:
+                return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"}, ensure_ascii=False))]
+            return [_TC(json.dumps(q.abort(), ensure_ascii=False, indent=2))]
+        if action == "note":
+            q = resume_quest(quest_id)
+            if q is None:
+                return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"}, ensure_ascii=False))]
+            return [_TC(json.dumps(q.add_note(str(args.get("text", ""))), ensure_ascii=False, indent=2))]
         if action == "list":
             return [_TC(json.dumps({"ok": True, "quests": list_quests()}, ensure_ascii=False, indent=2))]
         return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]
@@ -2905,7 +2921,11 @@ _TOOLS: dict[str, tuple] = {
         "root": _S("string", "代码库根目录"),
         "file": _S("string", "当前文件"),
         "prefix": _S("string", "补全前缀"),
-    }, ["root", "prefix"]), "符号补全（tree-sitter 图降级版，无 LSP 可用）"),
+    }, ["root", "prefix"]), "符号补全（tree-sitter 图降级版，无 LSP 可用；当前文件优先）"),
+    "ide_references": (_tool_ide_references, _schema({
+        "root": _S("string", "代码库根目录"),
+        "symbol": _S("string", "要查的符号"),
+    }, ["root", "symbol"]), "查找符号定义与全部引用（IDE goto-references，无 LSP 可用）"),
     "ide_actions": (_tool_ide_actions, _schema({
         "path": _S("string", "文件路径"),
     }, ["path"]), "快速修复建议（unwrap/expect/as 收窄等安全规则→code action）"),

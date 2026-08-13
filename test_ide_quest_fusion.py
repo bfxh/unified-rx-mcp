@@ -71,6 +71,48 @@ def test_quest_list(tmp_path, monkeypatch):
     assert lst[0]["quest_id"] == "q3"
 
 
+def test_quest_abort_and_note(tmp_path, monkeypatch):
+    """IDE 增强（2026-08-13）：abort 放弃 + note 备注 + status 时长/备注计数。"""
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    q = ide_quest.new_quest("q4", "任务4", "/r")
+    # 备注
+    r = q.add_note("发现：根因在 removal.rs 碎片归集")
+    assert r["ok"] and r["notes_count"] == 1
+    assert q.status()["notes_count"] == 1
+    # 空备注拒绝
+    assert q.add_note("   ")["ok"] is False
+    # 状态含 elapsed_s
+    st = q.status()
+    assert "elapsed_s" in st and st["elapsed_s"] >= 0
+    assert st["aborted"] is False
+    # abort：标记放弃、保留状态可复盘
+    r = q.abort()
+    assert r["ok"] and r["aborted"] is True
+    assert q.status()["aborted"] is True
+    # 二次 abort 拒绝
+    assert q.abort()["ok"] is False
+    # 断点续跑后仍可见 aborted + notes
+    q2 = ide_quest.resume_quest("q4")
+    assert q2 is not None and q2.status()["aborted"] is True
+    assert q2.status()["notes_count"] == 1
+
+
+def test_quest_tool_abort_note_integration(tmp_path, monkeypatch):
+    """ide_quest 工具 abort/note action 端到端。"""
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    r = server._call("ide_quest", {"action": "new", "quest_id": "qi4",
+                                    "task": "任务", "repo": "/x"})
+    assert json.loads(r[0].text)["ok"]
+    r = server._call("ide_quest", {"action": "note", "quest_id": "qi4",
+                                    "text": "上下文备注"})
+    d = json.loads(r[0].text)
+    assert d["ok"] and d["notes_count"] == 1
+    r = server._call("ide_quest", {"action": "abort", "quest_id": "qi4"})
+    assert json.loads(r[0].text)["ok"] is True
+    r = server._call("ide_quest", {"action": "status", "quest_id": "qi4"})
+    assert json.loads(r[0].text)["status"]["aborted"] is True
+
+
 def test_ide_quest_tool_integration(tmp_path, monkeypatch):
     """ide_quest 工具端到端（new → step×6 → finished）。"""
     monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))

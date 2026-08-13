@@ -97,7 +97,29 @@ class Quest:
             "current": self.current_step_name(),
             "done_steps": done,
             "finished": self.state["finished"],
+            "aborted": self.state.get("aborted", False),
+            "elapsed_s": round(time.time() - self.state.get("created_ts", time.time())),
+            "notes_count": len(self.state.get("notes", [])),
         }
+
+    def abort(self) -> dict:
+        """放弃任务（保留状态供复盘——不删除状态文件）。"""
+        if self.state.get("aborted"):
+            return {"ok": False, "error": "任务已放弃"}
+        self.state["aborted"] = True
+        self.state["aborted_ts"] = time.time()
+        self._save()
+        return {"ok": True, "quest_id": self.quest_id, "aborted": True}
+
+    def add_note(self, text: str) -> dict:
+        """任务备注（断点续跑上下文——记下发现/思路，中途不丢）。"""
+        if not text or not text.strip():
+            return {"ok": False, "error": "备注为空"}
+        notes = self.state.setdefault("notes", [])
+        notes.append({"ts": time.time(), "text": text.strip()})
+        self._save()
+        return {"ok": True, "quest_id": self.quest_id,
+                "notes": notes, "notes_count": len(notes)}
 
     def _save(self) -> None:
         try:

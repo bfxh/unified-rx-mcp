@@ -110,49 +110,91 @@ def _find_symbol_refs(root: str, symbol: str, max_refs: int,
 def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20) -> dict:
     """补全：同库符号匹配前缀（tree-sitter 图降级版——无 LSP 也可用）。
 
-    IDE 强度增强（2026-08-13）：
+    IDE 强度增强：
     - 排除注释/字符串里的假符号（_strip_comments_strings）
-    - 声明优先：fn/struct/class/def/let 等行首声明排最前（kind 标注）
-    - items 保持字符串列表（向后兼容）；新增 detailed（name/kind/file/line）
+    - **当前文件符号优先**（IDE 直觉：正在编辑的文件排最前）
+    - 声明优先：fn/struct/class/def/let 等行首声明排前（kind 标注）
+    - items 保持字符串列表（向后兼容）；新增 detailed（name/kind/file/line/current）
     """
     if not prefix:
         return {"ok": True, "items": [], "note": "空前缀"}
-    cands: dict[str, dict] = {}  # name -> {kind, file, line}
+    cands: dict[str, dict] = {}  # name -> {kind, file, line, current}
+
+    def scan_file(p: str, current: bool) -> None:
+        try:
+            with open(p, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        except OSError:
+            return
+        code = _strip_comments_strings(text)
+        for i, line in enumerate(code.splitlines(), 1):
+            for m in re.finditer(rf"\b{re.escape(prefix)}[A-Za-z0-9_]*\b", line):
+                name = m.group(0)
+                dm = _DECL_RE.match(line)
+                kind = "decl" if (dm and dm.group(1) == name) else "ref"
+                cur = cands.get(name)
+                if cur is None or (kind == "decl" and cur["kind"] != "decl"):
+                    cands[name] = {"name": name, "kind": kind,
+                                   "file": p, "line": i, "current": current}
+
+    # 当前文件优先（正在编辑的符号排最前）；其余文件在 walk 中扫
+    if file_path and os.path.isfile(file_path):
+        scan_file(file_path, True)
     exts = (".rs", ".py", ".ts", ".js")
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in ("target", "node_modules", ".git", "release")]
         for fn in filenames:
             if not fn.endswith(exts) or os.path.abspath(fn) == os.path.abspath(file_path):
                 continue
-            p = os.path.join(dirpath, fn)
-            try:
-                with open(p, encoding="utf-8", errors="replace") as f:
-                    text = f.read()
-            except OSError:
-                continue
-            code = _strip_comments_strings(text)
-            for i, line in enumerate(code.splitlines(), 1):
-                for m in re.finditer(rf"\b{re.escape(prefix)}[A-Za-z0-9_]*\b", line):
-                    name = m.group(0)
-                    kind = "decl"
-                    dm = _DECL_RE.match(line)
-                    if dm and dm.group(1) == name:
-                        pass  # 声明（decl）
-                    else:
-                        kind = "ref"
-                    # 声明优先：已存在 decl 不降级为 ref
-                    cur = cands.get(name)
-                    if cur is None or (kind == "decl" and cur["kind"] != "decl"):
-                        cands[name] = {"name": name, "kind": kind,
-                                       "file": p, "line": i}
-    # 排序：decl 优先 → 名字字典序；截断 limit
+            scan_file(os.path.join(dirpath, fn), False)
+    # 排序：当前文件 → 声明 → 名字字典序
     ranked = sorted(cands.values(),
-                    key=lambda c: (0 if c["kind"] == "decl" else 1, c["name"]))
+                    key=lambda c: (0 if c["current"] else 1,
+                                   0 if c["kind"] == "decl" else 1,
+                                   c["name"]))
     ranked = ranked[:max(limit, 1)]
     return {"ok": True, "prefix": prefix,
             "items": [c["name"] for c in ranked],
             "detailed": ranked,
             "count": len(ranked)}
+
+
+# ── ide_references（新 IDE 增强 2026-08-13：定义/引用区分）──
+def ide_references(root: str, symbol: str, max_refs: int = 200,
+                   exclude_comments: bool = True) -> dict:
+    """查找符号定义与全部引用（IDE goto-references 降级版，无 LSP 可用）。
+
+    定义判定：行首声明（fn/def/struct/class/let 等，_DECL_RE）且声明名==symbol。
+    返回 {ok, symbol, definitions: [...], references: [...], count}。
+    """
+    refs = _find_symbol_refs(root, symbol, max_refs, exclude_comments)
+    if not refs:
+        return {"ok": False, "error": f"未找到符号: {symbol}"}
+    definitions = []
+    references = []
+    for r in refs:
+        # 逐行重读（_find_symbol_refs 已剥离注释/字符串——这里只需声明判定）
+        try:
+            with open(r["file"], encoding="utf-8", errors="replace") as f:
+                line_text = f.readlines()[r["line"] - 1]
+        except (OSError, IndexError):
+            references.append(r)
+            continue
+        dm = _DECL_RE.match(line_text)
+        if dm and dm.group(1) == symbol:
+            definitions.append(r)
+        else:
+            references.append(r)
+    return {
+        "ok": True,
+        "symbol": symbol,
+        "definitions": definitions,
+        "references": references,
+        "definition_count": len(definitions),
+        "reference_count": len(references),
+        "count": len(refs),
+        "advice": "用 ide_rename 生成重命名方案（L3 建议层，确认后 fs_write 应用）",
+    }
 
 
 # ── ide_actions ────────────────────────────────────────────
