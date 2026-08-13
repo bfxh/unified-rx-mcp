@@ -2085,7 +2085,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 return [_TC(json.dumps({"ok": False, "error": "auto 需要 path 参数"},
                                        ensure_ascii=False))]
             if not quest_id:
-                quest_id = f"auto-{int(_t.time())}"
+                quest_id = f"auto-{int(_t.time_ns())}"  # 纳秒防同秒碰撞（探针：秒级同秒复用旧任务）
             # IDE 增强十六：force=True 重置 quest 后重跑整链（上次诊断失败/不完整时重试）
             if args.get("force") and os.path.exists(Quest._state_path(quest_id)):
                 q = new_quest(quest_id, str(args.get("task", "")) or f"自动诊断 {path}", path)
@@ -2319,6 +2319,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        f"**模式**：{'⚡ quick（未深查影响面）' if mode == 'quick' else 'full'}",  # IDE 增强三十三
                        f"**时间**：{time.strftime('%Y-%m-%d %H:%M:%S')}",  # IDE 增强四十三
                        f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s",
+                       # IDE 增强六十八：quest_id 头部归档（断点续跑直达）
+                       f"**任务**：`{quest_id}`",
                        # IDE 增强五十六：链配置回显（可复现性——参数归档）
                        f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
                        f"limit={args.get('limit', '默认')}",
