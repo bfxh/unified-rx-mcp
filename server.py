@@ -1837,6 +1837,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
     quest_id = str(args.get("quest_id", ""))
     try:
         if action == "new":
+            # IDE 增强六十三前序：quest_id 空自动生成（防调用方忘传——
+            # 空 id 会让任务文件互相覆盖）
+            if not quest_id:
+                quest_id = f"q{time.time_ns()}{os.getpid()}"  # 纳秒防同秒碰撞
             q = new_quest(quest_id, args.get("task", ""), args.get("repo", ""))
             q._save()
             return [_TC(json.dumps({"ok": True, "status": q.status(),
@@ -2302,7 +2306,13 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        f" Error {_std_sev.get('Error', 0)}"
                        f" Warning {_std_sev.get('Warning', 0)}", ""]
             for c in chain:
-                _report.append(f"### {_step_titles.get(c['step'], c['step'])}")
+                # IDE 增强六十三：std_check 链项标题标注（区分双 diagnose 步）
+                # 注意：循环变量勿用 _t（会覆盖上方 `import time as _t`——落盘
+                # int(_t.time()) 崩溃，实测 AttributeError 回归）
+                _title = _step_titles.get(c['step'], c['step'])
+                if c.get("tool") == "std_check":
+                    _title += "（工程标准）"
+                _report.append(f"### {_title}")
                 _report.append(c.get("summary", ""))
                 _report.append("")
             _report.append("---")
