@@ -2273,3 +2273,33 @@ def test_std_magic_number_dedup(tmp_path):
         rules.setdefault(i["rule"], []).append(i["line"])
     assert rules.get("ui_hardcode") == [2], rules
     assert rules.get("magic_number") == [3], f"非 UI 魔法数字应仍报: {rules}"
+
+
+def test_explore_code_budget_guard(tmp_path):
+    """explore_code 参数边界（2026-08-14 安全校验回归）：budget/depth 越界拒绝。"""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "a.rs").write_text("fn alpha() {}\nfn beta() {}\n", encoding="utf-8")
+    for bad in ("0", "-5", "99999"):
+        txt = server._call("explore_code", {"root": str(repo), "goal": "找 alpha",
+                                            "budget": bad})[0].text
+        assert "budget" in txt, f"budget={bad} 应拒绝: {txt[:60]}"
+    for bd in ("0", "-1", "99"):
+        txt = server._call("explore_code", {"root": str(repo), "goal": "找 alpha",
+                                            "max_depth": bd})[0].text
+        assert "max_depth" in txt, f"depth={bd} 应拒绝: {txt[:60]}"
+    d = json.loads(server._call("explore_code", {"root": str(repo), "goal": "找 alpha",
+                                                 "budget": "10"})[0].text)
+    assert d.get("best") and d.get("top"), f"正常路径应返回探索结果: {d}"
+
+
+def test_std_ui_hardcode_multi_lang(tmp_path):
+    """ui_hardcode 多语言分支（2026-08-14 验证）：ts/js/gd 硬编码属性检出。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "app.js").write_text("const style = { width: 999 };\n", encoding="utf-8")
+    (proj / "app.gd").write_text("var margin = 666\n", encoding="utf-8")
+    d = json.loads(server._call("std_check", {"path": str(proj)})[0].text)
+    files = {i["file"].replace("\\", "/").split("/")[-1]
+             for i in d["issues"] if i.get("rule") == "ui_hardcode"}
+    assert files == {"app.js", "app.gd"}, f"ts/js/gd 分支应检出: {files}"
