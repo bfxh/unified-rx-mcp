@@ -2165,10 +2165,16 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             ext = os.path.splitext(loc.get("file", ""))[1].lower()
             cmd = ("cargo test" if ext == ".rs"
                    else "pytest" if ext in (".py",) else "构建/测试")
+            # IDE 增强五十二：修复前 diff 摘要（影响行号区间，修复后对照）
+            _fix_locs = sorted({(a.get("line"), a.get("line_end", a.get("line")))
+                                for a in (actions if "actions" in dir() else [])[:10]})
+            _fix_scope = "、".join(f"L{s}" if s == e else f"L{s}-L{e}"
+                                   for s, e in _fix_locs[:6]) or "无"
             _finish({"tool": "verify",
                      "advice": f"应用 fix 步的修复建议后跑 `{cmd}` 回归；"
                                f"完成后可用 ide_quest note 记录结果",
                      "command": cmd,
+                     "fix_scope": f"{len(_fix_locs)} 处（{_fix_scope}）",
                      # IDE 增强九：修复后自检清单（逐项确认防遗漏）
                      "checklist": [
                          f"1. 应用 fix 步的修复建议/fs_template 到 {loc.get('file', '目标文件')}",
