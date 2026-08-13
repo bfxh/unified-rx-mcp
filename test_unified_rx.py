@@ -89,6 +89,26 @@ def test_tools_count_and_schema():
     assert len(names) == len(set(names)), "工具名重复"
 
 
+def test_tools_json_consistency():
+    """IDE 增强三十（2026-08-14）：tools.json 与实际工具注册表一致——
+    历轮增强曾导致 tools.json 过时（35→57 core 漂移），此测试防复发。"""
+    import json as _json
+    tj = _json.load(open(os.path.join(os.path.dirname(__file__), "tools.json"),
+                         encoding="utf-8"))
+    server._ext_definitions()
+    actual_core = set(server._TOOLS.keys())
+    actual_ext = set(server._EXT_DEFS.keys())
+    assert tj["core_count"] == len(actual_core), (
+        f"tools.json core_count={tj['core_count']} != 实际 {len(actual_core)}")
+    assert tj["ext_count"] == len(actual_ext), (
+        f"tools.json ext_count={tj['ext_count']} != 实际 {len(actual_ext)}")
+    assert tj["total"] == len(actual_core) + len(actual_ext)
+    assert set(tj["core"]) == actual_core, (
+        f"tools.json core 名称漂移: 缺 {sorted(actual_core - set(tj['core']))}"
+        f" 多 {sorted(set(tj['core']) - actual_core)}")
+    assert set(tj["ext"]) == actual_ext
+
+
 def test_tool_card():
     """Tool 角色回喂：结构化卡片视图（Aether AiRole::Tool 启发）。"""
     # 纯函数工具 → 卡片 JSON
