@@ -2241,3 +2241,35 @@ def test_quest_result_all_steps(tmp_path, monkeypatch):
     assert da["ok"] is True and da["step_count"] >= 6, da
     for name, v in da["steps"].items():
         assert v["done"] is True and v.get("result"), f"步 {name} result 应完整: {v}"
+
+
+def test_kb_query_lazy_index(tmp_path):
+    """kb_query 懒建索引（2026-08-14 补实现）：空库自动建索引 + BM25 命中。"""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "math.rs").write_text(
+        "pub fn compute_area(w: f32) -> f32 { w * w }\n", encoding="utf-8")
+    d = json.loads(server._call("kb_query", {"index_dir": str(repo),
+                                             "query": "compute_area"})[0].text)
+    assert d["ok"] is True and d["count"] >= 1, f"应命中: {d}"
+    assert "math.rs" in json.dumps(d["hits"], ensure_ascii=False)
+    d2 = json.loads(server._call("kb_query", {"index_dir": str(repo),
+                                              "query": "zzz_nosuch_123"})[0].text)
+    assert d2["ok"] is True, d2
+
+
+def test_std_magic_number_dedup(tmp_path):
+    """magic_number 双报去重（2026-08-14）：Val::Px 内数字 ui_hardcode 独占。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "ui.rs").write_text(
+        "fn ui() {\n"
+        "    let w = Val::Px(999.0);\n"   # ui_hardcode 报，magic_number 跳过
+        "    let speed = 1234;\n"         # 非 UI 魔法数字仍报
+        "}\n", encoding="utf-8")
+    d = json.loads(server._call("std_check", {"path": str(proj / "ui.rs")})[0].text)
+    rules = {}
+    for i in d["issues"]:
+        rules.setdefault(i["rule"], []).append(i["line"])
+    assert rules.get("ui_hardcode") == [2], rules
+    assert rules.get("magic_number") == [3], f"非 UI 魔法数字应仍报: {rules}"

@@ -821,6 +821,29 @@ def _tool_kb_query(args: dict) -> str:
     os.makedirs(os.path.dirname(db), exist_ok=True)
     try:
         idx = SearchIndex(db)
+        # 懒建索引（2026-08-14 补实现——文档宣称"首次调用自动建索引"但
+        # 从未实现：db 空时只建空库，search 恒 0 命中。实测复现后补齐：
+        # 从 index_dir 扫描代码/文档文件 add_many 建索引）
+        if idx.stats()["docs"] == 0:
+            _docs = []
+            for _dp, _dns, _fns in os.walk(index_dir):
+                _dns[:] = [d for d in _dns if d not in
+                           ("target", "node_modules", ".git", "release",
+                            ".unified-rx-index", "__pycache__")]
+                for _fn in _fns:
+                    if not _fn.endswith((".rs", ".py", ".ts", ".js", ".md")):
+                        continue
+                    _fp = os.path.join(_dp, _fn)
+                    try:
+                        with open(_fp, encoding="utf-8", errors="replace") as _f:
+                            _content = _f.read()
+                    except OSError:
+                        continue
+                    if _content.strip():
+                        _docs.append({"id": os.path.relpath(_fp, index_dir),
+                                      "content": _content, "title": _fn})
+            if _docs:
+                idx.add_many(_docs)
         hits = idx.search_hybrid(query, embed_fn=None, limit=limit)
         return json.dumps({
             "ok": True, "query": query, "count": len(hits), "db": db,

@@ -165,10 +165,20 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
     if not (path.endswith((".py", ".rs", ".go"))):
         return
     count = 0
+    lines = src.splitlines()
     for m in _MAGIC_NUMBER_RE.finditer(src):
-        line = src.count("\n", 0, m.start()) + 1
+        line_no = src.count("\n", 0, m.start()) + 1
+        # 双报去重（2026-08-14）：Val::Px/Val::Percent 内的数字已由
+        # ui_hardcode 报（语义更准）——magic_number 跳过 UI 维度上下文
+        try:
+            line_txt = lines[line_no - 1]
+        except IndexError:
+            line_txt = ""
+        if "Val::Px" in line_txt or "Val::Percent" in line_txt \
+                or "Val::Vw" in line_txt or "Val::Vh" in line_txt:
+            continue
         issues.append({
-            "file": path, "line": line, "rule": "magic_number",
+            "file": path, "line": line_no, "rule": "magic_number",
             "severity": "Suggestion",
             "msg": f"未命名魔法数字: {m.group(0)}（建议提取命名常量）",
         })
