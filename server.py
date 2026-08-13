@@ -2141,7 +2141,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                       "content": "<读取原文件，按 actions 行号应用建议后写回>"},
                              "auth_hint": "L4 授权：参数加 __authorized: true",
                          }},
-                        "fix", "ide_actions", f"{len(actions)} 条修复建议")
+                        "fix", "ide_actions",
+                        f"{len(actions)} 条修复建议" +
+                        (f"（{' / '.join(str(a.get('title', ''))[:20] for a in actions[:2])}）"  # IDE 增强四十八：摘要附建议标题
+                         if actions else ""))
             else:
                 _finish({"tool": "ide_actions", "file": loc["file"], "action_count": 0,
                          "skipped": True}, "fix", "ide_actions", "无目标文件，跳过")
