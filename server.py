@@ -1973,6 +1973,11 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                     # IDE 增强四十：checklist 完整显示（不再截断前 5 项）
                     for c in (r.get("checklist") or []):
                         lines.append(f"- {c}")
+                elif name == "lesson":
+                    # IDE 增强五十一：lesson 附修复工作量（report 完整文案）
+                    _fc = r.get("fix_count", 0)
+                    lines.append(f"- {r.get('advice', '')}"
+                                 + (f"（本链 {_fc} 条修复建议）" if _fc else ""))
                 else:
                     lines.append(f"- {r.get('advice', '')}")
                 lines.append("")
@@ -2177,7 +2182,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # IDE 增强四十七：lesson summary 附 fix 计数（链摘要看到修复工作量）
             _lesson_fix_n = (len(actions) if "actions" in dir() else 0)
             _finish({"tool": "lesson",
-                     "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发"},
+                     "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发",
+                     # IDE 增强五十一：lesson 附 fix 计数（report 显示修复工作量）
+                     "fix_count": _lesson_fix_n},
                     "lesson", "lesson",
                     f"教训提示（{_lesson_fix_n} 条修复建议后 lesson_recall 记录）")
             # 顶层 summary（IDE 增强十一 2026-08-13）：六步一句话总览——
