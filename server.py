@@ -2319,6 +2319,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        f"**模式**：{'⚡ quick（未深查影响面）' if mode == 'quick' else 'full'}",  # IDE 增强三十三
                        f"**时间**：{time.strftime('%Y-%m-%d %H:%M:%S')}",  # IDE 增强四十三
                        f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s",
+                       # IDE 增强六十九：force 重跑标记（报告归档区分首次/重跑）
+                       *(["**重跑**：force（覆盖上次链）"] if args.get("force") else []),
                        # IDE 增强六十八：quest_id 头部归档（断点续跑直达）
                        f"**任务**：`{quest_id}`",
                        # IDE 增强五十六：链配置回显（可复现性——参数归档）
