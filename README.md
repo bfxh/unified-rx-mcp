@@ -7,6 +7,7 @@
 > 实测报告见 [`reports/`](reports/REPORT_2026-08-13.md)（13/13 verified）。
 > **多智能体兼容**：标准 MCP stdio，Claude Code/Cursor/Windsurf/Trae/Aider 等
 > 一键接入见 [`docs/AGENT_COMPAT.md`](docs/AGENT_COMPAT.md)（打开智能体即自动启动）。
+> **与 unified 网关（72 工具）的关系**：分工并存，见 [`docs/UNIFIED_RELATION.md`](docs/UNIFIED_RELATION.md)。
 
 ## 定位
 
