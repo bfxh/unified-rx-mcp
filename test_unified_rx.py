@@ -1976,5 +1976,7 @@ def test_quest_auto_mode_quick(tmp_path, monkeypatch):
         imp = q.state["steps"]["impact"]["result"]
         assert "change_impact" not in imp, f"quick 模式不应深查: {imp}"
         assert imp["file_issue_count"] >= 1
+        # IDE 增强三十三：report_md 标注 quick 模式
+        assert "⚡ quick" in d["report_md"], f"报告应标注 quick 模式: {d['report_md'][:150]}"
     finally:
         shutil.rmtree(repo, ignore_errors=True)
