@@ -2101,10 +2101,23 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                   "ok": True, "summary": chain_summary[:200]})
             except Exception:
                 pass  # 日志失败静默（不拖垮 auto 链）
+            # IDE 增强十九：markdown 报告（human-readable，AI 可直接展示/粘贴）
+            _step_titles = {"diagnose": "诊断", "locate": "定位", "impact": "影响面",
+                            "fix": "修复建议", "verify": "验证", "lesson": "教训"}
+            _report = [f"# 自动诊断报告", f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s", ""]
+            for c in chain:
+                _report.append(f"### {_step_titles.get(c['step'], c['step'])}")
+                _report.append(c.get("summary", ""))
+                _report.append("")
+            _report.append("---")
+            _report.append("> 完整结果：`ide_quest action=result` 按步查询；"
+                           "修复应用后：`action=verify_fix` 验证生效。")
+            report_md = "\n".join(_report)
             return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
                                     "chain": chain,
                                     "summary": chain_summary,
                                     "elapsed_s": chain_elapsed,
+                                    "report_md": report_md,
                                     "status": q.status()},
                                    ensure_ascii=False, indent=2))]
         return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]
