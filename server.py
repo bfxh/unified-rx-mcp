@@ -1879,6 +1879,14 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"},
                                        ensure_ascii=False))]
             step = str(args.get("step", ""))
+            if not step:
+                # IDE 增强七十一：无 step → 全量步摘要（一步看全链 result）
+                _all = {name: {"done": v.get("done", False),
+                               "result": v.get("result")}
+                        for name, v in q.state.get("steps", {}).items()}
+                return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
+                                        "step_count": len(_all), "steps": _all},
+                                       ensure_ascii=False, indent=2))]
             if step not in q.state.get("steps", {}):
                 return [_TC(json.dumps({"ok": False, "error": f"未知步骤: {step}",
                                         "available": list(q.state.get("steps", {}).keys())},

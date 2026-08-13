@@ -2223,3 +2223,21 @@ def test_permission_matrix_boundaries():
     assert ip.check("fs_write", {"__authorized": True})[0]
     assert ip.check("bug_scan", {})[0]
     assert "__authorized" not in ip.strip_auth({"__authorized": True, "path": "/x"})
+
+
+def test_quest_result_all_steps(tmp_path, monkeypatch):
+    """result 无 step → 全量步摘要（2026-08-14 增强七十一）：六步 result 完整可查。"""
+    import ide_quest as _iq
+    monkeypatch.setattr(_iq, "_QUEST_DIR", str(tmp_path / "quests"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "bug.rs").write_text("fn main() {\n    let x = foo().unwrap();\n}\n",
+                                 encoding="utf-8")
+    d = json.loads(server._call("ide_quest", {"action": "auto", "path": str(repo),
+                                              "task": "t"})[0].text)
+    assert d["ok"] and d["status"]["finished"], d
+    da = json.loads(server._call("ide_quest", {"action": "result",
+                                               "quest_id": d["quest_id"]})[0].text)
+    assert da["ok"] is True and da["step_count"] >= 6, da
+    for name, v in da["steps"].items():
+        assert v["done"] is True and v.get("result"), f"步 {name} result 应完整: {v}"
