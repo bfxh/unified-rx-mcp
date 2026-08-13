@@ -2152,6 +2152,21 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # AI 一眼看到全链结论；完整结果仍在 quest 状态可断点续查
             chain_summary = " → ".join(c.get("summary", "") for c in chain)
             chain_elapsed = round(_t.perf_counter() - _chain_t0, 2)  # IDE 增强十五：链耗时
+            # IDE 增强二十五：结果总判定（success/partial/failed）——AI 一眼知道链成败
+            _diag_ok = bool(scan_data.get("ok"))
+            _has_issue = len(issues) > 0
+            _skipped = any("跳过" in c.get("summary", "") for c in chain)
+            if not _diag_ok:
+                result_verdict = "failed"
+                result_note = "诊断扫描失败（重试后仍失败），可用 force=True 重跑整链"
+            elif _has_issue:
+                result_verdict = "partial"
+                result_note = (f"发现问题 {len(issues)} 个（error {len(errors)}）"
+                               + ("，部分步骤跳过" if _skipped else "")
+                               + "——修复建议见 fix 步，应用后 verify_fix 验证")
+            else:
+                result_verdict = "success"
+                result_note = "未发现问题——链路正常"
             # IDE 增强十二：auto 完成 → scan-log 落盘（链路记忆，项目维度可查）
             try:
                 import scan_log_core as _slc
@@ -2189,6 +2204,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                     "chain": chain,
                                     "summary": chain_summary,
                                     "elapsed_s": chain_elapsed,
+                                    "result": result_verdict,
+                                    "result_note": result_note,
                                     "report_md": report_md,
                                     "status": q.status()},
                                    ensure_ascii=False, indent=2))]

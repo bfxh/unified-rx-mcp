@@ -129,6 +129,9 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         d = json.loads(r[0].text)
         assert d["ok"], d
         assert d["status"]["finished"] is True, "六步跑完应 finished"
+        # IDE 增强二十五：结果总判定（有问题 → partial）
+        assert d["result"] == "partial", f"有 unwrap 问题应判 partial: {d.get('result')}"
+        assert "fix 步" in d["result_note"], f"note 应指引 fix: {d.get('result_note')}"
         # IDE 增强十一：顶层 summary 一句话总览（省 token）
         assert "summary" in d and "bug.rs" in d["summary"], f"summary 应含定位: {d.get('summary')}"
         assert "cargo test" in d["summary"], f"summary 应含回归命令: {d.get('summary')}"
@@ -338,6 +341,8 @@ def test_quest_auto_no_issues(tmp_path, monkeypatch):
         r = server._call("ide_quest", {"action": "auto", "path": repo})
         d = json.loads(r[0].text)
         assert d["ok"]
+        # IDE 增强二十五：干净代码 → success
+        assert d["result"] == "success", f"干净代码应判 success: {d.get('result')}"
         loc = next(c for c in d["chain"] if c["step"] == "locate")
         assert "未发现" in loc["summary"], f"干净代码应标记未发现问题: {loc['summary']}"
         assert d["status"]["finished"] is True
