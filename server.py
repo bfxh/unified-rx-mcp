@@ -4326,13 +4326,42 @@ def _spawn_self_scan() -> None:
 
 
     def _project_scan_once() -> None:
-        """模式①④ 一轮：跟随话题项目（无则最活跃）并发扫。"""
+        """模式①④ 一轮：跟随话题项目（无则最活跃）并发扫。
+
+        增量（用户理念：『有变动才重新扫描，无变动不重扫』——省 token）：
+        cb_index 变更感知——无变动的项目跳过 project_scan，只落心跳记录。
+        """
         proj = _active_project()
-        if proj:
+        if not proj:
+            return
+        # 首轮判定：未索引（indexed=False）→ 必须全量扫（changed=[] 不代表无变动）
+        try:
+            st = json.loads(_call("cb_status", {"path": proj})[0].text)
+            indexed = bool(st.get("indexed")) if isinstance(st, dict) else False
+        except Exception:
+            indexed = False
+        if not indexed:
             try:
                 _call("project_scan", {"path": proj, "max_files": 100})
             except Exception:
                 pass
+            return
+        # 已索引：变更感知——无变动跳过 project_scan（省 token）
+        try:
+            d = json.loads(_call("cb_index", {"path": proj})[0].text)
+            changed = d.get("changed", []) if isinstance(d, dict) else []
+        except Exception:
+            changed = []
+        if not changed:
+            scan_log_core.append_scan({
+                "tool": "project_scan", "root": proj, "ok": True,
+                "summary": "project 无变动（cb 签名未变，跳过——增量）",
+            })
+            return
+        try:
+            _call("project_scan", {"path": proj, "max_files": 100})
+        except Exception:
+            pass
 
     def _full_scan_once() -> None:
         """模式② 一轮：多项目根并发全盘扫。"""
