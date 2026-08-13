@@ -206,8 +206,8 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
         nonlocal count
         if count >= limit:
             return
-        issues.append({"rule": "dead_code", "severity": "warning",
-                       "line": line, "msg": msg, "file": path})
+        issues.append({"rule": "dead_code", "severity": "Warning",
+                       "line": line, "msg": msg, "file": path})  # 2026-08-14：大写与 summary 计数一致
         count += 1
 
     # 1. 空实现：函数体仅 pass（有 docstring 的不算——占位带说明可接受）

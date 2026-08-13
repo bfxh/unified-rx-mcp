@@ -2522,3 +2522,19 @@ def test_guard_tool_and_symbol_dedup(tmp_path):
     idx = json.load(open(repo / ".unified-rx-index" / "index.json", encoding="utf-8"))
     syms = idx["files"]["dup.rs"]["symbols"]
     assert syms == {"dup": 1, "other": 3}, f"dup 只记首定义: {syms}"
+
+
+def test_std_dead_code_severity_case(tmp_path):
+    """dead_code severity 大写（2026-08-14 修复）：summary 计数一致。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "a.py").write_text("def helper():\n    pass\nimport json\n",
+                               encoding="utf-8")
+    d = json.loads(server._call("std_check", {"path": str(proj / "a.py")})[0].text)
+    assert d["summary"]["warning"] == 2, f"warning 计数应 2: {d['summary']}"
+    assert d["severity_counts"].get("Warning") == 2, d["severity_counts"]
+    # guard 沙盒外 file_line → unverified（拒绝探测设计）
+    d = json.loads(server._call("hallucination_guard",
+                                {"text": f"配置在 {proj.parent / 'outside' / 'x.rs'}:3",
+                                 "root": str(proj)})[0].text)
+    assert d["verdict"] == "unverified", "沙盒外拒绝探测（设计）"
