@@ -2395,6 +2395,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                            c.get("tool") == "std_check" for c in chain) else f"**步数**：{len(chain)}",
                        # IDE 增强八十四：重现命令（报告可复现执行）
                        f"**重现**：`ide_quest action=auto path={path}`",
+                       # IDE 增强八十九：verify_fix 指引（修复后验证入口顶部直达）
+                       f"**验证**：修复后 `ide_quest action=verify_fix quest_id={quest_id}`",
                        # IDE 增强五十六：链配置回显（可复现性——参数归档）
                        f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
                        f"limit={args.get('limit', '默认')}",
