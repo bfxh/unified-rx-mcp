@@ -2222,8 +2222,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             try:
                 q.add_note(f"自动诊断报告（{chain_elapsed}s）：{chain_summary[:300]}")
             except Exception:
-                pass  # 备注失败静默
-            # IDE 增强二十八：报告落盘文件（项目 .unified-rx-index/reports/——
+                pass  # 备注失败静默            # IDE 增强二十八：报告落盘文件（项目 .unified-rx-index/reports/——
             # 独立于 quest 状态，项目维度可直接查看/归档）
             report_path = None
             try:
@@ -2244,6 +2243,12 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                     pass  # 清理失败静默
             except Exception:
                 pass  # 落盘失败静默（报告仍经返回值/note/scan-log 可查）
+            # IDE 增强四十一：note 附报告落盘路径（项目维度可直达文件）
+            if report_path:
+                try:
+                    q.add_note(f"报告文件：{report_path}")
+                except Exception:
+                    pass  # 备注失败静默
             return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
                                     "chain": chain,
                                     "summary": chain_summary,

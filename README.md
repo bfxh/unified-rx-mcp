@@ -230,6 +230,7 @@ python -m pytest test_unified_rx.py -q   # 116 tests（全量 242）
 
 ## 更新日志
 
+- **2026-08-14** IDE 增强 ×41 + 修复：quest 状态机完整闭环（auto 六步自动诊断链：diagnose→locate→impact→fix→verify→lesson，含 summary/耗时/报告/verify_fix 验证/force 重跑/quick 模式/失败降级）；ide_rename 预览+apply_plan；ide_complete 子串降级+热度；ide_references 定义/引用区分；fix 建议相邻合并；tools.json 一致性修复（35→57 core 漂移）+ 防复发测试；安全修复（explore_code 参数上限 DoS、tool_card 递归拒绝、daemon 间隔解析崩溃、_strip_comments_strings 行号错位）；扩展降级/沙盒边界/guard 边界测试；全量 248 测试
 - **2026-08-13** 扫描质量修复 + IDE 增强 + 多智能体：`as` 规则三级分类（窄化 warn/精度损失 info/常规跳过——VoxelForge 实测 as warn 232→6）；bug_scan 结果加 severity_counts/noise_ratio + scan-log 回读 TTL 缓存；ide_complete 注释过滤+声明优先 / ide_rename 代码面引用 / ide_actions TODO+吞错 / PieceTable undo-redo；scripts/install_agents.py 一键接入 7 智能体 + docs/AGENT_COMPAT.md（优先适配 RX）
 - **2026-08-11** 常驻自扫与扫描日志：scan_log_core（~/.unified-rx/scan-log.jsonl 追加落盘）+ scan_log 查询工具（按 root 过滤）+ 启动后台自扫（打开阵地即扫自己）+ 8 个扫描工具调用自动记日志
 - **2026-08-11** 防幻觉闭环 + 压缩学习枢纽优先：hallucination_guard refuted 自动回灌 LSE（负 delta + 教训卡片）；lesson_recall_lse 枢纽优先排序（recall 软加权）；lse-engine 新增 lesson_recall 查询命令（不污染 recall）+ experience summary 压缩（200 字符）
