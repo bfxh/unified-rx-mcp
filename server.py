@@ -4234,13 +4234,16 @@ def _self_scan_once() -> None:
         futs = [pool.submit(scan_one, f) for f in changed]
         for fut in as_completed(futs):
             fut.result()
-    # 状态落盘（只增：已扫文件签名入 state；删除的文件下次自然消失）
+    # 状态落盘（只增：已扫文件签名入 state；删除的文件下次自然消失；
+    # 原子写 tmp+replace——security review LOW-2：崩溃不留坏 JSON）
     try:
         for f in changed:
             st = os.stat(f)
             state[f] = [st.st_mtime_ns, st.st_size]
         state_path.parent.mkdir(parents=True, exist_ok=True)
-        state_path.write_text(json.dumps(state), encoding="utf-8")
+        _tmp = state_path.with_suffix(f".json.tmp{os.getpid()}")
+        _tmp.write_text(json.dumps(state), encoding="utf-8")
+        _tmp.replace(state_path)
     except Exception:
         pass
     for d in scan_log_core.self_scan_dirs():

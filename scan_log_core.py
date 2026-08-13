@@ -85,7 +85,7 @@ def _truncate(path: Path) -> None:
                 arch = path.parent / f"scan-log-{time.strftime('%Y%m%d')}.jsonl"
                 with open(arch, "a", encoding="utf-8") as af:
                     af.write("\n".join(old) + "\n")
-            tmp = path.with_suffix(".jsonl.tmp")
+            tmp = path.with_suffix(f".jsonl.tmp{os.getpid()}")
             tmp.write_text("\n".join(tail) + "\n", encoding="utf-8")
             tmp.replace(path)
     except Exception:
