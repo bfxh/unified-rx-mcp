@@ -1894,6 +1894,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                        ensure_ascii=False))]
             if not quest_id:
                 quest_id = f"auto-{int(_t.time())}"
+            # IDE 增强十六：force=True 重置 quest 后重跑整链（上次诊断失败/不完整时重试）
+            if args.get("force") and os.path.exists(Quest._state_path(quest_id)):
+                q = new_quest(quest_id, str(args.get("task", "")) or f"自动诊断 {path}", path)
+                q._save()
             q = resume_quest(quest_id)
             if q is None:
                 q = new_quest(quest_id, str(args.get("task", "")) or f"自动诊断 {path}", path)

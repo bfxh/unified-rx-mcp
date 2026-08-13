@@ -210,6 +210,35 @@ def test_quest_result_retrieval(tmp_path, monkeypatch):
         shutil.rmtree(repo, ignore_errors=True)
 
 
+def test_quest_auto_force_rerun(tmp_path, monkeypatch):
+    """IDE 增强十六：auto force=True 重置 quest 重跑整链（失败诊断重试）。"""
+    import shutil
+    import tempfile
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    repo = tempfile.mkdtemp(prefix="quest_force_", dir=os.getcwd())
+    try:
+        with open(os.path.join(repo, "bug.rs"), "w", encoding="utf-8") as f:
+            f.write("fn main() {\n    let x = foo().unwrap();\n}\n")
+        r1 = server._call("ide_quest", {"action": "auto", "path": repo,
+                                        "quest_id": "force-q1"})
+        d1 = json.loads(r1[0].text)
+        assert d1["ok"] and d1["status"]["finished"] is True
+        # 修改文件后 force 重跑：quest 重置 + 新链结果
+        with open(os.path.join(repo, "bug.rs"), "a", encoding="utf-8") as f:
+            f.write("fn main2() { let y = bar().unwrap(); }\n")
+        r2 = server._call("ide_quest", {"action": "auto", "path": repo,
+                                        "quest_id": "force-q1", "force": True})
+        d2 = json.loads(r2[0].text)
+        assert d2["ok"] and d2["status"]["finished"] is True
+        assert d2["quest_id"] == "force-q1"
+        # 重置后 fix 步 result 是新链的（fs_template 仍在）
+        q = ide_quest.resume_quest("force-q1")
+        fix_result = q.state["steps"]["fix"]["result"]
+        assert "fs_template" in fix_result
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
 def test_quest_auto_no_issues(tmp_path, monkeypatch):
     """auto 链对干净代码：六步仍走完，locate 标记未发现问题。"""
     import shutil
