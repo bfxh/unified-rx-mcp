@@ -2244,7 +2244,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        f"**结果**：{'✅ success' if result_verdict == 'success' else '⚠️ partial' if result_verdict == 'partial' else '❌ failed'}",  # IDE 增强二十六
                        f"**模式**：{'⚡ quick（未深查影响面）' if mode == 'quick' else 'full'}",  # IDE 增强三十三
                        f"**时间**：{time.strftime('%Y-%m-%d %H:%M:%S')}",  # IDE 增强四十三
-                       f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s", ""]
+                       f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s",
+                       # IDE 增强五十六：链配置回显（可复现性——参数归档）
+                       f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
+                       f"limit={args.get('limit', '默认')}", ""]
             for c in chain:
                 _report.append(f"### {_step_titles.get(c['step'], c['step'])}")
                 _report.append(c.get("summary", ""))

@@ -2168,3 +2168,28 @@ def test_cb_index_truncate_no_false_removed(monkeypatch, tmp_path):
     assert r2["file_count"] == 5
     assert r2["removed"] == [], f"截断不应报 removed（文件仍在）: {r2['removed']}"
     assert r2["truncated"] is True, "截断应标注 truncated 标志"
+
+
+def test_std_dead_code_rules(tmp_path):
+    """dead_code 规则（2026-08-14 补实现）：pass 占位 + 未使用 import + docstring 防误报。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "mod.py").write_text(
+        "import os\n"
+        "import json\n"
+        "def todo_fn():\n"
+        "    pass\n"
+        "def real_fn():\n"
+        "    return os.path.join('a', 'b')\n"
+        "def doc_fn():\n"
+        "    \"\"\"说明\"\"\"\n"
+        "    pass\n",
+        encoding="utf-8")
+    r = server._call("std_check", {"path": str(proj / "mod.py")})
+    d = json.loads(r[0].text)
+    dc = [i for i in d["issues"] if i.get("rule") == "dead_code"]
+    msgs = " ".join(i["msg"] for i in dc)
+    assert "json" in msgs, f"未使用 import json 应检出: {msgs}"
+    assert "todo_fn" in msgs, f"空实现应检出: {msgs}"
+    assert "os" not in msgs.replace("json", ""), f"os 被使用不应报: {msgs}"
+    assert "doc_fn" not in msgs, f"docstring+pass 不应报（防误报）: {msgs}"

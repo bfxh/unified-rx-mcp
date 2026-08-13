@@ -176,6 +176,63 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
             return
 
 
+def _scan_dead_code(path: str, src: str, issues: list, limit: int):
+    """死代码/空实现（2026-08-14 补实现——文档宣称但缺失）：
+    1. 空实现：函数体仅 pass（占位未实现）→ warning
+    2. 未使用 import（AST 启发：import 名在文件中零引用）→ warning
+    仅 .py（AST 精确分析）；防误报：pass 函数带 docstring 或 raise 不算空实现。
+    """
+    if not path.endswith(".py"):
+        return
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return
+    count = 0
+
+    def _add(line: int, msg: str) -> None:
+        nonlocal count
+        if count >= limit:
+            return
+        issues.append({"rule": "dead_code", "severity": "warning",
+                       "line": line, "msg": msg, "file": path})
+        count += 1
+
+    # 1. 空实现：函数体仅 pass（有 docstring 的不算——占位带说明可接受）
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        has_doc = any(isinstance(s, ast.Expr)
+                      and isinstance(s.value, ast.Constant)
+                      and isinstance(s.value.value, str)
+                      for s in node.body)
+        body = [s for s in node.body
+                if not (isinstance(s, ast.Expr)
+                        and isinstance(s.value, ast.Constant)
+                        and isinstance(s.value.value, str))]
+        if not has_doc and len(body) == 1 and isinstance(body[0], ast.Pass):
+            _add(node.lineno, f"空实现占位：`{node.name}` 仅 pass——未实现")
+
+    # 2. 未使用 import（启发式：名字除 import 语句外零引用）
+    imported: dict[str, int] = {}
+    used: set = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                imported[a.asname or a.name.split(".")[0]] = node.lineno
+        elif isinstance(node, ast.ImportFrom):
+            for a in node.names:
+                if a.name != "*":
+                    imported[a.asname or a.name] = node.lineno
+        elif isinstance(node, ast.Name):
+            used.add(node.id)
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            used.add(node.value.id)
+    for name, lineno in imported.items():
+        if name not in used and name not in ("_", "annotations"):
+            _add(lineno, f"未使用 import：`{name}`（文件内零引用）")
+
+
 def _scan_secret(path: str, src: str, issues: list, limit: int):
     """依赖泄露检测：命中凭据/令牌/私钥 → Critical（真实泄露风险）。
 
@@ -229,6 +286,7 @@ def scan_directory(path: str, max_files: int = 200) -> dict:
             _scan_ui_hardcode(fp, src, issues, per_rule_limit)
             _scan_magic_number(fp, src, issues, per_rule_limit)
             _scan_secret(fp, src, issues, per_rule_limit)
+            _scan_dead_code(fp, src, issues, per_rule_limit)  # 2026-08-14：补实现
         if len(issues) >= max_files:
             break
     return _summarize(issues, files, path, todo_count[0])
@@ -251,6 +309,7 @@ def scan_file(path: str) -> dict:
         _scan_ui_hardcode(path, src, issues, 50)
         _scan_magic_number(path, src, issues, 50)
         _scan_secret(path, src, issues, 50)
+        _scan_dead_code(path, src, issues, 50)  # 2026-08-14：补实现
     return _summarize(issues, 1, path, todo_count[0])
 
 
