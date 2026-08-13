@@ -2118,3 +2118,21 @@ def test_std_check_secret_and_counts(tmp_path):
     sec = [i for i in d["issues"] if i.get("rule") == "secret_detection"]
     assert len(sec) == 1 and sec[0]["severity"] == "Critical"
     assert "ghp_CCCC" in sec[0]["msg"] and "完整" not in sec[0]["msg"], "不泄露完整值"
+
+
+def test_ide_complete_key_alias(tmp_path):
+    """ide_complete 键名双兼容（2026-08-14）：root|path、file|file_path 都可用。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    calc = proj / "c.rs"
+    calc.write_text("fn compute_area() {}\n", encoding="utf-8")
+    # 标准键
+    r1 = server._call("ide_complete", {"root": str(proj), "file": str(calc),
+                                       "prefix": "comp"})
+    d1 = json.loads(r1[0].text)
+    assert "compute_area" in d1.get("items", []), d1
+    # 别名键（path/file_path——调用方易混）
+    r2 = server._call("ide_complete", {"path": str(proj), "file_path": str(calc),
+                                       "prefix": "comp"})
+    d2 = json.loads(r2[0].text)
+    assert "compute_area" in d2.get("items", []), f"别名键应同样工作: {d2}"

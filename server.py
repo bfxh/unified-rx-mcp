@@ -1770,7 +1770,11 @@ def _tool_ide_rename(args: dict) -> "list[types.TextContent]":
 
 def _tool_ide_complete(args: dict) -> "list[types.TextContent]":
     from ide_tools import ide_complete
-    return [_TC(json.dumps(ide_complete(args.get("root", ""), args.get("file", ""),
+    # IDE 增强四十五前序：键名双兼容（root|path、file|file_path）——
+    # 调用方混淆键名会静默空结果，双键收窄这个坑
+    root = args.get("root") or args.get("path", "")
+    file = args.get("file") or args.get("file_path", "")
+    return [_TC(json.dumps(ide_complete(root, file,
                                         args.get("prefix", "")), ensure_ascii=False, indent=2))]
 
 
