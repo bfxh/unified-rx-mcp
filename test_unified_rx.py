@@ -2485,3 +2485,21 @@ def test_ui_check_mode_isolation_and_empty(tmp_path):
     empty.mkdir()
     d = json.loads(server._call("std_check", {"path": str(empty)})[0].text)
     assert d["ok"] is True and d.get("issues") == []
+
+
+def test_quest_resume_semantics(tmp_path, monkeypatch):
+    """quest resume 语义（2026-08-14 验证）：状态保持/不存在拒绝。"""
+    import ide_quest as _iq
+    monkeypatch.setattr(_iq, "_QUEST_DIR", str(tmp_path / "quests"))
+    server._call("ide_quest", {"action": "new", "task": "t", "quest_id": "r"})
+    d = json.loads(server._call("ide_quest", {"action": "step", "quest_id": "r",
+                                              "step": "diagnose",
+                                              "result": {"issue_count": 3}})[0].text)
+    assert d["ok"] and d["next"] == "locate", d
+    d = json.loads(server._call("ide_quest", {"action": "resume",
+                                              "quest_id": "r"})[0].text)
+    assert d["ok"] and d["status"]["current"] == "locate" \
+        and "diagnose" in d["status"]["done_steps"], d
+    d = json.loads(server._call("ide_quest", {"action": "resume",
+                                              "quest_id": "nosuch"})[0].text)
+    assert d["ok"] is False and "不存在" in str(d.get("error", "")), d
