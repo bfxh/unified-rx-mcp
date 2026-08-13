@@ -1907,13 +1907,18 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             verdict = ("修复生效" if prev_count >= 0 and cur < prev_count
                        else "未变化" if prev_count >= 0 and cur == prev_count
                        else "未知（无上次基线）")
+            # IDE 增强五十三：对照 verify 步 fix_scope（修复前 diff 摘要）
+            _vres = q.state.get("steps", {}).get("verify", {}).get("result") or {}
+            _scope = _vres.get("fix_scope", "")
             return [_TC(json.dumps({"ok": True, "file": file,
                                     "issue_count": cur,
                                     "prev_issue_count": prev_count,
                                     "severity_counts": scan_data.get("severity_counts", {}),
                                     "verdict": verdict,
+                                    "fix_scope": _scope,
                                     "advice": ("对比上次 auto diagnose 问题数：减少=修复生效；"
-                                               "未变化=复查 fix 步 checklist/fs_template")},
+                                               "未变化=复查 fix 步 checklist/fs_template"
+                                               + (f"（期望修改范围 {_scope}）" if _scope else ""))},
                                    ensure_ascii=False, indent=2))]
         if action == "report":
             # IDE 增强二十一：从 quest 状态导出完整 markdown 报告（auto 后随时可查）
