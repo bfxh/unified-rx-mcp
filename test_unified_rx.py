@@ -2318,3 +2318,13 @@ def test_explore_code_key_alias(tmp_path):
     d2 = json.loads(server._call("explore_code", {"path": str(repo),
                                                   "query": "找 alpha"})[0].text)
     assert d2.get("best"), f"别名键应同样工作: {d2}"
+
+
+def test_std_self_exempt_scope():
+    """_is_self_exempt 豁免范围（2026-08-14 验证）：自身文件精确匹配不误伤。"""
+    import std_core as _sc
+    assert _sc._is_self_exempt("std_core.py") is True
+    assert _sc._is_self_exempt("server.py") is True
+    assert _sc._is_self_exempt("main.py") is False
+    assert _sc._is_self_exempt("std_core_copy.py") is False, "非自身文件不豁免"
+    assert _sc._is_self_exempt(r"D:\x\std_core.py") is True, "全路径含豁免名应命中"
