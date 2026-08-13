@@ -1863,6 +1863,22 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             if q is None:
                 return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"}, ensure_ascii=False))]
             return [_TC(json.dumps(q.add_note(str(args.get("text", ""))), ensure_ascii=False, indent=2))]
+        if action == "result":
+            # IDE 增强十三：精确检索某步的完整 result（auto 链的 fs_template/
+            # checklist/context 等大字段按需取——省 token，不用拉全量状态）
+            q = resume_quest(quest_id)
+            if q is None:
+                return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"},
+                                       ensure_ascii=False))]
+            step = str(args.get("step", ""))
+            if step not in q.state.get("steps", {}):
+                return [_TC(json.dumps({"ok": False, "error": f"未知步骤: {step}",
+                                        "available": list(q.state.get("steps", {}).keys())},
+                                       ensure_ascii=False))]
+            return [_TC(json.dumps({"ok": True, "quest_id": quest_id, "step": step,
+                                    "done": q.state["steps"][step].get("done", False),
+                                    "result": q.state["steps"][step].get("result")},
+                                   ensure_ascii=False, indent=2))]
         if action == "list":
             return [_TC(json.dumps({"ok": True, "quests": list_quests()}, ensure_ascii=False, indent=2))]
         if action == "auto":
@@ -3097,13 +3113,14 @@ _TOOLS: dict[str, tuple] = {
         "lsp_refs": _S("array", "impact 时：LSP 引用文件路径列表（可空）"),
     }, ["path"]), "IDE 融合：诊断→符号图聚合 / 双引擎影响面校验（LSP vs 引用扫描）"),
     "ide_quest": (_tool_ide_quest, _schema({
-        "action": _S("string", "new/resume/status/step/list/abort/note/auto"),
+        "action": _S("string", "new/resume/status/step/list/abort/note/auto/result"),
         "quest_id": _S("string", "任务 ID（new/resume/step 必需；auto 省略自动生成）"),
         "task": _S("string", "任务描述（new 时）"),
         "repo": _S("string", "仓库根（new 时）"),
         "result": _S("object", "步骤结果（step 时——当前步完成的证据）"),
         "text": _S("string", "备注内容（note 时）"),
         "path": _S("string", "auto 时：诊断目标（文件或目录）"),
+        "step": _S("string", "result 时：要检索的步骤名（diagnose/locate/impact/fix/verify/lesson）"),
     }, ["action"]), "Quest 任务状态机（诊断→定位→影响→修复→验证→教训，断点续跑）"),
     "explore_code": (_tool_explore_code, _schema({
         "root": _S("string", "代码库根目录"),

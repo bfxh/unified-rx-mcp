@@ -178,6 +178,36 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         shutil.rmtree(repo, ignore_errors=True)
 
 
+def test_quest_result_retrieval(tmp_path, monkeypatch):
+    """IDE 增强十三：action=result 精确检索某步完整结果（省 token）。"""
+    import shutil
+    import tempfile
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    repo = tempfile.mkdtemp(prefix="quest_result_", dir=os.getcwd())
+    try:
+        with open(os.path.join(repo, "bug.rs"), "w", encoding="utf-8") as f:
+            f.write("fn main() {\n    let x = foo().unwrap();\n}\n")
+        r = server._call("ide_quest", {"action": "auto", "path": repo})
+        qid = json.loads(r[0].text)["quest_id"]
+        # 检索 fix 步完整结果（fs_template 等大字段）
+        r2 = server._call("ide_quest", {"action": "result", "quest_id": qid,
+                                        "step": "fix"})
+        d = json.loads(r2[0].text)
+        assert d["ok"] and d["step"] == "fix" and d["done"] is True
+        assert "fs_template" in d["result"], f"fix 步结果应含 fs_template: {d}"
+        # 未知步骤 → 明确错误 + available 列表
+        r3 = server._call("ide_quest", {"action": "result", "quest_id": qid,
+                                        "step": "nope"})
+        d3 = json.loads(r3[0].text)
+        assert not d3["ok"] and "available" in d3
+        # 不存在的 quest → 错误
+        r4 = server._call("ide_quest", {"action": "result", "quest_id": "no-such",
+                                        "step": "fix"})
+        assert not json.loads(r4[0].text)["ok"]
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
 def test_quest_auto_no_issues(tmp_path, monkeypatch):
     """auto 链对干净代码：六步仍走完，locate 标记未发现问题。"""
     import shutil
