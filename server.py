@@ -2298,7 +2298,12 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _finish({"tool": "lesson",
                      "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发",
                      # IDE 增强五十一：lesson 附 fix 计数（report 显示修复工作量）
-                     "fix_count": _lesson_fix_n},
+                     "fix_count": _lesson_fix_n,
+                     # IDE 增强七十五：lesson_recall 联动字段（消费端直接可调）
+                     "recall": {"tool": "lesson_recall_lse",
+                                "args": {"task_description":
+                                         str(args.get("task", ""))},
+                                "hint": "修复验证后召回同类教训防复发"}},
                     "lesson", "lesson",
                     f"教训提示（{_lesson_fix_n} 条修复建议后 lesson_recall 记录）")
             # 顶层 summary（IDE 增强十一 2026-08-13）：六步一句话总览——
