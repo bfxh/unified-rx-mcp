@@ -2397,6 +2397,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        f"**重现**：`ide_quest action=auto path={path}`",
                        # IDE 增强八十九：verify_fix 指引（修复后验证入口顶部直达）
                        f"**验证**：修复后 `ide_quest action=verify_fix quest_id={quest_id}`",
+                       # IDE 增强九十：scan-log 落盘路径（链路记忆可查；
+                       # 动态渲染 log_path——review 观察：env 覆盖场景硬编码不准）
+                       f"**日志**：`{_slc.log_path() if '_slc' in dir() else '~/.unified-rx/scan-log.jsonl'}`"
+                       f"（`scan_log root={path}` 查询）",
                        # IDE 增强五十六：链配置回显（可复现性——参数归档）
                        f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
                        f"limit={args.get('limit', '默认')}",
