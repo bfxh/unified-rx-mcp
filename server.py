@@ -2353,6 +2353,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _report.append("---")
             _report.append("> 完整结果：`ide_quest action=result` 按步查询；"
                            "修复应用后：`action=verify_fix` 验证生效。")
+            # IDE 增强七十：任务状态尾注（归档一眼看完成态）
+            _qstatus = q.status()
+            _report.append(f"> 任务状态：{'✅ 已完成' if _qstatus.get('finished') else '⏳ 进行中'}"
+                           f"（`ide_quest action=resume quest_id={quest_id}` 断点续跑）")
             report_md = "\n".join(_report)
             # IDE 增强二十：报告摘要入 quest note（断点续跑可见上轮报告）
             try:
