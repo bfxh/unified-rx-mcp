@@ -239,6 +239,38 @@ def test_quest_auto_force_rerun(tmp_path, monkeypatch):
         shutil.rmtree(repo, ignore_errors=True)
 
 
+def test_quest_list_filter_and_clean(tmp_path, monkeypatch):
+    """IDE 增强十七：list 过滤（active/finished/aborted）+ clean 清理。"""
+    import shutil
+    import tempfile
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    repo = tempfile.mkdtemp(prefix="quest_clean_f_", dir=os.getcwd())
+    try:
+        with open(os.path.join(repo, "bug.rs"), "w", encoding="utf-8") as f:
+            f.write("fn main() {\n    let x = foo().unwrap();\n}\n")
+        # 1 个 finished（auto 跑完）+ 1 个 active（new 不跑）+ 1 个 aborted
+        r = server._call("ide_quest", {"action": "auto", "path": repo, "quest_id": "cf-f"})
+        assert json.loads(r[0].text)["ok"]
+        server._call("ide_quest", {"action": "new", "quest_id": "cf-a", "task": "active", "repo": "/x"})
+        server._call("ide_quest", {"action": "abort", "quest_id": "cf-a"})
+        server._call("ide_quest", {"action": "new", "quest_id": "cf-b", "task": "active2", "repo": "/x"})
+        # 过滤
+        r2 = json.loads(server._call("ide_quest", {"action": "list", "status": "active"})[0].text)
+        assert {q["quest_id"] for q in r2["quests"]} == {"cf-b"}, f"active 应只含 cf-b: {r2}"
+        r3 = json.loads(server._call("ide_quest", {"action": "list", "status": "aborted"})[0].text)
+        assert {q["quest_id"] for q in r3["quests"]} == {"cf-a"}
+        # clean：清理 finished + aborted，保留 active
+        r4 = json.loads(server._call("ide_quest", {"action": "clean"})[0].text)
+        assert r4["ok"] and r4["removed"] == 2, f"应清理 2 个: {r4}"
+        r5 = json.loads(server._call("ide_quest", {"action": "list"})[0].text)
+        assert {q["quest_id"] for q in r5["quests"]} == {"cf-b"}, f"clean 后只留 active: {r5}"
+        # 未知过滤 → 错误
+        r6 = json.loads(server._call("ide_quest", {"action": "list", "status": "nope"})[0].text)
+        assert not r6["ok"]
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
 def test_quest_auto_no_issues(tmp_path, monkeypatch):
     """auto 链对干净代码：六步仍走完，locate 标记未发现问题。"""
     import shutil

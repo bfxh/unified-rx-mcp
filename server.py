@@ -1880,7 +1880,46 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                     "result": q.state["steps"][step].get("result")},
                                    ensure_ascii=False, indent=2))]
         if action == "list":
-            return [_TC(json.dumps({"ok": True, "quests": list_quests()}, ensure_ascii=False, indent=2))]
+            # IDE 增强十七：status 过滤（all/active/finished/aborted）
+            status_filter = str(args.get("status", "all"))
+            quests = list_quests()
+            if status_filter == "active":
+                quests = [q for q in quests if not q["finished"] and not q.get("aborted")]
+            elif status_filter == "finished":
+                quests = [q for q in quests if q["finished"]]
+            elif status_filter == "aborted":
+                quests = [q for q in quests if q.get("aborted")]
+            elif status_filter != "all":
+                return [_TC(json.dumps({"ok": False,
+                                        "error": f"未知过滤: {status_filter}（all/active/finished/aborted）"},
+                                       ensure_ascii=False))]
+            return [_TC(json.dumps({"ok": True, "filter": status_filter,
+                                    "quests": quests, "count": len(quests)},
+                                   ensure_ascii=False, indent=2))]
+        if action == "clean":
+            # IDE 增强十七：清理 finished/aborted 任务（保留 active；days 可选只删过期）
+            days = float(args.get("days", 0) or 0)
+            cutoff = time.time() - days * 86400 if days > 0 else None
+            qdir = os.path.dirname(Quest._state_path("_"))
+            removed = 0
+            if os.path.isdir(qdir):
+                for fn in os.listdir(qdir):
+                    if not fn.endswith(".json"):
+                        continue
+                    q = resume_quest(fn[:-5])
+                    if q is None:
+                        continue
+                    st = q.state
+                    if st.get("finished") or st.get("aborted"):
+                        if cutoff is None or st.get("created_ts", 0) < cutoff:
+                            try:
+                                os.remove(os.path.join(qdir, fn))
+                                removed += 1
+                            except OSError:
+                                pass
+            return [_TC(json.dumps({"ok": True, "removed": removed,
+                                    "note": "已清理 finished/aborted 任务（days>0 时只删过期；active 保留）"},
+                                   ensure_ascii=False, indent=2))]
         if action == "auto":
             # IDE 增强七（2026-08-13）：端到端自动推进链——
             # diagnose(bug_scan) → locate(问题 file:line) → impact(文件影响面)
@@ -2400,8 +2439,20 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
             i["file"] = str(p)
     else:
         raise ValueError(f"仅支持 .rs 文件或目录: {p}")
+    # P2 对齐（2026-08-13）：severity 归一化统计 + noise_ratio（与 bug_scan 一致）——
+    # AI 可判断报告可信度；ui_check_core 产出 error/warning，归一化到 error/warn/info
+    sev_counts = {"error": 0, "warn": 0, "info": 0}
+    for i in issues:
+        s = str(i.get("severity", "warning"))
+        sev_counts["warn" if s in ("warn", "warning") else
+                   ("error" if s == "error" else "info")] += 1
+    total = len(issues)
     return [_TC(json.dumps({
-        "ok": True, "issue_count": len(issues), "issues": issues,
+        "ok": True, "issue_count": len(issues),
+        "severity_counts": sev_counts,
+        "noise_ratio": round(sev_counts["info"] / total, 3) if total else 0.0,
+        "note": "severity 已归一化（warning→warn）；noise_ratio=info 占比",
+        "issues": issues,
     }, ensure_ascii=False))]
 
 
@@ -3130,7 +3181,7 @@ _TOOLS: dict[str, tuple] = {
         "lsp_refs": _S("array", "impact 时：LSP 引用文件路径列表（可空）"),
     }, ["path"]), "IDE 融合：诊断→符号图聚合 / 双引擎影响面校验（LSP vs 引用扫描）"),
     "ide_quest": (_tool_ide_quest, _schema({
-        "action": _S("string", "new/resume/status/step/list/abort/note/auto/result"),
+        "action": _S("string", "new/resume/status/step/list/abort/note/auto/result/clean"),
         "quest_id": _S("string", "任务 ID（new/resume/step 必需；auto 省略自动生成）"),
         "task": _S("string", "任务描述（new 时）"),
         "repo": _S("string", "仓库根（new 时）"),
@@ -3138,6 +3189,8 @@ _TOOLS: dict[str, tuple] = {
         "text": _S("string", "备注内容（note 时）"),
         "path": _S("string", "auto 时：诊断目标（文件或目录）"),
         "step": _S("string", "result 时：要检索的步骤名（diagnose/locate/impact/fix/verify/lesson）"),
+        "status": _S("string", "list 时：过滤（all/active/finished/aborted，默认 all）"),
+        "days": _S("number", "clean 时：只清理超过 N 天的 finished/aborted（默认 0=全部清理）"),
     }, ["action"]), "Quest 任务状态机（诊断→定位→影响→修复→验证→教训，断点续跑）"),
     "explore_code": (_tool_explore_code, _schema({
         "root": _S("string", "代码库根目录"),
