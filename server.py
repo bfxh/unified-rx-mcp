@@ -2450,7 +2450,10 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
       evaluate_fn — 目标词重合度打分（命中词数/长度）
     """
     from explore_engine import ExploreEngine
-    root = args.get("root", "")
+    # IDE 增强七十四：键名双兼容（root|path、goal|query——调用方混淆键名
+    # 会静默失败，与 ide_complete 键名坑同类）
+    root = args.get("root") or args.get("path", "")
+    goal = args.get("goal") or args.get("query", "")
     # 安全（2026-08-14 深查）：budget/max_depth 上限校验——
     # 原无上限，budget=10⁹ 会卡死搜索循环（DoS）；负数/0 无意义
     budget = int(args.get("budget", 20))
@@ -2459,7 +2462,6 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         raise ValueError(f"budget 须在 1..5000（收到 {budget}）")
     if not 1 <= max_depth <= 20:
         raise ValueError(f"max_depth 须在 1..20（收到 {max_depth}）")
-    goal = args.get("goal", "")
     if not root or not os.path.isdir(root):
         return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {root}"}, ensure_ascii=False))]
     if not goal:

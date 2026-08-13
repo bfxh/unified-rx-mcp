@@ -2303,3 +2303,18 @@ def test_std_ui_hardcode_multi_lang(tmp_path):
     files = {i["file"].replace("\\", "/").split("/")[-1]
              for i in d["issues"] if i.get("rule") == "ui_hardcode"}
     assert files == {"app.js", "app.gd"}, f"ts/js/gd 分支应检出: {files}"
+
+
+def test_explore_code_key_alias(tmp_path):
+    """explore_code 键名双兼容（2026-08-14 增强七十四）：root|path、goal|query。"""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "a.rs").write_text("fn alpha() {}\n", encoding="utf-8")
+    # 标准键
+    d1 = json.loads(server._call("explore_code", {"root": str(repo),
+                                                  "goal": "找 alpha"})[0].text)
+    assert d1.get("best"), d1
+    # 别名键（path/query）
+    d2 = json.loads(server._call("explore_code", {"path": str(repo),
+                                                  "query": "找 alpha"})[0].text)
+    assert d2.get("best"), f"别名键应同样工作: {d2}"
