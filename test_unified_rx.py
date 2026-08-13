@@ -2036,3 +2036,26 @@ def test_cb_status_degrade_paths(tmp_path):
     (idx / "index.json").write_text("[1,2,3]", encoding="utf-8")
     r3 = repo_status(str(empty))
     assert r3["ok"] is False and "非 dict" in r3["msg"], f"非 dict 应降级: {r3}"
+
+
+def test_explore_code_param_bounds(tmp_path):
+    """explore_code 参数边界（2026-08-14 安全修复）：budget/max_depth 越界拒绝。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "a.rs").write_text("fn main() {}\n", encoding="utf-8")
+    # 越界 budget（极大 → 原卡死 DoS）拒绝
+    r = server._call("explore_code", {"root": str(proj), "goal": "main",
+                                      "budget": 10 ** 9})
+    assert "Error" in r[0].text, f"极大 budget 应拒绝: {r[0].text[:100]}"
+    # budget=0 / 负数拒绝
+    r2 = server._call("explore_code", {"root": str(proj), "goal": "main", "budget": 0})
+    assert "Error" in r2[0].text
+    r3 = server._call("explore_code", {"root": str(proj), "goal": "main", "budget": -5})
+    assert "Error" in r3[0].text
+    # max_depth 越界拒绝
+    r4 = server._call("explore_code", {"root": str(proj), "goal": "main", "max_depth": 100})
+    assert "Error" in r4[0].text
+    # 正常值通过（ok 或正常探索结果）
+    r5 = server._call("explore_code", {"root": str(proj), "goal": "main",
+                                       "budget": 5, "max_depth": 2})
+    assert "Error" not in r5[0].text, f"正常参数应通过: {r5[0].text[:100]}"

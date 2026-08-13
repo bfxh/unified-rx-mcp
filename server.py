@@ -2066,7 +2066,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             top = (errors or issues or [{}])[0]
             loc = {"tool": "locate", "file": top.get("file", ""),
                    "line": top.get("line", 0), "rule": top.get("rule", ""),
-                   "message": str(top.get("msg", ""))[:120]}
+                   "message": str(top.get("msg", ""))[:120],
+                   "severity": str(top.get("severity", "")).lower() or "unknown"}  # IDE 增强三十七
             if loc["file"] and os.path.isfile(loc["file"]):
                 try:
                     with open(loc["file"], encoding="utf-8", errors="replace") as f:
@@ -2257,9 +2258,15 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
     """
     from explore_engine import ExploreEngine
     root = args.get("root", "")
-    goal = args.get("goal", "")
+    # 安全（2026-08-14 深查）：budget/max_depth 上限校验——
+    # 原无上限，budget=10⁹ 会卡死搜索循环（DoS）；负数/0 无意义
     budget = int(args.get("budget", 20))
     max_depth = int(args.get("max_depth", 4))
+    if not 1 <= budget <= 5000:
+        raise ValueError(f"budget 须在 1..5000（收到 {budget}）")
+    if not 1 <= max_depth <= 20:
+        raise ValueError(f"max_depth 须在 1..20（收到 {max_depth}）")
+    goal = args.get("goal", "")
     if not root or not os.path.isdir(root):
         return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {root}"}, ensure_ascii=False))]
     if not goal:
