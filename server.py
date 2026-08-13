@@ -2175,6 +2175,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # 顶层 summary（IDE 增强十一 2026-08-13）：六步一句话总览——
             # AI 一眼看到全链结论；完整结果仍在 quest 状态可断点续查
             chain_summary = " → ".join(c.get("summary", "") for c in chain)
+            if mode == "quick":
+                # IDE 增强四十九：quick 模式链摘要前缀标注（消费端一眼区分快路径）
+                chain_summary = f"⚡quick {chain_summary}"
             chain_elapsed = round(_t.perf_counter() - _chain_t0, 2)  # IDE 增强十五：链耗时
             # IDE 增强二十五：结果总判定（success/partial/failed）——AI 一眼知道链成败
             _diag_ok = bool(scan_data.get("ok"))
