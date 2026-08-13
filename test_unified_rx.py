@@ -2563,3 +2563,19 @@ def test_skill_fetch_subword_and_warm_layer(tmp_path):
     _ic.enable_persistence(db)
     assert _ic.cached(str(p), "complete") == {"items": ["a"]}, "温层恢复应命中"
     _ic.invalidate()
+
+
+def test_lse_lesson_loop_and_allowed_dim(tmp_path, monkeypatch):
+    """lse lesson 存取闭环 + ds_check allowed_dimensions 动态派生（2026-08-14）。"""
+    import lse_client as _lse
+    import hashlib as _hl
+    state = str(tmp_path / "lse.json")
+    monkeypatch.setenv("LSE_STATE", state)
+    content = "探针教训"
+    lid = "work_" + _hl.sha256(content.encode("utf-8")).hexdigest()[:16]
+    r = _lse.lesson_store_tiered("work", content, 0.1)
+    assert r["ok"] and r["result"]["id"] == lid, r
+    assert _lse.lesson_recall(lid)["ok"] is True
+    assert _lse.delta_update_lesson(lid, -0.1, threshold=0.05)["ok"] is True
+    import ds_core as _ds
+    assert 6.0 in _ds._allowed_dimensions(), "token 维度应动态派生"
