@@ -2431,6 +2431,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                            f"（`ide_quest action=resume quest_id={quest_id}` 断点续跑）")
             # IDE 增强八十三：shadow 补扫提示（扫描文件被修改后 daemon 自动补扫）
             _report.append("> 提示：扫描过的文件若被修改，shadow 扫描会在下次窗口感知时自动补扫。")
+            # IDE 增强八十五：stats 查询提示（工具调用统计入口）
+            _report.append("> 工具调用统计：`stats_summary` 查询（自动打点闭环）。")
             report_md = "\n".join(_report)
             # IDE 增强二十：报告摘要入 quest note（断点续跑可见上轮报告）
             try:
