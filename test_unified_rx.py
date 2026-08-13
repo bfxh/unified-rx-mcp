@@ -2612,3 +2612,18 @@ def test_local_intel_degrade(tmp_path):
     li = _li.LocalIntel(models_dir=str(tmp_path / "models"))
     assert isinstance(li.available(), dict), "available 应 dict"
     assert li.embed("测试") is None, "无模型 embed 应降级 None"
+
+
+def test_tokenizer_cjk(tmp_path):
+    """mini_bert tokenizer 中文单字切分（2026-08-14 验证）：全命中无 UNK。"""
+    import mini_bert_tokenizer as _mb
+    hf = {"model": {"vocab": {"[PAD]": 0, "[UNK]": 1, "[CLS]": 2, "[SEP]": 3,
+                              "hello": 4, "world": 5, "你": 6, "好": 7},
+                    "unk_token": "[UNK]"}}
+    vf = tmp_path / "tok.json"
+    vf.write_text(json.dumps(hf, ensure_ascii=False), encoding="utf-8")
+    tok = _mb.MiniBertTokenizer(str(vf), max_len=16)
+    r = tok.encode("hello 你好")
+    ids = r["input_ids"]
+    assert 4 in ids and 6 in ids and 7 in ids and 1 not in ids, ids
+    assert len(ids) == len(r["attention_mask"])
