@@ -38,7 +38,7 @@ _CAMERA_RE = re.compile(r"Camera3d|Camera2d|Camera \{\}|UiCamera")
 # 编辑模式标记（编辑模式隔离的常见命名）
 _EDIT_MARK_RE = re.compile(r"editor_|EditorMode|edit_mode|is_editing")
 # spawn UI 节点
-_SPAWN_UI_RE = re.compile(r"spawn\(Node|spawn\(\(.*Node|Node \{")
+_SPAWN_UI_RE = re.compile(r"spawn\((?:Node|Text|Button|Image|Panel|Bar|Slot|Sprite|NodeBundle)")
 # z_index
 _Z_RE = re.compile(r"z_index|ZIndex")
 

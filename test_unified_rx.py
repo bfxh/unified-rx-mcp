@@ -2136,3 +2136,17 @@ def test_ide_complete_key_alias(tmp_path):
                                        "prefix": "comp"})
     d2 = json.loads(r2[0].text)
     assert "compute_area" in d2.get("items", []), f"别名键应同样工作: {d2}"
+
+
+def test_ui_check_text_bundle_recognized(tmp_path):
+    """ui_check 识别 TextBundle 简写（2026-08-14）：spawn(Text::new) 是 UI——camera 漏报修复。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "hud.rs").write_text(
+        "fn hud() {\n    spawn(Text::new(\"你好\"));\n}\n", encoding="utf-8")
+    r = server._call("ui_check", {"path": str(proj)})
+    d = json.loads(r[0].text)
+    rules = {i["rule"] for i in d.get("issues", [])}
+    assert "font_missing" in rules, f"应报 font_missing: {rules}"
+    assert "camera_missing" in rules, f"Text::new 应识别为 UI（camera_missing）: {rules}"
+    assert "ui_root_missing" not in rules, "TextBundle 简写不应报 ui_root_missing（隐式 Node）"

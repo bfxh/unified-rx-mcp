@@ -2163,9 +2163,12 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                      ]},
                     "verify", "verify", f"回归命令：{cmd}，自检清单 5 项")  # IDE 增强四十六：summary 附清单计数
             # 6. lesson：自动链收尾（STEPS 六步闭环）
+            # IDE 增强四十七：lesson summary 附 fix 计数（链摘要看到修复工作量）
+            _lesson_fix_n = (len(actions) if "actions" in dir() else 0)
             _finish({"tool": "lesson",
                      "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发"},
-                    "lesson", "lesson", "教训提示（修复后 lesson_recall 记录）")
+                    "lesson", "lesson",
+                    f"教训提示（{_lesson_fix_n} 条修复建议后 lesson_recall 记录）")
             # 顶层 summary（IDE 增强十一 2026-08-13）：六步一句话总览——
             # AI 一眼看到全链结论；完整结果仍在 quest 状态可断点续查
             chain_summary = " → ".join(c.get("summary", "") for c in chain)
