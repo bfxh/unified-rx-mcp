@@ -1910,15 +1910,34 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # IDE 增强五十三：对照 verify 步 fix_scope（修复前 diff 摘要）
             _vres = q.state.get("steps", {}).get("verify", {}).get("result") or {}
             _scope = _vres.get("fix_scope", "")
+            # IDE 增强六十二：std_check 基线对照（工程标准双引擎验证——
+            # 修复后 std 分布也应下降）
+            _std_prev = q.state.get("std_check") or {}
+            _std_prev_counts = _std_prev.get("severity_counts", {}) or {}
+            _std_now = {}
+            try:
+                _std_now = json.loads(_call("std_check", {"path": file})[0].text).get(
+                    "severity_counts", {}) or {}
+            except Exception:
+                pass
+            _std_total_prev = sum(_std_prev_counts.values())
+            _std_total_now = sum(_std_now.values())
+            _std_verdict = ("工程标准改善" if _std_total_now < _std_total_prev
+                            else "工程标准未变化" if _std_total_now == _std_total_prev
+                            else "工程标准恶化")
             return [_TC(json.dumps({"ok": True, "file": file,
                                     "issue_count": cur,
                                     "prev_issue_count": prev_count,
                                     "severity_counts": scan_data.get("severity_counts", {}),
                                     "verdict": verdict,
                                     "fix_scope": _scope,
+                                    "std_verdict": _std_verdict,
+                                    "std_counts": _std_now,
+                                    "std_prev_counts": _std_prev_counts,
                                     "advice": ("对比上次 auto diagnose 问题数：减少=修复生效；"
                                                "未变化=复查 fix 步 checklist/fs_template"
-                                               + (f"（期望修改范围 {_scope}）" if _scope else ""))},
+                                               + (f"（期望修改范围 {_scope}）" if _scope else "")
+                                               + f"；{_std_verdict}（{_std_total_prev}→{_std_total_now}）")},
                                    ensure_ascii=False, indent=2))]
         if action == "report":
             # IDE 增强二十一：从 quest 状态导出完整 markdown 报告（auto 后随时可查）
@@ -2099,6 +2118,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        else " ⚠ 扫描失败（可用 force=True 重试整链）"))  # IDE 增强二十四
             # IDE 增强五十七：std_check 工程标准联动（占位/死代码/重复定义/
             # UI 硬编码/魔法数字——独立于 bug_scan 主线，附 summary 不抢 locate）
+            # 注意：不调 complete_step——双 diagnose 步会按名覆盖 bug_scan
+            # result（verify_fix 基线丢失回归）；独立存 q.state["std_check"]。
+            _std_sev = {}
             try:
                 _std = json.loads(_call("std_check", {"path": path})[0].text)
                 _std_sev = _std.get("severity_counts", {}) if _std.get("ok") is not None else {}
@@ -2107,12 +2129,15 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             except Exception:
                 _std_sev = {}
             if _std_sev:
-                _finish({"tool": "std_check", "path": path,
-                         "std_severity_counts": _std_sev},
-                        "diagnose", "std_check",
-                        f"工程标准 {_std_sev.get('Critical', 0)} Critical/"
-                        f"{_std_sev.get('Error', 0)} Error/"
-                        f"{_std_sev.get('Warning', 0)} Warning")
+                _now = _t.perf_counter()
+                chain.append({"step": "diagnose", "tool": "std_check",
+                              "summary": (f"工程标准 {_std_sev.get('Critical', 0)} Critical/"
+                                          f"{_std_sev.get('Error', 0)} Error/"
+                                          f"{_std_sev.get('Warning', 0)} Warning"),
+                              "ok": True, "elapsed_s": round(_now - _last_step_ts, 3)})
+                _last_step_ts = _now
+                q.state["std_check"] = {"severity_counts": _std_sev, "ts": _t.time()}
+                q._save()
             # 2. locate：top 问题位置（error 优先）+ 行上下文 + 符号线索（IDE 增强十）
             top = (errors or issues or [{}])[0]
             loc = {"tool": "locate", "file": top.get("file", ""),
