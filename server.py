@@ -1995,6 +1995,13 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # 顶层 summary（IDE 增强十一 2026-08-13）：六步一句话总览——
             # AI 一眼看到全链结论；完整结果仍在 quest 状态可断点续查
             chain_summary = " → ".join(c.get("summary", "") for c in chain)
+            # IDE 增强十二：auto 完成 → scan-log 落盘（链路记忆，项目维度可查）
+            try:
+                import scan_log_core as _slc
+                _slc.append_scan({"tool": "ide_quest_auto", "root": path,
+                                  "ok": True, "summary": chain_summary[:200]})
+            except Exception:
+                pass  # 日志失败静默（不拖垮 auto 链）
             return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
                                     "chain": chain,
                                     "summary": chain_summary,
