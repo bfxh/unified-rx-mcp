@@ -86,7 +86,11 @@ def request_skill(task: str, skills_dir: str) -> dict:
     # 2. 找候选模板
     candidates = []
     for key, meta in _SKILL_TEMPLATES.items():
-        if key in task_low or any(w in task_low for w in meta["reason"].split("（")[0].split()):
+        # 2026-08-14 修复：key 连字符/下划线拆子词匹配（"rust 安全审查" 应
+        # 命中 rust-safety——原只整串匹配，中文任务全落空）
+        key_parts = key.replace("-", " ").replace("_", " ").split()
+        if key in task_low or any(k in task_low for k in key_parts) \
+                or any(w in task_low for w in meta["reason"].split("（")[0].split()):
             candidates.append(meta)
     if not candidates:
         # 无模板 → 返回提示（未知领域，用户可指定）

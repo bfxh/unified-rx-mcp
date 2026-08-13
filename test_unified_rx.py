@@ -2538,3 +2538,28 @@ def test_std_dead_code_severity_case(tmp_path):
                                 {"text": f"配置在 {proj.parent / 'outside' / 'x.rs'}:3",
                                  "root": str(proj)})[0].text)
     assert d["verdict"] == "unverified", "沙盒外拒绝探测（设计）"
+
+
+def test_skill_fetch_subword_and_warm_layer(tmp_path):
+    """skill_fetch 子词匹配（rust-safety←'rust'）+ ide_cache 温层恢复（2026-08-14）。"""
+    skills_dir = str(tmp_path / "skills")
+    d = json.loads(server._call("skill_fetch", {"action": "request",
+                                                "task": "rust 安全审查",
+                                                "skills_dir": skills_dir})[0].text)
+    assert d["ok"] is True and d.get("approvals"), f"中文任务应命中 rust-safety: {d}"
+    d = json.loads(server._call("skill_fetch", {"action": "approve", "id": "nosuch",
+                                                "approved": True,
+                                                "skills_dir": skills_dir})[0].text)
+    assert d["ok"] is False, "不存在 id 应拒绝"
+    # 温层恢复
+    import ide_cache as _ic
+    db = str(tmp_path / "warm.db")
+    _ic.invalidate()
+    _ic.enable_persistence(db)
+    p = tmp_path / "a.rs"
+    p.write_text("fn a() {}\n", encoding="utf-8")
+    _ic.store(str(p), "complete", {"items": ["a"]})
+    _ic.invalidate()
+    _ic.enable_persistence(db)
+    assert _ic.cached(str(p), "complete") == {"items": ["a"]}, "温层恢复应命中"
+    _ic.invalidate()
