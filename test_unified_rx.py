@@ -2343,3 +2343,23 @@ def test_locate_edit_limit_guard(tmp_path):
                                                 "query": "compute_area",
                                                 "limit": "10"})[0].text)
     assert d["ok"] is True and len(d.get("candidates", [])) >= 1, d
+
+
+def test_std_todo_markers_and_tool_card(tmp_path):
+    """summary todo_markers 计数 + tool_card 卡片/递归拒绝（2026-08-14 验证）。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "a.rs").write_text(
+        "fn a() {\n    // TODO: 实现\n    // FIXME: 待修\n    let x = 1;\n}\n",
+        encoding="utf-8")
+    d = json.loads(server._call("std_check", {"path": str(proj / "a.rs")})[0].text)
+    assert d["summary"]["todo_markers"] >= 2, "TODO/FIXME 应计数"
+    assert not [i for i in d["issues"] if "TODO" in i.get("msg", "")], "TODO 不判违规"
+    # tool_card 卡片 + 递归拒绝
+    r = server._call("tool_card", {"name": "bug_scan",
+                                   "arguments": {"path": str(proj)}})
+    d = json.loads(r[0].text)
+    assert d.get("ok") is True and d.get("summary"), d
+    r = server._call("tool_card", {"name": "tool_card", "arguments": {}})
+    d = json.loads(r[0].text)
+    assert d["ok"] is False and "递归" in str(d.get("summary", "")), d
