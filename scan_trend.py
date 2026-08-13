@@ -24,10 +24,18 @@ def analyze(logs: list[dict], window_days: int = 7) -> dict:
     recent = []
     for l in logs:
         ts = l.get("ts", 0)
-        try:
-            ts = float(ts)
-        except (TypeError, ValueError):
-            continue
+        # 2026-08-14 修复：append_scan 写字符串 ts（%Y-%m-%d %H:%M:%S）
+        # 而原实现只 float 解析——所有日志被跳过（recent_logs 恒 0）
+        if isinstance(ts, str):
+            try:
+                ts = time.mktime(time.strptime(ts, "%Y-%m-%d %H:%M:%S"))
+            except ValueError:
+                continue
+        else:
+            try:
+                ts = float(ts)
+            except (TypeError, ValueError):
+                continue
         if ts >= now - window:
             recent.append(l)
 
@@ -49,8 +57,10 @@ def analyze(logs: list[dict], window_days: int = 7) -> dict:
     # 3. 高频问题规则（提权候选）
     hot_rules = rules.most_common(10)
     # 4. 工具用得多但 0 命中的（降噪候选）
+    # 2026-08-14 修复：原 `all(r not in str(l))` 用未定义变量 r——
+    # 日志 ≥3 条（c>=3 短路解除）必炸 NameError；改 t
     noisy = {t: c for t, c in tool_freq.items() if c >= 3
-             and all(r not in str(l) for l in recent[:50])}
+             and all(t not in str(l) for l in recent[:50])}
 
     return {
         "ok": True,

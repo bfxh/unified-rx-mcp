@@ -2592,3 +2592,15 @@ def test_auto_extract_lessons(tmp_path, monkeypatch):
     content = r["lessons"][0]
     lid = "work_" + _hl.sha256(content.encode("utf-8")).hexdigest()[:16]
     assert _lse.lesson_recall(lid)["ok"] is True, "提取教训应入库可召回"
+
+
+def test_scan_trend_multi_logs(tmp_path, monkeypatch):
+    """scan_trend 多日志（2026-08-14 双修复）：ts 字符串兼容 + noisy r→t。"""
+    import scan_log_core as _slc
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(tmp_path / "l.jsonl"))
+    for n in (10, 8, 5):
+        _slc.append_scan({"tool": "bug_scan", "root": r"D:\proj\A",
+                          "ok": True, "summary": f"{n} 问题"})
+    txt = server._call("scan_trend", {})[0].text
+    assert '"total_logs": 3' in txt and '"recent_logs": 3' in txt, \
+        f"≥3 条日志不应炸（原 NameError）: {txt[:150]}"
