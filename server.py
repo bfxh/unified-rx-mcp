@@ -2113,6 +2113,11 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _report.append("> 完整结果：`ide_quest action=result` 按步查询；"
                            "修复应用后：`action=verify_fix` 验证生效。")
             report_md = "\n".join(_report)
+            # IDE 增强二十：报告摘要入 quest note（断点续跑可见上轮报告）
+            try:
+                q.add_note(f"自动诊断报告（{chain_elapsed}s）：{chain_summary[:300]}")
+            except Exception:
+                pass  # 备注失败静默
             return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
                                     "chain": chain,
                                     "summary": chain_summary,
