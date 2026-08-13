@@ -129,6 +129,9 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         d = json.loads(r[0].text)
         assert d["ok"], d
         assert d["status"]["finished"] is True, "六步跑完应 finished"
+        # IDE 增强十一：顶层 summary 一句话总览（省 token）
+        assert "summary" in d and "bug.rs" in d["summary"], f"summary 应含定位: {d.get('summary')}"
+        assert "cargo test" in d["summary"], f"summary 应含回归命令: {d.get('summary')}"
         steps = [c["step"] for c in d["chain"]]
         assert steps == ["diagnose", "locate", "impact", "fix", "verify", "lesson"], f"链顺序: {steps}"
         # diagnose 记录问题数（bug_scan 对 unwrap 至少报 warn）

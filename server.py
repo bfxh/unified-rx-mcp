@@ -1992,8 +1992,13 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _finish({"tool": "lesson",
                      "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发"},
                     "lesson", "lesson", "教训提示（修复后 lesson_recall 记录）")
+            # 顶层 summary（IDE 增强十一 2026-08-13）：六步一句话总览——
+            # AI 一眼看到全链结论；完整结果仍在 quest 状态可断点续查
+            chain_summary = " → ".join(c.get("summary", "") for c in chain)
             return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
-                                    "chain": chain, "status": q.status()},
+                                    "chain": chain,
+                                    "summary": chain_summary,
+                                    "status": q.status()},
                                    ensure_ascii=False, indent=2))]
         return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]
     except Exception as e:
