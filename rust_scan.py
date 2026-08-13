@@ -36,6 +36,31 @@ _METHOD_RULES = {
     "expect": ("expect() 裸用（失败即 panic——建议返回 Result）", "warn"),
 }
 
+# as 目标类型三级分类（SCAN_QUALITY_ISSUES.md 问题 A 修复，2026-08-13）：
+# - NARROW_WARN：真实窄化（任意来源 → 更窄整数）——warn，必报（截断/溢出真风险）
+# - PRECISION_INFO：精度损失（f64→f32 类）——info，对齐 clippy cast_precision_loss
+#   （allow-by-default 的 pedantic lint，工程常规，不污染 warn）
+# - CHECK_INFO：可能窄化（u32/i32 目标，源宽度静态不可知；同宽符号转换 u32↔i32
+#   是坐标/索引常见且安全）——info，仅提示确认源宽度
+# - 其余目标（u64/i64/usize/isize/f64）——加宽/同宽/浮点，跳过
+_NARROW_WARN = ("u8", "i8", "u16", "i16")
+_PRECISION_INFO = ("f32",)
+_CHECK_INFO = ("u32", "i32")
+
+
+def _as_severity(target: str) -> tuple[str, str] | None:
+    """as 目标类型 → (severity, message)。返回 None 表示安全跳过。"""
+    if target in _NARROW_WARN:
+        return ("warn",
+                f"as {target} 窄化截断（宽整数→{target} 可能溢出/截断——建议 try_from/from）")
+    if target in _PRECISION_INFO:
+        return ("info",
+                f"as {target} 精度损失（f64→f32 类，确认可接受；clippy cast_precision_loss 同级）")
+    if target in _CHECK_INFO:
+        return ("info",
+                f"as {target} 可能窄化（源宽度未知；u32↔i32 同宽符号转换常见——确认源类型）")
+    return None
+
 
 def _node_text(node) -> str:
     try:
@@ -105,7 +130,10 @@ def _scan_tree(root, path: str, lines: list[str]) -> list[dict]:
                            "severity": "info", "rule": "unsafe",
                            "col": n.start_point[1] + 1, "snippet": snippet})
         elif t == "type_cast_expression":
-            # as 裸 cast：只报危险转换（截断/符号变化），跳过安全常规（as f32/as usize 等）
+            # as 裸 cast：按目标类型三级分类（SCAN_QUALITY_ISSUES.md 问题 A）——
+            # 真实窄化 warn、精度损失/可能窄化 info、加宽/同宽/浮点跳过。
+            # 不再把 f32/i32/u32/u64 一律标 warn（体素坐标/尺寸/质量转换是工程常规，
+            # 旧规则在 VoxelForge 46 文件产出 232 条误报，淹没了真 unwrap/panic）。
             cast_txt = _node_text(n)
             for ch in n.children:
                 if ch.type == "as":
@@ -114,12 +142,12 @@ def _scan_tree(root, path: str, lines: list[str]) -> list[dict]:
                     nxt = ch.next_named_sibling
                     if nxt is not None:
                         target = _node_text(nxt)
-                    # 危险目标类型：整数窄化/符号变化（u8/i8/u16/i16 等）、f32 截断
-                    dangerous = target in ("u8", "i8", "u16", "i16", "u32", "i32", "f32", "u64")
-                    if dangerous:
+                    sev_msg = _as_severity(target)
+                    if sev_msg is not None:
+                        sev, msg = sev_msg
                         issues.append({"file": path, "line": line_no,
-                                       "message": f"as {target} 裸转换（可能截断/溢出——建议 try_from/from）",
-                                       "severity": "warn", "rule": "as",
+                                       "message": msg,
+                                       "severity": sev, "rule": "as",
                                        "col": n.start_point[1] + 1, "snippet": snippet})
                     break
         elif t == "field_expression":
@@ -176,7 +204,7 @@ def scan_rust_file(path: str) -> tuple[list, int]:
                            "snippet": line[:120]})
         if " as " in line:
             issues.append({"file": path, "line": i,
-                           "message": "as 裸类型转换",
-                           "severity": "warn", "rule": "as", "col": 0,
+                           "message": "as 类型转换（文本降级模式，目标类型未知——仅提示）",
+                           "severity": "info", "rule": "as", "col": 0,
                            "snippet": line[:120]})
     return issues, total

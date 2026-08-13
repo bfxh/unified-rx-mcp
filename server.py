@@ -1733,8 +1733,21 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     if total_lines > _BUG_MAX_TOTAL_LINES:
         raise ValueError(f"扫描总量超限（>{_BUG_MAX_TOTAL_LINES} 行），请缩小范围")
     issues.sort(key=lambda i: (i["file"], i["line"], i["col"]))
+    # P2 信噪比度量（SCAN_QUALITY_ISSUES.md 问题 C 修复）：severity 归一化统计 +
+    # noise_ratio（info 占比）——AI 一眼可判断"这份报告可信度"；error 优先展示
+    sev_counts = {"error": 0, "warn": 0, "info": 0}
+    for i in issues:
+        s = str(i.get("severity", "warn"))
+        sev_counts["warn" if s in ("warn", "warning") else
+                   ("error" if s == "error" else "info")] += 1
+    total = len(issues)
     result = {
-        "ok": True, "files": len(files), "issue_count": len(issues), "issues": issues,
+        "ok": True, "files": len(files), "issue_count": len(issues),
+        "severity_counts": sev_counts,
+        "noise_ratio": round(sev_counts["info"] / total, 3) if total else 0.0,
+        "note": ("noise_ratio=info 占比（高即多为风格提示）；error 为确定性缺陷，"
+                 "warn 为需审查项——参考 SCAN_QUALITY_ISSUES.md"),
+        "issues": issues,
     }
     # 单文件成功结果入缓存（幂等只读；mtime/size 变了自动失效）
     if p.is_file():
@@ -3239,9 +3252,24 @@ def _attach_known_issues(name: str, args: dict,
     root = str(args.get("path", "") or args.get("root", ""))
     if not root:
         return result
-    # 读该 root 最近的扫描日志（按 root 过滤，最多 3 条非本轮记录）
-    logs = scan_log_core.query_logs(root=root, limit=50)
-    known = [l for l in logs if l.get("tool") != name][:3]
+    # P1：scan-log 回读走 TTL 缓存（mtime_ns+size 变化即失效）——防高频调用
+    # 反复全量读文件（daemon 并发扫描期放大延迟，见 SCAN_QUALITY_ISSUES.md 问题 B）
+    import time as _time
+    cache_key = f"{root}|{name}"
+    now = _time.monotonic()
+    try:
+        logf = scan_log_core.log_path()
+        fkey = (logf.stat().st_mtime_ns, logf.stat().st_size)
+    except OSError:
+        fkey = None
+    hit = _KNOWN_ISSUES_CACHE.get(cache_key)
+    if hit is not None and now - hit[0] < _KNOWN_ISSUES_CACHE_TTL and hit[1] == fkey:
+        known = hit[2]
+    else:
+        # 读该 root 最近的扫描日志（按 root 过滤，最多 3 条非本轮记录）
+        logs = scan_log_core.query_logs(root=root, limit=50)
+        known = [l for l in logs if l.get("tool") != name][:3]
+        _KNOWN_ISSUES_CACHE[cache_key] = (now, fkey, known)
     if not known:
         return result
     text = getattr(result[0], "text", "") if result else ""
@@ -3266,6 +3294,14 @@ def _attach_known_issues(name: str, args: dict,
 _SCAN_LOG_TOOLS = {"bug_scan", "std_check", "vuln_scan", "ui_check",
                    "cb_scan", "cb_index", "hallucination_guard", "locate_edit",
                    "project_scan", "full_scan"}
+
+
+# P1 超时韧性（SCAN_QUALITY_ISSUES.md 问题 B 修复）：_attach_known_issues 的
+# scan-log 回读加 TTL 缓存——高频工具调用不再每次全量读文件（scan-log 最多
+# 2000 行 JSONL，多次调用叠加放大延迟；daemon 并发扫描期尤其明显）。
+# 缓存键 = root|tool，值 = (时间戳, 文件 mtime_ns+size, known 列表)；5s TTL。
+_KNOWN_ISSUES_CACHE: dict[str, tuple[float, tuple | None, list]] = {}
+_KNOWN_ISSUES_CACHE_TTL = 5.0
 
 
 def _scan_log_tick(name: str, args: dict, result: "list[types.TextContent]") -> None:
