@@ -1981,6 +1981,13 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                         lines.append(f"  ```{c}```")
                 elif name == "impact":
                     lines.append(f"- 文件级问题 {r.get('file_issue_count', 0)} 个")
+                    # IDE 增强六十六：std 文件级分布显示
+                    _sfs = r.get("std_file_severity") or {}
+                    if _sfs:
+                        lines.append(f"- 工程标准（该文件）："
+                                     f"Critical {_sfs.get('Critical', 0)} / "
+                                     f"Error {_sfs.get('Error', 0)} / "
+                                     f"Warning {_sfs.get('Warning', 0)}")
                     ci = r.get("change_impact")
                     if ci:
                         lines.append(f"- 符号级：引用 {ci.get('referenced_by_count', 0)} 处，"
