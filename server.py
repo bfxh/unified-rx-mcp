@@ -2270,7 +2270,12 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s",
                        # IDE 增强五十六：链配置回显（可复现性——参数归档）
                        f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
-                       f"limit={args.get('limit', '默认')}", ""]
+                       f"limit={args.get('limit', '默认')}",
+                       # IDE 增强六十一：双引擎总览一行（bug_scan + std_check 全貌）
+                       f"**扫描**：bug_scan error {scan_data.get('severity_counts', {}).get('error', 0)}"
+                       f" / std Critical {_std_sev.get('Critical', 0)}"
+                       f" Error {_std_sev.get('Error', 0)}"
+                       f" Warning {_std_sev.get('Warning', 0)}", ""]
             for c in chain:
                 _report.append(f"### {_step_titles.get(c['step'], c['step'])}")
                 _report.append(c.get("summary", ""))

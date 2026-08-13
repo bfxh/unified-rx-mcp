@@ -2208,3 +2208,18 @@ def test_std_ui_hardcode_valpx(tmp_path):
     sm = d.get("summary", {})
     assert isinstance(sm.get("rules"), dict) and sm["rules"], f"summary.rules 应非空: {sm}"
     assert d.get("severity_counts") is not None, "severity_counts 应存在"
+
+
+def test_permission_matrix_boundaries():
+    """L1-L4 权限矩阵（2026-08-14）：层级正确 + L4 授权门控 + strip_auth 剥离。"""
+    import ide_permission as ip
+    assert ip.level_of("bug_scan") == ip.L1
+    assert ip.level_of("locate_edit") == ip.L2
+    assert ip.level_of("bug_locate") == ip.L3
+    assert ip.level_of("fs_write") == ip.L4
+    assert ip.level_of("未登记工具") == ip.L1, "未登记默认最保守"
+    ok, reason = ip.check("fs_write", {})
+    assert not ok and "权限拒绝" in reason
+    assert ip.check("fs_write", {"__authorized": True})[0]
+    assert ip.check("bug_scan", {})[0]
+    assert "__authorized" not in ip.strip_auth({"__authorized": True, "path": "/x"})
