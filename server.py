@@ -2384,6 +2384,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        *(["**重跑**：force（覆盖上次链）"] if args.get("force") else []),
                        # IDE 增强六十八：quest_id 头部归档（断点续跑直达）
                        f"**任务**：`{quest_id}`",
+                       # IDE 增强七十九：结论理由行（verdict 一句话归档）
+                       f"**结论**：{result_note[:100]}",
                        # IDE 增强五十六：链配置回显（可复现性——参数归档）
                        f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
                        f"limit={args.get('limit', '默认')}",
