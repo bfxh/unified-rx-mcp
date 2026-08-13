@@ -2325,6 +2325,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                     "elapsed_s": chain_elapsed,
                                     "result": result_verdict,
                                     "result_note": result_note,
+                                    # IDE 增强六十：双引擎分布顶层字段（消费端
+                                    # 一眼看 bug_scan + std_check 全貌）
+                                    "std_severity_counts": _std_sev,
                                     "report_md": report_md,
                                     "report_path": report_path,
                                     "status": q.status()},
