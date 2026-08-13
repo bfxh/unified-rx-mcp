@@ -2435,6 +2435,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _report.append("> 工具调用统计：`stats_summary` 查询（自动打点闭环）。")
             # IDE 增强八十六：一键审计提示（pipeline preset 入口）
             _report.append("> 一键审计：`pipeline preset=audit_repo path=...` 全链复跑。")
+            # IDE 增强八十七：漏洞闭环提示（常态挖漏洞三引擎）
+            _report.append("> 漏洞闭环：`vuln_scan` 三引擎全链（bug+std+ui）随时复扫。")
             report_md = "\n".join(_report)
             # IDE 增强二十：报告摘要入 quest note（断点续跑可见上轮报告）
             try:
