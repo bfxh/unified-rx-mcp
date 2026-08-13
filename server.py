@@ -2054,6 +2054,11 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                     _fc = r.get("fix_count", 0)
                     lines.append(f"- {r.get('advice', '')}"
                                  + (f"（本链 {_fc} 条修复建议）" if _fc else ""))
+                    # IDE 增强七十六：recall 联动提示（防复发闭环进报告）
+                    _rc = r.get("recall") or {}
+                    if _rc:
+                        lines.append(f"- 防复发：`{_rc.get('tool', '')}`"
+                                     f"（任务：{str(_rc.get('args', {}).get('task_description', ''))[:30]}）")
                 else:
                     lines.append(f"- {r.get('advice', '')}")
                 lines.append("")
