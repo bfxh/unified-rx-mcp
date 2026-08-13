@@ -1761,8 +1761,11 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
 
 def _tool_ide_rename(args: dict) -> "list[types.TextContent]":
     from ide_tools import ide_rename
-    return [_TC(json.dumps(ide_rename(args.get("root", ""), args.get("symbol", ""),
-                                       args.get("new_name", "")), ensure_ascii=False, indent=2))]
+    return [_TC(json.dumps(ide_rename(
+        args.get("root", ""), args.get("symbol", ""), args.get("new_name", ""),
+        exclude_comments=bool(args.get("exclude_comments", True)),
+        include_plan=bool(args.get("include_plan", False)),
+    ), ensure_ascii=False, indent=2))]
 
 
 def _tool_ide_complete(args: dict) -> "list[types.TextContent]":
@@ -2930,7 +2933,9 @@ _TOOLS: dict[str, tuple] = {
         "root": _S("string", "代码库根目录"),
         "symbol": _S("string", "要重命名的符号"),
         "new_name": _S("string", "新名字"),
-    }, ["root", "symbol", "new_name"]), "安全重命名：全库找引用→建议（L3 不落盘，确认后 fs_write 应用）"),
+        "exclude_comments": _S("boolean", "排除注释/字符串内引用（默认 true）"),
+        "include_plan": _S("boolean", "生成 apply_plan（按文件聚合的行级编辑列表，fs_write 就绪，默认 false）"),
+    }, ["root", "symbol", "new_name"]), "安全重命名：全库找引用→建议（L3 不落盘，确认后 fs_write 应用；include_plan 可生成批量应用计划）"),
     "ide_complete": (_tool_ide_complete, _schema({
         "root": _S("string", "代码库根目录"),
         "file": _S("string", "当前文件"),

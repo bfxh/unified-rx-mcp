@@ -72,14 +72,17 @@ _DECL_RE = re.compile(
 
 # ── ide_rename ─────────────────────────────────────────────
 def ide_rename(root: str, symbol: str, new_name: str,
-               max_refs: int = 200, exclude_comments: bool = True) -> dict:
+               max_refs: int = 200, exclude_comments: bool = True,
+               include_plan: bool = False) -> dict:
     """安全重命名：找符号所有引用 → 替换（仅同名符号，保守策略）。
 
     exclude_comments=True（默认）：跳过注释/字符串内的同名 token——
     重命名引用列表只含"代码面"引用，避免把注释/字符串里的词误当引用。
 
-    IDE 增强三（2026-08-13）：refs 每项附 `before`/`after` 行内替换预览
-    （原始行——AI 可先看效果再决定应用，减少误改）。
+    IDE 增强三：refs 每项附 `before`/`after` 行内替换预览。
+    IDE 增强六（2026-08-13）：include_plan=True 时生成 `apply_plan`——
+    按文件聚合的行级编辑列表（fs_write 就绪），AI 确认后 L4 授权一步应用，
+    无需手工逐处构造替换。
 
     返回 {ok, changed_files, refs, error}——不实际落盘（L3 建议层），
     调用方确认后走 fs_write（L4 授权）应用。
@@ -89,10 +92,11 @@ def ide_rename(root: str, symbol: str, new_name: str,
     refs = _find_symbol_refs(root, symbol, max_refs, exclude_comments)
     if not refs:
         return {"ok": False, "error": f"未找到符号引用: {symbol}"}
-    # 行内替换预览（按文件聚合读一次——refs 多时不反复打开文件）
+    # 行内替换预览 + 应用计划（按文件聚合读一次——refs 多时不反复打开文件）
     previews: dict[str, list[str]] = {}
     for r in refs:
         previews.setdefault(r["file"], []).append(r)
+    apply_plan: dict[str, list[dict]] = {}
     for file, items in previews.items():
         try:
             with open(file, encoding="utf-8", errors="replace") as f:
@@ -105,7 +109,13 @@ def ide_rename(root: str, symbol: str, new_name: str,
                 new_line = re.sub(rf"\b{re.escape(symbol)}\b", new_name, orig)
                 r["before"] = orig.strip()[:60]
                 r["after"] = new_line.strip()[:60]
-    return {
+                if include_plan:
+                    apply_plan.setdefault(file, []).append({
+                        "line": r["line"],
+                        "old": orig,
+                        "new": new_line,
+                    })
+    result = {
         "ok": True,
         "symbol": symbol,
         "new_name": new_name,
@@ -114,6 +124,16 @@ def ide_rename(root: str, symbol: str, new_name: str,
         "exclude_comments": exclude_comments,
         "advice": f"确认后用 fs_write 逐文件应用（L4 授权）——refs 的 before/after 为行内替换预览",
     }
+    if include_plan:
+        result["apply_plan"] = apply_plan
+        result["plan_files"] = len(apply_plan)
+        result["plan_edits"] = sum(len(v) for v in apply_plan.values())
+        result["apply_hint"] = (
+            "应用方式：对 apply_plan 中每个文件，读取原文后用 new 行替换对应 "
+            "line 的 old 行，再 fs_write 整文件（L4 授权：参数加 __authorized: true）。"
+            "建议应用后跑测试回归确认。"
+        )
+    return result
 
 
 def _find_symbol_refs(root: str, symbol: str, max_refs: int,

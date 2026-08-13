@@ -327,3 +327,30 @@ def test_rename_preview_before_after():
         # 独立 token 不应残留（use_velocity 里的 velocity 是子串，允许）
         import re as _re
         assert not _re.search(r"\bvelocity\b", ref["after"]), f"after 不应残留独立旧名: {ref}"
+
+
+# ── IDE 增强六（2026-08-13）：apply_plan 批量应用计划（fs_write 就绪）──
+def test_rename_apply_plan():
+    root = _tmp_project({
+        "a.rs": (
+            "fn main() {\n"
+            "    let velocity = 1.0;\n"
+            "    go(velocity);\n"
+            "}\n"
+        ),
+        "b.rs": "fn other() { let velocity = 2.0; }\n",
+    })
+    r = ide_rename(root, "velocity", "speed", include_plan=True)
+    assert r["ok"]
+    assert "apply_plan" in r
+    assert r["plan_files"] == 2, f"两个文件都应有编辑: {r['plan_files']}"
+    assert r["plan_edits"] == 3, f"三处引用（a×2 + b×1）: {r['plan_edits']}"
+    assert "apply_hint" in r and "fs_write" in r["apply_hint"]
+    # 行级编辑内容：old 含 velocity、new 含 speed、行号正确
+    a_edits = r["apply_plan"][os.path.join(root, "a.rs")]
+    assert len(a_edits) == 2
+    assert a_edits[0]["line"] == 2 and "velocity" in a_edits[0]["old"]
+    assert "speed" in a_edits[0]["new"]
+    # 默认不生成 plan（向后兼容、省 token）
+    r2 = ide_rename(root, "velocity", "speed")
+    assert "apply_plan" not in r2
