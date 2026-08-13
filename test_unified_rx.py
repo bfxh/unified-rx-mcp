@@ -2627,3 +2627,37 @@ def test_tokenizer_cjk(tmp_path):
     ids = r["input_ids"]
     assert 4 in ids and 6 in ids and 7 in ids and 1 not in ids, ids
     assert len(ids) == len(r["attention_mask"])
+
+
+def test_scan_log_archive_keeps_history(tmp_path, monkeypatch):
+    """知识库防删防丢（2026-08-14 用户理念）：超限归档而非删除——历史保留。"""
+    import scan_log_core as slc
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    n = 9000  # 足够大（>512KB 触发归档）
+    with open(log, "w", encoding="utf-8") as f:
+        for i in range(n):
+            f.write(json.dumps({"ts": "2026-08-14", "tool": "t", "root": "r",
+                                "ok": True, "summary": f"line{i}"}) + "\n")
+    slc.append_scan({"tool": "smoke", "root": "r", "ok": True,
+                     "summary": "触发归档"})
+    archives = [p for p in os.listdir(tmp_path) if p.startswith("scan-log-2")]
+    assert archives, f"应生成归档文件: {os.listdir(tmp_path)}"
+    with open(tmp_path / archives[0], encoding="utf-8") as af:
+        n_arch = sum(1 for _ in af)
+    assert n_arch >= 1000, f"归档应含历史行（防删）: {n_arch}"
+    main_lines = sum(1 for _ in open(log, encoding="utf-8"))
+    assert main_lines <= 2001, main_lines
+
+
+def test_self_scan_incremental_skips_unchanged(tmp_path, monkeypatch):
+    """自扫增量（2026-08-14 用户理念）：无变动不重扫——只落心跳记录。"""
+    import scan_log_core as slc
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    monkeypatch.setenv("UNIFIED_RX_SELF_SCAN_STATE", str(tmp_path / "state.json"))
+    server._self_scan_once()  # 第一轮：全量扫（state 不存在）
+    server._self_scan_once()  # 第二轮：无变动 → 心跳
+    logs = slc.query_logs(limit=50)
+    heart = [l for l in logs if "无变动" in l.get("summary", "")]
+    assert heart, f"无变动应产生心跳记录: {[l['summary'] for l in logs[:3]]}"

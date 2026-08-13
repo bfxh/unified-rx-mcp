@@ -68,13 +68,23 @@ def append_scan(entry: dict) -> None:
 
 
 def _truncate(path: Path) -> None:
-    """超过上限截断保留最近 N 行（防长期膨胀）。"""
+    """超过上限**归档**（保留历史——用户理念：知识库防删防丢，存在那边）。
+
+    旧行滚入 `scan-log-<date>.jsonl`（按日归档，只增不减），主文件保留最近
+    N 行。绝不删除历史（此前截断即删，违背『缓存到知识库，不会被删掉』理念）。
+    """
     try:
         if path.stat().st_size < 512 * 1024:
             return
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         if len(lines) > _MAX_LOG_LINES:
             tail = lines[-_MAX_LOG_LINES:]
+            old = lines[:-_MAX_LOG_LINES]
+            # 归档旧行（追加到当日归档文件——历史持久，防删防丢）
+            if old:
+                arch = path.parent / f"scan-log-{time.strftime('%Y%m%d')}.jsonl"
+                with open(arch, "a", encoding="utf-8") as af:
+                    af.write("\n".join(old) + "\n")
             tmp = path.with_suffix(".jsonl.tmp")
             tmp.write_text("\n".join(tail) + "\n", encoding="utf-8")
             tmp.replace(path)

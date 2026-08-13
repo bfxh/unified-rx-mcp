@@ -4170,6 +4170,92 @@ async def run() -> None:
 _SCAN_LOOPS_STARTED = False  # 防重复启动后台扫描循环（见 _spawn_self_scan）
 
 
+_spawn_self_scan_once = None  # 模块级单轮自扫入口（daemon.py 引用）
+
+
+def _self_scan_once() -> None:
+    """模式⑤自扫一轮：全家文件级并发 + 扩展目录并发。
+
+    增量（用户理念：『有变动才重新扫描，无变动不重扫』）——
+    `~/.unified-rx/self_scan_state.json` 记录每个文件的 (mtime_ns, size)，
+    未变动的文件跳过 bug_scan，只扫变动的（省 token + 只增加动态）。
+    """
+    # 暴露为模块级供独立守护（daemon.py）单轮调用
+    global _spawn_self_scan_once
+    _spawn_self_scan_once = _self_scan_once
+    try:
+        import scan_log_core  # noqa: F401
+    except ImportError:
+        import sys as _sys
+        _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import scan_log_core  # noqa: F401
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    files = scan_log_core.self_scan_files()
+
+    # 增量状态：无变动不重扫（env 可覆盖路径——测试隔离/自定义）
+    state_path = Path(os.environ.get(
+        "UNIFIED_RX_SELF_SCAN_STATE",
+        str(Path.home() / ".unified-rx" / "self_scan_state.json")))
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8")) \
+            if state_path.exists() else {}
+    except Exception:
+        state = {}
+    changed: list[str] = []
+    for f in files:
+        try:
+            st = os.stat(f)
+        except OSError:
+            continue
+        sig = [st.st_mtime_ns, st.st_size]
+        if state.get(f) != sig:
+            changed.append(f)
+    if not changed:
+        # 无变动——不重扫（理念：有变动才扫）；但落一条状态记录
+        # （知识库可见心跳：确认自扫链存活，历史可查）
+        scan_log_core.append_scan({
+            "tool": "self_scan", "root": "self", "ok": True,
+            "summary": f"self 无变动（{len(files)} 文件签名未变，跳过——增量）",
+        })
+        return
+
+    def scan_one(f: str) -> None:
+        try:
+            d = json.loads(_call("bug_scan", {"path": f})[0].text)
+            n = len(d.get("issues", [])) if isinstance(d, dict) else -1
+            scan_log_core.append_scan({
+                "tool": "self_scan", "root": f, "ok": n == 0,
+                "summary": f"self bug_scan {os.path.basename(f)}: issues={n}",
+            })
+        except Exception:
+            pass
+
+    with ThreadPoolExecutor(max_workers=min(8, max(1, len(changed)))) as pool:
+        futs = [pool.submit(scan_one, f) for f in changed]
+        for fut in as_completed(futs):
+            fut.result()
+    # 状态落盘（只增：已扫文件签名入 state；删除的文件下次自然消失）
+    try:
+        for f in changed:
+            st = os.stat(f)
+            state[f] = [st.st_mtime_ns, st.st_size]
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+    except Exception:
+        pass
+    for d in scan_log_core.self_scan_dirs():
+        try:
+            r = _call("bug_scan", {"path": d, "max_files": 50})[0]
+            dd = json.loads(r.text)
+            n = len(dd.get("issues", [])) if isinstance(dd, dict) else -1
+            scan_log_core.append_scan({
+                "tool": "self_scan", "root": d, "ok": n == 0,
+                "summary": f"self bug_scan {os.path.basename(d)}: issues={n}",
+            })
+        except Exception:
+            pass
+
+
 def _spawn_self_scan() -> None:
     """后台扫描循环：打开 RX 即自动开启，5 模式各自独立 daemon 线程**持续循环**（不会停下），互不打扰，结果落盘。
 
@@ -4235,40 +4321,6 @@ def _spawn_self_scan() -> None:
                 return cand
         return None
 
-    def _self_scan_once() -> None:
-        """模式⑤自扫一轮：全家文件级并发 + 扩展目录并发。"""
-        # 暴露为模块级供独立守护（daemon.py）单轮调用
-        global _spawn_self_scan_once
-        _spawn_self_scan_once = _self_scan_once
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-        files = scan_log_core.self_scan_files()
-
-        def scan_one(f: str) -> None:
-            try:
-                d = json.loads(_call("bug_scan", {"path": f})[0].text)
-                n = len(d.get("issues", [])) if isinstance(d, dict) else -1
-                scan_log_core.append_scan({
-                    "tool": "self_scan", "root": f, "ok": n == 0,
-                    "summary": f"self bug_scan {os.path.basename(f)}: issues={n}",
-                })
-            except Exception:
-                pass
-
-        with ThreadPoolExecutor(max_workers=min(8, max(1, len(files)))) as pool:
-            futs = [pool.submit(scan_one, f) for f in files]
-            for fut in as_completed(futs):
-                fut.result()
-        for d in scan_log_core.self_scan_dirs():
-            try:
-                r = _call("bug_scan", {"path": d, "max_files": 50})[0]
-                dd = json.loads(r.text)
-                n = len(dd.get("issues", [])) if isinstance(dd, dict) else -1
-                scan_log_core.append_scan({
-                    "tool": "self_scan", "root": d, "ok": n == 0,
-                    "summary": f"self bug_scan {os.path.basename(d)}: issues={n}",
-                })
-            except Exception:
-                pass
 
     def _project_scan_once() -> None:
         """模式①④ 一轮：跟随话题项目（无则最活跃）并发扫。"""
