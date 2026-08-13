@@ -2201,6 +2201,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # 顶层 summary（IDE 增强十一 2026-08-13）：六步一句话总览——
             # AI 一眼看到全链结论；完整结果仍在 quest 状态可断点续查
             chain_summary = " → ".join(c.get("summary", "") for c in chain)
+            # IDE 增强五十五：summary 长度上限（防 token 膨胀——截断保留头尾
+            # 关键信息：前部=diagnose/locate 定位、尾部=verify/lesson 结论）
+            if len(chain_summary) > 300:
+                chain_summary = chain_summary[:150] + "…" + chain_summary[-140:]
             if mode == "quick":
                 # IDE 增强四十九：quick 模式链摘要前缀标注（消费端一眼区分快路径）
                 chain_summary = f"⚡quick {chain_summary}"
