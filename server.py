@@ -2161,7 +2161,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                          "4. 通过后用 ide_quest note 记录验证结果",
                          "5. lesson 步提示：用 lesson_recall 记录教训防复发",
                      ]},
-                    "verify", "verify", f"回归命令：{cmd}")
+                    "verify", "verify", f"回归命令：{cmd}，自检清单 5 项")  # IDE 增强四十六：summary 附清单计数
             # 6. lesson：自动链收尾（STEPS 六步闭环）
             _finish({"tool": "lesson",
                      "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发"},
