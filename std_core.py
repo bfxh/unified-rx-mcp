@@ -24,6 +24,7 @@ _MAX_FILES = 500
 
 _TEXT_PLACEHOLDER_RE = re.compile(
     r"lorem\s+ipsum|placeholder|占位|假数据|示例文案|待补充|待完善|"
+    r"待实现|待完成|待办|这里写|此处写|暂未实现|尚未实现|未实现|"  # 2026-08-14 词表补齐（中文常用占位）
     r"your[-_ ]?(name|email|url|project|org)|example\.(com|org)",
     re.IGNORECASE,
 )

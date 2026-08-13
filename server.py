@@ -1883,6 +1883,15 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             q = resume_quest(quest_id)
             if q is None:
                 return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"}, ensure_ascii=False))]
+            # 2026-08-14 修复：step 名校验（原忽略 args['step']——传错步名
+            # 静默前进误导调用方；现校验与当前步一致）
+            _want = str(args.get("step", ""))
+            _cur = q.current_step_name()
+            if _want and _want != _cur:
+                return [_TC(json.dumps(
+                    {"ok": False,
+                     "error": f"步骤不匹配：当前应完成 {_cur}（收到 {_want}）"},
+                    ensure_ascii=False, indent=2))]
             return [_TC(json.dumps(q.complete_step(args.get("result", {})), ensure_ascii=False, indent=2))]
         if action == "abort":
             q = resume_quest(quest_id)

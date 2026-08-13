@@ -2375,3 +2375,23 @@ def test_quest_abort_blocks_continue(tmp_path, monkeypatch):
                                               "step": "diagnose",
                                               "result": {"x": 1}})[0].text)
     assert d["ok"] is False and "中止" in str(d.get("error", "")), d
+
+
+def test_std_placeholder_words_and_step_guard(tmp_path, monkeypatch):
+    """占位词表补齐（待实现/这里写）+ quest step 名校验（2026-08-14）。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "a.rs").write_text(
+        'fn a() {\n    let x = "待实现";\n    let y = "这里写逻辑";\n}\n',
+        encoding="utf-8")
+    d = json.loads(server._call("std_check", {"path": str(proj / "a.rs")})[0].text)
+    msgs = " ".join(i.get("msg", "") for i in d["issues"])
+    assert "待实现" in msgs and "这里写" in msgs, f"中文占位词应检出: {msgs}"
+    # step 名校验
+    import ide_quest as _iq
+    monkeypatch.setattr(_iq, "_QUEST_DIR", str(tmp_path / "quests"))
+    server._call("ide_quest", {"action": "new", "task": "t", "quest_id": "s"})
+    d = json.loads(server._call("ide_quest", {"action": "step", "quest_id": "s",
+                                              "step": "bogus",
+                                              "result": {}})[0].text)
+    assert d["ok"] is False and "步骤不匹配" in str(d.get("error", "")), d
