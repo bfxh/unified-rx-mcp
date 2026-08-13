@@ -2079,11 +2079,13 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _finish(loc, "locate", "locate",
                     f"{loc['file']}:{loc['line']} [{loc['rule']}]" if loc["file"] else "未发现问题")
             # 3. impact：文件级影响面 + 尽力接 cae_change_impact（符号级深化）
+            # IDE 增强三十二：mode=quick 跳过 change_impact（快路径）；full（默认）深查
+            mode = str(args.get("mode", "full"))
             file_issues = [i for i in issues if i.get("file") == loc["file"]]
             impact_result = {"tool": "impact", "file": loc["file"],
                              "file_issue_count": len(file_issues),
                              "note": "文件级影响面；符号级深化用 change_impact/lsp_query"}
-            if os.path.isdir(path) and loc.get("file"):
+            if mode == "full" and os.path.isdir(path) and loc.get("file"):
                 try:
                     rel = os.path.relpath(loc["file"], path)
                     ci = json.loads(_call("cae_change_impact",
@@ -3348,6 +3350,7 @@ _TOOLS: dict[str, tuple] = {
         "result": _S("object", "步骤结果（step 时——当前步完成的证据）"),
         "text": _S("string", "备注内容（note 时）"),
         "path": _S("string", "auto 时：诊断目标（文件或目录）"),
+        "mode": _S("string", "auto 时：full（默认，impact 接 change_impact 深查）/ quick（跳过深查更快）"),
         "step": _S("string", "result 时：要检索的步骤名（diagnose/locate/impact/fix/verify/lesson）"),
         "status": _S("string", "list 时：过滤（all/active/finished/aborted，默认 all）"),
         "days": _S("number", "clean 时：只清理超过 N 天的 finished/aborted（默认 0=全部清理）"),

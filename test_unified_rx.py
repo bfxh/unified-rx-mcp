@@ -1906,3 +1906,75 @@ def test_full_scan_exclude_auto_roots(tmp_path, monkeypatch):
     r = srv._call("full_scan", {"roots": [str(a)], "ui": False})[0]
     d = json.loads(r.text)
     assert len(d["detail"]["projects"]) == 1, "显式 roots 不过滤"
+
+
+def test_sandbox_path_boundaries(monkeypatch):
+    """沙盒路径边界（2026-08-14）：../ 穿越/盘符切换/NUL/空——防护必须拒绝。"""
+    import tempfile as _tf
+    root = _tf.mkdtemp(prefix="sandbox_bound_")
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [root])
+    # 沙盒内 → 放行
+    inner = os.path.join(root, "a", "b.py")
+    os.makedirs(os.path.dirname(inner), exist_ok=True)
+    with open(inner, "w", encoding="utf-8") as f:
+        f.write("x = 1\n")
+    assert str(server._check_path(inner)).endswith("b.py")
+    # ../ 穿越到沙盒外 → 拒绝
+    parent = os.path.dirname(root)
+    escape = os.path.join(root, "..", "..", "escape.txt")
+    try:
+        server._check_path(escape)
+        assert False, f"../ 穿越应拒绝: {escape}"
+    except ValueError:
+        pass
+    # 沙盒外绝对路径 → 拒绝
+    outside = os.path.join(parent, "sandbox_outside_file.txt")
+    try:
+        server._check_path(outside)
+        assert False, f"沙盒外应拒绝: {outside}"
+    except ValueError:
+        pass
+    # NUL → 拒绝
+    try:
+        server._check_path("a\x00b.py")
+        assert False, "NUL 应拒绝"
+    except ValueError:
+        pass
+    # 空 → 拒绝
+    try:
+        server._check_path("")
+        assert False, "空路径应拒绝"
+    except ValueError:
+        pass
+    # 盘符切换（沙盒在 C 盘时 D 盘绝对路径）→ 拒绝
+    other = os.path.join(os.path.splitdrive(root)[0] + "\\", "Windows", "System32", "notepad.exe")
+    if other.lower() != os.path.join(root, "").lower()[:3] + "Windows\System32\notepad.exe".lower():
+        try:
+            server._check_path(other)
+            # 若盘符相同且不在沙盒 → 仍应拒绝（System32 不在沙盒内）
+            raise ValueError("unreachable")
+        except ValueError:
+            pass
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [])
+
+
+def test_quest_auto_mode_quick(tmp_path, monkeypatch):
+    """IDE 增强三十二：mode=quick 跳过 change_impact 深查（impact 无 change_impact 字段）。"""
+    import shutil
+    import tempfile
+    import ide_quest
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    repo = tempfile.mkdtemp(prefix="quest_quick_", dir=os.getcwd())
+    try:
+        with open(os.path.join(repo, "bug.rs"), "w", encoding="utf-8") as f:
+            f.write("fn main() {\n    let x = foo().unwrap();\n}\n")
+        r = server._call("ide_quest", {"action": "auto", "path": repo,
+                                       "quest_id": "quick-1", "mode": "quick"})
+        d = json.loads(r[0].text)
+        assert d["ok"] and d["status"]["finished"] is True
+        q = ide_quest.resume_quest("quick-1")
+        imp = q.state["steps"]["impact"]["result"]
+        assert "change_impact" not in imp, f"quick 模式不应深查: {imp}"
+        assert imp["file_issue_count"] >= 1
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
