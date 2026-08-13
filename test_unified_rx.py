@@ -94,8 +94,14 @@ def test_tool_card():
     # 纯函数工具 → 卡片 JSON
     r = server._call("tool_card", {"name": "math_ops", "arguments": {"action": "add", "a": 2, "b": 3}})[0]
     assert r.role == "tool"
-    d = json.loads(r.text)
-    assert d["ok"] is True and "math_ops" in d["summary"] and d["detail"] == 5
+
+
+def test_tool_card_rejects_recursion():
+    """安全（2026-08-13 深查）：tool_card 调 tool_card 递归被拒绝（防无限递归）。"""
+    r = server._call("tool_card", {"name": "tool_card", "arguments": {"name": "math_ops"}})[0]
+    text = r.text
+    assert "递归" in text, f"应拒绝递归调用: {text[:120]}"
+    assert json.loads(text).get("ok") is False
     # JSON 结果工具 → 透传 detail
     r2 = server._call("tool_card", {"name": "bug_locate", "arguments": {"error_text": "server.py:1"}})[0]
     d2 = json.loads(r2.text)

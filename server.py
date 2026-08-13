@@ -2869,6 +2869,10 @@ def _tool_card(args: dict) -> "list[types.TextContent]":
     name = str(args.get("name", ""))
     sub = args.get("arguments") or {}
     max_detail = int(args.get("max_detail_len", 20000))
+    # 安全（2026-08-13 深查）：拒绝递归调用自身——tool_card 调 tool_card 会
+    # 无限递归（1000 层后 RecursionError 才被兜底，浪费栈 + 打点）
+    if name == "tool_card":
+        return [_tr(False, "tool_card: 递归调用被拒绝", {"error": "tool_card 不能调用 tool_card"})]
     # P3/LSE 经验字段：模型指纹 + 上下文哈希 + 得分 → 成功后写入经验库
     mf = str(args.get("model_fingerprint", "") or "").strip()
     ctx = str(args.get("context_hash", "") or "").strip()
