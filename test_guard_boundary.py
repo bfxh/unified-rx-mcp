@@ -74,3 +74,22 @@ def test_guard_tool_names_miss():
     # 不在白名单：不会 verified（本地无该符号文件 → unverified 或 refuted，绝不 verified）
     assert not any(i["claim"] == "nope_tool_xyz" and i["verdict"] == "verified"
                    for i in r.get("verified", [])), f"不在白名单不得 verified: {r}"
+
+
+def test_guard_grep_symbol_multi_lang(tmp_path):
+    """guard 符号搜索多语言抽样：定义模式（fn/def/func/class）识别。"""
+    from guard_core import _grep_symbol
+    rs = tmp_path / "a.rs"
+    rs.write_text("pub fn helper() {}\nfn main() { helper(); }\n", encoding="utf-8")
+    assert _grep_symbol(str(rs), "helper", defined=True) is True, "rs fn 定义应识别"
+    assert _grep_symbol(str(rs), "helper", defined=False) is True, "调用行也应命中"
+    assert _grep_symbol(str(rs), "nope_sym", defined=True) is False, "不存在符号应为 False"
+
+    py = tmp_path / "b.py"
+    py.write_text("def helper():\n    pass\n", encoding="utf-8")
+    assert _grep_symbol(str(py), "helper", defined=True) is True, "py def 定义应识别"
+
+    js = tmp_path / "c.js"
+    js.write_text("function helper() {}\nclass UI {}\n", encoding="utf-8")
+    assert _grep_symbol(str(js), "helper", defined=True) is True, "js function 定义应识别"
+    assert _grep_symbol(str(js), "UI", defined=True) is True, "js class 定义应识别"

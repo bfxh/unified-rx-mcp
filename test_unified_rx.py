@@ -1980,3 +1980,38 @@ def test_quest_auto_mode_quick(tmp_path, monkeypatch):
         assert "⚡ quick" in d["report_md"], f"报告应标注 quick 模式: {d['report_md'][:150]}"
     finally:
         shutil.rmtree(repo, ignore_errors=True)
+
+
+def test_quest_auto_scan_failure_degrade(tmp_path, monkeypatch):
+    """IDE 增强三十四：bug_scan 全失败时链降级——failed 判定 + 链仍走完 + force 提示。"""
+    import shutil
+    import tempfile
+    import ide_quest
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    repo = tempfile.mkdtemp(prefix="quest_fail_", dir=os.getcwd())
+    try:
+        with open(os.path.join(repo, "bug.rs"), "w", encoding="utf-8") as f:
+            f.write("fn main() {\n    let x = foo().unwrap();\n}\n")
+        # 拦截 bug_scan：两次都失败（模拟扫描器故障）
+        orig_call = server._call
+
+        def fake_call(name, args):
+            if name == "bug_scan":
+                return [server._TC(json.dumps({"ok": False, "issues": []}))]
+            return orig_call(name, args)
+
+        monkeypatch.setattr(server, "_call", fake_call)
+        r = server._call("ide_quest", {"action": "auto", "path": repo,
+                                       "quest_id": "fail-1"})
+        d = json.loads(r[0].text)
+        assert d["ok"]
+        # failed 判定 + force 提示
+        assert d["result"] == "failed", f"扫描失败应判 failed: {d.get('result')}"
+        assert "force=True" in d["result_note"], f"note 应含 force 指引: {d.get('result_note')}"
+        # 链仍走完（六步 finished）——降级不拖垮
+        assert d["status"]["finished"] is True, "失败时链也应走完（降级）"
+        diag = next(c for c in d["chain"] if c["step"] == "diagnose")
+        assert "扫描失败" in diag["summary"], f"diagnose 应标注失败: {diag['summary']}"
+        monkeypatch.setattr(server, "_call", orig_call)
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
