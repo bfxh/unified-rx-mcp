@@ -2204,6 +2204,19 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 q.add_note(f"自动诊断报告（{chain_elapsed}s）：{chain_summary[:300]}")
             except Exception:
                 pass  # 备注失败静默
+            # IDE 增强二十八：报告落盘文件（项目 .unified-rx-index/reports/——
+            # 独立于 quest 状态，项目维度可直接查看/归档）
+            report_path = None
+            try:
+                _base = path if os.path.isdir(path) else os.path.dirname(path)
+                _rep_dir = os.path.join(_base, ".unified-rx-index", "reports")
+                os.makedirs(_rep_dir, exist_ok=True)
+                _rep_file = os.path.join(_rep_dir, f"auto-{int(_t.time())}.md")
+                with open(_rep_file, "w", encoding="utf-8") as _f:
+                    _f.write(report_md)
+                report_path = _rep_file
+            except Exception:
+                pass  # 落盘失败静默（报告仍经返回值/note/scan-log 可查）
             return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
                                     "chain": chain,
                                     "summary": chain_summary,
@@ -2211,6 +2224,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                     "result": result_verdict,
                                     "result_note": result_note,
                                     "report_md": report_md,
+                                    "report_path": report_path,
                                     "status": q.status()},
                                    ensure_ascii=False, indent=2))]
         return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]

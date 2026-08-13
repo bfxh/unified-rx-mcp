@@ -137,6 +137,11 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
             f"报告头部应含结果徽标: {d['report_md'][:120]}")
         # IDE 增强二十七：顶层 summary 附 result 前缀
         assert d["summary"].startswith("[partial]"), f"summary 应含结果前缀: {d['summary'][:60]}"
+        # IDE 增强二十八：报告落盘文件（项目 .unified-rx-index/reports/）
+        assert d["report_path"] and os.path.isfile(d["report_path"]), (
+            f"报告应落盘文件: {d.get('report_path')}")
+        with open(d["report_path"], encoding="utf-8") as rf:
+            assert "自动诊断报告" in rf.read(), "落盘文件应含报告内容"
         # IDE 增强十一：顶层 summary 一句话总览（省 token）
         assert "summary" in d and "bug.rs" in d["summary"], f"summary 应含定位: {d.get('summary')}"
         assert "cargo test" in d["summary"], f"summary 应含回归命令: {d.get('summary')}"
