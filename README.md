@@ -1,6 +1,12 @@
 # unified-rx-mcp
 
-**56 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**59 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+
+> **定位：工具集，不是智能体** —— 本 MCP 产出证据与事实，不替代 LLM 推理。
+> 工具行为契约见 [`spec/`](spec/README.md)，契约验证探针见 [`probes/`](probes/run_all.py)，
+> 实测报告见 [`reports/`](reports/REPORT_2026-08-13.md)（13/13 verified）。
+> **多智能体兼容**：标准 MCP stdio，Claude Code/Cursor/Windsurf/Trae/Aider 等
+> 一键接入见 [`docs/AGENT_COMPAT.md`](docs/AGENT_COMPAT.md)（打开智能体即自动启动）。
 
 ## 定位
 
@@ -13,6 +19,7 @@
 | 🧭 **引导**（guidance） | `lesson_recall` / `ds_lookup` / `ds_check` | 教训召回（防复发）/ 设计系统 token 引用与合规 |
 | 🔍 **分析仓库**（analysis） | `change_impact` / `code_context` / `lsp_query` / `aether_*` | 变更影响 / 光标符号级 AST→Prompt / LSP 交互 |
 | 🎯 **Qoder 式定位**（locate_edit） | `locate_edit` | 自然语言/符号 → 具体修改位置 `file:line` + snippet + AI 引导（改前取上下文/改后验影响） |
+| 🛠️ **IDE 增强**（editor） | `ide_rename` / `ide_complete` / `ide_actions` / `ide_quest` / `ide_fusion` | 安全重命名（注释/字符串排除）/ 声明优先补全 / 快速修复建议（TODO/吞错）/ 任务状态机 / 诊断→符号图 |
 | 🐛 **挖漏洞**（bug hunting） | `bug_scan` / `bug_locate` / `ui_check` / `file_dedup_state` | 静态 bug 模式 / traceback 定位 / Bevy UI 检查 |
 | 📏 **工程标准**（std_check） | `std_check` | 占位文字/命名冲突/UI硬编码/魔法数字——本地直接扫，兼容游戏/UI/前端/软件 |
 | 🃏 **Tool 角色回喂** | `tool_card` | 调用任意工具 → 结构化卡片 `{role,ok,summary,detail}`（Aether AiRole::Tool 启发） |
@@ -191,11 +198,26 @@ startup_timeout_seconds = 30
 call_timeout_seconds = 300
 ```
 
+## 多智能体接入（标准 MCP stdio，打开即自动启动）
+
+unified-rx 是**标准 MCP 协议**——除 RX 外，Claude Code / Cursor / Windsurf / Trae /
+Aider / Cline / Roo 等智能体都能连（启动时自动加载，无需手动启用）：
+
+```bash
+python scripts/install_agents.py --all            # 全部智能体（项目级配置）
+python scripts/install_agents.py --target claude  # 只装指定智能体
+python scripts/install_agents.py --list           # 支持的智能体与配置文件
+```
+
+- 只合并 `mcpServers`（不删项目已有其他 MCP 条目）；坏 JSON 跳过不覆盖
+- 兼容矩阵/手写模板（Gemini CLI / Codex CLI）/自动启动原理：`docs/AGENT_COMPAT.md`
+- **优先适配 RX**：RX 专属链路（auto_start / 教训回灌 LSE / 协作配方）以 RX 为完整形态
+
 ## 验证
 
 ```bash
-python server.py --selftest    # 56 工具自检（含防幻觉守卫抽样）
-python -m pytest test_unified_rx.py -q   # 72 tests
+python server.py --selftest    # 59 工具自检（含防幻觉守卫抽样）
+python -m pytest test_unified_rx.py -q   # 113 tests
 ```
 
 ## 安全（已审查）
@@ -207,6 +229,7 @@ python -m pytest test_unified_rx.py -q   # 72 tests
 
 ## 更新日志
 
+- **2026-08-13** 扫描质量修复 + IDE 增强 + 多智能体：`as` 规则三级分类（窄化 warn/精度损失 info/常规跳过——VoxelForge 实测 as warn 232→6）；bug_scan 结果加 severity_counts/noise_ratio + scan-log 回读 TTL 缓存；ide_complete 注释过滤+声明优先 / ide_rename 代码面引用 / ide_actions TODO+吞错 / PieceTable undo-redo；scripts/install_agents.py 一键接入 7 智能体 + docs/AGENT_COMPAT.md（优先适配 RX）
 - **2026-08-11** 常驻自扫与扫描日志：scan_log_core（~/.unified-rx/scan-log.jsonl 追加落盘）+ scan_log 查询工具（按 root 过滤）+ 启动后台自扫（打开阵地即扫自己）+ 8 个扫描工具调用自动记日志
 - **2026-08-11** 防幻觉闭环 + 压缩学习枢纽优先：hallucination_guard refuted 自动回灌 LSE（负 delta + 教训卡片）；lesson_recall_lse 枢纽优先排序（recall 软加权）；lse-engine 新增 lesson_recall 查询命令（不污染 recall）+ experience summary 压缩（200 字符）
 - **2026-08-11** 防幻觉机制：`hallucination_guard`（声明三分级验证：file:line/符号/工具名）+ `capability_manifest`（能力边界清单：有什么/没有什么）+ 防回归全套（P0 mcp_smoke 入 CI / P1 tool_ratchet 棘轮 / P2 actionlint 硬门禁）+ stats 会话维度

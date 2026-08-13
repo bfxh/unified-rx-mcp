@@ -53,7 +53,8 @@ def test_defs_cache_stable():
     ka = [(t.name, t.description, t.inputSchema) for t in a]
     kb = [(t.name, t.description, t.inputSchema) for t in b]
     assert ka == kb, "_definitions() 两次调用不一致（_DEFS_CACHE 缓存破坏）"
-    assert len(ka) >= 54, f"工具定义数异常: {len(ka)}"
+    # 只断言核心固定（35）；扩展懒加载，同步 _definitions() 不构建扩展
+    assert len(ka) >= 35, f"工具定义数异常: {len(ka)}"
 
 
 def test_tools_count_and_schema():
@@ -65,7 +66,23 @@ def test_tools_count_and_schema():
     # 2026-08-11 扫描日志：+scan_log → 33
     # 2026-08-11 高并发项目扫描：+project_scan → 34
     # 2026-08-11 全盘扫：+full_scan → 35
-    assert len(server._TOOLS) == 35, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-12 P0b 混合检索：+kb_query → 36
+    # 2026-08-12 P1 掌握引擎：+repo_graph → 37
+    # 2026-08-12 P1c 进化记忆：+lesson_extract → 38
+    # 2026-08-12 P2a 质量引擎：+quality_scan → 39
+    # 2026-08-12 repo_wiki：+repo_wiki → 40
+    # 2026-08-12 多智能体：+agent_orchestrate/+agent_roles → 42
+    # 2026-08-13 R4 IDE 全家桶：+ide_rename/+ide_complete/+ide_actions → 45
+    # 2026-08-13 R6 融合：+ide_fusion → 46
+    # 2026-08-13 R7 Quest：+ide_quest → 47
+    # 2026-08-13 探索/搜索接线：+explore_code/+semantic_search → 49
+    # 2026-08-13 本地智能：+local_intel → 50
+    # 2026-08-13 记忆维深化：+lesson_learn → 51
+    # 2026-08-13 M3 命令内建：+cmd_cheatsheet/+local_run → 53
+    # 2026-08-13 M4 技能申请制：+skill_fetch → 54
+    # 2026-08-13 M5 本质三分：+design_note → 55
+    # 2026-08-13 M6 趋势分析：+scan_trend → 56
+    assert len(server._TOOLS) == 56, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -170,7 +187,16 @@ def test_json_valid_prime_list():
 
 
 # ── 文件层 ───────────────────────────────────────────────────
+def _sandbox_allow(p: str) -> str:
+    """把 pytest 临时目录加入沙盒根（fs 测试自洽——不依赖 UNIFIED_RX_UNSAFE 环境）。"""
+    root = str(p)
+    if root not in server._SANDBOX_ROOTS:
+        server._SANDBOX_ROOTS.append(root)
+    return root
+
+
 def test_fs_roundtrip(tmp_path):
+    _sandbox_allow(tmp_path)
     f = tmp_path / "t.txt"
     server._tool_fs_write({"path": str(f), "content": "hello"})
     assert server._tool_fs_read({"path": str(f)})[0].text == "hello"
@@ -182,6 +208,7 @@ def test_fs_roundtrip(tmp_path):
 
 def test_fs_errors(tmp_path):
     # 网关层统一返回错误文本（不抛异常）
+    _sandbox_allow(tmp_path)
     out = server._call("fs_read", {"path": str(tmp_path / "nope.txt")})[0].text
     assert "Error" in out and "不存在" in out
     # NUL 拒绝（工具函数层抛 ValueError，网关转文本）
@@ -1761,3 +1788,94 @@ def test_daemon_repo_log_written(tmp_path, monkeypatch):
     assert len(lines) >= 5, f"应轮询多个仓库: {len(lines)}"
     import json as _json
     assert all("repo_manage" in _json.loads(l)["tool"] for l in lines)
+
+
+# ─────────────────────────────────────────────────────────────
+# 多模式并发扫描（2026-08-12：影子/窗口/缓存/排除——开 RX 自动）
+# ─────────────────────────────────────────────────────────────
+
+def test_shadow_core_scan_follows_called_file(tmp_path, monkeypatch):
+    """影子扫描：RX 调用的文件被跟随扫描（scan-log 有记录 → 补扫）。"""
+    import shadow_core
+    import scan_log_core
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    src = tmp_path / "demo.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    # 模拟 RX 调用落盘（bug_scan 该文件——实际落盘 scan-log 的扫描工具）
+    scan_log_core.append_scan({"tool": "bug_scan", "root": str(src), "ok": True, "summary": ""})
+    scanned = []
+    def fake_scan(path):
+        scanned.append(path)
+        return True, "issues=0"
+    n = shadow_core.shadow_scan_once(fake_scan)
+    assert n >= 1, "影子应跟随扫描被调用文件"
+    assert str(src) in scanned, scanned
+    # 第二次：已扫未变 → 不重复
+    n2 = shadow_core.shadow_scan_once(fake_scan)
+    assert n2 == 0, "缓存命中不重复扫"
+
+
+def test_shadow_core_ignores_excluded(tmp_path, monkeypatch):
+    """影子扫描排除 node_modules/steam 等目录。"""
+    import shadow_core
+    import scan_log_core
+    shadow_core._SCANNED.clear()  # 测试隔离
+    shadow_core._loaded = False
+    monkeypatch.setenv("UNIFIED_RX_SHADOW_SCANNED", str(tmp_path / "shadow-scanned.json"))
+    log = tmp_path / "scan-log.jsonl"
+    monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
+    bad = tmp_path / "node_modules" / "pkg" / "index.py"
+    bad.parent.mkdir(parents=True)
+    bad.write_text("x = 1\n", encoding="utf-8")
+    scan_log_core.append_scan({"tool": "fs_read", "root": str(bad), "ok": True, "summary": ""})
+    scanned = []
+    shadow_core.shadow_scan_once(lambda p: (scanned.append(p), True, "")[1])
+    assert not scanned, "node_modules 不应被影子扫"
+
+
+def test_window_core_project_root(tmp_path):
+    """窗口扫描：从文件路径向上探测项目根（含 .git 标记）。"""
+    import window_core
+    proj = tmp_path / "proj"
+    (proj / ".git").mkdir(parents=True)
+    (proj / "src").mkdir()
+    f = proj / "src" / "main.py"
+    f.write_text("x = 1\n", encoding="utf-8")
+    root = window_core._project_root(str(f))
+    assert root == str(proj), root
+
+
+def test_scan_cache_hit_and_invalidate(tmp_path, monkeypatch):
+    """缓存：文件未变命中；mtime 变化失效。"""
+    import scan_cache
+    cache_file = tmp_path / "scan-cache.json"
+    monkeypatch.setattr(scan_cache, "_CACHE_FILE", str(cache_file))
+    monkeypatch.setattr(scan_cache, "_loaded", False)
+    src = tmp_path / "f.py"
+    src.write_text("x = 1\n", encoding="utf-8")
+    assert scan_cache.get("bug_scan", str(src)) is None, "初始 miss"
+    scan_cache.put("bug_scan", str(src), {"ok": True, "issues": []})
+    hit = scan_cache.get("bug_scan", str(src))
+    assert hit and hit.get("ok") is True, "命中"
+    # 修改文件 → miss
+    src.write_text("x = 2\n", encoding="utf-8")
+    assert scan_cache.get("bug_scan", str(src)) is None, "文件变化失效"
+
+
+def test_full_scan_exclude_auto_roots(tmp_path, monkeypatch):
+    """全盘扫：自动默认 roots 过排除清单；显式 roots 不过滤。"""
+    import server as srv
+    # steam 目录被排除
+    assert srv._scan_excluded(r"D:\Steam\steamapps\common\game") is True
+    # 开发项目根不排除
+    assert srv._scan_excluded(r"D:\开发\VoxelForge-Nexus") is False
+    # 显式 roots 不过滤（测试路径含 temp 也不影响）
+    a = tmp_path / "projA"
+    a.mkdir()
+    (a / ".git").mkdir()
+    (a / "a.py").write_text("x = 1\n", encoding="utf-8")
+    srv._call("cb_index", {"path": str(a)})
+    r = srv._call("full_scan", {"roots": [str(a)], "ui": False})[0]
+    d = json.loads(r.text)
+    assert len(d["detail"]["projects"]) == 1, "显式 roots 不过滤"

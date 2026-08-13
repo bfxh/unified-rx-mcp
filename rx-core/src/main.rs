@@ -1,15 +1,17 @@
 // SPDX-FileCopyrightText: 2026 bfxh
 // SPDX-License-Identifier: MIT
-//! rx-core-cli — parity_check.py 用的命令行入口：stdin JSON {tool, args} → stdout 结果。
+//! rx-core-cli — 命令行入口：stdin JSON {tool, args} → stdout 结果。
+//!
+//! 支持两种模式：
+//!   - 单发：读全部 stdin（EOF 结束）处理一个请求后退出（parity_check 用）
+//!   - 常驻：逐行读取，每行一个 JSON 请求，每行一个结果（server.py 用）
+//! 两种模式协议相同：{tool, args} JSON → 结果字符串（错误为 "ERR: ..."）。
 
 use rx_core::*;
 use serde_json::Value;
+use std::io::{BufRead, Write};
 
-fn main() {
-    let mut input = String::new();
-    use std::io::Read;
-    std::io::stdin().read_to_string(&mut input).unwrap();
-    let req: Value = serde_json::from_str(&input).unwrap_or(Value::Null);
+fn dispatch(req: &Value) -> String {
     let tool = req["tool"].as_str().unwrap_or("");
     let a = &req["args"];
     let out: Result<String, String> = match tool {
@@ -41,8 +43,32 @@ fn main() {
         _ => Err(format!("unknown tool: {tool}")),
     };
     match out {
-        Ok(s) => println!("{s}"),
-        Err(e) => println!("ERR: {e}"),
+        Ok(s) => s,
+        Err(e) => format!("ERR: {e}"),
+    }
+}
+
+fn main() {
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    let mut out = std::io::BufWriter::new(stdout.lock());
+    let mut buf = String::new();
+    loop {
+        buf.clear();
+        let n = {
+            let mut lock = stdin.lock();
+            lock.read_line(&mut buf).unwrap_or(0)
+        };
+        if n == 0 {
+            break; // EOF：单发模式处理完退出，常驻模式由对端关闭
+        }
+        let line = buf.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let req: Value = serde_json::from_str(line).unwrap_or(Value::Null);
+        let _ = writeln!(out, "{}", dispatch(&req));
+        let _ = out.flush();
     }
 }
 

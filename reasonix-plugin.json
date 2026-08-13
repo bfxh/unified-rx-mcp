@@ -1,14 +1,19 @@
 {
   "apiVersion": "reasonix.io/plugin/v2",
   "name": "unified-rx",
-  "version": "1.0.0",
-  "description": "极简单文件 MCP：56 工具（代码分析/扫bug/定位/UI检查/设计系统/代码库认知/数学/文件安全层/统计）——适配 RX 扩展运行时 v2",
+  "version": "1.1.0",
+  "description": "59 工具统一 MCP（代码分析/扫bug/定位/UI检查/设计系统/代码库认知/IDE 增强/数学/文件安全层/统计）——适配 RX 扩展运行时 v2；标准 MCP stdio，Claude Code/Cursor/Windsurf/Trae/Aider 等智能体可经 scripts/install_agents.py 一键接入（见 docs/AGENT_COMPAT.md）",
   "mcpServers": {
     "unified-rx": {
       "command": "C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
       "args": ["E:\\共享\\51\\unified-rx\\server.py"],
       "auto_start": true,
-      "description": "56 工具统一 MCP（懒加载扩展：pr-oracle/tautest/cae/stats）。注：timeout 用全局 [tools].mcp_* 兜底（v2 MCPServer schema 无 per-server timeout 字段）"
+      "description": "59 工具统一 MCP（IDE 增强：complete 声明优先/rename 注释过滤/undo-redo 会话；懒加载扩展：pr-oracle/tautest/cae/stats）。注：timeout 用全局 [tools].mcp_* 兜底（v2 MCPServer schema 无 per-server timeout 字段）"
     }
+  },
+  "compat": {
+    "reason": "server.py 为标准 MCP stdio（mcp.server.stdio.stdio_server()），无 RX 客户端特判；RX 专属链路（reasonix-plugin v2 auto_start / 教训回灌 LSE / 协作配方）以 RX 为完整形态，其他智能体接入得到同一份证据与事实。优先适配 RX。",
+    "agents": ["claude", "cursor", "windsurf", "trae", "aider", "cline", "roo"],
+    "install": "python scripts/install_agents.py --all"
   }
 }
