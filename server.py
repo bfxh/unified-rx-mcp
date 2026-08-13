@@ -1923,8 +1923,16 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 actions = fix_data.get("actions", []) if fix_data.get("ok") else []
                 _finish({"tool": "ide_actions", "file": loc["file"],
                          "action_count": len(actions),
-                         "actions": [{"line": a.get("line"), "title": a.get("title")}
-                                     for a in actions[:10]]},
+                         "actions": [{"line": a.get("line"), "title": a.get("title"),
+                                      "detail": str(a.get("detail", ""))[:150]}
+                                     for a in actions[:10]],
+                         # IDE 增强八：可直接粘贴的 fs_write 骨架（L4 授权一步应用）
+                         "fs_template": {
+                             "tool": "fs_write",
+                             "args": {"path": loc["file"],
+                                      "content": "<读取原文件，按 actions 行号应用建议后写回>"},
+                             "auth_hint": "L4 授权：参数加 __authorized: true",
+                         }},
                         "fix", "ide_actions", f"{len(actions)} 条修复建议")
             else:
                 _finish({"tool": "ide_actions", "file": loc["file"], "action_count": 0,

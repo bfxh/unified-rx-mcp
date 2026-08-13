@@ -38,6 +38,18 @@ if ROOT not in sys.path:
 import server  # noqa: E402
 import scan_log_core  # noqa: E402
 
+
+def _safe_interval(name: str, default: float) -> float:
+    """读取间隔环境变量（非法值兜底默认——2026-08-13 bug 修复：
+    原 float(os.environ.get(...)) 在循环外解析，配置写错（如 "abc"）会抛
+    ValueError 使守护线程启动即崩溃、常驻扫描静默失效）。"""
+    raw = os.environ.get(name, "").strip()
+    try:
+        val = float(raw) if raw else default
+    except ValueError:
+        return default
+    return max(10.0, val)
+
 # 仓库管理日志路径
 REPO_LOG = os.path.join(os.environ.get("USERPROFILE") or os.environ.get("HOME") or ".",
                         ".unified-rx", "repo-log.jsonl")
@@ -76,7 +88,7 @@ def _ensure_self_scan_once():
 
 
 def _loop_self_scan() -> None:
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_SELF", "300"))
+    interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_SELF", 300)
     once = _ensure_self_scan_once()
     while True:
         try:
@@ -90,7 +102,7 @@ def _loop_self_scan() -> None:
 # 2. 项目扫描（模式①④）——跟随话题 + 最活跃
 # ─────────────────────────────────────────────────────────────
 def _loop_project_scan() -> None:
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_PROJECT", "120"))
+    interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_PROJECT", 120)
     while True:
         try:
             proj = os.environ.get("UNIFIED_RX_PROJECT", "").strip()
@@ -134,7 +146,7 @@ def _most_active_project() -> str | None:
 # 3. 全盘扫（模式②）
 # ─────────────────────────────────────────────────────────────
 def _loop_full_scan() -> None:
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_FULL", "600"))
+    interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_FULL", 600)
     while True:
         try:
             server._call("full_scan", {"max_files": 100, "ui": False})
@@ -147,7 +159,7 @@ def _loop_full_scan() -> None:
 # 4. 仓库管理（GitHub PR/CI/issue 状态轮询）
 # ─────────────────────────────────────────────────────────────
 def _loop_repo_manage() -> None:
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_REPO", "300"))
+    interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_REPO", 300)
     while True:
         try:
             _repo_manage_once()
@@ -178,7 +190,7 @@ def _loop_shadow_scan() -> None:
     import shadow_core
     # 注入真实沙盒校验（shadow 候选路径必须通过 server._check_path）
     shadow_core._check_path = server._check_path
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_SHADOW", "30"))
+    interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_SHADOW", 30)
     while True:
         try:
             n = shadow_core.shadow_scan_once(_shadow_scan_callback)
@@ -197,7 +209,7 @@ def _loop_shadow_scan() -> None:
 # ─────────────────────────────────────────────────────────────
 def _loop_window_scan() -> None:
     import window_core
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_WINDOW", "120"))
+    interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_WINDOW", 120)
     last_proj = None
     while True:
         try:
@@ -223,7 +235,7 @@ def _loop_window_scan() -> None:
 # ─────────────────────────────────────────────────────────────
 def _loop_cache_maintain() -> None:
     import scan_cache
-    interval = float(os.environ.get("UNIFIED_RX_SCAN_INTERVAL_CACHE", "600"))
+    interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_CACHE", 600)
     while True:
         try:
             st = scan_cache.stats()

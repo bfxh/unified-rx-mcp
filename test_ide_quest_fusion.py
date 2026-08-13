@@ -140,6 +140,14 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         # fix 生成修复建议（unwrap → 安全处理）
         fix = next(c for c in d["chain"] if c["step"] == "fix")
         assert fix["summary"].startswith("2 条修复建议"), f"两个 unwrap 应有 2 条建议: {fix}"
+        # IDE 增强八：fix 步 result 附 fs_template（fs_write 骨架 + L4 授权提示）
+        q = ide_quest.resume_quest(d["quest_id"])
+        fix_result = q.state["steps"]["fix"]["result"]
+        assert "fs_template" in fix_result, f"fix 步应附 fs_template: {fix_result}"
+        tpl = fix_result["fs_template"]
+        assert tpl["tool"] == "fs_write"
+        assert tpl["args"]["path"].endswith("bug.rs"), f"模板路径: {tpl}"
+        assert "__authorized" in tpl.get("auth_hint", ""), "应含 L4 授权提示"
         # verify 给回归命令
         ver = next(c for c in d["chain"] if c["step"] == "verify")
         assert "cargo test" in ver["summary"], f"Rust 文件应建议 cargo test: {ver}"
