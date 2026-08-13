@@ -2395,3 +2395,28 @@ def test_std_placeholder_words_and_step_guard(tmp_path, monkeypatch):
                                               "step": "bogus",
                                               "result": {}})[0].text)
     assert d["ok"] is False and "步骤不匹配" in str(d.get("error", "")), d
+
+
+def test_fs_write_safety_gates(tmp_path, monkeypatch):
+    """fs_write 三层安全（2026-08-14 验证）：授权门控 + 沙盒边界 + 写入生效。"""
+    # 测试文件模块级禁用了沙盒（UNIFIED_RX_SANDBOX=""）——本测试显式恢复
+    # 沙盒根为 tmp 基目录，验证边界拒绝真实生效
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    in_repo = tmp_path / "in"
+    in_repo.mkdir()
+    # 无授权 → 拒绝
+    txt = server._call("fs_write", {"path": str(in_repo / "a.txt"),
+                                    "content": "x"})[0].text
+    assert "授权" in txt, f"无授权应拒绝: {txt[:60]}"
+    # 带授权 → 写入
+    txt = server._call("fs_write", {"path": str(in_repo / "a.txt"),
+                                    "content": "hello",
+                                    "__authorized": True})[0].text
+    assert "已写入" in txt, txt[:60]
+    assert (in_repo / "a.txt").read_text(encoding="utf-8") == "hello"
+    # 沙盒外 → 拒绝（即使授权）
+    out = tmp_path / ".." / "outside_fs_write_test"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    txt = server._call("fs_write", {"path": str(out / "b.txt"),
+                                    "content": "x", "__authorized": True})[0].text
+    assert "拒绝" in txt or "越界" in txt, f"沙盒外应拒绝: {txt[:60]}"
