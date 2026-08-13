@@ -2,6 +2,10 @@
 
 **56 工具的统一 MCP（single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
+> **定位：工具集，不是智能体** —— 本 MCP 产出证据与事实，不替代 LLM 推理。
+> 工具行为契约见 [`spec/`](spec/README.md)，契约验证探针见 [`probes/`](probes/run_all.py)，
+> 实测报告见 [`reports/`](reports/REPORT_2026-08-13.md)（13/13 verified）。
+
 ## 定位
 
 一个 MCP 入口，工具按**协作角色**分类，覆盖智能体开发全流程：
