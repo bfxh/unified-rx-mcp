@@ -271,6 +271,39 @@ def test_quest_list_filter_and_clean(tmp_path, monkeypatch):
         shutil.rmtree(repo, ignore_errors=True)
 
 
+def test_quest_verify_fix(tmp_path, monkeypatch):
+    """IDE 增强十八：verify_fix 应用验证器（重扫目标文件对比问题数）。"""
+    import shutil
+    import tempfile
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    repo = tempfile.mkdtemp(prefix="quest_vfix_", dir=os.getcwd())
+    bug_file = os.path.join(repo, "bug.rs")
+    try:
+        with open(bug_file, "w", encoding="utf-8") as f:
+            f.write("fn main() {\n    let x = foo().unwrap();\n    let y = bar().unwrap();\n}\n")
+        r = server._call("ide_quest", {"action": "auto", "path": repo, "quest_id": "vf-1"})
+        qid = json.loads(r[0].text)["quest_id"]
+        # 未修复：verify_fix 报告当前问题数 + verdict 未变化
+        r2 = json.loads(server._call("ide_quest", {"action": "verify_fix",
+                                                   "quest_id": qid})[0].text)
+        assert r2["ok"] and r2["file"].endswith("bug.rs")
+        assert r2["issue_count"] >= 1, f"未修复应有问题: {r2}"
+        assert r2["prev_issue_count"] >= 1
+        # 模拟修复（去掉 unwrap）后：问题数下降 → verdict 修复生效
+        with open(bug_file, "w", encoding="utf-8") as f:
+            f.write("fn main() {\n    let x = foo().ok();\n    let y = bar().ok();\n}\n")
+        r3 = json.loads(server._call("ide_quest", {"action": "verify_fix",
+                                                   "quest_id": qid})[0].text)
+        assert r3["ok"] and r3["issue_count"] < r3["prev_issue_count"], f"修复后应减少: {r3}"
+        assert r3["verdict"] == "修复生效", f"verdict: {r3['verdict']}"
+        # 不存在 quest → 错误
+        r4 = json.loads(server._call("ide_quest", {"action": "verify_fix",
+                                                   "quest_id": "no-such"})[0].text)
+        assert not r4["ok"]
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
 def test_quest_auto_no_issues(tmp_path, monkeypatch):
     """auto 链对干净代码：六步仍走完，locate 标记未发现问题。"""
     import shutil

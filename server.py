@@ -1879,6 +1879,38 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                     "done": q.state["steps"][step].get("done", False),
                                     "result": q.state["steps"][step].get("result")},
                                    ensure_ascii=False, indent=2))]
+        if action == "verify_fix":
+            # IDE 增强十八：fs_template/修复应用后的验证器——重扫 locate 步
+            # 目标文件，对比问题数判断修复是否生效
+            q = resume_quest(quest_id)
+            if q is None:
+                return [_TC(json.dumps({"ok": False, "error": f"任务不存在: {quest_id}"},
+                                       ensure_ascii=False))]
+            loc = q.state.get("steps", {}).get("locate", {}).get("result") or {}
+            file = str(loc.get("file", ""))
+            if not file or not os.path.isfile(file):
+                return [_TC(json.dumps({"ok": False,
+                                        "error": "locate 步无有效目标文件（或文件已删除）"},
+                                       ensure_ascii=False))]
+            try:
+                scan_data = json.loads(_call("bug_scan", {"path": file})[0].text)
+            except (json.JSONDecodeError, IndexError, KeyError):
+                scan_data = {"ok": False, "issues": []}
+            issues = scan_data.get("issues", []) if scan_data.get("ok") else []
+            prev = q.state.get("steps", {}).get("diagnose", {}).get("result") or {}
+            prev_count = prev.get("issue_count", -1)
+            cur = len(issues)
+            verdict = ("修复生效" if prev_count >= 0 and cur < prev_count
+                       else "未变化" if prev_count >= 0 and cur == prev_count
+                       else "未知（无上次基线）")
+            return [_TC(json.dumps({"ok": True, "file": file,
+                                    "issue_count": cur,
+                                    "prev_issue_count": prev_count,
+                                    "severity_counts": scan_data.get("severity_counts", {}),
+                                    "verdict": verdict,
+                                    "advice": ("对比上次 auto diagnose 问题数：减少=修复生效；"
+                                               "未变化=复查 fix 步 checklist/fs_template")},
+                                   ensure_ascii=False, indent=2))]
         if action == "list":
             # IDE 增强十七：status 过滤（all/active/finished/aborted）
             status_filter = str(args.get("status", "all"))
@@ -3181,7 +3213,7 @@ _TOOLS: dict[str, tuple] = {
         "lsp_refs": _S("array", "impact 时：LSP 引用文件路径列表（可空）"),
     }, ["path"]), "IDE 融合：诊断→符号图聚合 / 双引擎影响面校验（LSP vs 引用扫描）"),
     "ide_quest": (_tool_ide_quest, _schema({
-        "action": _S("string", "new/resume/status/step/list/abort/note/auto/result/clean"),
+        "action": _S("string", "new/resume/status/step/list/abort/note/auto/result/clean/verify_fix"),
         "quest_id": _S("string", "任务 ID（new/resume/step 必需；auto 省略自动生成）"),
         "task": _S("string", "任务描述（new 时）"),
         "repo": _S("string", "仓库根（new 时）"),
