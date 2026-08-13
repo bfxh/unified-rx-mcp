@@ -2439,6 +2439,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             _report.append("> 后续：`stats_summary` 统计 / `vuln_scan` 三引擎复扫 / "
                            "`pipeline preset=audit_repo` 一键审计；扫描文件被修改后 "
                            "shadow 扫描自动补扫。")
+            # IDE 增强九十二：备注数提示（协作痕迹一眼可见）
+            _report.append(f"> 任务备注：{len(q.state.get('notes', []))} 条"
+                           f"（`ide_quest action=status quest_id={quest_id}` 查看）。")
             report_md = "\n".join(_report)
             # IDE 增强二十：报告摘要入 quest note（断点续跑可见上轮报告）
             try:
