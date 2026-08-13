@@ -2177,7 +2177,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # IDE 增强十九：markdown 报告（human-readable，AI 可直接展示/粘贴）
             _step_titles = {"diagnose": "诊断", "locate": "定位", "impact": "影响面",
                             "fix": "修复建议", "verify": "验证", "lesson": "教训"}
-            _report = [f"# 自动诊断报告", f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s", ""]
+            _report = [f"# 自动诊断报告",
+                       f"**结果**：{'✅ success' if result_verdict == 'success' else '⚠️ partial' if result_verdict == 'partial' else '❌ failed'}",  # IDE 增强二十六
+                       f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s", ""]
             for c in chain:
                 _report.append(f"### {_step_titles.get(c['step'], c['step'])}")
                 _report.append(c.get("summary", ""))
