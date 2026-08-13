@@ -15,7 +15,7 @@
    - 奇数长度全 int 的 median → int 形式
    - `geo_rect` 全 int → int 形式
 2. **除零语义**：`math_ops div(a, 0)` **MUST** 返回错误（`Error` 文本），不得抛崩溃
-   （probe_13 断言）。
+   （probe_12 断言，§6.2.2）。
 3. **边界**：`fib` 上限 20000、`is_prime` ≤10M、`gen_primes` ≤1M——超限 **MUST** 报错。
 
 ## 6.3 性能契约（SHOULD）

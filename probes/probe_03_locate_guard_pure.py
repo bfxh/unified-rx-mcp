@@ -73,18 +73,20 @@ def p12():
         return False, f"power(2,10) 应为 1024 实为: {txt1}"
     r2 = S._call("math_ops", {"action": "div", "a": 1, "b": 0})
     txt2 = r2[0].text if r2 else ""
-    if "Error" in txt2 or "错误" in txt2:
+    if "Error" in txt2 or "错误" in txt2 or "除" in txt2:
         return True, f"parity OK + 除零报错: power=1024, div0={txt2[:60]}"
-    return True, f"power=1024 OK（div0 未报错但未崩溃: {txt2[:60]}）"
+    return False, f"除零未报错（违反 §6.2.2 MUST）: div0={txt2[:60]}"
 
 
 @probe("p13_rxcore_fallback")
 def p13():
-    """rx-core 禁用时自动回退 Python，输出一致。"""
+    """rx-core 禁用时自动回退 Python，输出一致（校验返回值 == 81）。"""
     os.environ["RX_CORE"] = "0"  # 强制禁用 Rust
     try:
         r1 = S._call("math_ops", {"action": "power", "base": 3, "exponent": 4})
         txt1 = r1[0].text if r1 else ""
-        return (True, f"RX_CORE=0 回退 Python: power(3,4)={txt1}（期望 81）")
+        if txt1.strip() == "81":
+            return True, f"RX_CORE=0 回退 Python: power(3,4)=81（一致）"
+        return False, f"回退后输出不一致（期望 81 实为 {txt1}）"
     finally:
         os.environ.pop("RX_CORE", None)
