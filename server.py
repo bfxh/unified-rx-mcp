@@ -2388,6 +2388,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                        f"**任务**：`{quest_id}`",
                        # IDE 增强七十九：结论理由行（verdict 一句话归档）
                        f"**结论**：{result_note[:100]}",
+                       # IDE 增强八十一：链步数（六步+std 联动一览）
+                       f"**步数**：{len(chain)}（含 std_check 联动）" if any(
+                           c.get("tool") == "std_check" for c in chain) else f"**步数**：{len(chain)}",
                        # IDE 增强五十六：链配置回显（可复现性——参数归档）
                        f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
                        f"limit={args.get('limit', '默认')}",
