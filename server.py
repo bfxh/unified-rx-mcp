@@ -1958,6 +1958,14 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                          f"（×{a.get('count', 1)}）{a.get('title', '')}")
                         else:
                             lines.append(f"- L{a.get('line', '?')} {a.get('title', '')}")
+                    # IDE 增强五十：kind 分布（safety/cleanup 一眼可见）
+                    _kinds = {}
+                    for a in (r.get("actions") or []):
+                        _k = a.get("kind", "other")
+                        _kinds[_k] = _kinds.get(_k, 0) + 1
+                    if _kinds:
+                        lines.append(f"- kind 分布："
+                                     f"{' / '.join(f'{k} {n}' for k, n in sorted(_kinds.items()))}")
                     if r.get("fs_template"):
                         lines.append(f"- fs_template 就绪（`fs_write` L4 授权应用）")
                 elif name == "verify":
