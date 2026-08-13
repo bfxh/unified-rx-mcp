@@ -16,11 +16,15 @@ import re
 _TOKENS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "design_tokens.json")
 
 # Rust 代码中的硬编码 UI 值 → token 对照（检测偏离）
+# 2026-08-14 覆盖补齐：+width/height（最常见尺寸硬编码）+color（rgb/rgba 分量对照）
 _HARDCODED_PATTERNS = {
     "font_size": re.compile(r"font_size:\s*([\d.]+)"),
     "padding": re.compile(r"(?:left|right|top|bottom):\s*Val::Px\(([\d.]+)\)"),
     "gap": re.compile(r"(?:column_gap|row_gap):\s*Val::Px\(([\d.]+)\)"),
     "radius": re.compile(r"border_radius:.*?Val::Px\(([\d.]+)\)"),
+    "width": re.compile(r"width\s*[:=]\s*Val::Px\(([\d.]+)\)"),
+    "height": re.compile(r"height\s*[:=]\s*Val::Px\(([\d.]+)\)"),
+    "color": re.compile(r"Color::(?:rgb|rgba)\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)"),
 }
 
 # 允许的维度值：从 tokens 动态派生（新增 dimension token 自动纳入，防误报，review should-fix）
@@ -32,6 +36,21 @@ def _allowed_dimensions() -> set[float]:
         if info.get("type") == "dimension" and isinstance(val, str) and val.endswith("px"):
             try:
                 allowed.add(float(val[:-2]))
+            except ValueError:
+                continue
+    return allowed
+
+
+def _allowed_colors() -> set[tuple]:
+    """允许的 RGB 分量三元组（从 color tokens 动态派生，防误报）。"""
+    flat = lookup_tokens().get("tokens", {})
+    allowed = set()
+    for info in flat.values():
+        val = info.get("value", "")
+        if info.get("type") == "color" and isinstance(val, str) and val.startswith("rgba("):
+            parts = val[5:-1].split(",")
+            try:
+                allowed.add(tuple(round(float(p), 4) for p in parts[:3]))
             except ValueError:
                 continue
     return allowed
@@ -75,9 +94,25 @@ def check_ui_code(src: str, path: str = "") -> list[dict]:
     allowed = _allowed_dimensions()  # 动态派生（review should-fix：新增 token 自动纳入）
 
     # 1. 硬编码值偏离
+    allowed_colors = _allowed_colors()
     for i, line in enumerate(lines, 1):
         for kind, pat in _HARDCODED_PATTERNS.items():
             for m in pat.finditer(line):
+                if kind == "color":
+                    # 颜色：分量三元组对照 color tokens（2026-08-14 覆盖补齐）
+                    try:
+                        comps = tuple(round(float(m.group(g)), 4) for g in (1, 2, 3))
+                    except ValueError:
+                        continue
+                    if comps not in allowed_colors:
+                        issues.append({
+                            "rule": "hardcoded_value",
+                            "severity": "warning",
+                            "line": i,
+                            "msg": f"硬编码颜色 {comps} 不在 design tokens 中",
+                            "file": path,
+                        })
+                    continue
                 try:
                     val = float(m.group(1))
                 except ValueError:

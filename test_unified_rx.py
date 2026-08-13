@@ -2080,3 +2080,26 @@ def test_ext_call_exception_degrades(monkeypatch):
     text = r[0].text
     assert "Error in tautest" in text and "模拟故障" in text, f"调用异常应转 Error: {text[:120]}"
     monkeypatch.delitem(server._EXT_LOADED, "tautest")
+
+
+def test_ds_check_width_color_coverage(tmp_path):
+    """ds_check 覆盖补齐（2026-08-14）：硬编码 width/height/颜色违规检出。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    ui = proj / "ui.rs"
+    ui.write_text(
+        "fn ui() {\n"
+        "    style.width = Val::Px(999.0);\n"        # 硬编码宽度
+        "    style.height = Val::Px(777.0);\n"       # 硬编码高度
+        "    style.background = Color::rgb(0.123, 0.456, 0.789);\n"  # 硬编码颜色
+        "}\n",
+        encoding="utf-8",
+    )
+    r = server._call("ds_check", {"path": str(ui)})
+    d = json.loads(r[0].text)
+    assert d["ok"] is True
+    msgs = " | ".join(i.get("msg", "") for i in d["issues"])
+    assert "width=999.0" in msgs, f"宽度违规应检出: {msgs}"
+    assert "height=777.0" in msgs, f"高度违规应检出: {msgs}"
+    assert "硬编码颜色" in msgs, f"颜色违规应检出: {msgs}"
+    assert d["issue_count"] >= 3
