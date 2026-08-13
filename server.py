@@ -2090,6 +2090,22 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                     f"{len(issues)} 问题（{len(errors)} error）"
                     + ("" if scan_data.get("ok")
                        else " ⚠ 扫描失败（可用 force=True 重试整链）"))  # IDE 增强二十四
+            # IDE 增强五十七：std_check 工程标准联动（占位/死代码/重复定义/
+            # UI 硬编码/魔法数字——独立于 bug_scan 主线，附 summary 不抢 locate）
+            try:
+                _std = json.loads(_call("std_check", {"path": path})[0].text)
+                _std_sev = _std.get("severity_counts", {}) if _std.get("ok") is not None else {}
+                if not isinstance(_std_sev, dict):
+                    _std_sev = {}
+            except Exception:
+                _std_sev = {}
+            if _std_sev:
+                _finish({"tool": "std_check", "path": path,
+                         "std_severity_counts": _std_sev},
+                        "diagnose", "std_check",
+                        f"工程标准 {_std_sev.get('Critical', 0)} Critical/"
+                        f"{_std_sev.get('Error', 0)} Error/"
+                        f"{_std_sev.get('Warning', 0)} Warning")
             # 2. locate：top 问题位置（error 优先）+ 行上下文 + 符号线索（IDE 增强十）
             top = (errors or issues or [{}])[0]
             loc = {"tool": "locate", "file": top.get("file", ""),
