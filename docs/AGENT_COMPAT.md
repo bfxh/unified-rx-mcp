@@ -64,12 +64,15 @@ Gemini CLI（`~/.gemini/settings.json`）：
 {
   "mcpServers": {
     "unified-rx": {
-      "command": "python",
+      "command": "C:\\<Python 绝对路径>\\python.exe",
       "args": ["C:\\<unified-rx 仓库路径>\\server.py"]
     }
   }
 }
 ```
+
+> 注：command 用**绝对路径**（防 PATH 劫持——与 RX 安装段一致）；不确定 Python 位置时
+> Windows 用 `where python`、macOS/Linux 用 `which python3` 查询。
 
 Codex CLI（`~/.codex/config.toml`）：
 
