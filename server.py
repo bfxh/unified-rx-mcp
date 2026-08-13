@@ -2314,7 +2314,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # IDE 增强四十七：lesson summary 附 fix 计数（链摘要看到修复工作量）
             _lesson_fix_n = (len(actions) if "actions" in dir() else 0)
             _finish({"tool": "lesson",
-                     "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发",
+                     # IDE 增强八十：附 auto_extract 提示（文本教训自动提取入库）
+                     "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发；"
+                               "对话文本教训可用 auto_extract_lessons 自动提取入库",
                      # IDE 增强五十一：lesson 附 fix 计数（report 显示修复工作量）
                      "fix_count": _lesson_fix_n,
                      # IDE 增强七十五：lesson_recall 联动字段（消费端直接可调）

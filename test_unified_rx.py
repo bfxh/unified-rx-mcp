@@ -2579,3 +2579,16 @@ def test_lse_lesson_loop_and_allowed_dim(tmp_path, monkeypatch):
     assert _lse.delta_update_lesson(lid, -0.1, threshold=0.05)["ok"] is True
     import ds_core as _ds
     assert 6.0 in _ds._allowed_dimensions(), "token 维度应动态派生"
+
+
+def test_auto_extract_lessons(tmp_path, monkeypatch):
+    """auto_extract_lessons 中文信号词提取入库（2026-08-14 验证）。"""
+    import lse_client as _lse
+    import hashlib as _hl
+    monkeypatch.setenv("LSE_STATE", str(tmp_path / "lse.json"))
+    text = "今天遇到一个教训：拼接模块用浮点比较导致测试不稳定。注意：不要假设帧数精确。"
+    r = _lse.auto_extract_lessons(text)
+    assert r["ok"] is True and r.get("lessons"), r
+    content = r["lessons"][0]
+    lid = "work_" + _hl.sha256(content.encode("utf-8")).hexdigest()[:16]
+    assert _lse.lesson_recall(lid)["ok"] is True, "提取教训应入库可召回"
