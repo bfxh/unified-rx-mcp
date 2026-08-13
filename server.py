@@ -1887,6 +1887,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # → fix(ide_actions) → verify(回归提示)。一次调用跑完五步，
             # 结果写入 quest 状态（可断点续查）。
             import time as _t
+            _chain_t0 = _t.perf_counter()
             path = str(args.get("path", ""))
             if not path:
                 return [_TC(json.dumps({"ok": False, "error": "auto 需要 path 参数"},
@@ -2017,6 +2018,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             # 顶层 summary（IDE 增强十一 2026-08-13）：六步一句话总览——
             # AI 一眼看到全链结论；完整结果仍在 quest 状态可断点续查
             chain_summary = " → ".join(c.get("summary", "") for c in chain)
+            chain_elapsed = round(_t.perf_counter() - _chain_t0, 2)  # IDE 增强十五：链耗时
             # IDE 增强十二：auto 完成 → scan-log 落盘（链路记忆，项目维度可查）
             try:
                 import scan_log_core as _slc
@@ -2027,6 +2029,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
                                     "chain": chain,
                                     "summary": chain_summary,
+                                    "elapsed_s": chain_elapsed,
                                     "status": q.status()},
                                    ensure_ascii=False, indent=2))]
         return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]

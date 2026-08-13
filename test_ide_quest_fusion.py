@@ -132,6 +132,8 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         # IDE 增强十一：顶层 summary 一句话总览（省 token）
         assert "summary" in d and "bug.rs" in d["summary"], f"summary 应含定位: {d.get('summary')}"
         assert "cargo test" in d["summary"], f"summary 应含回归命令: {d.get('summary')}"
+        # IDE 增强十五：链耗时统计
+        assert "elapsed_s" in d and d["elapsed_s"] >= 0, f"应附链耗时: {d.get('elapsed_s')}"
         # IDE 增强十二：auto 完成落盘 scan-log（链路记忆，项目维度可查）
         monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(tmp_path / "scan-log.jsonl"))
         server._call("ide_quest", {"action": "auto", "path": repo, "task": "修 bug.rs 2"})
