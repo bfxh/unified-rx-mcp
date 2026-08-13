@@ -2023,10 +2023,18 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 q._save()
             chain: list[dict] = []
 
+            # IDE 增强二十二：各步耗时（chain 每项附 elapsed_s——性能分布可视化）
+            _last_step_ts = _t.perf_counter()
+
             def _finish(step_result: dict, step_name: str, tool: str, summary: str) -> None:
+                nonlocal _last_step_ts
+                now = _t.perf_counter()
+                step_elapsed = round(now - _last_step_ts, 3)
+                _last_step_ts = now
                 r = q.complete_step(step_result)
                 chain.append({"step": step_name, "tool": tool,
-                              "summary": summary, "ok": r.get("ok", True)})
+                              "summary": summary, "ok": r.get("ok", True),
+                              "elapsed_s": step_elapsed})
 
             # 1. diagnose：bug_scan（IDE 增强十四：幂等只读重试一次——
             #    扩展懒加载/首扫慢等瞬时失败不拖垮整链）

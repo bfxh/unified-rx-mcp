@@ -159,6 +159,9 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         assert "bug.rs" in log_text, f"scan-log 应含链摘要（定位）: {log_text[:300]!r}"
         steps = [c["step"] for c in d["chain"]]
         assert steps == ["diagnose", "locate", "impact", "fix", "verify", "lesson"], f"链顺序: {steps}"
+        # IDE 增强二十二：每步附耗时
+        for c in d["chain"]:
+            assert "elapsed_s" in c and c["elapsed_s"] >= 0, f"每步应附耗时: {c}"
         # diagnose 记录问题数（bug_scan 对 unwrap 至少报 warn）
         diag = next(c for c in d["chain"] if c["step"] == "diagnose")
         assert diag["ok"] is True
