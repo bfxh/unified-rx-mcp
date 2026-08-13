@@ -2266,6 +2266,10 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                              "args": {"path": loc["file"],
                                       "content": "<读取原文件，按 actions 行号应用建议后写回>"},
                              "auth_hint": "L4 授权：参数加 __authorized: true",
+                             # IDE 增强七十七：行号预览（模板应用范围一览）
+                             "lines": [{"line": a.get("line"),
+                                        "title": str(a.get("title", ""))[:24]}
+                                       for a in actions[:10]],
                          }},
                         "fix", "ide_actions",
                         f"{len(actions)} 条修复建议" +

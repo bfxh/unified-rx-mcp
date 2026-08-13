@@ -69,6 +69,10 @@ class Quest:
 
     def complete_step(self, result: dict) -> dict:
         """完成当前步：存结果 → 前进。返回下一步信息。"""
+        if self.state.get("aborted"):
+            # 2026-08-14 修复：abort 后不可继续（实测 abort 后 step 仍
+            # ok=True 前进——中止语义失效）
+            return {"ok": False, "error": "任务已中止（aborted）——不可继续"}
         if self.state["finished"]:
             return {"ok": False, "error": "任务已完成"}
         idx = self.state["current_step"]

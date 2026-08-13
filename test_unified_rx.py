@@ -2363,3 +2363,15 @@ def test_std_todo_markers_and_tool_card(tmp_path):
     r = server._call("tool_card", {"name": "tool_card", "arguments": {}})
     d = json.loads(r[0].text)
     assert d["ok"] is False and "递归" in str(d.get("summary", "")), d
+
+
+def test_quest_abort_blocks_continue(tmp_path, monkeypatch):
+    """abort 后不可继续（2026-08-14 修复）：complete_step 拒绝 aborted。"""
+    import ide_quest as _iq
+    monkeypatch.setattr(_iq, "_QUEST_DIR", str(tmp_path / "quests"))
+    server._call("ide_quest", {"action": "new", "task": "t", "quest_id": "ab"})
+    server._call("ide_quest", {"action": "abort", "quest_id": "ab"})
+    d = json.loads(server._call("ide_quest", {"action": "step", "quest_id": "ab",
+                                              "step": "diagnose",
+                                              "result": {"x": 1}})[0].text)
+    assert d["ok"] is False and "中止" in str(d.get("error", "")), d
