@@ -2150,3 +2150,21 @@ def test_ui_check_text_bundle_recognized(tmp_path):
     assert "font_missing" in rules, f"应报 font_missing: {rules}"
     assert "camera_missing" in rules, f"Text::new 应识别为 UI（camera_missing）: {rules}"
     assert "ui_root_missing" not in rules, "TextBundle 简写不应报 ui_root_missing（隐式 Node）"
+
+
+def test_cb_index_truncate_no_false_removed(monkeypatch, tmp_path):
+    """cb_index 截断下 removed 防误报（2026-08-14）：截断不报删除 + truncated 标志。"""
+    import cb_index_core as cb
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for i in range(8):
+        (repo / f"f{i}.rs").write_text(f"pub fn f{i}() {{}}\n", encoding="utf-8")
+    # 首次全量
+    r1 = cb.index_repo(str(repo))
+    assert r1["file_count"] == 8 and r1["removed"] == []
+    # 二次截断（上限 5）
+    monkeypatch.setattr(cb, "MAX_FILES", 5)
+    r2 = cb.index_repo(str(repo))
+    assert r2["file_count"] == 5
+    assert r2["removed"] == [], f"截断不应报 removed（文件仍在）: {r2['removed']}"
+    assert r2["truncated"] is True, "截断应标注 truncated 标志"

@@ -113,6 +113,7 @@ def index_repo(root: str) -> dict:
 
     # 变更感知（首次索引无基线 → changed 空）
     is_first = not old
+    truncated = total_files >= MAX_FILES  # 截断标志（2026-08-14：removed 防误报）
     if is_first:
         changed, added, removed = [], [], []
     else:
@@ -121,7 +122,13 @@ def index_repo(root: str) -> dict:
         old = {k: v for k, v in old.items() if isinstance(v, dict)}
         changed = sorted(rel for rel, info in files.items() if old.get(rel, {}).get("hash") != info["hash"])
         added = sorted(rel for rel in files if rel not in old)
-        removed = sorted(rel for rel in old if rel not in files)
+        if truncated:
+            # 截断时不报 removed：无法区分"真删除"与"被截断未扫描"——
+            # 宁可漏报删除（下次全量索引自然发现）也不误报（误导消费端
+            # 认为文件没了）。正确性优先（缓存优化原则：宁可 miss 不可错）。
+            removed = []
+        else:
+            removed = sorted(rel for rel in old if rel not in files)
 
     data = {
         "root": root,
@@ -144,6 +151,7 @@ def index_repo(root: str) -> dict:
         "changed": changed,
         "added": added,
         "removed": removed,
+        "truncated": truncated,
         "files": files,
         "index_path": index_path,
         "is_first_index": is_first,
