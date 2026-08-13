@@ -2464,3 +2464,24 @@ def test_ui_check_focus_pass_style(tmp_path):
                                  encoding="utf-8")
     d = json.loads(server._call("ds_check", {"path": str(proj / "hud.rs")})[0].text)
     assert "font_fallback_missing" in {i.get("rule") for i in d["issues"]}
+
+
+def test_ui_check_mode_isolation_and_empty(tmp_path):
+    """mode_isolation 分支（编辑标记无显隐检出/有显隐不报）+ std_check 空目录。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "editor.rs").write_text(
+        "fn ui() {\n    if is_editing {\n        spawn(Node);\n    }\n}\n",
+        encoding="utf-8")
+    d = json.loads(server._call("ui_check", {"path": str(proj / "editor.rs")})[0].text)
+    assert any(i.get("rule") == "mode_isolation" for i in d["issues"]), "无显隐应检出"
+    (proj / "editor2.rs").write_text(
+        "fn ui() {\n    if is_editing {\n        visibility = Visible;\n        spawn(Node);\n    }\n}\n",
+        encoding="utf-8")
+    d = json.loads(server._call("ui_check", {"path": str(proj / "editor2.rs")})[0].text)
+    assert not any(i.get("rule") == "mode_isolation" for i in d["issues"]), "有显隐不报"
+    # 空目录
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    d = json.loads(server._call("std_check", {"path": str(empty)})[0].text)
+    assert d["ok"] is True and d.get("issues") == []
