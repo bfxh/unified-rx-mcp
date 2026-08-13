@@ -58,3 +58,19 @@ def test_extract_claims_no_panic_on_binaryish():
     """含大量符号字符的文本（类二进制）不崩溃。"""
     r = guard_text("\x00\x01\x02 file.rs:3 \x7f\x80" * 500)
     assert "advice" in r
+
+
+def test_guard_tool_names_whitelist():
+    """tool_names 白名单：声明工具名在白名单 → verified（不用文件/grep 兜底）。"""
+    r = guard_text("我调用了 `math_ops` 工具来计算。", tool_names={"math_ops"})
+    assert r["verdict"] == "pass", f"白名单工具应 verified: {r}"
+    assert any(i["verdict"] == "verified" and i["claim"] == "math_ops"
+               for i in r["verified"]), f"verified 应含 math_ops: {r['verified']}"
+
+
+def test_guard_tool_names_miss():
+    """工具名不在白名单 → 不冒充 verified（走文件/grep 兜底或 unverified）。"""
+    r = guard_text("我调用了 `nope_tool_xyz` 工具。", tool_names={"math_ops"})
+    # 不在白名单：不会 verified（本地无该符号文件 → unverified 或 refuted，绝不 verified）
+    assert not any(i["claim"] == "nope_tool_xyz" and i["verdict"] == "verified"
+                   for i in r.get("verified", [])), f"不在白名单不得 verified: {r}"

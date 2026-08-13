@@ -207,6 +207,9 @@ def test_quest_auto_chain(tmp_path, monkeypatch):
         ver_result = qv.state["steps"]["verify"]["result"]
         assert "checklist" in ver_result and len(ver_result["checklist"]) >= 3, (
             f"verify 步应附自检清单: {ver_result}")
+        # IDE 增强三十一：checklist 联动 verify_fix
+        assert any("verify_fix" in c for c in ver_result["checklist"]), (
+            f"checklist 应含 verify_fix 指引: {ver_result['checklist']}")
         # 断点续查：quest 状态保留六步结果
         r2 = server._call("ide_quest", {"action": "status", "quest_id": d["quest_id"]})
         st = json.loads(r2[0].text)["status"]

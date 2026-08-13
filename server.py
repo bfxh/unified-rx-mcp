@@ -2139,7 +2139,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                      "checklist": [
                          f"1. 应用 fix 步的修复建议/fs_template 到 {loc.get('file', '目标文件')}",
                          f"2. 跑回归：{cmd}",
-                         "3. 复查：修复行不再触发原规则（可重跑本 auto 链或 bug_scan 验证）",
+                         "3. 复查：修复行不再触发原规则（用 `ide_quest action=verify_fix` 验证）",
                          "4. 通过后用 ide_quest note 记录验证结果",
                          "5. lesson 步提示：用 lesson_recall 记录教训防复发",
                      ]},
