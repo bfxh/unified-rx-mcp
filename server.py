@@ -2836,6 +2836,13 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
         result = scan_file(str(p))
     else:
         raise ValueError(f"仅支持文件或目录: {p}")
+    # IDE 增强四十四前序：severity_counts 聚合（与 bug_scan 返回结构一致——
+    # AI 消费端统一按 severity_counts 判断报告可信度）
+    _sev = {}
+    for _i in result.get("issues", []):
+        _s = _i.get("severity", "info")
+        _sev[_s] = _sev.get(_s, 0) + 1
+    result["severity_counts"] = _sev
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 

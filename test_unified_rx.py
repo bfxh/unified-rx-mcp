@@ -2103,3 +2103,18 @@ def test_ds_check_width_color_coverage(tmp_path):
     assert "height=777.0" in msgs, f"高度违规应检出: {msgs}"
     assert "硬编码颜色" in msgs, f"颜色违规应检出: {msgs}"
     assert d["issue_count"] >= 3
+
+
+def test_std_check_secret_and_counts(tmp_path):
+    """std_check：强格式凭据 Critical + severity_counts 聚合（2026-08-14）。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "cfg.rs").write_text('let t = "ghp_' + "C" * 36 + '";\n', encoding="utf-8")
+    r = server._call("std_check", {"path": str(proj)})
+    d = json.loads(r[0].text)
+    assert d["ok"] is False, "有 Critical 合规失败"
+    assert d.get("severity_counts", {}).get("Critical", 0) == 1, \
+        f"severity_counts 应含 Critical=1: {d.get('severity_counts')}"
+    sec = [i for i in d["issues"] if i.get("rule") == "secret_detection"]
+    assert len(sec) == 1 and sec[0]["severity"] == "Critical"
+    assert "ghp_CCCC" in sec[0]["msg"] and "完整" not in sec[0]["msg"], "不泄露完整值"
