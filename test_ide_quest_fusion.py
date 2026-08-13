@@ -113,6 +113,63 @@ def test_quest_tool_abort_note_integration(tmp_path, monkeypatch):
     assert json.loads(r[0].text)["status"]["aborted"] is True
 
 
+def test_quest_auto_chain(tmp_path, monkeypatch):
+    """IDE 增强七：ide_quest action=auto 六步自动链端到端。"""
+    import shutil
+    import tempfile
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    # 目标建在 cwd（server sandbox 默认根）内——绕过沙盒（server 模块已 import，
+    # setenv 不生效）；用后清理
+    repo = tempfile.mkdtemp(prefix="quest_auto_", dir=os.getcwd())
+    try:
+        with open(os.path.join(repo, "bug.rs"), "w", encoding="utf-8") as f:
+            f.write("fn main() {\n    let x = foo().unwrap();\n    let y = bar().unwrap();\n}\n")
+        r = server._call("ide_quest", {"action": "auto", "path": repo,
+                                       "task": "修 bug.rs"})
+        d = json.loads(r[0].text)
+        assert d["ok"], d
+        assert d["status"]["finished"] is True, "六步跑完应 finished"
+        steps = [c["step"] for c in d["chain"]]
+        assert steps == ["diagnose", "locate", "impact", "fix", "verify", "lesson"], f"链顺序: {steps}"
+        # diagnose 记录问题数（bug_scan 对 unwrap 至少报 warn）
+        diag = next(c for c in d["chain"] if c["step"] == "diagnose")
+        assert diag["ok"] is True
+        # locate 定位到 bug.rs 的具体行
+        loc = next(c for c in d["chain"] if c["step"] == "locate")
+        assert "bug.rs" in loc["summary"], f"locate 应定位 bug.rs: {loc['summary']}"
+        # fix 生成修复建议（unwrap → 安全处理）
+        fix = next(c for c in d["chain"] if c["step"] == "fix")
+        assert fix["summary"].startswith("2 条修复建议"), f"两个 unwrap 应有 2 条建议: {fix}"
+        # verify 给回归命令
+        ver = next(c for c in d["chain"] if c["step"] == "verify")
+        assert "cargo test" in ver["summary"], f"Rust 文件应建议 cargo test: {ver}"
+        # 断点续查：quest 状态保留六步结果
+        r2 = server._call("ide_quest", {"action": "status", "quest_id": d["quest_id"]})
+        st = json.loads(r2[0].text)["status"]
+        assert st["finished"] is True and len(st["done_steps"]) == 6
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
+def test_quest_auto_no_issues(tmp_path, monkeypatch):
+    """auto 链对干净代码：六步仍走完，locate 标记未发现问题。"""
+    import shutil
+    import tempfile
+    monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
+    repo = tempfile.mkdtemp(prefix="quest_clean_", dir=os.getcwd())
+    try:
+        with open(os.path.join(repo, "clean.rs"), "w", encoding="utf-8") as f:
+            f.write("fn main() { let x = 1; }\n")
+        r = server._call("ide_quest", {"action": "auto", "path": repo})
+        d = json.loads(r[0].text)
+        assert d["ok"]
+        loc = next(c for c in d["chain"] if c["step"] == "locate")
+        assert "未发现" in loc["summary"], f"干净代码应标记未发现问题: {loc['summary']}"
+        assert d["status"]["finished"] is True
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
 def test_ide_quest_tool_integration(tmp_path, monkeypatch):
     """ide_quest 工具端到端（new → step×6 → finished）。"""
     monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))

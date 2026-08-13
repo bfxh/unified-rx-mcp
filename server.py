@@ -1865,6 +1865,86 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             return [_TC(json.dumps(q.add_note(str(args.get("text", ""))), ensure_ascii=False, indent=2))]
         if action == "list":
             return [_TC(json.dumps({"ok": True, "quests": list_quests()}, ensure_ascii=False, indent=2))]
+        if action == "auto":
+            # IDE 增强七（2026-08-13）：端到端自动推进链——
+            # diagnose(bug_scan) → locate(问题 file:line) → impact(文件影响面)
+            # → fix(ide_actions) → verify(回归提示)。一次调用跑完五步，
+            # 结果写入 quest 状态（可断点续查）。
+            import time as _t
+            path = str(args.get("path", ""))
+            if not path:
+                return [_TC(json.dumps({"ok": False, "error": "auto 需要 path 参数"},
+                                       ensure_ascii=False))]
+            if not quest_id:
+                quest_id = f"auto-{int(_t.time())}"
+            q = resume_quest(quest_id)
+            if q is None:
+                q = new_quest(quest_id, str(args.get("task", "")) or f"自动诊断 {path}", path)
+                q._save()
+            chain: list[dict] = []
+
+            def _finish(step_result: dict, step_name: str, tool: str, summary: str) -> None:
+                r = q.complete_step(step_result)
+                chain.append({"step": step_name, "tool": tool,
+                              "summary": summary, "ok": r.get("ok", True)})
+
+            # 1. diagnose：bug_scan
+            try:
+                scan_data = json.loads(_call("bug_scan", {"path": path})[0].text)
+            except (json.JSONDecodeError, IndexError, KeyError):
+                scan_data = {"ok": False, "issues": []}
+            issues = scan_data.get("issues", []) if scan_data.get("ok") else []
+            errors = [i for i in issues
+                      if str(i.get("severity", "")).lower() in ("error", "critical")]
+            _finish({"tool": "bug_scan", "path": path, "issue_count": len(issues),
+                     "error_count": len(errors),
+                     "severity_counts": scan_data.get("severity_counts", {})},
+                    "diagnose", "bug_scan",
+                    f"{len(issues)} 问题（{len(errors)} error）")
+            # 2. locate：top 问题位置（error 优先）
+            top = (errors or issues or [{}])[0]
+            loc = {"tool": "locate", "file": top.get("file", ""),
+                   "line": top.get("line", 0), "rule": top.get("rule", ""),
+                   "message": str(top.get("msg", ""))[:120]}
+            _finish(loc, "locate", "locate",
+                    f"{loc['file']}:{loc['line']} [{loc['rule']}]" if loc["file"] else "未发现问题")
+            # 3. impact：top 文件影响面（文件级问题数）+ 深化提示
+            file_issues = [i for i in issues if i.get("file") == loc["file"]]
+            _finish({"tool": "impact", "file": loc["file"],
+                     "file_issue_count": len(file_issues),
+                     "note": "文件级影响面；符号级深化用 change_impact/lsp_query"},
+                    "impact", "impact", f"{loc['file']} 共 {len(file_issues)} 个问题")
+            # 4. fix：ide_actions 单文件
+            if loc["file"] and os.path.isfile(loc["file"]):
+                try:
+                    fix_data = json.loads(_call("ide_actions", {"path": loc["file"]})[0].text)
+                except (json.JSONDecodeError, IndexError, KeyError):
+                    fix_data = {"ok": False, "actions": []}
+                actions = fix_data.get("actions", []) if fix_data.get("ok") else []
+                _finish({"tool": "ide_actions", "file": loc["file"],
+                         "action_count": len(actions),
+                         "actions": [{"line": a.get("line"), "title": a.get("title")}
+                                     for a in actions[:10]]},
+                        "fix", "ide_actions", f"{len(actions)} 条修复建议")
+            else:
+                _finish({"tool": "ide_actions", "file": loc["file"], "action_count": 0,
+                         "skipped": True}, "fix", "ide_actions", "无目标文件，跳过")
+            # 5. verify：回归提示
+            ext = os.path.splitext(loc.get("file", ""))[1].lower()
+            cmd = ("cargo test" if ext == ".rs"
+                   else "pytest" if ext in (".py",) else "构建/测试")
+            _finish({"tool": "verify",
+                     "advice": f"应用 fix 步的修复建议后跑 `{cmd}` 回归；"
+                               f"完成后可用 ide_quest note 记录结果",
+                     "command": cmd},
+                    "verify", "verify", f"回归命令：{cmd}")
+            # 6. lesson：自动链收尾（STEPS 六步闭环）
+            _finish({"tool": "lesson",
+                     "advice": "修复验证通过后建议用 lesson_recall 记录教训防复发"},
+                    "lesson", "lesson", "教训提示（修复后 lesson_recall 记录）")
+            return [_TC(json.dumps({"ok": True, "quest_id": quest_id,
+                                    "chain": chain, "status": q.status()},
+                                   ensure_ascii=False, indent=2))]
         return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]
     except Exception as e:
         return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False))]
@@ -2955,12 +3035,13 @@ _TOOLS: dict[str, tuple] = {
         "lsp_refs": _S("array", "impact 时：LSP 引用文件路径列表（可空）"),
     }, ["path"]), "IDE 融合：诊断→符号图聚合 / 双引擎影响面校验（LSP vs 引用扫描）"),
     "ide_quest": (_tool_ide_quest, _schema({
-        "action": _S("string", "new/resume/status/step/list/abort/note"),
-        "quest_id": _S("string", "任务 ID（new/resume/step 必需）"),
+        "action": _S("string", "new/resume/status/step/list/abort/note/auto"),
+        "quest_id": _S("string", "任务 ID（new/resume/step 必需；auto 省略自动生成）"),
         "task": _S("string", "任务描述（new 时）"),
         "repo": _S("string", "仓库根（new 时）"),
         "result": _S("object", "步骤结果（step 时——当前步完成的证据）"),
         "text": _S("string", "备注内容（note 时）"),
+        "path": _S("string", "auto 时：诊断目标（文件或目录）"),
     }, ["action"]), "Quest 任务状态机（诊断→定位→影响→修复→验证→教训，断点续跑）"),
     "explore_code": (_tool_explore_code, _schema({
         "root": _S("string", "代码库根目录"),
