@@ -2169,7 +2169,11 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 result_note = "诊断扫描失败（重试后仍失败），可用 force=True 重跑整链"
             elif _has_issue:
                 result_verdict = "partial"
-                result_note = (f"发现问题 {len(issues)} 个（error {len(errors)}）"
+                # IDE 增强三十八：result_note 附 severity 统计（分布一眼可见）
+                _sev = scan_data.get("severity_counts", {}) or {}
+                result_note = (f"发现问题 {len(issues)} 个（error {len(errors)}"
+                               + f"；severity: error {_sev.get('error', 0)}/"
+                               + f"warn {_sev.get('warn', 0)}/info {_sev.get('info', 0)}）"
                                + ("，部分步骤跳过" if _skipped else "")
                                + "——修复建议见 fix 步，应用后 verify_fix 验证")
             else:
