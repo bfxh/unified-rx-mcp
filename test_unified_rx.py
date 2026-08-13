@@ -2328,3 +2328,18 @@ def test_std_self_exempt_scope():
     assert _sc._is_self_exempt("main.py") is False
     assert _sc._is_self_exempt("std_core_copy.py") is False, "非自身文件不豁免"
     assert _sc._is_self_exempt(r"D:\x\std_core.py") is True, "全路径含豁免名应命中"
+
+
+def test_locate_edit_limit_guard(tmp_path):
+    """locate_edit limit 上限边界（2026-08-14 验证）：越界拒绝、正常可用。"""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "a.rs").write_text("fn compute_area() {}\n", encoding="utf-8")
+    for lim in ("0", "-1", "99999"):
+        txt = server._call("locate_edit", {"path": str(repo), "query": "compute_area",
+                                           "limit": lim})[0].text
+        assert "limit" in txt, f"limit={lim} 应拒绝: {txt[:60]}"
+    d = json.loads(server._call("locate_edit", {"path": str(repo),
+                                                "query": "compute_area",
+                                                "limit": "10"})[0].text)
+    assert d["ok"] is True and len(d.get("candidates", [])) >= 1, d
