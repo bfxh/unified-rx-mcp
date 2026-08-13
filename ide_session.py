@@ -15,6 +15,9 @@ import bisect
 import itertools
 from dataclasses import dataclass, field
 
+# 历史栈上限（undo/redo 最多保留的编辑快照数——防内存膨胀）
+_HISTORY_LIMIT = 100
+
 
 # ── FastLineIndex ──────────────────────────────────────────
 class FastLineIndex:
@@ -83,20 +86,60 @@ class PieceTable:
 
     insert/delete 只追加编辑记录（O(1) 摊销），text() 时按 piece 重建。
     编辑后行索引变化通过 FastLineIndex(text()) 即时重建。
+
+    IDE 强度增强（2026-08-13）：undo/redo 历史栈（_HISTORY_LIMIT 上限）——
+    pieces 列表浅拷贝快照（_Piece 不可变、buffers append-only，恢复安全）；
+    每次编辑前压快照，undo 回退、redo 重做。
     """
 
     original: str = ""
     _buffers: list[str] = field(default_factory=list)
     _pieces: list[_Piece] = field(default_factory=list)
+    _history: list[list[_Piece]] = field(default_factory=list)
+    _redo_stack: list[list[_Piece]] = field(default_factory=list)
 
     def __post_init__(self):
         if self.original:
             self._pieces = [_Piece(0, 0, len(self.original))]
 
+    # ── undo/redo ──
+    def _snapshot(self) -> None:
+        """编辑前压入历史快照（浅拷贝 pieces——_Piece 不可变，安全）。"""
+        self._history.append(self._pieces[:])
+        if len(self._history) > _HISTORY_LIMIT:
+            self._history.pop(0)
+        self._redo_stack.clear()
+
+    def undo(self) -> bool:
+        """回退一次编辑。返回是否有可回退的历史。"""
+        if not self._history:
+            return False
+        self._redo_stack.append(self._pieces[:])
+        self._pieces = self._history.pop()
+        return True
+
+    def redo(self) -> bool:
+        """重做一次被撤销的编辑。返回是否有可重做的历史。"""
+        if not self._redo_stack:
+            return False
+        self._history.append(self._pieces[:])
+        self._pieces = self._redo_stack.pop()
+        return True
+
+    def can_undo(self) -> bool:
+        return bool(self._history)
+
+    def can_redo(self) -> bool:
+        return bool(self._redo_stack)
+
+    def history_depth(self) -> int:
+        return len(self._history)
+
     # ── 编辑操作 ──
     def insert(self, offset: int, text: str) -> None:
         if not text:
             return
+        self._snapshot()
         self._buffers.append(text)
         src = len(self._buffers)  # buffer 索引（1-based；0=original）
         self._insert_piece(offset, _Piece(src, 0, len(text)))
@@ -104,12 +147,18 @@ class PieceTable:
     def delete(self, start: int, end: int) -> None:
         if end <= start:
             return
+        self._snapshot()
         self._delete_range(start, end)
 
     def replace(self, start: int, end: int, text: str) -> None:
+        if end <= start and not text:
+            return
+        self._snapshot()
         self._delete_range(start, end)
         if text:
-            self.insert(start, text)
+            self._buffers.append(text)
+            src = len(self._buffers)
+            self._insert_piece(start, _Piece(src, 0, len(text)))
 
     # ── 内部：piece 切分/插入/删除 ──
     def _split_at(self, offset: int) -> int:

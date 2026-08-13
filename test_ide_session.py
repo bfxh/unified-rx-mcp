@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ide_session import FastLineIndex, PieceTable  # noqa: E402
+from ide_session import FastLineIndex, PieceTable, _HISTORY_LIMIT  # noqa: E402
 
 
 # ── FastLineIndex ──
@@ -92,3 +92,47 @@ def test_pt_large_file_perf():
     idx = pt.line_index()
     assert idx.line_count == 5000
     assert idx.position_to_offset(4999, 0) >= 0
+
+
+# ── IDE 强度增强（2026-08-13）：undo/redo 历史栈 ──
+def test_pt_undo_redo_basic():
+    pt = PieceTable("hello")
+    pt.insert(5, " world")     # "hello world"
+    assert pt.text() == "hello world"
+    assert pt.can_undo() and not pt.can_redo()
+    assert pt.undo() is True
+    assert pt.text() == "hello", "undo 应回退到插入前"
+    assert pt.can_redo()
+    assert pt.redo() is True
+    assert pt.text() == "hello world", "redo 应重做插入"
+    # 空栈：继续 undo/redo 返回 False 不报错
+    assert pt.undo() is True and pt.undo() is False
+
+
+def test_pt_undo_delete_and_replace():
+    pt = PieceTable("abcdef")
+    pt.delete(1, 3)            # "adef"
+    pt.replace(2, 4, "XY")     # "adXY"
+    assert pt.text() == "adXY"
+    assert pt.undo() is True
+    assert pt.text() == "adef", "replace 单次快照（undo 一次回退）"
+    assert pt.undo() is True
+    assert pt.text() == "abcdef", "delete 回退"
+    assert not pt.can_undo()
+
+
+def test_pt_new_edit_clears_redo():
+    pt = PieceTable("abc")
+    pt.insert(3, "d")          # abcd
+    assert pt.undo() is True   # abc
+    pt.insert(1, "X")          # aXbc——新编辑清空 redo
+    assert not pt.can_redo()
+    assert pt.redo() is False
+    assert pt.text() == "aXbc"
+
+
+def test_pt_history_limit():
+    pt = PieceTable("")
+    for i in range(_HISTORY_LIMIT + 30):
+        pt.insert(0, "x")
+    assert pt.history_depth() <= _HISTORY_LIMIT, "历史栈应被截断防膨胀"
