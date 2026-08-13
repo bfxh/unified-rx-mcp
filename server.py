@@ -2482,6 +2482,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                     "std_severity_counts": _std_sev,
                                     "report_md": report_md,
                                     "report_path": report_path,
+                                    # IDE 增强九十一：任务备注数（消费端看协作痕迹）
+                                    "notes_count": len(q.state.get("notes", [])),
                                     "status": q.status()},
                                    ensure_ascii=False, indent=2))]
         return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}"}, ensure_ascii=False))]
