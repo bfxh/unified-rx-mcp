@@ -1943,7 +1943,12 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                      f"建议测试 {len(ci.get('suggested_tests', []))} 个")
                 elif name == "fix":
                     for a in (r.get("actions") or [])[:10]:
-                        lines.append(f"- L{a.get('line', '?')} {a.get('title', '')}")
+                        # IDE 增强三十六：合并区间显示（L2-L4 ×3）
+                        if "line_end" in a:
+                            lines.append(f"- L{a.get('line')}-L{a.get('line_end')}"
+                                         f"（×{a.get('count', 1)}）{a.get('title', '')}")
+                        else:
+                            lines.append(f"- L{a.get('line', '?')} {a.get('title', '')}")
                     if r.get("fs_template"):
                         lines.append(f"- fs_template 就绪（`fs_write` L4 授权应用）")
                 elif name == "verify":

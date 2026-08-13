@@ -2015,3 +2015,24 @@ def test_quest_auto_scan_failure_degrade(tmp_path, monkeypatch):
         monkeypatch.setattr(server, "_call", orig_call)
     finally:
         shutil.rmtree(repo, ignore_errors=True)
+
+
+def test_cb_status_degrade_paths(tmp_path):
+    """cb_status 索引缺失/损坏降级：未索引与损坏索引均返回 indexed=False 不崩溃。"""
+    from cb_index_core import repo_status
+    empty = tmp_path / "empty_proj"
+    empty.mkdir()
+    r1 = repo_status(str(empty))
+    assert r1["ok"] is False and r1["indexed"] is False, f"未索引应降级: {r1}"
+    assert "尚未索引" in r1["msg"]
+    # 损坏索引（非 JSON）
+    idx = empty / ".unified-rx-index"
+    idx.mkdir()
+    (idx / "index.json").write_text("{ 坏 JSON !!!", encoding="utf-8")
+    r2 = repo_status(str(empty))
+    assert r2["ok"] is False and r2["indexed"] is False, f"损坏索引应降级: {r2}"
+    assert "损坏" in r2["msg"]
+    # 非 dict 索引
+    (idx / "index.json").write_text("[1,2,3]", encoding="utf-8")
+    r3 = repo_status(str(empty))
+    assert r3["ok"] is False and "非 dict" in r3["msg"], f"非 dict 应降级: {r3}"
