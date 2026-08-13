@@ -16,29 +16,48 @@ import re
 
 # ── 行级注释/字符串剥离（ide_complete/ide_rename 共用：防注释/字符串里的
 #    假符号污染补全候选与重命名引用——IDE 强度增强 2026-08-13）──
-_STR_RE = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|`(?:\\.|[^`\\])*`')
-_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+# 修复（2026-08-13）：跨行块注释/三引号字符串必须**保留换行数**——
+# 否则剥离后行号错位，ide_rename/ide_references 的 file:line 会指向错误行
+# （实测：3 行块注释被压成 1 行，9 行文件变 6 行，行号错位 3 行）。
+_SINGLE_STR_RE = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|`(?:\\.|[^`\\])*`')
+_TRIPLE_DQ_RE = re.compile(r'"""(?:[^"\\]|\\.|"(?!""))*"""', re.S)
+_TRIPLE_SQ_RE = re.compile(r"'''(?:[^'\\]|\\.|'(?!''))*'''", re.S)
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+
+
+def _keep_newlines(m: "re.Match[str]") -> str:
+    """替换匹配文本为等量换行（保持行号不变；单行匹配替换为空串）。"""
+    return "\n" * m.group(0).count("\n")
 
 
 def _strip_comments_strings(text: str) -> str:
-    """剥离字符串字面量与注释（单行 // # 与块 /* */），返回"代码面"。
+    """剥离字符串字面量与注释（跨行三引号/块注释 + 单行 // # 与行内 #），返回"代码面"。
 
-    启发式（不做完整词法）：先剥块注释与字符串（跨行用 re.S），再逐行剥
-    行注释。误伤可接受（保守方向：少报假符号）。
+    行号保持：所有跨行替换（块注释/三引号字符串）用 _keep_newlines 保留换行数，
+    单行替换为空串——剥离后行号与原始文件一致（ide_rename/references 定位正确）。
+    注释规则：
+    - /* */ 块注释（跨行）→ 剥
+    - // 行注释 → 剥
+    - # 行注释（# 后跟空白/行尾；Rust 属性 #[...]/#![...] 保留）
     """
-    text = _BLOCK_COMMENT.sub(" ", text)
-    text = _STR_RE.sub(" ", text)
+    text = _TRIPLE_DQ_RE.sub(_keep_newlines, text)
+    text = _TRIPLE_SQ_RE.sub(_keep_newlines, text)
+    text = _BLOCK_COMMENT_RE.sub(_keep_newlines, text)
+    text = _SINGLE_STR_RE.sub("", text)
     out = []
     for line in text.splitlines():
-        # 行注释：// 与 #（# 仅当行首或前导空白——防剥掉宏/属性里的 #）
+        # 行注释：// 与 #（# 后跟 [ 或 ! 是 Rust 属性——保留）
         cut = len(line)
         for marker in ("//",):
             idx = line.find(marker)
             if idx != -1:
                 cut = min(cut, idx)
-        stripped = line.lstrip()
-        if stripped.startswith("#"):
-            cut = min(cut, len(line) - len(stripped))
+        for i, ch in enumerate(line):
+            if ch == "#":
+                nxt = line[i + 1:i + 2]
+                if nxt not in ("[", "!"):
+                    cut = min(cut, i)
+                    break
         out.append(line[:cut])
     return "\n".join(out)
 
@@ -57,8 +76,10 @@ def ide_rename(root: str, symbol: str, new_name: str,
     """安全重命名：找符号所有引用 → 替换（仅同名符号，保守策略）。
 
     exclude_comments=True（默认）：跳过注释/字符串内的同名 token——
-    重命名引用列表只含"代码面"引用，避免把注释/字符串里的词误当引用
-    （IDE 强度增强 2026-08-13）。
+    重命名引用列表只含"代码面"引用，避免把注释/字符串里的词误当引用。
+
+    IDE 增强三（2026-08-13）：refs 每项附 `before`/`after` 行内替换预览
+    （原始行——AI 可先看效果再决定应用，减少误改）。
 
     返回 {ok, changed_files, refs, error}——不实际落盘（L3 建议层），
     调用方确认后走 fs_write（L4 授权）应用。
@@ -68,6 +89,22 @@ def ide_rename(root: str, symbol: str, new_name: str,
     refs = _find_symbol_refs(root, symbol, max_refs, exclude_comments)
     if not refs:
         return {"ok": False, "error": f"未找到符号引用: {symbol}"}
+    # 行内替换预览（按文件聚合读一次——refs 多时不反复打开文件）
+    previews: dict[str, list[str]] = {}
+    for r in refs:
+        previews.setdefault(r["file"], []).append(r)
+    for file, items in previews.items():
+        try:
+            with open(file, encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+        except OSError:
+            continue
+        for r in items:
+            if 1 <= r["line"] <= len(lines):
+                orig = lines[r["line"] - 1].rstrip("\n")
+                new_line = re.sub(rf"\b{re.escape(symbol)}\b", new_name, orig)
+                r["before"] = orig.strip()[:60]
+                r["after"] = new_line.strip()[:60]
     return {
         "ok": True,
         "symbol": symbol,
@@ -75,7 +112,7 @@ def ide_rename(root: str, symbol: str, new_name: str,
         "refs": refs,
         "ref_count": len(refs),
         "exclude_comments": exclude_comments,
-        "advice": f"确认后用 fs_write 逐文件应用（L4 授权）",
+        "advice": f"确认后用 fs_write 逐文件应用（L4 授权）——refs 的 before/after 为行内替换预览",
     }
 
 

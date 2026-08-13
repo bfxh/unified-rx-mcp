@@ -11,7 +11,13 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ide_tools import ide_actions, ide_complete, ide_references, ide_rename  # noqa: E402
+from ide_tools import (  # noqa: E402
+    _strip_comments_strings,
+    ide_actions,
+    ide_complete,
+    ide_references,
+    ide_rename,
+)
 
 
 def _tmp_project(files: dict[str, str]) -> str:
@@ -167,3 +173,77 @@ def test_complete_current_file_priority():
     assert det[0]["current"] is True and det[1]["current"] is True
     assert det[2]["current"] is False
     assert [d["name"] for d in det[:2]] == ["helper_local", "helper_local2"]
+
+
+# ── Bug 修复回归（2026-08-13）：跨行块注释行号错位 + Python # 注释 ──
+def test_rename_line_numbers_survive_block_comments():
+    """跨行块注释不得导致行号错位（实测旧版 9 行文件错位 3 行）。"""
+    root = _tmp_project({
+        "a.rs": (
+            "/*\n"
+            " * block comment\n"
+            " * across 3 lines\n"
+            " */\n"
+            "fn main() {\n"
+            "    let velocity = 1.0;\n"
+            "    // velocity in comment\n"
+            "    println!(\"{}\", velocity);\n"
+            "}\n"
+        ),
+    })
+    r = ide_rename(root, "velocity", "speed")
+    assert r["ok"]
+    lines = [x["line"] for x in r["refs"]]
+    assert lines == [6, 8], f"行号应精确（块注释后不错位），实际 {lines}"
+
+
+def test_rename_python_inline_hash_comment_stripped():
+    """Python 行内 # 注释里的符号不应被当引用（旧版只剥行首 #）。"""
+    root = _tmp_project({
+        "a.py": (
+            "def run():\n"
+            "    x = 1  # velocity in inline comment\n"
+            "    y = velocity * 2\n"
+            "    return x + y\n"
+        ),
+    })
+    r = ide_rename(root, "velocity", "speed")
+    assert r["ok"]
+    lines = [x["line"] for x in r["refs"]]
+    assert lines == [3], f"行内 # 注释里的 velocity 不应计数，实际 {lines}（引用应在行 3）"
+
+
+def test_rename_rust_attribute_hash_preserved():
+    """Rust 属性 #[...]/#![...] 的 # 不是注释（不得误剥导致行内容错乱）。"""
+    code = _strip_comments_strings(
+        "#[derive(Debug)]\n#![allow(dead_code)]\nfn main() { let x = 1; }\n"
+    )
+    lines = code.splitlines()
+    assert lines[0].startswith("#[derive"), "Rust 属性行应保留"
+    assert lines[1].startswith("#!["), "Rust 内部属性行应保留"
+    assert len(lines) == 3, "属性不是注释，行数不得减少"
+
+
+def test_strip_keeps_line_count_with_triple_quotes():
+    """Python 三引号跨行字符串：剥离后行数不变（行号保持）。"""
+    code = _strip_comments_strings(
+        'def run():\n    s = """multi\nline\nstring"""\n    return s\n'
+    )
+    assert len(code.splitlines()) == 5, f"三引号跨行字符串剥离不得减行，实际 {len(code.splitlines())}"
+    assert "multi" not in code and "string" not in code, "三引号内容应被剥"
+
+
+# ── IDE 增强三：rename 替换预览 ──
+def test_rename_preview_before_after():
+    root = _tmp_project({
+        "a.rs": "fn main() {\n    let velocity = 1.0;\n    use_velocity(velocity);\n}\n",
+    })
+    r = ide_rename(root, "velocity", "speed")
+    assert r["ok"]
+    for ref in r["refs"]:
+        assert "before" in ref and "after" in ref, "refs 应带 before/after 预览"
+        assert "velocity" in ref["before"]
+        assert "speed" in ref["after"]
+        # 独立 token 不应残留（use_velocity 里的 velocity 是子串，允许）
+        import re as _re
+        assert not _re.search(r"\bvelocity\b", ref["after"]), f"after 不应残留独立旧名: {ref}"
