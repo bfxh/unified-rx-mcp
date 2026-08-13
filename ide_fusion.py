@@ -88,6 +88,30 @@ def cross_validate_impact(repo_path: str, symbol: str,
     }
 
 
+def impact_via_references(repo_path: str, symbol: str,
+                          lsp_refs: list[str]) -> dict:
+    """双引擎校验便捷入口（IDE 增强四 2026-08-13）：tree 侧引用数据来自
+    ide_references（词级 + 声明判定，注释/字符串排除）——无独立符号图也能跑。
+
+    lsp_refs：LSP 引用（文件路径列表，可空——LSP 不可用时全由 tree 侧提供）。
+    返回 cross_validate_impact 的完整结果 + tree 侧引用明细。
+    """
+    from ide_tools import ide_references
+    r = ide_references(repo_path, symbol)
+    if not r.get("ok"):
+        return {"ok": False, "symbol": symbol,
+                "error": r.get("error", "ide_references 失败")}
+    tree_files = sorted({ref["file"] for ref in
+                         r.get("definitions", []) + r.get("references", [])})
+    result = cross_validate_impact(repo_path, symbol,
+                                   lsp_refs or [], tree_files)
+    result["tree_refs"] = tree_files
+    result["definition_count"] = r.get("definition_count", 0)
+    result["reference_count"] = r.get("reference_count", 0)
+    result["source"] = "tree=ide_references(词级+声明判定，注释/字符串排除)"
+    return result
+
+
 def record_ide_usage(lesson_dir: str, tool: str, target: str, outcome: dict) -> dict:
     """IDE 查询记录 → 教训库候选（高频对象沉淀为教训）。"""
     try:

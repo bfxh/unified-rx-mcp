@@ -111,6 +111,48 @@ def test_actions_todo_and_empty_except():
     )
 
 
+def test_actions_directory_batch():
+    """IDE 增强四：ide_actions 目录批量（多文件聚合 + 上限防护）。"""
+    root = tempfile.mkdtemp(prefix="ide_actions_batch_")  # 前缀不含 test（防被当测试目录）
+    for rel, content in {
+        "a.rs": "fn main() {\n    let x = foo().unwrap();\n}\n",
+        "b.py": (
+            "def run():\n"
+            "    try:\n"
+            "        return 1\n"
+            "    except ValueError:\n"
+            "        pass\n"   # 吞错
+        ),
+        "c.rs": "// 干净文件\n",
+        "d.txt": "ignored 不扫描\n",
+    }.items():
+        with open(os.path.join(root, rel), "w", encoding="utf-8") as f:
+            f.write(content)
+    r = ide_actions(root)
+    assert r["ok"]
+    assert r["files_scanned"] == 3, f"应扫 3 个代码文件（忽略 .txt），实际 {r['files_scanned']}"
+    keys = list(r["actions_by_file"].keys())
+    assert any(k.endswith("a.rs") for k in keys), f"a.rs 应有建议: {keys}"
+    assert any(k.endswith("b.py") for k in keys), f"b.py 应有建议: {keys}"
+    assert r["total"] >= 2, f"应有 unwrap + 吞错建议，实际 {r['total']}"
+    # 单文件模式向后兼容
+    r2 = ide_actions(os.path.join(root, "a.rs"))
+    assert r2["ok"] and r2["count"] == 1 and "file" in r2
+    assert r2["actions"][0]["title"].startswith("unwrap")
+
+
+def test_actions_directory_limit():
+    """批量上限：文件数/总建议数截断不爆炸。"""
+    files = {}
+    for i in range(60):
+        files[f"f{i}.rs"] = f"fn f{i}() {{ let x = v{i}().unwrap(); }}\n"
+    root = _tmp_project(files)
+    r = ide_actions(root)
+    assert r["ok"]
+    assert r["files_scanned"] <= 50, f"文件数应被截断: {r['files_scanned']}"
+    assert r["truncated"] is True, "超限应标记 truncated"
+
+
 def test_actions_no_false_positive_on_normal_code():
     p = os.path.join(tempfile.mkdtemp(prefix="ide_actions2_"), "y.py")
     with open(p, "w", encoding="utf-8") as f:

@@ -241,17 +241,13 @@ _EXCEPT_PASS_RE = re.compile(r"except[^:]*:\s*(?:pass\s*)?$|except[^:]*:\s*$")
 _NEXT_LINE_PASS_RE = re.compile(r"^\s*pass\s*(#.*)?$")
 
 
-def ide_actions(file_path: str) -> dict:
-    """快速修复建议：基于文件内容规则扫描（无 LSP 的降级 code_action）。
-
-    规则：unwrap/expect panic 风险、as 窄化、TODO/FIXME 未完成标记、
-    空 except 吞错（error 级）——kind 区分 safety/cleanup。
-    """
+def _actions_for_file(file_path: str) -> list[dict]:
+    """单文件快速修复建议（规则扫描，无 LSP 的降级 code_action）。"""
     try:
         with open(file_path, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
-    except OSError as e:
-        return {"ok": False, "error": str(e)}
+    except OSError:
+        return []
     actions = []
     is_python = file_path.endswith(".py")
     for i, line in enumerate(lines, 1):
@@ -289,5 +285,50 @@ def ide_actions(file_path: str) -> dict:
             })
         if len(actions) >= 20:
             break
-    return {"ok": True, "file": file_path, "actions": actions,
+    return actions
+
+
+# 目录批量上限（IDE 增强四 2026-08-13：防 DoS）
+_ACTIONS_MAX_FILES = 50       # 最多扫 50 个文件
+_ACTIONS_MAX_TOTAL = 200      # 总建议上限
+_ACTIONS_EXTS = (".rs", ".py", ".ts", ".js")
+
+
+def ide_actions(path: str) -> dict:
+    """快速修复建议：文件或目录批量（无 LSP 的降级 code_action）。
+
+    规则：unwrap/expect panic 风险、as 窄化、TODO/FIXME 未完成标记、
+    空 except 吞错——kind 区分 safety/cleanup。
+    目录模式：递归扫代码文件（≤50 文件 / ≤200 建议，防 DoS），按文件分组。
+    """
+    if os.path.isdir(path):
+        per_file: dict[str, list[dict]] = {}
+        total = 0
+        scanned = 0
+        for dirpath, dirnames, filenames in os.walk(path):
+            dirnames[:] = [d for d in dirnames
+                           if d not in ("target", "node_modules", ".git", "release")]
+            for fn in sorted(filenames):
+                if not fn.endswith(_ACTIONS_EXTS):
+                    continue
+                p = os.path.join(dirpath, fn)
+                acts = _actions_for_file(p)
+                if acts:
+                    per_file[p] = acts
+                    total += len(acts)
+                scanned += 1
+                if scanned >= _ACTIONS_MAX_FILES or total >= _ACTIONS_MAX_TOTAL:
+                    return {"ok": True, "path": path,
+                            "files_scanned": scanned,
+                            "actions_by_file": per_file,
+                            "total": total,
+                            "truncated": scanned >= _ACTIONS_MAX_FILES or total >= _ACTIONS_MAX_TOTAL,
+                            "note": "目录批量模式：每文件≤20 建议，文件≤50，总≤200"}
+        return {"ok": True, "path": path, "files_scanned": scanned,
+                "actions_by_file": per_file, "total": total,
+                "truncated": False,
+                "note": "目录批量模式：每文件≤20 建议，文件≤50，总≤200"}
+    # 单文件（向后兼容：file/actions/count 字段不变）
+    actions = _actions_for_file(path)
+    return {"ok": True, "file": path, "actions": actions,
             "count": len(actions)}

@@ -135,3 +135,30 @@ def test_ide_fusion_tool_integration():
     d = json.loads(r[0].text)
     assert d["ok"] is True
     assert d["total"] > 0
+
+
+def test_ide_fusion_impact_via_references(tmp_path):
+    """IDE 增强四：双引擎影响面校验（tree 侧引用来自 ide_references）。"""
+    repo = tmp_path
+    (repo / "lib.rs").write_text(
+        "pub fn compute_area(w: f32) -> f32 { w }\n"
+        "fn main() {\n"
+        "    let a = compute_area(2.0);\n"
+        "    let b = compute_area(3.0);\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    r = server._call("ide_fusion", {"path": str(repo), "action": "impact",
+                                    "symbol": "compute_area"})
+    d = json.loads(r[0].text)
+    assert d["ok"], d
+    assert d["definition_count"] == 1
+    assert d["reference_count"] == 2, f"两个调用应计入: {d['reference_count']}"
+    assert len(d["tree_refs"]) == 1, f"引用文件应只有 lib.rs: {d['tree_refs']}"
+    assert "verdict" in d and "source" in d
+    # 带 LSP 引用对比：一致 → verdict 一致
+    r2 = server._call("ide_fusion", {"path": str(repo), "action": "impact",
+                                     "symbol": "compute_area",
+                                     "lsp_refs": [str(repo / "lib.rs")]})
+    d2 = json.loads(r2[0].text)
+    assert d2["verdict"] == "一致", f"LSP 与 tree 引用一致应判定一致: {d2['verdict']}"

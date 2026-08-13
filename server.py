@@ -1783,11 +1783,25 @@ def _tool_ide_actions(args: dict) -> "list[types.TextContent]":
 
 
 def _tool_ide_fusion(args: dict) -> "list[types.TextContent]":
-    """IDE 诊断→符号图融合：bug_scan 生产规则结果按符号聚合。"""
-    from ide_fusion import annotate_issues
+    """IDE 融合：annotate（诊断→符号图聚合，默认）/ impact（双引擎影响面校验）。"""
+    action = args.get("action", "annotate")
     path = args.get("path", "")
     if not path or not os.path.isdir(path):
         return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {path}"}, ensure_ascii=False))]
+    if action == "impact":
+        # 双引擎影响面：LSP 引用（可空）vs ide_references（tree 侧词级+声明判定）
+        from ide_fusion import impact_via_references
+        symbol = str(args.get("symbol", ""))
+        if not symbol:
+            return [_TC(json.dumps({"ok": False, "error": "impact 需要 symbol 参数"},
+                                   ensure_ascii=False))]
+        lsp_refs = args.get("lsp_refs") or []
+        return [_TC(json.dumps(impact_via_references(path, symbol, lsp_refs),
+                               ensure_ascii=False, indent=2))]
+    if action != "annotate":
+        return [_TC(json.dumps({"ok": False, "error": f"未知 action: {action}（annotate/impact）"},
+                               ensure_ascii=False))]
+    from ide_fusion import annotate_issues
     issues: list[dict] = []
     # 用 rust_scan 危险规则扫（unwrap/expect/as 收窄——生产风险）
     try:
@@ -2931,13 +2945,17 @@ _TOOLS: dict[str, tuple] = {
     }, ["path"]), "快速修复建议（unwrap/expect/as 收窄等安全规则→code action）"),
     "ide_fusion": (_tool_ide_fusion, _schema({
         "path": _S("string", "代码库根目录"),
-    }, ["path"]), "IDE 诊断→符号图融合（bug 问题按符号聚合标注）"),
+        "action": _S("string", "annotate（默认，诊断→符号图）/ impact（双引擎影响面校验）"),
+        "symbol": _S("string", "impact 时：要校验的符号"),
+        "lsp_refs": _S("array", "impact 时：LSP 引用文件路径列表（可空）"),
+    }, ["path"]), "IDE 融合：诊断→符号图聚合 / 双引擎影响面校验（LSP vs 引用扫描）"),
     "ide_quest": (_tool_ide_quest, _schema({
-        "action": _S("string", "new/resume/status/step/list"),
+        "action": _S("string", "new/resume/status/step/list/abort/note"),
         "quest_id": _S("string", "任务 ID（new/resume/step 必需）"),
         "task": _S("string", "任务描述（new 时）"),
         "repo": _S("string", "仓库根（new 时）"),
         "result": _S("object", "步骤结果（step 时——当前步完成的证据）"),
+        "text": _S("string", "备注内容（note 时）"),
     }, ["action"]), "Quest 任务状态机（诊断→定位→影响→修复→验证→教训，断点续跑）"),
     "explore_code": (_tool_explore_code, _schema({
         "root": _S("string", "代码库根目录"),
