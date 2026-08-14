@@ -56,6 +56,9 @@ _CHEATSHEET: dict[str, list[dict]] = {
         {"name": "sync_e", "cmd": "Copy-Item *.py test_*.py E:\\共享\\51\\unified-rx\\",
          "desc": "同步运行版 E:"},
         {"name": "bug_hunt", "cmd": "pipeline({preset: bug_hunt, path: ...})", "desc": "默认挖漏洞链"},
+        # IDE 增强 111：常驻自扫显式入口（daemon --once：self+project 增量双维度）
+        {"name": "self_scan", "cmd": "python -X utf8 daemon.py --once",
+         "desc": "常驻自扫一轮（双维度增量，结果落知识库）"},
     ],
 }
 
