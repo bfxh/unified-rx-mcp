@@ -3431,6 +3431,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "染料": "dye", "颜料": "pigment", "染色": "color", "调色": "palette",
         # IDE 增强 376：烹饪词（烹饪/炉灶/烤箱/锅/煎/烤/炖/烘焙）
         "烹饪": "cook", "炉灶": "stove", "烤箱": "oven", "锅": "pot",
+        # IDE 增强 377：建材词（砖块/木板/石材/屋顶/地基/墙板/横梁/脚手架）
+        "砖块": "brick", "木板": "plank", "石材": "stone", "屋顶": "roof",
+        "地基": "foundation", "墙板": "wall", "横梁": "beam", "脚手架": "scaffold",
         "煎": "fry", "烤": "roast", "炖": "stew", "烘焙": "bake",
         "油漆": "paint", "涂料": "coating", "喷漆": "spray", "上色": "tint",
         "腰带": "belt", "徽章": "badge", "耳环": "earring", "头饰": "headgear",
