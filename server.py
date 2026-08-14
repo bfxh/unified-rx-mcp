@@ -978,7 +978,14 @@ def _tool_repo_graph(args: dict) -> str:
         hits = gi.search_symbols(name or symbol, limit=top)
         return json.dumps({"ok": True, "query": "search", "name": name or symbol,
                            "count": len(hits), "symbols": hits,
-                           "index": stats}, ensure_ascii=False, indent=2)
+                           "index": stats,
+                           # IDE 增强 212：命中建议（符号搜索引导）
+                           "advice": (f"找到 {len(hits)} 个符号——"
+                                      f"首个 {hits[0].get('name')}（"
+                                      f"{hits[0].get('file', '')}），"
+                                      f"查看调用链用 query=callers"
+                                      if hits else "无匹配符号——换关键词或模糊名")},
+                          ensure_ascii=False, indent=2)
     except Exception as exc:
         return json.dumps({"ok": False, "error": f"图查询失败: {exc}"}, ensure_ascii=False)
 
