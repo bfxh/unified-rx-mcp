@@ -3327,6 +3327,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "消息": "message", "事件": "event", "广播": "broadcast", "订阅": "subscribe",
         # IDE 增强 324：渲染词（光照/着色器/景深/抗锯齿/遮挡/阴影）
         "光照": "light", "着色器": "shader", "景深": "depth", "抗锯齿": "antialias",
+        # IDE 增强 325：物理词（重力/摩擦/速度/加速度/扭矩/阻尼）
+        "重力": "gravity", "摩擦": "friction", "速度": "velocity", "加速度": "accel",
+        "扭矩": "torque", "阻尼": "damping", "刚度": "stiffness", "惯性": "inertia",
         "遮挡": "occlusion", "阴影": "shadow", "贴图": "texture", "网格": "mesh",
         "通知": "notify", "回调": "callback", "信号": "signal", "指令": "command",
         "填充": "fill", "描边": "stroke", "渐变": "gradient", "投影": "shadow",
