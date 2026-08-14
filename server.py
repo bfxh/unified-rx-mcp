@@ -3507,6 +3507,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "路灯": "streetlight", "长椅": "bench", "花坛": "flowerbed", "喷泉": "fountain",
         # IDE 增强 414：地形特征词（山峰/峡谷/悬崖/瀑布/湖泊/沙丘/火山/冰川）
         "山峰": "peak", "峡谷": "canyon", "悬崖": "cliff", "瀑布": "waterfall",
+        # IDE 增强 415：植物词（灌木/藤蔓/苔藓/蕨类/花朵/仙人掌/芦苇/水草）
+        "灌木": "bush", "藤蔓": "vine", "苔藓": "moss", "蕨类": "fern",
+        "花朵": "flower", "仙人掌": "cactus", "芦苇": "reed", "水草": "seaweed",
         "湖泊": "lake", "沙丘": "dune", "火山": "volcano", "冰川": "glacier",
         "公告栏": "bulletin", "邮箱": "mailbox", "电话亭": "phonebooth", "报刊亭": "kiosk",
         "批发": "wholesale", "代理": "agency", "直销": "direct", "电商": "ecommerce",
