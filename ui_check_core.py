@@ -106,6 +106,14 @@ def scan_ui_source(src: str, path: str = "", dir_mode: bool = False) -> list[dic
                 issues.append({"rule": "font_missing", "severity": "warning",
                                "line": i, "msg": "Text 无字体兜底（CJK 缺失会方框/白屏）"})
 
+        # IDE 增强 121：交互缺失——Button spawn 无交互处理（不可点击/死按钮；
+        # 只查 spawn 行本身——块检查会误吃相邻按钮的 Interaction）
+        if "spawn(Button" in line or re.search(r"\bspawn\([^)]*Button\)", line):
+            if not re.search(r"Interaction|on_press|on_click|Pressed|Clicked|listener|"
+                             r"\.clicked|pressed\s*\(|Released", line):
+                issues.append({"rule": "no_interaction", "severity": "warning",
+                               "line": i, "msg": "Button 无交互处理（Interaction/点击事件）——死按钮"})
+
     # 文件级 camera 检查：camera 在别的文件 → 单文件模式降级提示（目录模式在 scan_ui_dir 聚合）
     if not dir_mode and has_ui and not has_camera:
         issues.append({"rule": "camera_missing", "severity": "warning",
