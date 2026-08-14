@@ -3788,6 +3788,7 @@ def _tool_code_complete(args: dict) -> "list[types.TextContent]":
     不会伪造结果。光标默认最后一行行尾。
     """
     path = str(args.get("path", "") or "")
+    _t0 = time.perf_counter()
     if not path:
         return [_tr(False, "缺少 path")]
     line = int(args.get("line", -1))
@@ -3867,7 +3868,9 @@ def _tool_code_complete(args: dict) -> "list[types.TextContent]":
     return [_tr(True, f"completion {len(out)} 项（去重 {len(items) - len(out)}）",
                 {"language": language_id,
                  "position": {"line": line, "character": character},
-                 "items": out})]
+                 "items": out,
+                 # IDE 增强 247：补全耗时（ms——收官）
+                 "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1)})]
 
 
 _LANG_BY_SUFFIX = {
