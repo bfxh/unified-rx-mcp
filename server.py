@@ -3101,6 +3101,11 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
             i["file"] = str(p)
     else:
         raise ValueError(f"仅支持 .rs 文件或目录: {p}")
+    # IDE 增强 180（里程碑）：规则过滤（rules 逗号分隔——扫描工具全补齐，
+    # 对称 std_check 173/bug_scan 174/cb_scan 175）
+    _only = {s.strip() for s in str(args.get("rules", "")).split(",") if s.strip()}
+    if _only:
+        issues = [i for i in issues if i.get("rule") in _only]
     # P2 对齐（2026-08-13）：severity 归一化统计 + noise_ratio（与 bug_scan 一致）——
     # AI 可判断报告可信度；ui_check_core 产出 error/warning，归一化到 error/warn/info
     sev_counts = {"error": 0, "warn": 0, "info": 0}
