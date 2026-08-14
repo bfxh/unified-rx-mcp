@@ -3365,6 +3365,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "任务": "quest", "支线": "side", "主线": "mainline", "委托": "commission",
         # IDE 增强 343：贸易词（贸易/交易/金币/商店/价格/商人/货币/买卖）
         "贸易": "trade", "交易": "barter", "金币": "coin", "商店": "shop",
+        # IDE 增强 344：社会词（势力/阵营/声望/友好/敌对/联盟/关系/招募）
+        "势力": "faction", "阵营": "alignment", "声望": "reputation", "友好": "friendly",
+        "敌对": "hostile", "联盟": "alliance", "关系": "relation", "招募": "recruit",
         "价格": "price", "商人": "merchant", "货币": "currency", "买卖": "buy",
         "奖励": "reward", "成就": "achievement", "目标": "objective", "条件": "condition",
         "桥梁": "bridge", "道路": "road", "塔": "tower", "城墙": "wall",
