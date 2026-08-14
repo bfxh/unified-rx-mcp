@@ -113,6 +113,15 @@ def generate_wiki(root: str, out_path: str, top: int = 15) -> dict:
     md = "\n".join(L)
     with open(out_path, "w", encoding="utf-8") as fh:
         fh.write(md)
+    # IDE 增强 217：依赖密集模块（被依赖边最多的文件——改动影响面最大）
+    _dep_cnt: dict[str, int] = {}
+    for _sf, _deps in file_deps.items():
+        for _df, _c in _deps.items():
+            _dep_cnt[str(_df)] = _dep_cnt.get(str(_df), 0) + _c
+    _most_dep = ""
+    if _dep_cnt:
+        _md_f, _md_c = max(_dep_cnt.items(), key=lambda kv: kv[1])
+        _most_dep = f"{os.path.basename(_md_f)}（{_md_c} 处依赖）"
     return {"ok": True, "root": root, "wiki": out_path,
             "chars": len(md), "modules": len(files),
             "hubs": [h["name"] for h in hubs][:10], "index": stats,
@@ -120,4 +129,6 @@ def generate_wiki(root: str, out_path: str, top: int = 15) -> dict:
             "advice": (f"WIKI 已生成（{len(md)} 字符，{len(files)} 模块）——"
                        f"核心符号 {len(hubs)} 个（首个 "
                        f"{hubs[0]['name'] if hubs else '无'}），改动前先看调用方"
-                       if md else "WIKI 生成失败")}
+                       if md else "WIKI 生成失败"),
+            # IDE 增强 217：依赖密集模块（edges 最多——改动影响面最大）
+            "most_depended": _most_dep}
