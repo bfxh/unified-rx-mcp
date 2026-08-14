@@ -3508,6 +3508,17 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
         _worst_f, _worst_n = max(_fc.items(), key=lambda kv: kv[1])
     result["worst_file"] = (f"{os.path.basename(_worst_f)}（{_worst_n} 条问题）"
                             if _issues else "")
+    # IDE 增强 209：最多问题规则（top_rule——批量修复入口，
+    # 按规则批量改一处模板多处复用）
+    _rc: dict[str, int] = {}
+    for i in _issues:
+        _r = str(i.get("rule", "unknown"))
+        _rc[_r] = _rc.get(_r, 0) + 1
+    if _rc:
+        _tr, _tn = max(_rc.items(), key=lambda kv: kv[1])
+        result["top_rule"] = f"{_tr}（{_tn} 条）"
+    else:
+        result["top_rule"] = ""
     if _critical:
         _c = _critical[0]
         result["advice"] = (f"最优先：{os.path.basename(str(_c.get('file', '')))}:"
