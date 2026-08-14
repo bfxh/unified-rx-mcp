@@ -3547,6 +3547,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "矿灯": "mininglamp", "呼吸面罩": "respirator", "安全绳": "safetyline", "护目镜": "goggles",
         # IDE 增强 434：控制终端词（控制台/操作台/终端机/控制面板/操纵杆/按钮/开关/旋钮）
         "控制台": "console", "操作台": "workstation", "终端机": "terminal", "控制面板": "panel",
+        # IDE 增强 435：发电设施词（风车/水轮机/太阳能板/地热/潮汐能/燃料电池/热电联产/储电塔）
+        "风车": "windmill", "水轮机": "waterturbine", "太阳能板": "solarpanel", "地热": "geothermal",
+        "潮汐能": "tidal", "燃料电池": "fuelcell", "热电联产": "cogeneration", "储电塔": "batterytower",
         "操纵杆": "lever", "按钮": "button", "开关": "switch", "旋钮": "knob",
         "工作服": "overall", "防爆服": "blastshield", "手套": "gloves", "靴子": "boots",
         "期货": "futures", "订单": "order", "竞价": "bidding", "挂牌": "listing",
