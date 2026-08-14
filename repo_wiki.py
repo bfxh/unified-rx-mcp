@@ -115,4 +115,9 @@ def generate_wiki(root: str, out_path: str, top: int = 15) -> dict:
         fh.write(md)
     return {"ok": True, "root": root, "wiki": out_path,
             "chars": len(md), "modules": len(files),
-            "hubs": [h["name"] for h in hubs][:10], "index": stats}
+            "hubs": [h["name"] for h in hubs][:10], "index": stats,
+            # IDE 增强 196：生成建议（WIKI 可读入口 + 核心模块提示）
+            "advice": (f"WIKI 已生成（{len(md)} 字符，{len(files)} 模块）——"
+                       f"核心符号 {len(hubs)} 个（首个 "
+                       f"{hubs[0]['name'] if hubs else '无'}），改动前先看调用方"
+                       if md else "WIKI 生成失败")}
