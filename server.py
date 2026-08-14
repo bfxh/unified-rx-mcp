@@ -1260,6 +1260,15 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
             break
     results["advice"] = (_worst_proj and f"最严重项目：{_worst_proj}——{_best_adv}") \
         or "各项目无 error 级问题"
+    # IDE 增强 191：顶层规则汇总（union 各项目 available_rules——
+    # 多项目入口同样可发现 rules= 可传哪些，对称 vuln 189/project 190）
+    _ar: set = set()
+    for p in results.get("projects", []):
+        _res = p.get("result", {})
+        _det = _res.get("detail", {}) if isinstance(_res, dict) else {}
+        if isinstance(_det, dict):
+            _ar |= set(_det.get("available_rules", []) or [])
+    results["available_rules"] = sorted(_ar)
     return [_tr(True, "full_scan 完成(并发 %d 项目): ok=%d errors=%d" % (
         len(roots), len(results["projects"]), len(results["errors"])), results)]
 
