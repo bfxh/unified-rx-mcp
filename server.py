@@ -3305,6 +3305,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "订单": "order", "支付": "payment", "用户": "user", "账户": "account",
         # IDE 增强 310：游戏资源词（声音/音乐/纹理/模型/特效/音效）
         "声音": "sound", "音乐": "music", "纹理": "texture", "模型": "model",
+        # IDE 增强 311：UI 状态词（加载/错误/成功/空态/重试/取消）
+        "加载": "loading", "错误": "error", "成功": "success", "空态": "empty",
+        "重试": "retry", "取消": "cancel", "刷新": "refresh", "提示": "toast",
         "特效": "effect", "音效": "audio", "动画": "animation", "场景": "scene",
         "库存": "inventory", "价格": "price", "商品": "product", "交易": "trade",
         "查找": "find", "递归": "recursive", "遍历": "traverse", "匹配": "match",
