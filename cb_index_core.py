@@ -226,10 +226,14 @@ def repo_status(root: str) -> dict:
             return list(symbols.keys())
         return symbols if isinstance(symbols, list) else []
     dirs = {}
+    _idx_langs: dict[str, int] = {}
     for rel, info in files.items():
         if not isinstance(info, dict):  # LOW 修复：files 元素类型校验
             continue
         d = os.path.dirname(rel) or "."
+        _sfx = os.path.splitext(rel)[1].lower().lstrip(".")
+        if _sfx:
+            _idx_langs[_sfx] = _idx_langs.get(_sfx, 0) + 1
         dirs.setdefault(d, []).append({"file": os.path.basename(rel), "symbols": _sym_names(info.get("symbols", []))[:10]})
     top_dirs = sorted(dirs.items(), key=lambda kv: -len(kv[1]))[:20]
     # IDE 增强 137：索引新鲜度（可读——多久没更新，建议刷新提示）
@@ -253,6 +257,9 @@ def repo_status(root: str) -> dict:
         # IDE 增强 143：截断状态（索引未覆盖全仓——提示刷新/扩容）
         "truncated": bool(data.get("truncated")),
         "file_count": len(files),
+        # IDE 增强 288：索引语言画像（索引文件后缀分布——不重建即可知
+        # 项目语言组成，对称扫描工具 languages）
+        "languages": dict(sorted(_idx_langs.items(), key=lambda kv: -kv[1])),
         "dir_summary": [{"dir": d, "files": len(v), "symbols": sum(len(x["symbols"]) for x in v)}
                         for d, v in top_dirs],
     }
