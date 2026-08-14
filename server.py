@@ -3337,6 +3337,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "数据库": "database", "表": "table", "行": "row", "列": "column",
         # IDE 增强 329：文本词（文本/字符串/字符/正则/分词/截取）
         "文本": "text", "字符串": "string", "字符": "char", "正则": "regex",
+        # IDE 增强 330：输入词（键盘/鼠标/手柄/摇杆/按键/快捷键）
+        "键盘": "keyboard", "鼠标": "mouse", "手柄": "gamepad", "摇杆": "joystick",
+        "按键": "key", "快捷键": "shortcut", "手势": "gesture", "拖拽": "drag",
         "分词": "token", "截取": "substring", "拼接": "concat", "替换": "replace",
         "事务": "transaction", "主键": "primary", "索引": "index", "查询": "query",
         "工具提示": "tooltip", "下拉框": "dropdown", "复选框": "checkbox", "滑块": "slider",
