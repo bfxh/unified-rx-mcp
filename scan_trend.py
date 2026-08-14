@@ -93,5 +93,10 @@ def analyze(logs: list[dict], window_days: int = 7) -> dict:
         "noisy_tools": list(noisy.keys()),
         "trend": trend,
         "trend_detail": {"recent_issues": recent_n, "prev_issues": prev_n},
+        # IDE 增强 145：高频工具建议（最常用工具——确认使用/考虑 pipeline 集成）
+        "top_tool_advice": (
+            f"最常用工具：{tool_freq.most_common(1)[0][0]}"
+            f"（{tool_freq.most_common(1)[0][1]} 次）——高频场景可考虑 pipeline preset 固化"
+            if tool_freq else "暂无工具调用记录"),
         "note": "趋势数据来自 scan-log（日志→统计→增强规则闭环）",
     }
