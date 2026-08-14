@@ -3306,6 +3306,14 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
         _top_rule = f"{_tr}（{_tn} 条）"
     else:
         _top_rule = ""
+    # IDE 增强 220（里程碑）：文件级规则分布（file_rules——对称 std 219）
+    _fr: dict[str, dict[str, int]] = {}
+    for i in issues:
+        _f = os.path.basename(str(i.get("file", "")))
+        _r = str(i.get("rule", "unknown"))
+        _fr.setdefault(_f, {})
+        _fr[_f][_r] = _fr[_f].get(_r, 0) + 1
+    _file_rules = dict(sorted(_fr.items())[:20])
     # IDE 增强 188：可用规则列表（rules= 可传哪些——四大单入口收官）
     _ar = sorted(set(_rule_counts) | {"ui_root_missing", "camera_missing",
                                       "mode_isolation", "focus_pass",
@@ -3326,6 +3334,7 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
         "worst_file": (f"{os.path.basename(str(_worst_f))}（{_worst_n} 条问题）"
                        if issues else ""),
         "top_rule": _top_rule,
+        "file_rules": _file_rules,
         "note": "severity 已归一化（warning→warn）；noise_ratio=info 占比",
         "issues": issues,
     }, ensure_ascii=False))]
