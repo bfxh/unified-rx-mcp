@@ -1955,11 +1955,13 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
 # IDE 增强 253/254：多语言扫描扩展（2026-08-14 用户点名"没有多语言处理 包括扫描"）
 # ——go/ts/js/gd/c/cpp 轻量确定性文本规则（低误报；AST 精度留给 py/rs）
 _BUG_SCAN_EXTS = {".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
-                  ".gd", ".c", ".cpp", ".h", ".hpp"}
+                  ".gd", ".c", ".cpp", ".h", ".hpp",
+                  ".cs", ".lua", ".sh", ".bash"}
 # IDE 增强 256：分析入口统一扩展（kb_query/semantic_search/explore_code/
 # repo_wiki 全语言——用户点名"没有多语言处理"，三处白名单此前缺 go/c/cpp）
 _ANALYZE_EXTS = {".rs", ".py", ".go", ".ts", ".tsx", ".js", ".jsx",
                  ".gd", ".c", ".h", ".cpp", ".hpp", ".cc",
+                 ".cs", ".lua", ".sh", ".bash",
                  ".toml", ".md", ".ron", ".json", ".yaml", ".yml"}
 
 # (正则, 规则名, 严重度, 消息) 每语言一组——只报确定性模式：
@@ -2050,6 +2052,26 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
             "goto 使用（控制流混乱——建议结构化替代）")],
     ".hpp": [(r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
               "goto 使用（控制流混乱——建议结构化替代）")],
+    # IDE 增强 265：C#（Unity）/ Lua / Bash（游戏与脚本语言——用户点名）
+    ".cs": [(r"\bConsole\.Write(?:Line)?\s*\(", "debug_residue", "warning",
+             "调试残留（Console.Write——建议删或转日志）"),
+            (r"\bDebug\.Log\s*\(", "debug_residue", "warning",
+             "调试残留（Debug.Log——建议删或转日志）"),
+            (r"\bthrow\s+new\s+Exception\s*\(", "bare_throw", "warning",
+             "裸 throw new Exception（应抛具体异常类型——建议 ArgumentException 等）")],
+    ".lua": [(r"\bprint\s*\(", "debug_residue", "warning",
+              "调试残留（print——建议删或转日志）"),
+             (r"\bos\.execute\s*\(", "shell_injection", "error",
+              "os.execute 命令注入（输入不可信时任意命令执行——建议参数化）"),
+             (r"\bloadstring\s*\(", "dynamic_exec", "error",
+              "loadstring 动态执行（eval 等价——输入不可信时任意代码执行）")],
+    ".sh": [(r"\beval\s+[\"']", "shell_injection", "error",
+             "eval 命令注入（输入不可信时任意命令执行——建议参数化/白名单）"),
+            (r"\brm\s+-rf\s+/\s*(?:\*|\s|$)", "destructive", "error",
+             "rm -rf /（毁灭性命令——建议精确路径+确认）"),
+            (r"\bcurl\s+[^\|]*\|\s*(?:sudo\s+)?(?:bash|sh)\b", "pipe_exec",
+             "warning",
+             "curl | bash（从网络管道执行——供应链风险，建议先下载审查）")],
 }
 
 

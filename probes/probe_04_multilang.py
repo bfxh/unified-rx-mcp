@@ -142,3 +142,23 @@ def p20():
     if se and rl:
         return True, "js string_exec + c realloc_unchecked 双检出"
     return False, f"应双检出: se={bool(se)} rl={bool(rl)}"
+
+
+@probe("p21_bug_scan_cs_lua_bash")
+def p21():
+    """bug_scan C#/Lua/Bash 新语言（265）。"""
+    cs_file = os.path.join(_TMP, "sample.cs")
+    with open(cs_file, "w", encoding="utf-8") as f:
+        f.write("class P {\n    void M() {\n        Debug.Log(\"x\");\n    }\n}\n")
+    out = S._call("bug_scan", {"path": cs_file})
+    cs_ok = any(i.get("rule") == "debug_residue"
+                for i in json.loads(out[0].text).get("issues", []))
+    sh_file = os.path.join(_TMP, "sample.sh")
+    with open(sh_file, "w", encoding="utf-8") as f:
+        f.write("eval \"$CMD\"\n")
+    out = S._call("bug_scan", {"path": sh_file})
+    sh_ok = any(i.get("rule") == "shell_injection"
+                for i in json.loads(out[0].text).get("issues", []))
+    if cs_ok and sh_ok:
+        return True, "cs debug_residue + sh shell_injection 双检出"
+    return False, f"应双检出: cs={cs_ok} sh={sh_ok}"
