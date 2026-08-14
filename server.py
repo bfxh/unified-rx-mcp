@@ -864,6 +864,11 @@ def _tool_kb_query(args: dict) -> str:
         _t0 = time.perf_counter()
         hits = idx.search_hybrid(query, embed_fn=None, limit=limit)
         _ms = round((time.perf_counter() - _t0) * 1000, 1)
+        _hits_langs: dict[str, int] = {}
+        for _h in hits:
+            _sfx = os.path.splitext(str(_h.get("id", "")))[1].lower().lstrip(".")
+            if _sfx:
+                _hits_langs[_sfx] = _hits_langs.get(_sfx, 0) + 1
         return json.dumps({
             "ok": True, "query": query, "count": len(hits), "db": db,
             # IDE 增强 215：检索耗时（ms——性能可见）
@@ -878,6 +883,9 @@ def _tool_kb_query(args: dict) -> str:
             "advice": (f"命中 {len(hits)} 条（前 3："
                        f"{', '.join(str(h.get('title', ''))[:20] for h in hits[:3])}）"
                        if hits else "0 命中——换关键词，或确认索引目录含代码/文档文件"),
+            # IDE 增强 290：检索命中语言分布（hits 文件后缀——AI 知道
+            # 相关代码的语言）
+            "languages": dict(sorted(_hits_langs.items(), key=lambda kv: -kv[1])),
         }, ensure_ascii=False, indent=2)
     except Exception as exc:
         return json.dumps({"ok": False, "error": f"检索失败: {exc}"}, ensure_ascii=False)

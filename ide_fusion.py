@@ -100,9 +100,17 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
         key = f"{path}#{symbol}"
         by_symbol[key] = by_symbol.get(key, 0) + 1
 
+    # IDE 增强 290：标注语言分布（问题文件后缀——AI 知道问题
+    # 集中在哪些语言，对称扫描工具 languages）
+    _a_langs: dict[str, int] = {}
+    for _f in by_file:
+        _sfx = os.path.splitext(_f)[1].lower().lstrip(".")
+        if _sfx:
+            _a_langs[_sfx] = _a_langs.get(_sfx, 0) + 1
     return {
         "ok": True,
         "total": len(issues),
+        "languages": dict(sorted(_a_langs.items(), key=lambda kv: -kv[1])),
         "by_file": dict(sorted(by_file.items(), key=lambda kv: -kv[1])),
         "by_rule": dict(sorted(by_rule.items(), key=lambda kv: -kv[1])),
         "severity_counts": dict(sorted(by_sev.items(), key=lambda kv: -kv[1])),

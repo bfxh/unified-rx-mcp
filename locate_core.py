@@ -275,10 +275,18 @@ def locate(root: str, query: str, max_files: int = 200, limit: int = 10) -> dict
             seen[key] = c
     ranked = sorted(seen.values(), key=lambda c: -c["score"])[:limit]
 
+    # IDE 增强 290：定位候选语言分布（候选文件后缀——AI 知道
+    # 相关代码的语言，对称扫描工具 languages）
+    _l_langs: dict[str, int] = {}
+    for _c in ranked:
+        _sfx = os.path.splitext(str(_c.get("file", "")))[1].lower().lstrip(".")
+        if _sfx:
+            _l_langs[_sfx] = _l_langs.get(_sfx, 0) + 1
     return {
         "ok": True,
         "query": query,
         "files_scanned": files_scanned,
+        "languages": dict(sorted(_l_langs.items(), key=lambda kv: -kv[1])),
         "candidates": ranked,
         "hint": "AI 引导：按 score 从高到低检查 candidate，修改位置以 file:line 为准；"
                 "改前用 cae_code_context 取符号级上下文，改后跑 cae_change_impact 验证影响。",
