@@ -3299,11 +3299,15 @@ def _tool_scan_trend(args: dict) -> "list[types.TextContent]":
     """扫描日志趋势分析（M6：日志→统计→增强闭环）。"""
     from scan_trend import analyze
     import scan_log_core as _scl
+    _t0 = time.perf_counter()
     try:
         logs = _scl.query_logs(limit=2000)
     except Exception:
         logs = []
     r = analyze(logs, int(args.get("window_days", 7)))
+    # IDE 增强 249：分析耗时（ms——收官）
+    if isinstance(r, dict):
+        r["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
 
 
