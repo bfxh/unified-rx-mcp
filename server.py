@@ -3577,6 +3577,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "轧机": "rollingmill", "连铸机": "caster", "钢包": "ladle", "精炼炉": "refiner",
         # IDE 增强 449：科研设施词（研究所/试验场/化验室/标本室/图书馆/档案馆/观测台/演算室）
         "研究所": "institute", "试验场": "testrange", "化验室": "assaylab", "标本室": "specimenroom",
+        # IDE 增强 450：金属锭词（铜锭/钢锭/铝锭/锌锭/锡锭/铅锭/镍锭/钛锭）
+        "铜锭": "copperingot", "钢锭": "steelingot", "铝锭": "aluminum", "锌锭": "zinc",
+        "锡锭": "tin", "铅锭": "lead", "镍锭": "nickel", "钛锭": "titanium",
         "图书馆": "library", "档案馆": "archive", "观测台": "observatory", "演算室": "computationroom",
         "拉丝机": "drawingmachine", "锻造机": "forge", "冲压机": "stamping", "退火炉": "annealingfurnace",
         "鼓风炉": "cupola", "坩埚炉": "cruciblefurnace", "平炉": "openhearth", "感应炉": "inductionfurnace",
