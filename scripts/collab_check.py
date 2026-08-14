@@ -94,5 +94,5 @@ finally:
     proc.kill()
     try:
         shutil.rmtree(STATE_DIR, ignore_errors=True)
-    except OSError:
+    except OSError:  # 尽力而为
         pass
