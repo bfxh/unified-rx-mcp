@@ -75,6 +75,12 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
         "by_rule": dict(sorted(by_rule.items(), key=lambda kv: -kv[1])),
         "severity_counts": dict(sorted(by_sev.items(), key=lambda kv: -kv[1])),
         "symbol_map": dict(sorted(by_symbol.items(), key=lambda kv: -kv[1])[:50]),
+        # IDE 增强 132：top 符号建议（问题最集中的符号——重点排查入口）
+        "top_symbols_advice": [
+            {"symbol": sym.split("#")[-1], "file": sym.split("#")[0],
+             "issues": cnt}
+            for sym, cnt in sorted(by_symbol.items(), key=lambda kv: -kv[1])[:5]
+        ],
     }
 
 
