@@ -71,7 +71,7 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
                         name = next((g for g in m.groups() if g), "")
                         if name:
                             result.append((i, name))
-        except OSError:
+        except OSError:  # 尽力而为（吞错可追溯）
             pass
         fn_lines[path] = result
         return result

@@ -82,7 +82,7 @@ def prepare_data(out_dir: Path) -> dict:
                     stats["lesson_rows"] += 1
                     utility = float(lesson.get("utility", 0.5)) if isinstance(lesson, dict) else 0.5
                     value_rows.append({"state": str(lid)[:100], "value": utility})
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError):  # 尽力而为（吞错可追溯）
             pass
 
     # 3. 嵌入对（从错误样本构造相似/不相似对）

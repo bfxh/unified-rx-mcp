@@ -136,7 +136,7 @@ class Quest:
             os.makedirs(_QUEST_DIR, exist_ok=True)
             with open(self._state_path(self.quest_id), "w", encoding="utf-8") as f:
                 json.dump(self.state, f, ensure_ascii=False, indent=2)
-        except OSError:
+        except OSError:  # 尽力而为（吞错可追溯）
             pass
 
 

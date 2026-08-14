@@ -444,7 +444,7 @@ def _node_name(node, lang: str) -> str:
                 for gc in child.children:
                     if gc.type == "identifier":
                         return gc.text.decode("utf-8", "ignore")
-    except Exception:
+    except Exception:  # 尽力而为（吞错可追溯）
         pass
     return ""
 
