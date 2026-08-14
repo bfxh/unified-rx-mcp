@@ -3409,6 +3409,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "电力": "power", "电线": "wire", "电缆": "cable", "变压器": "transformer",
         # IDE 增强 365：流体词（液体/气体/流体/管道/泵/阀门/蒸汽/液压）
         "液体": "liquid", "气体": "gas", "流体": "fluid", "管道": "pipe",
+        # IDE 增强 366：矿产词（金矿/铁矿/铜矿/煤矿/铀矿/稀土/硅矿/石油）
+        "金矿": "gold", "铁矿": "iron", "铜矿": "copper", "煤矿": "coal",
+        "铀矿": "uranium", "稀土": "rare", "硅矿": "silicon", "石油": "oil",
         "泵": "pump", "阀门": "valve", "蒸汽": "steam", "液压": "hydraulic",
         "电池": "battery", "充电": "charge", "电网": "grid", "断电": "outage",
         "仓库": "warehouse", "货架": "shelf", "叉车": "forklift", "装卸": "loading",
