@@ -3447,6 +3447,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "锭": "ingot", "粉": "powder", "矿渣": "slag", "晶体": "crystal",
         # IDE 增强 384：装置词（装置/设备/机器/组件/零件/部件/模块已有模块/电路）
         "装置": "device", "设备": "equipment", "机器": "machine", "组件": "component",
+        # IDE 增强 385：调料词（香料/调料/盐/糖/油/酱汁/醋/胡椒）
+        "香料": "spice", "调料": "seasoning", "盐": "salt", "糖": "sugar",
+        "油": "oil", "酱汁": "sauce", "醋": "vinegar", "胡椒": "pepper",
         "零件": "part", "部件": "assembly", "电路": "circuit", "芯片": "chip",
         "宝石": "gem", "浓缩物": "concentrate", "块": "block", "碎屑": "shard",
         "番茄": "tomato", "胡萝卜": "carrot", "南瓜": "pumpkin", "棉花": "cotton",
