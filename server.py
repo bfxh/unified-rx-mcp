@@ -3561,6 +3561,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "竖井": "shaft", "平巷": "drift", "主巷": "mainhaulage", "通风井": "ventilation",
         # IDE 增强 441：冶炼辅料词（助熔剂/催化剂/反应剂/淬火液/冷却液/电解液/研磨剂/润滑剂）
         "助熔剂": "flux", "催化剂": "catalyst", "反应剂": "reagent", "淬火液": "quenchfluid",
+        # IDE 增强 442：贸易政策词（关税/配额/许可证/垄断/补贴/禁运/特惠/配额制）
+        "关税": "tariff", "配额": "quota", "许可证": "license", "垄断": "monopoly",
+        "补贴": "subsidy", "禁运": "embargo", "特惠": "preference", "配额制": "quota2",
         "冷却液": "coolant", "电解液": "electrolyte", "研磨剂": "abrasive", "润滑剂": "lubricant",
         "安全通道": "escape", "避难硐室": "refuge", "排水沟": "drainage", "支架区": "supportzone",
         "乳化器": "emulsifier", "均质机": "homogenizer", "离心分离": "centrifuge", "过滤槽": "filterbed",
