@@ -3477,6 +3477,16 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
     _issues = result.get("issues", [])
     _critical = [i for i in _issues
                  if str(i.get("severity", "")).lower() in ("critical", "error")]
+    # IDE 增强 204：问题最多文件（worst_file——对称 ui_check 203）
+    _worst_f, _worst_n = "", 0
+    if _issues:
+        _fc: dict[str, int] = {}
+        for i in _issues:
+            _k = str(i.get("file", ""))
+            _fc[_k] = _fc.get(_k, 0) + 1
+        _worst_f, _worst_n = max(_fc.items(), key=lambda kv: kv[1])
+    result["worst_file"] = (f"{os.path.basename(_worst_f)}（{_worst_n} 条问题）"
+                            if _issues else "")
     if _critical:
         _c = _critical[0]
         result["advice"] = (f"最优先：{os.path.basename(str(_c.get('file', '')))}:"
