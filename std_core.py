@@ -249,6 +249,34 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
+    if path.endswith((".kt", ".kts")):
+        # IDE 增强 314：kotlin 重复类/函数检测（class/fun 同名——
+        # 对齐 java/dart 分支）
+        count = 0
+        seen: dict = {}
+        for i, line in enumerate(src.splitlines(), 1):
+            if line.lstrip().startswith(("//", "*")):
+                continue
+            m = re.match(
+                r"\s*(?:data\s+|sealed\s+|abstract\s+|open\s+)?class\s+(\w+)|"
+                r"\s*(?:fun\s+)?(?!TextButton|ElevatedButton)(\w+)\s*\(", line)
+            if not m:
+                continue
+            name = next((g for g in m.groups() if g), "")
+            if not name:
+                continue
+            if name in seen:
+                issues.append({
+                    "file": path, "line": i, "rule": "name_conflict",
+                    "severity": "Warning",
+                    "msg": f"重复定义 {name}（首次在行 {seen[name]}）",
+                })
+                count += 1
+                if count >= limit:
+                    return
+            else:
+                seen[name] = i
+        return
     try:
         tree = ast.parse(src)
     except SyntaxError:
