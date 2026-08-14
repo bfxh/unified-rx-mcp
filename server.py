@@ -3347,6 +3347,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "存档": "save", "读档": "load", "检查点": "checkpoint", "进度": "progress",
         # IDE 增强 334：特效词（爆炸/冲击/震荡/火/烟/碎片/闪电/毒）
         "爆炸": "explosion", "冲击": "impact", "震荡": "shock", "火": "fire",
+        # IDE 增强 335：资源管理词（卸载/池化/回收/引用计数/预加载）
+        "卸载": "unload", "池化": "pool", "回收": "recycle", "引用计数": "refcount",
+        "预加载": "preload", "延迟加载": "lazy", "清理": "cleanup", "释放": "release",
         "烟": "smoke", "碎片": "debris", "闪电": "lightning", "毒": "poison",
         "世界生成": "worldgen", "种子": "seed", "难度": "difficulty", "关卡": "level",
         "溢出": "overflow", "换行": "wrap", "居中": "center", "收缩": "shrink",
