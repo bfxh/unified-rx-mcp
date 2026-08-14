@@ -360,3 +360,16 @@ def p31():
             and "file:" not in locs[0].get("file", ""):
         return True, "dart file:/// URI 定位 L7（前缀清洗）"
     return False, f"dart URI 应定位: {data}"
+
+
+@probe("p32_cheatsheet_lang_domains")
+def p32():
+    """cmd_cheatsheet 多语言命令域（292）。"""
+    out = S._call("cmd_cheatsheet", {})
+    data = json.loads(out[0].text)
+    doms = data.get("domains", [])
+    missing = [d for d in ("lang_go", "lang_ts", "lang_cs", "lang_dart")
+               if d not in doms]
+    if not missing:
+        return True, "4 语言命令域在 cheatsheet"
+    return False, f"缺语言域: {missing}"

@@ -3250,6 +3250,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         # IDE 增强 268：cs/lua/sh 代码词（游戏脚本/CI 探索）
         "类": "class", "函数": "function", "方法": "method", "脚本": "script",
         "按钮": "button", "点击": "click", "构建": "build", "部署": "deploy",
+        # IDE 增强 293：移动端/桌面词（安卓/苹果/窗口/控件树）
+        "安卓": "android", "苹果": "ios", "窗口": "window", "控件树": "widget",
+        "像素": "pixel", "触摸": "touch", "手势": "gesture", "滚动": "scroll",
         # IDE 增强 275：Flutter/UI 词（控件/界面/布局/导航/主题/状态）
         "控件": "widget", "界面": "ui", "布局": "layout", "导航": "navigate",
         "主题": "theme", "状态": "state", "动画": "animation", "页面": "page",
