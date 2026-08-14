@@ -3401,6 +3401,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "轮胎": "tire", "底盘": "chassis", "悬挂": "suspension", "刹车": "brake",
         # IDE 增强 361：材料词（钢材/玻璃/合金/陶瓷/布料/皮革/混凝土/塑料）
         "钢材": "steel", "玻璃": "glass", "合金": "alloy", "陶瓷": "ceramic",
+        # IDE 增强 362：设施词（实验室/反应堆/离心机/装配机/熔炉/钻机/雷达/天线）
+        "实验室": "lab", "反应堆": "reactor", "离心机": "centrifuge", "装配机": "assembler",
+        "熔炉": "furnace", "钻机": "drill", "雷达": "radar", "天线": "antenna",
         "布料": "cloth", "皮革": "leather", "混凝土": "concrete", "塑料": "plastic",
         "燃料": "fuel", "方向盘": "steering", "传动": "transmission", "油箱": "tank",
         "加工": "process", "流水线": "pipeline", "发电机": "generator", "能源": "energy",
