@@ -3385,6 +3385,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "面板": "panel", "侧边栏": "sidebar", "状态栏": "statusbar", "标题栏": "titlebar",
         # IDE 增强 353：科技词（科技/研究/解锁/蓝图/发明/升级/科技树/实验）
         "科技": "tech", "研究": "research", "解锁": "unlock", "蓝图": "blueprint",
+        # IDE 增强 354：音乐词（音乐/旋律/节奏/和弦/音调/节拍/音符/音效库）
+        "音乐": "music", "旋律": "melody", "节奏": "rhythm", "和弦": "chord",
+        "音调": "pitch", "节拍": "beat", "音符": "note", "音效": "sfx",
         "发明": "invention", "升级": "upgrade", "科技树": "techtree", "实验": "experiment",
         "页脚": "footer", "标签栏": "tabbar", "通知": "toast", "提示": "hint",
         "睡眠": "sleep", "精力": "stamina", "疲惫": "fatigue", "伤口": "wound",
