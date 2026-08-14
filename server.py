@@ -1354,7 +1354,10 @@ _BUG_BUILTINS = set(dir(builtins)) | {
 
 # 报错定位正则：traceback 风格 `File "x.py", line 42, in foo` + 简洁风格 `x.py:42`
 _TRACEBACK_RE = re.compile(r'File "([^"]+)", line (\d+)(?:, in ([^\n]+))?')
-_SIMPLE_POS_RE = re.compile(r'((?:[A-Za-z]:[\\/])?[^\s:"]+\.py):(\d+)(?::(\d+))?')
+# IDE 增强 159：支持 .rs/.go/.ts/.js（原仅 .py——Rust panic 位置
+# src/main.rs:2:5 无法定位，探针验证抓出）
+_SIMPLE_POS_RE = re.compile(
+    r'((?:[A-Za-z]:[\\/])?[^\s:"]+\.(?:py|rs|go|ts|js)):(\d+)(?::(\d+))?')
 
 
 def _bug_is_open(node) -> bool:
