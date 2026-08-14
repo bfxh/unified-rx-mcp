@@ -122,3 +122,23 @@ def p19():
     if mda and xss:
         return True, f"py mutable_default_arg + jsx xss_risk 双检出"
     return False, f"应双检出: mda={bool(mda)} xss={bool(xss)}"
+
+
+@probe("p20_bug_scan_js_c_gd_rules")
+def p20():
+    """bug_scan js setTimeout / c realloc / gd free（264）。"""
+    js_file = os.path.join(_TMP, "sample_to.js")
+    with open(js_file, "w", encoding="utf-8") as f:
+        f.write("setTimeout('alert(1)', 100);\n")
+    out = S._call("bug_scan", {"path": js_file})
+    se = [i for i in json.loads(out[0].text).get("issues", [])
+          if i.get("rule") == "string_exec"]
+    c_file = os.path.join(_TMP, "sample_rl.c")
+    with open(c_file, "w", encoding="utf-8") as f:
+        f.write("int main(void) {\n    buf = realloc(buf, 1024);\n}\n")
+    out = S._call("bug_scan", {"path": c_file})
+    rl = [i for i in json.loads(out[0].text).get("issues", [])
+          if i.get("rule") == "realloc_unchecked"]
+    if se and rl:
+        return True, "js string_exec + c realloc_unchecked 双检出"
+    return False, f"应双检出: se={bool(se)} rl={bool(rl)}"
