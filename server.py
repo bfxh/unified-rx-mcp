@@ -2940,6 +2940,12 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
                                if any(w in ln.lower() for w in _words)), -1)
                 if 0 <= _i < len(_blines):
                     result["best_hit"] = _blines[_i].strip()[:160]
+                    # IDE 增强 211：命中上下文（前后各 1 行——命中场景更清楚）
+                    _ctx = []
+                    for _k in (_i - 1, _i, _i + 1):
+                        if 0 <= _k < len(_blines):
+                            _ctx.append(f"{_k + 1}: {_blines[_k].strip()[:80]}")
+                    result["best_context"] = _ctx
         except Exception:  # 尽力而为
             pass
     else:
