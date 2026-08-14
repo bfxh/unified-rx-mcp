@@ -735,6 +735,7 @@ def _tool_pipeline(args: dict) -> str:
       pipeline({preset:"locate_context", path:"...", query:"..."}) → 定位+补全
     """
     args = _expand_preset(args)
+    _t0 = time.perf_counter()
     steps = args.get("steps") or []
     max_steps = int(args.get("max_steps", 20))
     depth = int(args.get("_depth", 0))
@@ -763,7 +764,10 @@ def _tool_pipeline(args: dict) -> str:
             ctx[str(key)] = val
         out.append({"step": i, "tool": tool, "ok": not r.startswith("Error"), "result": val})
     return json.dumps({"ok": True, "preset": args.get("preset"), "steps": out,
-                       "context_keys": sorted(ctx)}, ensure_ascii=False)
+                       "context_keys": sorted(ctx),
+                       # IDE 增强 244：管线耗时（ms——聚合收官）
+                       "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1)},
+                      ensure_ascii=False)
 
 
 def _tool_parallel(args: dict) -> str:
