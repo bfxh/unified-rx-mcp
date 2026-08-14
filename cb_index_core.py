@@ -199,7 +199,7 @@ def repo_status(root: str) -> dict:
                 _fresh = f"索引距今 {int(_age // 3600)}h{int(_age % 3600 // 60)}m"
             else:
                 _fresh = f"索引距今 {int(_age // 86400)} 天（建议 cb_index 刷新）"
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # 尽力而为
             pass
     return {
         "ok": True,

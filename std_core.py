@@ -456,7 +456,7 @@ def _summarize(issues: list, files: int, path: str, todo_count: int = 0,
         if st.get("ok"):
             for rname, rdata in st.get("result", {}).get("rules", {}).items():
                 rule_weights[rname] = rdata.get("weight", 1.0)
-    except Exception:
+    except Exception:  # 尽力而为
         pass
     # 低权重规则（<0.3）视为已被反馈降权——suggestion 降级为 info（不阻断 ok）
     low_weight_rules = {r for r, w in rule_weights.items() if w < 0.3}

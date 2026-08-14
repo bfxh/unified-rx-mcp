@@ -23,6 +23,9 @@ _CACHE_FILE = os.path.join(
     ".unified-rx", "scan-cache.json")
 _MAX_ENTRIES = 512
 _TTL = 3600  # 缓存有效期（文件未变最多缓存 1h，防长期陈旧）
+# IDE 增强 153（自扫抓出）：规则版本号进缓存键——扫描规则代码变更时 +1，
+# 旧缓存自动失效（否则规则修复后命中修复前缓存，误判残留）
+RULES_VERSION = "v2"
 
 _cache: dict[str, dict] = {}
 _loaded = False
@@ -73,7 +76,7 @@ def _get_locked(tool: str, path: str) -> dict | None:
     sig = _file_sig(path)
     if sig is None:
         return None
-    key = f"{tool}|{path}"
+    key = f"{tool}|{path}|{RULES_VERSION}"
     entry = _cache.get(key)
     if not entry:
         return None
@@ -98,7 +101,7 @@ def _put_locked(tool: str, path: str, result: dict) -> None:
     sig = _file_sig(path)
     if sig is None:
         return
-    key = f"{tool}|{path}"
+    key = f"{tool}|{path}|{RULES_VERSION}"
     _cache[key] = {"sig": sig, "ts": time.time(), "result": result}
     # LRU：超过上限删最旧
     if len(_cache) > _MAX_ENTRIES:

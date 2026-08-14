@@ -63,7 +63,7 @@ def append_scan(entry: dict) -> None:
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
         _truncate(path)
-    except Exception:
+    except Exception:  # 尽力而为
         pass  # 日志失败不影响扫描
 
 
@@ -88,7 +88,7 @@ def _truncate(path: Path) -> None:
             tmp = path.with_suffix(f".jsonl.tmp{os.getpid()}")
             tmp.write_text("\n".join(tail) + "\n", encoding="utf-8")
             tmp.replace(path)
-    except Exception:
+    except Exception:  # 尽力而为
         pass
 
 

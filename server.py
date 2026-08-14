@@ -1424,15 +1424,22 @@ def _bug_func_args(node) -> set:
     return args
 
 
-def _bug_is_none_guarded(child, none_vars) -> bool:
+def _bug_is_none_guarded(child, none_vars, ancestors=None) -> bool:
     """短路保护检测：X is None or X.field / X is None and X.field 模式不报。
-    沿 _p 父链向上找 BoolOp：若 X 解引用在 BoolOp 右支且左支有 'X is None'，则受保护。"""
-    cur = getattr(child, "_p", None)
-    while cur is not None:
+
+    沿祖先链（显式列表，IDE 增强 153——替代 _p 临时属性）向上找 BoolOp：
+    若 X 解引用在 BoolOp 右支且左支有 'X is None'，则受保护。
+    """
+    chain = list(ancestors or [])
+    while chain:
+        cur = chain.pop(0)
         if isinstance(cur, ast.BoolOp):
             pos = None
             for i, v in enumerate(cur.values):
-                if v is child or child in _ast_children(v):
+                # 递归包含（IDE 增强 153 二修）：`X.poll() is not None` 是
+                # Compare 不是 Call——poll 深一层（Compare→Call→poll），
+                # 直接子节点判断（child in _ast_children(v)）找不到 → 漏豁免
+                if v is child or child in ast.walk(v):
                     pos = i
                     break
             if pos is None:
@@ -1445,7 +1452,6 @@ def _bug_is_none_guarded(child, none_vars) -> bool:
         if isinstance(cur, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Module,
                             ast.ClassDef, ast.If, ast.While, ast.For)):
             return False
-        cur = getattr(cur, "_p", None)
     return False
 
 
@@ -1453,21 +1459,26 @@ def _ast_children(n):
     return list(ast.iter_child_nodes(n))
 
 
-def _bug_check_deref(node, none_vars, path, lines, issues):
-    """None 变量被解引用（属性/下标/调用）检测；线性近似，可能漏报/误报。"""
+def _bug_check_deref(node, none_vars, path, lines, issues, parents=None):
+    """None 变量被解引用（属性/下标/调用）检测；线性近似，可能漏报/误报。
+
+    IDE 增强 153（自扫抓出）：用显式祖先链（parents 列表）替代 _p 临时
+    属性——_p 在多路径遍历下会被覆盖，短路保护检测（X is None or
+    X.method()）时灵时不灵；显式链确定可靠。
+    """
+    ancestors = [node] + list(parents or [])
     for child in ast.iter_child_nodes(node):
         if isinstance(child, (ast.Attribute, ast.Subscript)) and isinstance(child.value, ast.Name) \
                 and child.value.id in none_vars:
-            if not _bug_is_none_guarded(child, none_vars):
+            if not _bug_is_none_guarded(child, none_vars, ancestors):
                 issues.append(_bug_issue(path, child, "none_deref", "warning",
                                          f"'{child.value.id}' 可能为 None，此处解引用会抛异常", lines))
         elif isinstance(child, ast.Call) and isinstance(child.func, ast.Name) \
                 and child.func.id in none_vars:
-            if not _bug_is_none_guarded(child, none_vars):
+            if not _bug_is_none_guarded(child, none_vars, ancestors):
                 issues.append(_bug_issue(path, child, "none_deref", "warning",
                                          f"'{child.func.id}' 可能为 None，调用会抛 TypeError", lines))
-        else:
-            _bug_check_deref(child, none_vars, path, lines, issues)
+        _bug_check_deref(child, none_vars, path, lines, issues, parents=ancestors)
 
 
 def _bug_check_seq(node, seq_vars, path, lines, issues):
