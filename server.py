@@ -3333,6 +3333,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "视频": "video", "播放": "play", "流媒体": "stream", "录制": "record",
         # IDE 增强 327：UI 组件词（对话框/弹窗/菜单/标签页/工具提示）
         "对话框": "dialog", "弹窗": "modal", "菜单": "menu", "标签页": "tab",
+        # IDE 增强 328：数据词（数据库/表/行/列/事务/主键/索引/查询）
+        "数据库": "database", "表": "table", "行": "row", "列": "column",
+        "事务": "transaction", "主键": "primary", "索引": "index", "查询": "query",
         "工具提示": "tooltip", "下拉框": "dropdown", "复选框": "checkbox", "滑块": "slider",
         "音频流": "audio", "字幕": "subtitle", "音量": "volume", "画面": "frame",
         "扭矩": "torque", "阻尼": "damping", "刚度": "stiffness", "惯性": "inertia",
