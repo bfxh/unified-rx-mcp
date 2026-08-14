@@ -3459,6 +3459,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "破碎机": "crusher", "研磨机": "mill", "过滤机": "filter", "干燥机": "dryer",
         # IDE 增强 390：液体储存词（储罐/蓄水池/水塔/油罐/储气罐/冷却塔）
         "储罐": "tank", "蓄水池": "reservoir", "水塔": "watertower", "油罐": "oiltank",
+        # IDE 增强 391：职业词（建筑师/工程师/科学家/医生/厨师/商人/矿工/木匠）
+        "建筑师": "architect", "工程师": "engineer", "科学家": "scientist", "医生": "doctor",
+        "厨师": "chef", "商人": "trader", "矿工": "miner", "木匠": "carpenter",
         "储气罐": "gastank", "冷却塔": "coolingtower", "水渠": "aqueduct", "水井": "well",
         "冷却机": "cooler", "加热机": "heater", "蒸馏器": "distiller", "反应釜": "reactor",
         "皮带": "belt", "链条": "chain", "活塞": "piston", "飞轮": "flywheel",
