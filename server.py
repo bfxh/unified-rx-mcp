@@ -3423,6 +3423,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "防御塔": "tower", "炮台": "turret", "陷阱": "trap", "地雷": "mine",
         # IDE 增强 372：存储词（货箱/容器/箱子/柜子/冰箱/冷冻/货架已有货架/桶）
         "货箱": "crate", "容器": "container", "箱子": "chest", "柜子": "cabinet",
+        # IDE 增强 373：交通词（铁路/火车/地铁/车站/信号灯/高架/隧道/路口）
+        "铁路": "railway", "火车": "train", "地铁": "subway", "车站": "station",
+        "信号灯": "signal", "高架": "elevated", "隧道": "tunnel", "路口": "junction",
         "冰箱": "fridge", "冷冻": "freezer", "桶": "barrel", "罐子": "jar",
         "哨戒": "sentry", "碉堡": "bunker", "路障": "barricade", "铁丝网": "barbed",
         "弓箭": "bow", "弩": "crossbow", "法杖": "staff", "锤": "blunt",
