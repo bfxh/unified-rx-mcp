@@ -26,6 +26,7 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
     fn_lines: dict[str, list[tuple[int, str]]] = {}
     by_symbol: dict[str, int] = {}
     by_file: dict[str, int] = {}
+    by_rule: dict[str, int] = {}  # IDE 增强 100：规则分布（问题类型一眼可见）
 
     def load_fn_lines(path: str) -> list[tuple[int, str]]:
         if path in fn_lines:
@@ -46,6 +47,9 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
         path = iss.get("file", "")
         line = iss.get("line", 0)
         by_file[path] = by_file.get(path, 0) + 1
+        # IDE 增强 100：规则分布（AI 判断修复优先级——什么类型问题最多）
+        rule = str(iss.get("rule") or iss.get("kind") or "unknown")[:40]
+        by_rule[rule] = by_rule.get(rule, 0) + 1
         symbol = "<unknown>"
         cur = None
         for ln, name in load_fn_lines(path):
@@ -62,6 +66,7 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
         "ok": True,
         "total": len(issues),
         "by_file": dict(sorted(by_file.items(), key=lambda kv: -kv[1])),
+        "by_rule": dict(sorted(by_rule.items(), key=lambda kv: -kv[1])),
         "symbol_map": dict(sorted(by_symbol.items(), key=lambda kv: -kv[1])[:50]),
     }
 
