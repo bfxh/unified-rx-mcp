@@ -3401,6 +3401,12 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
         result["advice"] = "无 Critical——按 Warning/Suggestion 分布排查（看 rule_counts）"
     else:
         result["advice"] = "无标准问题"
+    # IDE 增强 185：可用规则列表（过滤参数提示——AI 知道 rules= 可传哪些）
+    result["available_rules"] = sorted({
+        str(i.get("rule")) for i in _issues
+    } | {"text_placeholder", "name_conflict", "ui_hardcode", "magic_number",
+         "dead_code", "secret_detection", "swallowed_exception", "rule_deprecated",
+         "goto_used", "as_narrowing", "as_precision_loss"})
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
