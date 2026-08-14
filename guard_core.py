@@ -140,6 +140,32 @@ def _file_line_count(path: str) -> int | None:
         return None
 
 
+def _search_symbol_in_root(root: str, symbol: str, max_files: int = 50) -> list[str]:
+    """root 范围内搜符号（IDE 增强 116）：代码文件词级匹配，返回首个命中文件
+    相对路径列表（上限 max_files 个——防大仓库全扫）。"""
+    hits: list[str] = []
+    exts = (".py", ".rs", ".ts", ".js", ".go", ".c", ".h", ".cpp", ".hpp")
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames
+                       if d not in ("target", "node_modules", ".git", "release",
+                                    "__pycache__")]
+        for fn in filenames:
+            if not fn.endswith(exts):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                if os.path.getsize(p) > _MAX_READ:
+                    continue
+                with open(p, "r", encoding="utf-8", errors="replace") as f:
+                    if re.search(rf"\b{re.escape(symbol)}\b", f.read()):
+                        hits.append(os.path.relpath(p, root))
+                        if len(hits) >= max_files:
+                            return hits
+            except OSError:
+                continue
+    return hits
+
+
 def _grep_symbol(path: str, symbol: str, defined: bool = False) -> bool | None:
     """在文件内搜符号：defined=True 时要求定义模式（def/class/fn 等），
     仅出现在 import/调用行不算定义；行级包含命中返回 True。超 1MB → None。"""
@@ -221,6 +247,15 @@ def verify_claim(claim: dict, root: str | None = None,
         if claim.get("path"):
             result["reason"] = "路径无法解析或越界（沙盒外，拒绝探测）"
             return result
+        # IDE 增强 116：给 root 时搜索符号（root 范围内找到即 verified——
+        # 提升验证能力；找不到仍 unverifiable 不臆断 refuted）
+        if root and os.path.isdir(root):
+            _hits = _search_symbol_in_root(root, value)
+            if _hits:
+                result.update(verdict="verified",
+                              reason=f"符号 {value} 出现在 root 内 {len(_hits)} 处"
+                                     f"（首个: {_hits[0]}）")
+                return result
         result["reason"] = "无文件上下文，符号是否存在无法本地判定（跨文件不臆断）"
         return result
 
