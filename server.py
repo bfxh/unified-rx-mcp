@@ -3278,6 +3278,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "安卓": "android", "苹果": "ios", "窗口": "window", "控件树": "widget",
         # IDE 增强 299：AI/数据词（模型/训练/推理/数据集/特征）
         "模型": "model", "训练": "train", "推理": "inference", "数据集": "dataset",
+        # IDE 增强 300：测试/工程词（断言/模拟/覆盖率/基准）
+        "测试": "test", "断言": "assert", "模拟": "mock", "覆盖率": "coverage",
+        "基准": "benchmark", "调试": "debug", "日志": "log", "性能": "performance",
         "特征": "feature", "权重": "weight", "损失": "loss", "梯度": "gradient",
         "像素": "pixel", "触摸": "touch", "手势": "gesture", "滚动": "scroll",
         # IDE 增强 275：Flutter/UI 词（控件/界面/布局/导航/主题/状态）

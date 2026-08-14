@@ -373,3 +373,17 @@ def p32():
     if not missing:
         return True, "4 语言命令域在 cheatsheet"
     return False, f"缺语言域: {missing}"
+
+
+@probe("p33_bug_scan_bare_except")
+def p33():
+    """bug_scan py 裸 except（299）。"""
+    py_file = os.path.join(_TMP, "sample_bare.py")
+    with open(py_file, "w", encoding="utf-8") as f:
+        f.write("def f():\n    try:\n        x = 1\n    except:\n        pass\n")
+    out = S._call("bug_scan", {"path": py_file})
+    data = json.loads(out[0].text)
+    be = [i for i in data.get("issues", []) if i.get("rule") == "bare_except"]
+    if be:
+        return True, f"py 裸 except 检出 L{be[0]['line']}"
+    return False, f"裸 except 应检出: {data}"
