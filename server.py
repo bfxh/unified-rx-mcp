@@ -1113,6 +1113,17 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
         })
     except Exception:  # 尽力而为
         pass
+    # IDE 增强 134：最严重问题提示（error 级优先——AI 一眼看到从哪查起）
+    _worst = ""
+    _bs = results.get("bug_scan")
+    if isinstance(_bs, dict):
+        _errs = [i for i in _bs.get("issues", [])
+                 if str(i.get("severity", "")).lower() in ("error", "critical")]
+        if _errs:
+            _e = _errs[0]
+            _worst = (f"最优先：{os.path.basename(str(_e.get('file', '')))}:{_e.get('line')} "
+                      f"[{_e.get('rule')}] error（共 {len(_errs)} 条 error）")
+    results["advice"] = _worst or "无 error 级问题——按 warning/info 分布排查（看 detail）"
     return [_tr(True, "project_scan 完成(并行 %d 路): bug=%d std=%d ui=%d cb=%d" % (
         len(jobs),
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
