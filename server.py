@@ -3553,6 +3553,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "收费站": "toll", "加油站": "gasstation", "充电站": "chargingstation", "服务区": "restarea",
         # IDE 增强 437：贸易路线词（商路/航线/驼队/贸易站/驿站/通商口岸/货运站/补给站）
         "商路": "caravanroute", "航线": "shippingroute", "驼队": "caravan", "贸易站": "tradingpost",
+        # IDE 增强 438：导航词（罗盘/星图/信标/航点/里程碑/路标/灯塔/界碑）
+        "罗盘": "compass", "星图": "starmap", "信标": "beacon", "航点": "waypoint",
+        "里程碑": "milestone", "路标": "signpost", "灯塔": "lighthouse", "界碑": "boundarymark",
         "驿站": "relaystation", "通商口岸": "port", "货运站": "freightstation", "补给站": "supplystation",
         "停车场": "parking", "洗车站": "carwash", "修理厂": "garage", "加油站2": "fuelstation",
         "潮汐能": "tidal", "燃料电池": "fuelcell", "热电联产": "cogeneration", "储电塔": "batterytower",
