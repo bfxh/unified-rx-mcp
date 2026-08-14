@@ -731,7 +731,7 @@ def _generic_metadata(content: str, suffix: str) -> dict:
         try:
             for m in re.finditer(ip, content, re.M):
                 meta["imports"].append(m.group(0).strip())
-        except re.error:  # 尽力而为
+        except re.error:
             pass
     meta["imports"] = list(dict.fromkeys(meta["imports"]))[:20]
     return meta
@@ -1252,6 +1252,14 @@ LSP_SERVER_CONFIG = {
     "javascript": ("typescript-language-server", ["--stdio"]),
     "c": (r"C:\Program Files\LLVM\bin\clangd.exe", []),
     "cpp": (r"C:\Program Files\LLVM\bin\clangd.exe", []),
+    # IDE 增强 465：go（gopls v0.23.0——Go 1.26.5 zip 工具链 D:\开发\go-toolchain
+    # 免安装；gopls 需要 GOROOT/GOPATH env——_lsp_spawn 注入）
+    "go": (r"D:\开发\go-toolchain\gopath\bin\gopls.exe", []),
+    # IDE 增强 465：vscode-langservers-extracted（css/html/json 配置类语言——
+    # npm 全局已装；_command_available 校验后可用）
+    "json": ("vscode-json-language-server", ["--stdio"]),
+    "css": ("vscode-css-language-server", ["--stdio"]),
+    "html": ("vscode-html-language-server", ["--stdio"]),
 }
 
 
@@ -1298,6 +1306,17 @@ class _LspClient:
             launch, stdin=_subprocess.PIPE, stdout=_subprocess.PIPE,
             stderr=_subprocess.DEVNULL, cwd=cwd, text=False,
             bufsize=0,
+            # IDE 增强 465：gopls 需要 GOROOT/GOPATH（zip 工具链免安装）——
+            # 注入 go 语言环境变量；其他语言继承原 env
+            env={**os.environ,
+                 **({"GOROOT": r"D:\开发\go-toolchain\go",
+                     "GOPATH": r"D:\开发\go-toolchain\gopath",
+                     "GOTMPDIR": r"D:\开发\go-toolchain\tmp",
+                     "GOCACHE": r"D:\开发\go-toolchain\cache",
+                     # gopls 内部调 go 命令（go list 建 view）——PATH 必须含 go
+                     "PATH": os.environ.get("PATH", "")
+                             + r";D:\开发\go-toolchain\go\bin;D:\开发\go-toolchain\gopath\bin"}
+                    if command.endswith("gopls.exe") else {})},
         )
         self._msg_id = 0
         # 单一常驻 reader 线程 + 按 id 分发：响应/通知都进 _inbox，
@@ -1380,7 +1399,16 @@ class _LspClient:
         resp = self.request("initialize", {
             "processId": None,
             "rootUri": _path_to_uri(root) if root else None,
-            "capabilities": {},
+            # IDE 增强 465：最小客户端 capabilities（gopls 对空 capabilities
+            # 拒绝建 view——"no views"；其他 server 容忍）
+            "capabilities": {
+                "textDocument": {
+                    "synchronization": {"didSave": True},
+                    "hover": {}, "definition": {}, "references": {},
+                    "completion": {"completionItem": {"snippetSupport": False}},
+                },
+                "workspace": {"workspaceFolders": True},
+            },
             "workspaceFolders": [{"uri": _path_to_uri(root), "name": "root"}] if root else None,
         })
         self.notify("initialized", {})
@@ -1398,7 +1426,7 @@ class _LspClient:
         except Exception:
             try:
                 self.proc.kill()
-            except Exception:  # 尽力而为
+            except Exception:
                 pass
 
 
@@ -1427,6 +1455,8 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
             "rs": "rust", "py": "python", "ts": "typescript", "tsx": "typescript",
             "js": "javascript", "jsx": "javascript", "c": "c", "h": "c",
             "cpp": "cpp", "hpp": "cpp", "cc": "cpp",
+            # IDE 增强 465：go/json/css/html 配置类语言
+            "go": "go", "json": "json", "css": "css", "html": "html",
         }
         language_id = suffix_map.get(suffix, "")
     request_type = arguments.get("request", "hover")
@@ -1444,13 +1474,9 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
             {"ok": False, "error": "timeout 需在 [1,300] 秒范围"}, ensure_ascii=False))]
 
     if language_id not in LSP_SERVER_CONFIG:
-        # IDE 增强 277：未知语言降级建议（dart/go 等无 LSP 环境——
-        # AI 拿到不支持后知道下一步用 unified-rx 文本分析，防幻觉）
         return [types.TextContent(type="text", text=json.dumps(
             {"ok": False, "error": f"不支持的语言: {language_id}",
-             "supported": list(LSP_SERVER_CONFIG.keys()),
-             "fallback": "可降级用 unified-rx bug_scan/ide_tools 文本分析"
-                         "（23 语言规则——含 dart/go）"}, ensure_ascii=False))]
+             "supported": list(LSP_SERVER_CONFIG.keys())}, ensure_ascii=False))]
     # R1 增量同步：text 未提供时从文件读（否则 didOpen 空文本 → line index 错误）
     if not text and path and os.path.isfile(path):
         try:
@@ -1509,11 +1535,16 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
         # rust-analyzer 首次启动需 1~3s 做项目索引（cargo metadata），期间请求返回
         # -32801 content modified（LSP 规范要求客户端重发请求）。
         # 只对 -32801 重试（result:null 是合法空结果，不重试——review H 修复）。
-        if language_id == "rust":
+        # IDE 增强 465：gopls 首次建 view 需 2~3s（module 加载）——"no views"
+        # 错误同样重试（手工协议验证：didOpen 后等 3s 即正常）。
+        if language_id in ("rust", "go"):
             import time as _time
             _retries = 3
             while _retries > 0:
-                _retryable = _is_retryable_error(resp)
+                _retryable = _is_retryable_error(resp) or (
+                    language_id == "go" and "no views" in str(
+                        (resp.get("error") or {}).get("message", "") if isinstance(
+                            resp.get("error"), dict) else resp.get("error", "")))
                 if not _retryable:
                     break
                 _time.sleep(1.5)
