@@ -3569,6 +3569,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "瓦斯检测": "gasdetect", "坍塌预警": "collapsewarn", "紧急出口": "escape", "救援设备": "rescue",
         # IDE 增强 445：矿体类型词（脉状矿/砂矿/露头矿/浸染矿/层状矿/斑岩矿/冲积矿/结核矿）
         "脉状矿": "veinore", "砂矿": "placer", "露头矿": "outcrop", "浸染矿": "disseminated",
+        # IDE 增强 446：矿区设施词（采矿场/露天矿/尾矿库/废石场/选矿厂/冶炼厂/矿工宿舍/仓库区）
+        "采矿场": "mineyard", "露天矿": "openpit", "尾矿库": "tailings", "废石场": "wastedump",
+        "选矿厂": "oreplant", "冶炼厂": "smeltery", "矿工宿舍": "bunkhouse", "仓库区": "storagesite",
         "层状矿": "stratified", "斑岩矿": "porphyry", "冲积矿": "alluvial", "结核矿": "nodule",
         "灭火器": "extinguisher", "警报器": "siren", "通风监测": "ventmonitor", "地压监测": "pressuremonitor",
         "云母": "mica", "石膏": "gypsum", "石墨": "graphite", "石英": "quartz",
