@@ -2372,6 +2372,8 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                          "3. 复查：修复行不再触发原规则（用 `ide_quest action=verify_fix` 验证）",
                          "4. 通过后用 ide_quest note 记录验证结果",
                          "5. lesson 步提示：用 lesson_recall 记录教训防复发",
+                         # IDE 增强 122：UI 项目回归提示（修复涉及 UI 文件时）
+                         "6. 若修复涉及 UI 代码（hud/ui/panel）：跑 `ui_check` 确认无新 UI 问题",
                      ]},
                     "verify", "verify", f"回归命令：{cmd}，自检清单 5 项")  # IDE 增强四十六：summary 附清单计数
             # 6. lesson：自动链收尾（STEPS 六步闭环）
