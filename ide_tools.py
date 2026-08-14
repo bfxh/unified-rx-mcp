@@ -406,6 +406,15 @@ def _actions_for_file(file_path: str) -> list[dict]:
                 "detail": f"`{s[:60]}` 静默吞异常——建议记录或显式处理",
                 "kind": "safety",
             })
+        # IDE 增强 101：调试残留（print/dbg!/println!/eprintln! 生产代码裸用——
+        # 建议移除或转日志；测试文件豁免）
+        elif re.search(r"\b(print|dbg!|println!|eprintln!)\s*\(", s) \
+                and "test" not in file_path.lower():
+            actions.append({
+                "line": i, "title": "调试残留（print/dbg!/println!）",
+                "detail": f"`{s[:60]}` 生产代码调试输出——建议移除或转正式日志",
+                "kind": "cleanup",
+            })
         if len(actions) >= 20:
             break
     # IDE 增强三十五：相邻同规则建议合并（连续行同 title → 区间 + count）——
