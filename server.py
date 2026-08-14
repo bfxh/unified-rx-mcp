@@ -1987,6 +1987,17 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     # IDE 增强 148：最严重 bug 提示（error 优先——确定性缺陷先修）
     _errs = [i for i in issues
              if str(i.get("severity", "")).lower() in ("error", "critical")]
+    # IDE 增强 205：问题最多文件（worst_file——扫描三入口收官，
+    # 对称 std_check 204/ui_check 203）
+    _worst_f, _worst_n = "", 0
+    if issues:
+        _fc: dict[str, int] = {}
+        for i in issues:
+            _k = str(i.get("file", ""))
+            _fc[_k] = _fc.get(_k, 0) + 1
+        _worst_f, _worst_n = max(_fc.items(), key=lambda kv: kv[1])
+    result["worst_file"] = (f"{os.path.basename(_worst_f)}（{_worst_n} 条问题）"
+                            if issues else "")
     if _errs:
         _e = _errs[0]
         result["advice"] = (f"最优先：{os.path.basename(str(_e.get('file', '')))}:"
