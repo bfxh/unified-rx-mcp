@@ -3351,6 +3351,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "卸载": "unload", "池化": "pool", "回收": "recycle", "引用计数": "refcount",
         # IDE 增强 336：物品词（背包/装备/武器/防具/道具/材料）
         "背包": "inventory", "装备": "equip", "武器": "weapon", "防具": "armor",
+        # IDE 增强 337：战斗词（攻击/防御/生命/魔法/技能/伤害/暴击/护盾）
+        "攻击": "attack", "防御": "defense", "生命": "health", "魔法": "mana",
+        "技能": "skill", "伤害": "damage", "暴击": "crit", "护盾": "shield",
         "道具": "item", "材料": "material", "锻造": "craft", "合成": "recipe",
         "预加载": "preload", "延迟加载": "lazy", "清理": "cleanup", "释放": "release",
         "烟": "smoke", "碎片": "debris", "闪电": "lightning", "毒": "poison",
