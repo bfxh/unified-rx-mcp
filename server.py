@@ -1710,6 +1710,28 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
             issues.append(_bug_issue(
                 str(f), n, "dynamic_exec", "warning",
                 f"{n.func.id}() 动态执行——输入不可信时任意代码注入，建议安全替代", lines))
+        # IDE 增强 124：shell 命令注入（os.system / subprocess shell=True）
+        if isinstance(n, ast.Call):
+            _fn = ""
+            _obj = ""
+            if isinstance(n.func, ast.Name):
+                _fn = n.func.id
+            elif isinstance(n.func, ast.Attribute):
+                _fn = n.func.attr
+                _obj = getattr(n.func.value, "id", "") if isinstance(n.func.value, ast.Name) else ""
+            if _fn == "system" and _obj == "os":
+                issues.append(_bug_issue(
+                    str(f), n, "shell_injection", "warning",
+                    "os.system() 执行 shell 命令——参数含用户输入时命令注入风险，"
+                    "建议 subprocess 列表参数", lines))
+            elif _fn in ("run", "Popen", "call", "check_output", "check_call") \
+                    and any(isinstance(k, ast.keyword) and k.arg == "shell"
+                            and isinstance(k.value, ast.Constant)
+                            and k.value.value is True for k in n.keywords):
+                issues.append(_bug_issue(
+                    str(f), n, "shell_injection", "warning",
+                    "subprocess shell=True——参数含用户输入时命令注入风险，"
+                    "建议列表参数（无 shell）", lines))
     return issues, len(lines)
 
 
