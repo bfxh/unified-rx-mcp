@@ -3321,6 +3321,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "配置": "config", "设置": "setting", "选项": "option", "参数": "param",
         # IDE 增强 321：统计词（统计/聚合/分布/平均/方差/样本）
         "统计": "stats", "聚合": "aggregate", "分布": "distribution", "平均": "average",
+        # IDE 增强 322：绘图词（线条/形状/画笔/画布/填充/描边）
+        "线条": "line", "形状": "shape", "画笔": "brush", "画布": "canvas",
+        "填充": "fill", "描边": "stroke", "渐变": "gradient", "投影": "shadow",
         "方差": "variance", "样本": "sample", "概率": "probability", "期望": "expectation",
         "默认值": "default", "环境": "env", "标志": "flag", "注册": "register",
         "下载": "download", "读写": "io", "存储": "storage", "备份": "backup",
