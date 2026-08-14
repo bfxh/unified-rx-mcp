@@ -884,6 +884,11 @@ def _tool_repo_graph(args: dict) -> str:
     name = str(args.get("name") or "")
     depth = min(int(args.get("depth", 3)), 6)
     top = min(int(args.get("top", 10)), 50)
+    # IDE 增强 172（安全）：root/file 过 _check_path 沙盒校验（防越界
+    # 符号图索引/影响面分析读取沙盒外文件）
+    root = _check_path(root)
+    if file:
+        file = _check_path(file)
     if not root or not os.path.isdir(root):
         raise ValueError(f"root 必须存在: {root}")
     try:
