@@ -3503,6 +3503,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "空运": "airlift", "海运": "shipping", "陆运": "ground", "管道运输": "pipeline",
         # IDE 增强 412：商业链词（生产链/供应链/分销/零售/批发/代理/直销/电商）
         "生产链": "production", "供应链": "supply", "分销": "distribute", "零售": "retail",
+        # IDE 增强 413：城市设施词（路灯/长椅/花坛/喷泉/公告栏/邮箱/电话亭/报刊亭）
+        "路灯": "streetlight", "长椅": "bench", "花坛": "flowerbed", "喷泉": "fountain",
+        "公告栏": "bulletin", "邮箱": "mailbox", "电话亭": "phonebooth", "报刊亭": "kiosk",
         "批发": "wholesale", "代理": "agency", "直销": "direct", "电商": "ecommerce",
         "快递": "express", "货运": "freight", "客运": "passenger", "配送": "delivery",
         "传感器": "sensor", "联动": "interlock", "程序控制": "logic", "配电": "distribution",
