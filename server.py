@@ -3557,6 +3557,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "罗盘": "compass", "星图": "starmap", "信标": "beacon", "航点": "waypoint",
         # IDE 增强 439：处理辅助词（料斗/加料口/出料口/搅拌器/乳化器/均质机/离心分离/过滤槽）
         "料斗": "hopper", "加料口": "inlet", "出料口": "outlet", "搅拌器": "agitator",
+        # IDE 增强 440：矿井结构词（竖井/平巷/主巷/通风井/安全通道/避难硐室/排水沟/支架区）
+        "竖井": "shaft", "平巷": "drift", "主巷": "mainhaulage", "通风井": "ventilation",
+        "安全通道": "escape", "避难硐室": "refuge", "排水沟": "drainage", "支架区": "supportzone",
         "乳化器": "emulsifier", "均质机": "homogenizer", "离心分离": "centrifuge", "过滤槽": "filterbed",
         "里程碑": "milestone", "路标": "signpost", "灯塔": "lighthouse", "界碑": "boundarymark",
         "驿站": "relaystation", "通商口岸": "port", "货运站": "freightstation", "补给站": "supplystation",
