@@ -3595,6 +3595,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "精矿运输": "concentratetransport", "矿石列车": "oretrain", "矿用卡车": "minetruck", "驳船": "barge",
         # IDE 增强 458：矿石取样词（取样点/化验单/品位曲线/矿样袋/样槽/岩样/矿样/标样）
         "取样点": "samplingpoint", "化验单": "assayreport", "品位曲线": "gradecurve", "矿样袋": "samplebag",
+        # IDE 增强 459：采矿设备词（掘进机/凿岩机/装载机/铲运机/台车/锚杆机/喷浆机/提升机）
+        "掘进机": "roadheader", "凿岩机": "rockdrill", "装载机": "loader", "铲运机": "scraper",
+        "台车": "drillrig", "锚杆机": "bolter", "喷浆机": "shotcreter", "提升机": "hoistmachine",
         "样槽": "sampletrench", "岩样": "rocksample", "矿样": "oresample", "标样": "standard",
         "散货船": "bulkcarrier", "转运站": "transferstation", "卸矿站": "unloadingstation", "堆场": "stockyard",
         "皮带廊": "beltgallery", "浓缩池": "thickener", "精矿仓": "concentratebin", "尾矿管线": "tailingspipeline",
