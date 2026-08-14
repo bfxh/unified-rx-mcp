@@ -3539,6 +3539,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "导弹": "missile", "鱼雷": "torpedo", "火箭": "rocket", "炸弹": "bomb",
         # IDE 增强 430：攻城词（攻城锤/投石机/云梯/攻城塔/弩炮/破城槌/油罐车/爆破组）
         "攻城锤": "batteringram", "投石机": "catapult", "云梯": "ladder", "攻城塔": "siegetower",
+        # IDE 增强 431：地下建筑词（地牢/墓穴/地下室/下水道/避难洞/地下城/地窖/矿井通道）
+        "地牢": "dungeon", "墓穴": "crypt", "地下室": "basement", "下水道": "sewer",
+        "避难洞": "bunker", "地下城": "undercity", "地窖": "cellar", "矿井通道": "minepassage",
         "弩炮": "ballista", "破城槌": "ram", "油罐车": "tanker", "爆破组": "demolition",
         "装甲板": "armorplate", "穿甲": "piercing", "高爆": "highyield", "燃烧弹": "incendiary",
         "克隆": "clone", "突变": "mutation", "血清": "serum", "疫苗": "vaccine",
