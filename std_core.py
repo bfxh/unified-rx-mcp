@@ -477,5 +477,8 @@ def _summarize(issues: list, files: int, path: str, todo_count: int = 0,
             "ext_counts": dict(sorted((ext_counts or {}).items(),
                                       key=lambda kv: -kv[1])),
             "rule_weights": rule_weights,  # LSE 自适应权重（采纳/忽略反馈进化）
+            # IDE 增强 144：空仓库/空目录明确提示（files=0 时不产生歧义）
+            "hint": ("未扫描到代码文件（空目录/无支持后缀）——检查路径或语言支持"
+                     if files == 0 else ""),
         },
     }
