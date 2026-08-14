@@ -3581,6 +3581,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "铜锭": "copperingot", "钢锭": "steelingot", "铝锭": "aluminum", "锌锭": "zinc",
         # IDE 增强 451：矿工技能词（挖掘/爆破/支护/通风技能/运输技能/勘探技能/精炼技能/冶炼技能）
         "挖掘": "digging", "爆破": "blasting", "支护": "supporting", "通风技能": "ventilation",
+        # IDE 增强 452：矿区生活词（食堂/澡堂/医务室/娱乐室/值班室/洗衣房/工具房/警卫室）
+        "食堂": "canteen", "澡堂": "bathhouse", "医务室": "infirmary", "娱乐室": "recreationroom",
+        "值班室": "dutyroom", "洗衣房": "laundry", "工具房": "toolroom", "警卫室": "guardroom",
         "运输技能": "hauling", "勘探技能": "prospecting", "精炼技能": "refining", "冶炼技能": "smelting",
         "锡锭": "tin", "铅锭": "lead", "镍锭": "nickel", "钛锭": "titanium",
         "图书馆": "library", "档案馆": "archive", "观测台": "observatory", "演算室": "computationroom",
