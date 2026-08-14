@@ -3319,6 +3319,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "文件": "file", "路径": "path", "目录": "dir", "上传": "upload",
         # IDE 增强 320：配置词（配置/设置/选项/参数/默认值）
         "配置": "config", "设置": "setting", "选项": "option", "参数": "param",
+        # IDE 增强 321：统计词（统计/聚合/分布/平均/方差/样本）
+        "统计": "stats", "聚合": "aggregate", "分布": "distribution", "平均": "average",
+        "方差": "variance", "样本": "sample", "概率": "probability", "期望": "expectation",
         "默认值": "default", "环境": "env", "标志": "flag", "注册": "register",
         "下载": "download", "读写": "io", "存储": "storage", "备份": "backup",
         "压缩": "compress", "格式化": "format", "校验和": "checksum", "转换": "convert",
