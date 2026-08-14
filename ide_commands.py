@@ -68,7 +68,10 @@ def cheatsheet(domain: str | None = None) -> dict:
     if domain:
         return {"ok": True, "domain": domain,
                 "commands": _CHEATSHEET.get(domain, []),
-                "hint": "用 local_run 执行（name + args）"}
+                "hint": "用 local_run 执行（name + args）",
+                # IDE 增强 136：用法示例（调用方一步直达）
+                "usage": f'local_run({{"domain": "{domain}", "name": "<上表 name>", '
+                         f'"args": {{占位符: 值}}}})'}
     return {"ok": True, "domains": list(_CHEATSHEET.keys()),
             "total": sum(len(v) for v in _CHEATSHEET.values()),
             "hint": "按域查：cmd_cheatsheet({domain: 'cargo'})"}
