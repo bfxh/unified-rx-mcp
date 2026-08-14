@@ -1061,13 +1061,15 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
     from concurrent.futures import ThreadPoolExecutor, as_completed
     path = args["path"]
     max_files = int(args.get("max_files", 100))
+    # IDE 增强 176：rules 透传（三路都过滤——对称 std_check 173/bug_scan 174/cb_scan 175）
+    _only = str(args.get("rules", ""))
     results = {"path": path, "bug_scan": [], "std_check": [], "ui_check": [], "errors": []}
 
     def run_one(tool_fn: str, name: str) -> None:
         try:
             fn = {"bug_scan": _tool_bug_scan, "std_check": _tool_std_check,
                   "ui_check": _tool_ui_check}[tool_fn]
-            r = fn({"path": path, "max_files": max_files})
+            r = fn({"path": path, "max_files": max_files, "rules": _only})
             text = r[0].text if isinstance(r, list) else str(r)
             results[name] = json.loads(text) if text.startswith("{") else {"raw": text[:200]}
         except Exception as e:  # noqa: BLE001
