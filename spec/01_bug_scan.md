@@ -3,8 +3,8 @@
 ## 1.1 输入契约（MUST）
 
 1. `bug_scan(path, max_files=100)`：
-   - `path` **MUST** 为 Python 文件或目录；**MUST NOT** 接受其他语言文件
-     （返回 `仅支持 Python/Rust 文件`——probe_02 断言 Go 文件被拒）。
+   - `path` **MUST** 为支持语言的文件或目录（.py/.rs 深度 AST；.go/.ts/.js/.gd/.c/.cpp
+     轻量确定性文本规则：调试残留/裸 panic/goto/any 滥用——2026-08-14 多语言扩展）。
    - `max_files` **SHOULD** 默认 100，超限截断并计数。
 2. `bug_locate(error_text)`：`error_text` **MUST** 为报错/traceback 文本。
 

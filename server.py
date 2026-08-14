@@ -1942,9 +1942,74 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
     return issues, len(lines)
 
 
+# IDE 增强 253/254：多语言扫描扩展（2026-08-14 用户点名"没有多语言处理 包括扫描"）
+# ——go/ts/js/gd/c/cpp 轻量确定性文本规则（低误报；AST 精度留给 py/rs）
+_BUG_SCAN_EXTS = {".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
+                  ".gd", ".c", ".cpp", ".h", ".hpp"}
+
+# (正则, 规则名, 严重度, 消息) 每语言一组——只报确定性模式：
+# 调试残留输出 / 裸 panic / goto 混乱 / any 滥用
+_MULTI_LANG_RULES: dict[str, list[tuple]] = {
+    ".go": [(r"\bfmt\.Println?\s*\(", "debug_residue", "warning",
+             "调试残留（fmt.Print 生产输出——建议删或转日志）"),
+            (r"\bpanic\s*\(", "panic", "warning",
+             "裸 panic（生产崩溃——建议返回 error）")],
+    ".ts": [(r"console\.log\s*\(", "debug_residue", "warning",
+             "调试残留（console.log——建议删或转日志）"),
+            (r"\bany\s*[\):,=\s]", "any_abuse", "info",
+             "any 类型滥用（TypeScript any——建议具体类型）")],
+    ".tsx": [(r"console\.log\s*\(", "debug_residue", "warning",
+              "调试残留（console.log——建议删或转日志）"),
+             (r"\bany\s*[\):,=\s]", "any_abuse", "info",
+              "any 类型滥用（TypeScript any——建议具体类型）")],
+    ".js": [(r"console\.log\s*\(", "debug_residue", "warning",
+             "调试残留（console.log——建议删或转日志）")],
+    ".jsx": [(r"console\.log\s*\(", "debug_residue", "warning",
+              "调试残留（console.log——建议删或转日志）")],
+    ".gd": [(r"\bprint\s*\(", "debug_residue", "warning",
+             "调试残留（print——建议删或转 push_warning 日志）")],
+    ".c": [(r"\bprintf\s*\(", "debug_residue", "warning",
+            "调试残留（printf——建议删或转日志）"),
+           (r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
+            "goto 使用（控制流混乱——建议结构化替代）")],
+    ".cpp": [(r"std::cout\s*<<", "debug_residue", "warning",
+              "调试残留（std::cout——建议删或转日志）"),
+             (r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
+              "goto 使用（控制流混乱——建议结构化替代）")],
+    ".h": [(r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
+            "goto 使用（控制流混乱——建议结构化替代）")],
+    ".hpp": [(r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
+              "goto 使用（控制流混乱——建议结构化替代）")],
+}
+
+
+def _multi_lang_scan(path: str, src: str) -> list:
+    """多语言轻量确定性扫描（go/ts/js/gd/c/cpp——文本规则）。
+
+    AST 精度留给 Python（_bug_scan_file）与 Rust（rust_scan）；本函数
+    服务其余语言。每行最多报一条（防多规则重复）。"""
+    issues = []
+    ext = os.path.splitext(path)[1].lower()
+    rules = _MULTI_LANG_RULES.get(ext, [])
+    if not rules:
+        return issues
+    for i, line in enumerate(src.splitlines(), 1):
+        for pat, rule, sev, msg in rules:
+            m = re.search(pat, line)
+            if m:
+                issues.append({
+                    "file": str(Path(path).resolve()), "line": i,
+                    "col": m.start() + 1, "rule": rule, "severity": sev,
+                    "msg": msg, "snippet": line.strip()[:80]})
+                break
+    return issues
+
+
 def _scan_file_dispatch(f: str) -> tuple[list, int]:
-    """按后缀分发扫描：.py 用 _bug_scan_file（Python AST），.rs 用 rust_scan（tree-sitter）。"""
-    if f.endswith(".rs"):
+    """按后缀分发扫描：.py 用 _bug_scan_file（Python AST），.rs 用 rust_scan（tree-sitter），
+    其余支持语言（go/ts/js/gd/c/cpp）用 _multi_lang_scan（轻量文本规则）。"""
+    ext = os.path.splitext(f)[1].lower()
+    if ext == ".rs":
         try:
             from rust_scan import scan_rust_file
         except ImportError:
@@ -1956,6 +2021,13 @@ def _scan_file_dispatch(f: str) -> tuple[list, int]:
         for i in issues:
             i.setdefault("col", 0)
         return issues, ln
+    if ext in _MULTI_LANG_RULES:
+        try:
+            with open(f, encoding="utf-8", errors="replace") as fh:
+                src = fh.read()
+        except OSError:
+            return [], 0
+        return _multi_lang_scan(f, src), len(src.splitlines())
     return _bug_scan_file(f)
 
 
@@ -1985,14 +2057,14 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
             pass
     files = []
     if p.is_file():
-        if p.suffix in (".py", ".rs"):
+        if p.suffix.lower() in _BUG_SCAN_EXTS:
             files = [p]
         else:
-            raise ValueError(f"仅支持 Python/Rust 文件（.py/.pyw/.rs）: {p}")
+            raise ValueError(f"仅支持语言文件（py/rs/go/ts/js/gd/c/cpp）: {p}")
     elif p.is_dir():
         for root, _, names in os.walk(p):
             for name in sorted(names):
-                if name.endswith((".py", ".rs")):
+                if name.lower().endswith(tuple(_BUG_SCAN_EXTS)):
                     files.append(Path(root) / name)
                     if len(files) >= max_files:
                         break
