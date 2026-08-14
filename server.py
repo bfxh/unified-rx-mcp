@@ -3343,6 +3343,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "地图": "map", "坐标": "coord", "方向": "direction", "寻路": "path",
         # IDE 增强 332：布局词（对齐/间距/边距/留白/溢出/换行）
         "对齐": "align", "间距": "spacing", "边距": "margin", "留白": "padding",
+        # IDE 增强 333：存档词（存档/读档/检查点/进度/世界生成）
+        "存档": "save", "读档": "load", "检查点": "checkpoint", "进度": "progress",
+        "世界生成": "worldgen", "种子": "seed", "难度": "difficulty", "关卡": "level",
         "溢出": "overflow", "换行": "wrap", "居中": "center", "收缩": "shrink",
         "路径": "path", "视野": "fov", "区域": "region", "传送": "teleport",
         "按键": "key", "快捷键": "shortcut", "手势": "gesture", "拖拽": "drag",
