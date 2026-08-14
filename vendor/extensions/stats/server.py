@@ -143,6 +143,10 @@ def _summary(args: dict) -> str:
         "avg_tokens_per_action": round((total_in + total_out) / n, 1) if n else 0,
         "top_tools": top_tools,
         "tasks": tasks,
+        # IDE 增强 223：高频工具提示（用得最多的工具——确认/降噪建议）
+        "advice": (f"高频工具：{top_tools[0][0]}（{top_tools[0][1]} 次）——"
+                   f"用得最多，确认是否需要或考虑合并"
+                   if top_tools else "暂无调用记录"),
     }, ensure_ascii=False)
 
 
