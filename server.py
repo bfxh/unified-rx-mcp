@@ -3444,6 +3444,9 @@ def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
                 ok_locs.sort(key=lambda loc: (order.get(f"{loc['file']}:{loc['line']}".replace("\\", "/").lower(), 0) != picked, 0))
     return [_TC(json.dumps({
         "ok": True, "matched": bool(locations), "locations": locations,
+        # IDE 增强 130：定位后接建议（修复入口直达——定位→修复闭环）
+        "advice": ("用 `ide_actions` 看修复建议 / `ide_quest action=auto` 自动诊断链"
+                   if locations else "未匹配到 file:line——可用 locate_edit 自然语言定位"),
     }, ensure_ascii=False))]
 
 
