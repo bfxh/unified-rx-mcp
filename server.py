@@ -1172,6 +1172,14 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
             _worst = (f"最优先：{os.path.basename(str(_e.get('file', '')))}:{_e.get('line')} "
                       f"[{_e.get('rule')}] error（共 {len(_errs)} 条 error）")
     results["advice"] = _worst or "无 error 级问题——按 warning/info 分布排查（看 detail）"
+    # IDE 增强 190（里程碑）：顶层规则汇总（union 四路子结果——
+    # 项目级入口同样可发现 rules= 可传哪些，对称 vuln_scan 189）
+    _ar: set = set()
+    for _k in ("bug_scan", "std_check", "ui_check", "cb_scan"):
+        _sub = results.get(_k)
+        if isinstance(_sub, dict):
+            _ar |= set(_sub.get("available_rules", []) or [])
+    results["available_rules"] = sorted(_ar)
     return [_tr(True, "project_scan 完成(并行 %d 路): bug=%d std=%d ui=%d cb=%d" % (
         len(jobs),
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
