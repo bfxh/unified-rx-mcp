@@ -3565,6 +3565,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "关税": "tariff", "配额": "quota", "许可证": "license", "垄断": "monopoly",
         # IDE 增强 443：特种矿物词（硫磺/硝石/磷矿/盐岩/云母/石膏/石墨/石英）
         "硫磺": "sulfur", "硝石": "saltpeter", "磷矿": "phosphate", "盐岩": "rocksalt",
+        # IDE 增强 444：矿井安全词（瓦斯检测/坍塌预警/紧急出口/救援设备/灭火器/警报器/通风监测/地压监测）
+        "瓦斯检测": "gasdetect", "坍塌预警": "collapsewarn", "紧急出口": "escape", "救援设备": "rescue",
+        "灭火器": "extinguisher", "警报器": "siren", "通风监测": "ventmonitor", "地压监测": "pressuremonitor",
         "云母": "mica", "石膏": "gypsum", "石墨": "graphite", "石英": "quartz",
         "补贴": "subsidy", "禁运": "embargo", "特惠": "preference", "配额制": "quota2",
         "冷却液": "coolant", "电解液": "electrolyte", "研磨剂": "abrasive", "润滑剂": "lubricant",
