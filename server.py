@@ -3481,6 +3481,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "咒语": "spell", "法术": "magic", "结界": "barrier", "召唤": "summon",
         # IDE 增强 401：法术系词（火系/冰系/雷系/暗影/神圣/自然/奥术/死灵）
         "火系": "fire", "冰系": "ice", "雷系": "lightning", "暗影": "shadow",
+        # IDE 增强 402：敌人类型词（精英/头目/小兵/召唤物/变异体/傀儡/哨兵/追踪者）
+        "精英": "elite", "头目": "boss", "小兵": "minion", "召唤物": "summon",
+        "变异体": "mutant", "傀儡": "golem", "哨兵": "sentinel", "追踪者": "stalker",
         "神圣": "holy", "自然": "nature", "奥术": "arcane", "死灵": "necromancy",
         "驱散": "dispel", "变形": "transform", "瞬移": "teleport", "预言": "divine",
         "领地": "territory", "巢穴": "nest", "伏击": "ambush", "警戒": "alert",
