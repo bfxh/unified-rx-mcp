@@ -1178,6 +1178,14 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
         if isinstance(_sub, dict):
             _ar |= set(_sub.get("available_rules", []) or [])
     results["available_rules"] = sorted(_ar)
+    # IDE 增强 283：聚合入口规则引擎标注（静态映射——不依赖子结果缓存，
+    # 旧缓存无新字段也不缺失；AI 在 vuln_scan 顶层看到引擎来源）
+    results["rule_engines"] = {
+        "ui_root_missing": "bevy", "camera_missing": "bevy",
+        "mode_isolation": "bevy", "focus_pass": "bevy",
+        "font_missing": "bevy", "z_ordering": "bevy",
+        "no_interaction": "bevy/godot/unity/flutter",
+    }
     # IDE 增强 241：聚合耗时（ms——聚合入口收官）
     results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_tr(True, "vuln_scan 完成(并行): bug=%d std=%d ui=%d" % (
@@ -1251,6 +1259,13 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
         if isinstance(_sub, dict):
             _ar |= set(_sub.get("available_rules", []) or [])
     results["available_rules"] = sorted(_ar)
+    # IDE 增强 283：project_scan 顶层规则引擎标注（静态映射——对称 vuln）
+    results["rule_engines"] = {
+        "ui_root_missing": "bevy", "camera_missing": "bevy",
+        "mode_isolation": "bevy", "focus_pass": "bevy",
+        "font_missing": "bevy", "z_ordering": "bevy",
+        "no_interaction": "bevy/godot/unity/flutter",
+    }
     # IDE 增强 242：聚合耗时（ms——聚合入口收官）
     results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_tr(True, "project_scan 完成(并行 %d 路): bug=%d std=%d ui=%d cb=%d" % (
