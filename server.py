@@ -862,6 +862,8 @@ def _tool_kb_query(args: dict) -> str:
                       "meta": h.get("meta", {}),
                       "snippet": (h.get("content") or "")[:200]} for h in hits],
             "note": "BM25 全文检索（向量路未配置时自动降级；配置 embed_fn 后启用 RRF 融合）",
+            # IDE 增强 198：索引规模（docs 数——检索覆盖面一眼可见）
+            "indexed_docs": idx.stats().get("docs", 0),
             # IDE 增强 150：命中质量提示（0 命中时引导换词/查索引）
             "advice": (f"命中 {len(hits)} 条（前 3："
                        f"{', '.join(str(h.get('title', ''))[:20] for h in hits[:3])}）"
