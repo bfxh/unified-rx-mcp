@@ -88,3 +88,17 @@ def p17():
     if nm:
         return True, f"go nil map 写入检出 L{nm[0]['line']}"
     return False, f"go nil map 写入应检出: {data}"
+
+
+@probe("p18_bug_scan_tsjs_gd_rules")
+def p18():
+    """bug_scan ts/js/gd 确定性规则（262：eval / loose_eq / innerHTML / get_node）。"""
+    ts_file = os.path.join(_TMP, "sample.ts")
+    with open(ts_file, "w", encoding="utf-8") as f:
+        f.write("const s = eval('1+1');\nif (x == 1) {}\n")
+    out = S._call("bug_scan", {"path": ts_file})
+    data = json.loads(out[0].text)
+    rules = {i.get("rule") for i in data.get("issues", [])}
+    if "dynamic_exec" in rules and "loose_eq" in rules:
+        return True, f"ts 双规则检出: {sorted(rules)}"
+    return False, f"ts 应检出 dynamic_exec+loose_eq: {rules}"
