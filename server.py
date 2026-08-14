@@ -3531,6 +3531,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "渔网": "fishingnet", "鱼叉": "harpoon", "钓竿": "fishingrod", "诱饵": "bait",
         # IDE 增强 426：仪表词（分析仪/检测仪/计量表/指示器/显示器/探针已有探测器/仪表盘）
         "分析仪": "analyzer", "检测仪": "detector", "计量表": "gauge", "指示器": "indicator",
+        # IDE 增强 427：气象词（气象站/云层/风向/人工降雨/雷暴/龙卷风/寒潮/热浪）
+        "气象站": "weatherstation", "云层": "cloud", "风向": "winddir", "人工降雨": "rainmaking",
+        "雷暴": "thunderstorm", "龙卷风": "tornado", "寒潮": "coldwave", "热浪": "heatwave",
         "显示器": "display", "仪表盘": "dashboard", "读数": "reading", "校准": "calibrate",
         "渔获": "catch", "猎网": "huntingnet", "捕兽夹": "snare", "狩猎台": "blind",
         "谷仓": "granary", "面包房": "bakery", "木工坊": "carpentry", "染坊": "dyery",
