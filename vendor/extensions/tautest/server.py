@@ -3,6 +3,10 @@
 Exposes the local, no-LLM parts of tautest (doctor / init / run / demo) as MCP
 tools. Each tool runs the CLI inside a target repository directory.
 
+语言支持（IDE 增强 306）：变异测试当前仅 Python（AST 变异）；其他语言
+（go/c/js 等）请用 unified-rx bug_scan 的文本规则做等价检查——调用方
+不应假设 tautest 支持非 Python 项目。
+
 Run with:  python server.py   (stdio transport)
 """
 
