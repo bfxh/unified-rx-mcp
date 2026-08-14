@@ -129,21 +129,65 @@ def scan_ui_source(src: str, path: str = "", dir_mode: bool = False) -> list[dic
     return issues
 
 
+def _scan_gd_ui(src: str, path: str) -> list[dict]:
+    """Godot（.gd）UI 检查（IDE 增强 257：用户点名"没有多语言处理 包括扫描"——
+    Bevy 之外的游戏 UI 同样检查）。
+
+    规则：Button/TextureButton 创建后无 pressed 连接（死按钮——
+    对齐 Bevy no_interaction）。块窗口 8 行（spawn 后找连接）。"""
+    import re as _re
+    issues = []
+    _btn = _re.compile(r"\b(?:Button|TextureButton)\.new\(\)|"
+                       r"add_child\([^)]*[Bb]utton\)")
+    _pressed = _re.compile(r"pressed\.connect|_pressed\b|\.pressed\s*=|"
+                           r"connect\(\s*[\"']pressed")
+    lines = src.splitlines()
+    for i, line in enumerate(lines, 1):
+        if not _btn.search(line):
+            continue
+        # 窗口 = 创建行 + 后 2 行（slice [i-1:i+2]——3 行；Godot 常见
+        # `var b = Button.new()` 下一行 connect；宽窗口会把后续按钮的
+        # 连接误算进来"救活"死按钮）
+        block = "\n".join(lines[i - 1:i + 2])
+        if not _pressed.search(block):
+            issues.append({
+                "rule": "no_interaction", "severity": "warning", "line": i,
+                "msg": "Button 无按下处理（pressed.connect 缺失）——死按钮",
+                "file": path})
+    return issues
+
+
 def scan_ui_dir(root: str, max_files: int = 100) -> list[dict]:
-    """扫描目录下所有 .rs 文件（限 max_files）；聚合检查相机存在性（目录级）。"""
+    """扫描目录下 .rs（Bevy）与 .gd（Godot）文件（限 max_files）；
+    聚合检查相机存在性（目录级）。"""
     import os
     issues = []
     files = []
+    gd_files = []
     any_ui = False
     any_camera = False
     for r, _, names in os.walk(root):
         for n in sorted(names):
             if n.endswith(".rs"):
                 files.append(os.path.join(r, n))
-                if len(files) >= max_files:
-                    break
-        if len(files) >= max_files:
+            elif n.endswith(".gd"):
+                gd_files.append(os.path.join(r, n))
+            if len(files) + len(gd_files) >= max_files:
+                break
+        if len(files) + len(gd_files) >= max_files:
             break
+    # Godot UI 规则（.gd——Bevy 规则不适用）
+    for f in gd_files:
+        try:
+            size = os.path.getsize(f)
+            if size > (1 << 20):
+                continue
+            with open(f, encoding="utf-8", errors="replace") as fh:
+                gsrc = fh.read()
+        except OSError:
+            continue
+        for iss in _scan_gd_ui(gsrc, f):
+            issues.append(iss)
     for f in files:
         try:
             size = os.path.getsize(f)
