@@ -998,6 +998,11 @@ def _tool_repo_wiki(args: dict) -> str:
     """
     root = str(args.get("root") or "")
     out = str(args.get("out") or "")
+    # IDE 增强 183（安全）：root/out 过 _check_path——out 任意路径会写出
+    # 沙盒外（写文件越界）
+    root = _check_path(root)
+    if out:
+        out = str(_check_path(out))
     if not root or not os.path.isdir(root):
         raise ValueError(f"root 必须存在: {root}")
     try:
@@ -1007,9 +1012,9 @@ def _tool_repo_wiki(args: dict) -> str:
         sys.path.insert(0, _dir)
         from repo_wiki import generate_wiki  # noqa: F811
     if not out:
-        out = os.path.join(root, ".unified-rx-index", "WIKI.md")
+        out = os.path.join(str(root), ".unified-rx-index", "WIKI.md")
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    return json.dumps(generate_wiki(root, out), ensure_ascii=False, indent=2)
+    return json.dumps(generate_wiki(str(root), out), ensure_ascii=False, indent=2)
 
 
 # ── 多智能体编排（2026-08-12：抄 crewAI/autogen 角色分工 + 并行协作）──
