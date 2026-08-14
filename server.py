@@ -1665,6 +1665,16 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                 and _bug_const_zero(n.value):
             issues.append(_bug_issue(str(f), n, "divide_by_zero", "error",
                                      "除数为字面量 0，运行期必抛 ZeroDivisionError", lines))
+        # IDE 增强 102：空 except 吞错（静默吞异常——Python 常见隐患）
+        if isinstance(n, ast.ExceptHandler):
+            _body = [s for s in n.body
+                     if not (isinstance(s, ast.Expr)
+                             and isinstance(s.value, ast.Constant)
+                             and isinstance(s.value.value, str))]
+            if len(_body) == 1 and isinstance(_body[0], ast.Pass):
+                issues.append(_bug_issue(
+                    str(f), n, "swallowed_exception", "warning",
+                    "空 except 吞错（pass）——静默吞异常，建议记录或显式处理", lines))
         # 越界：字面量容器 + 字面量索引（确定性）
         seq_len = _bug_seq_len(n.value) if isinstance(n, ast.Subscript) else None
         if seq_len is not None and isinstance(n.slice, ast.Constant) and isinstance(n.slice.value, int):
