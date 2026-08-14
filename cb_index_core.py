@@ -134,6 +134,7 @@ def index_repo(root: str) -> dict:
         "root": root,
         "indexed_at": time.time(),
         "file_count": len(files),
+        "truncated": truncated,  # IDE 增强 143：持久化截断标志（cb_status 可读）
         "files": files,
     }
     # 原子写（临时文件 + os.replace，崩溃/磁盘满不留截断文件，review should-fix）
@@ -206,6 +207,8 @@ def repo_status(root: str) -> dict:
         "root": data.get("root"),
         "indexed_at": data.get("indexed_at"),
         "freshness": _fresh,
+        # IDE 增强 143：截断状态（索引未覆盖全仓——提示刷新/扩容）
+        "truncated": bool(data.get("truncated")),
         "file_count": len(files),
         "dir_summary": [{"dir": d, "files": len(v), "symbols": sum(len(x["symbols"]) for x in v)}
                         for d, v in top_dirs],
