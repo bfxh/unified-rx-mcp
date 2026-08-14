@@ -3479,6 +3479,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "迁徙": "migrate", "冬眠": "hibernate", "觅食": "forage", "繁殖": "breed",
         # IDE 增强 400：魔法词（咒语/法术/结界/召唤/驱散/变形/瞬移/预言）
         "咒语": "spell", "法术": "magic", "结界": "barrier", "召唤": "summon",
+        # IDE 增强 401：法术系词（火系/冰系/雷系/暗影/神圣/自然/奥术/死灵）
+        "火系": "fire", "冰系": "ice", "雷系": "lightning", "暗影": "shadow",
+        "神圣": "holy", "自然": "nature", "奥术": "arcane", "死灵": "necromancy",
         "驱散": "dispel", "变形": "transform", "瞬移": "teleport", "预言": "divine",
         "领地": "territory", "巢穴": "nest", "伏击": "ambush", "警戒": "alert",
         "琥珀": "amber", "香木": "sandalwood", "象牙": "ivory", "珊瑚": "coral",
