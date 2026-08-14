@@ -42,6 +42,16 @@ _SYMBOL_PATTERNS = {
     ".hpp": re.compile(r"^(?:static\s+|inline\s+|virtual\s+|explicit\s+)*"
                        r"[A-Za-z_:]\w*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:\{)?|"
                        r"^class\s+(\w+)|^(?:struct|enum)\s+(\w+)", re.M),
+    # IDE 增强 266：cs/lua/sh 符号（C# class/方法、Lua function、Bash 函数）
+    ".cs": re.compile(r"^(?:public\s+|private\s+|internal\s+|protected\s+)*"
+                      r"(?:static\s+|virtual\s+|override\s+|async\s+)*"
+                      r"(?:class|interface|struct|enum)\s+(\w+)|"
+                      r"^(?:public\s+|private\s+|internal\s+|protected\s+)*"
+                      r"(?:static\s+|virtual\s+|override\s+|async\s+)*"
+                      r"[A-Za-z_<>,\[\]\s]*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*\{?", re.M),
+    ".lua": re.compile(r"^(?:local\s+)?function\s+(\w+)|^local\s+(\w+)\s*=", re.M),
+    ".sh": re.compile(r"^([A-Za-z_]\w*)\s*\(\)\s*(?:\{|$)", re.M),
+    ".bash": re.compile(r"^([A-Za-z_]\w*)\s*\(\)\s*(?:\{|$)", re.M),
 }
 
 # 排除目录

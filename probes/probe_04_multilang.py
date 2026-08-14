@@ -162,3 +162,23 @@ def p21():
     if cs_ok and sh_ok:
         return True, "cs debug_residue + sh shell_injection 双检出"
     return False, f"应双检出: cs={cs_ok} sh={sh_ok}"
+
+
+@probe("p22_std_cb_cs_lua_sh")
+def p22():
+    """std_check cs/lua + cb_index cs/lua/sh 符号（266）。"""
+    repo = os.path.join(_TMP, "cslua")
+    os.makedirs(repo, exist_ok=True)
+    with open(os.path.join(repo, "P.cs"), "w", encoding="utf-8") as f:
+        f.write("class Player {\n    void Run() {\n        int speed = 999;\n    }\n}\n")
+    out = S._call("std_check", {"path": os.path.join(repo, "P.cs")})
+    mn = any(i.get("rule") == "magic_number"
+             for i in json.loads(out[0].text).get("issues", []))
+    S._call("cb_index", {"path": repo})
+    out = S._call("cb_status", {"path": repo})
+    idx = json.load(open(os.path.join(repo, ".unified-rx-index", "index.json"),
+                         encoding="utf-8"))
+    cs_syms = idx["files"].get("P.cs", {}).get("symbols", {})
+    if mn and "Player" in cs_syms:
+        return True, f"cs magic_number + 符号 Player 检出"
+    return False, f"应双检出: mn={mn} syms={list(cs_syms)}"
