@@ -3379,6 +3379,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "工具": "tool", "锤子": "hammer", "斧头": "axe", "镐": "pickaxe",
         # IDE 增强 350：载具词（载具/车辆/坦克/飞船/船/潜艇/飞行器/机甲）
         "载具": "vehicle", "车辆": "car", "坦克": "tank", "飞船": "spaceship",
+        # IDE 增强 351：生存词（生存/饥饿/口渴/体温/睡眠/精力/疲惫/伤口）
+        "生存": "survival", "饥饿": "hunger", "口渴": "thirst", "体温": "temperature",
+        "睡眠": "sleep", "精力": "stamina", "疲惫": "fatigue", "伤口": "wound",
         "船": "boat", "潜艇": "submarine", "飞行器": "aircraft", "机甲": "mech",
         "铲": "shovel", "绳索": "rope", "扳手": "wrench", "焊枪": "welder",
         "收获": "harvest", "种植": "plant", "木材": "wood", "水源": "water",
