@@ -3659,6 +3659,7 @@ def _tool_cb_index(args: dict) -> "list[types.TextContent]":
 def _tool_cb_status(args: dict) -> "list[types.TextContent]":
     """代码库状态（认知层）：读取索引摘要（文件树+符号+上次变更），不重建。"""
     p = _check_path(str(args["path"]))
+    _t0 = time.perf_counter()
     try:
         from cb_index_core import repo_status
     except ImportError:
@@ -3666,6 +3667,9 @@ def _tool_cb_status(args: dict) -> "list[types.TextContent]":
         sys.path.insert(0, _dir)
         from cb_index_core import repo_status  # noqa: F811
     result = repo_status(str(p))
+    # IDE 增强 237：查询耗时（ms——性能可见收官）
+    if isinstance(result, dict):
+        result["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
