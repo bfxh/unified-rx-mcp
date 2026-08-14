@@ -3513,6 +3513,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "勘探": "prospect", "钻探": "drilling", "采样": "sample", "测绘": "survey",
         # IDE 增强 417：实验容器词（坩埚/烧瓶/试管/培养皿/蒸馏瓶/量杯/漏斗/研钵）
         "坩埚": "crucible", "烧瓶": "flask", "试管": "testtube", "培养皿": "petridish",
+        # IDE 增强 418：组装线词（装配线/总装/质检/包装/封箱/贴标/上漆/干燥线）
+        "装配线": "assemblyline", "总装": "finalassembly", "质检": "quality", "包装": "packaging",
+        "封箱": "sealing", "贴标": "labeling", "上漆": "painting", "干燥线": "dryingline",
         "蒸馏瓶": "still", "量杯": "beaker", "漏斗": "funnel", "研钵": "mortar",
         "勘察": "recon", "标图": "plotting", "探矿": "oreprospect", "岩芯": "core",
         "花朵": "flower", "仙人掌": "cactus", "芦苇": "reed", "水草": "seaweed",
