@@ -26,7 +26,9 @@ _SYMBOL_PATTERNS = {
     ".rs": re.compile(r"^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)|^(?:pub\s+)?(?:struct|enum|trait|impl)\s+(\w+)", re.M),
     ".go": re.compile(r"^func\s+(\w+)", re.M),
     ".ts": re.compile(r"^(?:export\s+)?(?:function|class|interface|type|const|let)\s+(\w+)", re.M),
+    ".tsx": re.compile(r"^(?:export\s+)?(?:function|class|interface|type|const|let)\s+(\w+)", re.M),
     ".js": re.compile(r"^(?:export\s+)?(?:function|class)\s+(\w+)", re.M),
+    ".jsx": re.compile(r"^(?:export\s+)?(?:function|class)\s+(\w+)", re.M),
     ".gd": re.compile(r"^(?:func|class_name)\s+(\w+)", re.M),
     # IDE 增强 255：c/cpp 符号（函数声明/struct/typedef——graph_index 已支持，
     # cb_index 对齐；文本启发防多指针/宏误抓）
