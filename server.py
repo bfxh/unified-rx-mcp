@@ -3323,6 +3323,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "统计": "stats", "聚合": "aggregate", "分布": "distribution", "平均": "average",
         # IDE 增强 322：绘图词（线条/形状/画笔/画布/填充/描边）
         "线条": "line", "形状": "shape", "画笔": "brush", "画布": "canvas",
+        # IDE 增强 323：通信词（消息/事件/广播/订阅/通知/回调）
+        "消息": "message", "事件": "event", "广播": "broadcast", "订阅": "subscribe",
+        "通知": "notify", "回调": "callback", "信号": "signal", "指令": "command",
         "填充": "fill", "描边": "stroke", "渐变": "gradient", "投影": "shadow",
         "方差": "variance", "样本": "sample", "概率": "probability", "期望": "expectation",
         "默认值": "default", "环境": "env", "标志": "flag", "注册": "register",
