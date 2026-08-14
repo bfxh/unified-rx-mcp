@@ -1848,11 +1848,14 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     max_files = int(args.get("max_files", _BUG_MAX_FILES))
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
+    # IDE 增强 174：规则过滤参数（在缓存命中前解析——缓存 key 含 rules，
+    # 防过滤被缓存绕过）
+    _only = {s.strip() for s in str(args.get("rules", "")).split(",") if s.strip()}
     # 单文件缓存（幂等只读；文件变了缓存失效）
     if p.is_file():
         try:
             import scan_cache
-            hit = scan_cache.get("bug_scan", str(p))
+            hit = scan_cache.get("bug_scan", f"{p}|{sorted(_only)}")
             if hit is not None:
                 return [_TC(json.dumps(hit, ensure_ascii=False))]
         except ImportError:  # 尽力而为
@@ -1901,6 +1904,10 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     if total_lines > _BUG_MAX_TOTAL_LINES:
         raise ValueError(f"扫描总量超限（>{_BUG_MAX_TOTAL_LINES} 行），请缩小范围")
     issues.sort(key=lambda i: (i["file"], i["line"], i["col"]))
+    # IDE 增强 174：规则过滤（rules 逗号分隔——只报指定规则，对称 std_check 173）
+    _only = {s.strip() for s in str(args.get("rules", "")).split(",") if s.strip()}
+    if _only:
+        issues = [i for i in issues if i.get("rule") in _only]
     # P2 信噪比度量（SCAN_QUALITY_ISSUES.md 问题 C 修复）：severity 归一化统计 +
     # noise_ratio（info 占比）——AI 一眼可判断"这份报告可信度"；error 优先展示
     sev_counts = {"error": 0, "warn": 0, "info": 0}
@@ -1933,7 +1940,7 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     if p.is_file():
         try:
             import scan_cache
-            scan_cache.put("bug_scan", str(p), result)
+            scan_cache.put("bug_scan", f"{p}|{sorted(_only)}", result)
         except ImportError:  # 尽力而为
             pass
     return [_TC(json.dumps(result, ensure_ascii=False))]
