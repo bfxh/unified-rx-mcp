@@ -3329,6 +3329,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "光照": "light", "着色器": "shader", "景深": "depth", "抗锯齿": "antialias",
         # IDE 增强 325：物理词（重力/摩擦/速度/加速度/扭矩/阻尼）
         "重力": "gravity", "摩擦": "friction", "速度": "velocity", "加速度": "accel",
+        # IDE 增强 326：音视频词（视频/播放/流媒体/录制/音频流）
+        "视频": "video", "播放": "play", "流媒体": "stream", "录制": "record",
+        "音频流": "audio", "字幕": "subtitle", "音量": "volume", "画面": "frame",
         "扭矩": "torque", "阻尼": "damping", "刚度": "stiffness", "惯性": "inertia",
         "遮挡": "occlusion", "阴影": "shadow", "贴图": "texture", "网格": "mesh",
         "通知": "notify", "回调": "callback", "信号": "signal", "指令": "command",
