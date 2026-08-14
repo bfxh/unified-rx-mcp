@@ -3264,6 +3264,7 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
     规则：ui_root_missing/camera_missing/mode_isolation/focus_pass/font_missing/z_ordering。
     目录扫描走沙盒校验 + 上限（max_files 1..500/单文件 1MB）。"""
     p = _check_path(str(args["path"]))
+    _t0 = time.perf_counter()
     max_files = int(args.get("max_files", 100))
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
@@ -3349,6 +3350,8 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
         "file_rules": _file_rules,
         "note": "severity 已归一化（warning→warn）；noise_ratio=info 占比",
         "issues": issues,
+        # IDE 增强 228：扫描耗时（ms——扫描四入口收官 std 226/bug 227/ui 228）
+        "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1),
     }, ensure_ascii=False))]
 
 
