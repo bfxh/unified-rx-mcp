@@ -3315,6 +3315,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "日期": "date", "时间": "time", "定时": "schedule", "调度": "cron",
         # IDE 增强 318：格式/编解码词（解析/序列化/编码/解码/压缩）
         "解析": "parse", "序列化": "serialize", "编码": "encode", "解码": "decode",
+        # IDE 增强 319：文件/IO 词（文件/路径/目录/上传/下载/读写）
+        "文件": "file", "路径": "path", "目录": "dir", "上传": "upload",
+        "下载": "download", "读写": "io", "存储": "storage", "备份": "backup",
         "压缩": "compress", "格式化": "format", "校验和": "checksum", "转换": "convert",
         "时区": "timezone", "延迟": "delay", "期限": "deadline", "超时": "timeout",
         "降级": "degrade", "熔断": "circuit", "限流": "ratelimit", "灰度": "canary",
