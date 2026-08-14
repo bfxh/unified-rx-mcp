@@ -3303,6 +3303,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "哈希": "hash", "图": "graph", "树": "tree", "排序": "sort",
         # IDE 增强 309：业务词（订单/支付/用户/账户/库存/价格）
         "订单": "order", "支付": "payment", "用户": "user", "账户": "account",
+        # IDE 增强 310：游戏资源词（声音/音乐/纹理/模型/特效/音效）
+        "声音": "sound", "音乐": "music", "纹理": "texture", "模型": "model",
+        "特效": "effect", "音效": "audio", "动画": "animation", "场景": "scene",
         "库存": "inventory", "价格": "price", "商品": "product", "交易": "trade",
         "查找": "find", "递归": "recursive", "遍历": "traverse", "匹配": "match",
         "并发": "concurrent", "缓存": "cache", "内存": "memory", "崩溃": "crash",

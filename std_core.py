@@ -37,7 +37,10 @@ _UI_HARDCODE_RE = re.compile(
     r"(#[0-9a-fA-F]{3,8}\b)|(rgba?\(\s*\d+)|(Color::rgb)|(Color::rgba)|(Color::hex)|"
     r"(width\s*[:=]\s*\d{3,})|(height\s*[:=]\s*\d{3,})|(font_size\s*[:=]\s*\d{2,})|"
     r"(padding\s*[:=]\s*\d{2,})|(margin\s*[:=]\s*\d{2,})|"
-    r"(Val::Px\(\s*\d{2,})",  # 2026-08-14 补齐：Bevy 最常见写法（原只认裸数字）
+    r"(Val::Px\(\s*\d{2,})|"  # 2026-08-14 补齐：Bevy 最常见写法（原只认裸数字）
+    # IDE 增强 310：Flutter 硬编码（Color(0xFF...)/width:/height:/fontSize:）
+    r"(Color\(0x[0-9a-fA-F]{6,8}\))|(width:\s*\d{3,})|(height:\s*\d{3,})|"
+    r"(fontSize:\s*\d{2,})|(padding:\s*(EdgeInsets\.)?\w+)|(margin:\s*\d{2,})",
 )
 
 # IDE 增强 117：支持带下划线数字（Rust/Python 风格 100_000——防漏检）
@@ -255,7 +258,7 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
 
 
 def _scan_ui_hardcode(path: str, src: str, issues: list, limit: int):
-    if not (path.endswith((".rs", ".ts", ".tsx", ".js", ".jsx", ".gd"))):
+    if not (path.endswith((".rs", ".ts", ".tsx", ".js", ".jsx", ".gd", ".dart"))):
         return
     count = 0
     for m in _UI_HARDCODE_RE.finditer(src):
