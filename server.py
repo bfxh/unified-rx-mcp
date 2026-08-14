@@ -2996,7 +2996,11 @@ def _tool_semantic_search(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps({"ok": True, "query": query, "indexed_files": added,
                             "results": results,
                             "note": ("BM25+向量 RRF 混合检索（bge-small-zh 本地 embedding）" if vector_used
-                                     else "BM25 全文检索（无 embedding 模型——纯 BM25 降级）")},
+                                     else "BM25 全文检索（无 embedding 模型——纯 BM25 降级）"),
+                            # IDE 增强 194：命中质量建议（对称 kb_query 150）
+                            "advice": (f"命中 {len(results)} 条（索引 {added} 文件）——"
+                                       f"首个 {str(results[0].get('title', ''))[:20]}"
+                                       if results else "0 命中——换关键词，或确认 root 含代码文件")},
                            ensure_ascii=False, indent=2))]
 
 
