@@ -1932,6 +1932,7 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     单文件走 scan_cache（mtime/size 未变直接返回缓存，省重复扫描）。
     """
     p = _check_path(str(args["path"]))
+    _t0 = time.perf_counter()
     max_files = int(args.get("max_files", _BUG_MAX_FILES))
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
@@ -2010,6 +2011,8 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
         "note": ("noise_ratio=info 占比（高即多为风格提示）；error 为确定性缺陷，"
                  "warn 为需审查项——参考 SCAN_QUALITY_ISSUES.md"),
         "issues": issues,
+        # IDE 增强 227：扫描耗时（ms——对称 std 226，双入口收官）
+        "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1),
     }
     # IDE 增强 148：最严重 bug 提示（error 优先——确定性缺陷先修）
     _errs = [i for i in issues
