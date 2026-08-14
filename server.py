@@ -3411,6 +3411,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "液体": "liquid", "气体": "gas", "流体": "fluid", "管道": "pipe",
         # IDE 增强 366：矿产词（金矿/铁矿/铜矿/煤矿/铀矿/稀土/硅矿/石油）
         "金矿": "gold", "铁矿": "iron", "铜矿": "copper", "煤矿": "coal",
+        # IDE 增强 367：农机词（拖拉机/收割机/播种机/无人机/翻耕机/喷灌机）
+        "拖拉机": "tractor", "收割机": "harvester", "播种机": "seeder", "无人机": "drone",
+        "翻耕机": "tiller", "喷灌机": "sprinkler", "粮仓": "granary", "蜂箱": "beehive",
         "铀矿": "uranium", "稀土": "rare", "硅矿": "silicon", "石油": "oil",
         "泵": "pump", "阀门": "valve", "蒸汽": "steam", "液压": "hydraulic",
         "电池": "battery", "充电": "charge", "电网": "grid", "断电": "outage",
