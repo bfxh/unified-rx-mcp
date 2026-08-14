@@ -924,14 +924,24 @@ def _tool_repo_graph(args: dict) -> str:
             hits = gi.callers_of(_resolve_symbol(gi, root, symbol))
             return json.dumps({"ok": True, "query": "callers", "symbol": symbol,
                                "count": len(hits), "callers": hits,
-                               "index": stats}, ensure_ascii=False, indent=2)
+                               "index": stats,
+                               # IDE 增强 208：调用链建议（改动前看谁在调）
+                               "advice": (f"{len(hits)} 处调用 {symbol}——"
+                                          f"改动签名前先过调用方"
+                                          if hits else f"无调用者——{symbol} 是孤立符号")},
+                              ensure_ascii=False, indent=2)
         if query == "callees":
             if not symbol:
                 raise ValueError("callees 需要 symbol")
             hits = gi.callees_of(_resolve_symbol(gi, root, symbol))
             return json.dumps({"ok": True, "query": "callees", "symbol": symbol,
                                "count": len(hits), "callees": hits,
-                               "index": stats}, ensure_ascii=False, indent=2)
+                               "index": stats,
+                               # IDE 增强 208：callees 建议（它调了什么）
+                               "advice": (f"{symbol} 调用 {len(hits)} 个符号——"
+                                          f"改依赖前确认下游不破"
+                                          if hits else f"{symbol} 不调用其他符号")},
+                              ensure_ascii=False, indent=2)
         if query == "impact":
             if not file:
                 raise ValueError("impact 需要 file")
