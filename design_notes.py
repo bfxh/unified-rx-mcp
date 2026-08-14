@@ -60,11 +60,15 @@ def list_notes(root: str) -> dict:
     if not root or not os.path.isdir(root):
         return {"ok": False, "error": f"目录不存在: {root}"}
     data = _load(root)
+    # IDE 增强 141：最近笔记（全部笔记按 ts 降序取 3——AI 一眼看到最新决策）
+    _all = [{"kind": k, **n} for k, notes in data.items() for n in notes]
+    _recent = sorted(_all, key=lambda n: n.get("ts", 0), reverse=True)[:3]
     return {"ok": True, "root": root,
             "settled": data.get("settled", []),
             "adjustable": data.get("adjustable", []),
             "doubts": data.get("doubts", []),
             "counts": {k: len(v) for k, v in data.items()},
+            "recent": _recent,
             "legend": {"settled": "设定性——原样不改",
                        "adjustable": "设计性——可调选项",
                        "doubts": "疑点——先标记再验证"}}
