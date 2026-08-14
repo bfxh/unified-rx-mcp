@@ -3477,6 +3477,10 @@ def _tool_locate_edit(args: dict) -> "list[types.TextContent]":
 def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
     """报错文本 → file:line 精准定位（含上下文片段，走沙盒校验）。"""
     text = str(args["error_text"])
+    # IDE 增强 160：上下文行数可调（默认 3——大报错上下文按需放宽）
+    ctx = int(args.get("context_lines", _BUG_CONTEXT))
+    if not 0 <= ctx <= 50:
+        raise ValueError("context_lines 须在 0..50")
     matches = []
     for m in _TRACEBACK_RE.finditer(text):
         matches.append((m.group(1), int(m.group(2)), 0, (m.group(3) or "").strip()))
@@ -3517,7 +3521,7 @@ def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
             locations.append({"file": str(p), "line": line, "col": col, "func": func,
                               "status": "unreadable", "reason": str(exc), "context": []})
             continue
-        start, end = max(1, line - _BUG_CONTEXT), min(len(src_lines), line + _BUG_CONTEXT)
+        start, end = max(1, line - ctx), min(len(src_lines), line + ctx)
         locations.append({"file": str(p.resolve()), "line": line, "col": col, "func": func,
                           "status": "ok",
                           "context": [f"{i}: {src_lines[i - 1]}" for i in range(start, end + 1)]})
