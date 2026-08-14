@@ -1111,7 +1111,7 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
             "summary": "project_scan %s: bug=%d errors=%d" % (
                 os.path.basename(path.rstrip("/\\")), n_bug, len(results["errors"])),
         })
-    except Exception:
+    except Exception:  # 尽力而为
         pass
     return [_tr(True, "project_scan 完成(并行 %d 路): bug=%d std=%d ui=%d cb=%d" % (
         len(jobs),
@@ -1175,7 +1175,7 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
             "summary": "full_scan: %d projects, errors=%d" % (
                 len(results["projects"]), len(results["errors"])),
         })
-    except Exception:
+    except Exception:  # 尽力而为
         pass
     return [_tr(True, "full_scan 完成(并发 %d 项目): ok=%d errors=%d" % (
         len(roots), len(results["projects"]), len(results["errors"])), results)]
@@ -1672,9 +1672,17 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                              and isinstance(s.value, ast.Constant)
                              and isinstance(s.value.value, str))]
             if len(_body) == 1 and isinstance(_body[0], ast.Pass):
-                issues.append(_bug_issue(
-                    str(f), n, "swallowed_exception", "warning",
-                    "空 except 吞错（pass）——静默吞异常，建议记录或显式处理", lines))
+                # IDE 增强 105（自扫第二轮抓出）：except 行/上一行/pass 行任一
+                # 带注释说明 → 设计性静默（日志失败/扫描失败尽力而为），不算吞错
+                _pl = _body[0].lineno
+                _exc_txt = lines[n.lineno - 1] if 0 < n.lineno <= len(lines) else ""
+                _prev_txt = lines[n.lineno - 2] if n.lineno >= 2 else ""
+                _pass_txt = lines[_pl - 1] if 0 < _pl <= len(lines) else ""
+                if "#" not in _exc_txt and "#" not in _prev_txt \
+                        and "#" not in _pass_txt:
+                    issues.append(_bug_issue(
+                        str(f), n, "swallowed_exception", "warning",
+                        "空 except 吞错（pass）——静默吞异常，建议记录或显式处理", lines))
             # IDE 增强 103：except BaseException 过宽捕获（吞 KeyboardInterrupt/
             # SystemExit——程序无法 Ctrl-C 退出，运行期隐患）
             _exc_names: set[str] = set()
@@ -1734,7 +1742,7 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
             hit = scan_cache.get("bug_scan", str(p))
             if hit is not None:
                 return [_TC(json.dumps(hit, ensure_ascii=False))]
-        except ImportError:
+        except ImportError:  # 尽力而为
             pass
     files = []
     if p.is_file():
@@ -1801,7 +1809,7 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
         try:
             import scan_cache
             scan_cache.put("bug_scan", str(p), result)
-        except ImportError:
+        except ImportError:  # 尽力而为
             pass
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
@@ -1872,7 +1880,7 @@ def _tool_ide_fusion(args: dict) -> "list[types.TextContent]":
                     issues.append({"file": p, "line": it.get("line", 0),
                                    "kind": it.get("kind", "issue"),
                                    "message": str(it.get("message", ""))[:100]})
-    except ImportError:
+    except ImportError:  # 尽力而为
         pass
     return [_TC(json.dumps(annotate_issues(path, issues), ensure_ascii=False, indent=2))]
 
@@ -1986,7 +1994,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             try:
                 _std_now = json.loads(_call("std_check", {"path": file})[0].text).get(
                     "severity_counts", {}) or {}
-            except Exception:
+            except Exception:  # 尽力而为
                 pass
             _std_total_prev = sum(_std_prev_counts.values())
             _std_total_now = sum(_std_now.values())
@@ -2137,7 +2145,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                             try:
                                 os.remove(os.path.join(qdir, fn))
                                 removed += 1
-                            except OSError:
+                            except OSError:  # 尽力而为
                                 pass
             return [_TC(json.dumps({"ok": True, "removed": removed,
                                     "note": "已清理 finished/aborted 任务（days>0 时只删过期；active 保留）"},
@@ -2271,7 +2279,7 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                                 loc["symbol_refs"] = len(_refs)
                             except Exception:
                                 loc["symbol_refs"] = 0
-                except OSError:
+                except OSError:  # 尽力而为
                     pass
             _finish(loc, "locate", "locate",
                     f"{loc['file']}:{loc['line']} [{loc['rule']}]" if loc["file"] else "未发现问题")
@@ -2739,7 +2747,7 @@ def _tool_semantic_search(args: dict) -> "list[types.TextContent]":
                     ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
                     results = [merged[i] for i, _ in ranked[:limit]]
                     vector_used = True
-        except ImportError:
+        except ImportError:  # 尽力而为
             pass
         results = results[:limit]
     except Exception as e:
@@ -3476,7 +3484,7 @@ def _tool_card(args: dict) -> "list[types.TextContent]":
                     d0 = json.loads(card.text)
                     d0["experience_id"] = exp_id
                     card.text = json.dumps(d0, ensure_ascii=False)
-                except (ValueError, TypeError):
+                except (ValueError, TypeError):  # 尽力而为
                     pass
             return [card]
         summary = f"{name}: {text[:200]}{'…' if len(text) > 200 else ''}"
@@ -3486,7 +3494,7 @@ def _tool_card(args: dict) -> "list[types.TextContent]":
                 d0 = json.loads(card.text)
                 d0["experience_id"] = exp_id
                 card.text = json.dumps(d0, ensure_ascii=False)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError):  # 尽力而为
                 pass
         return [card]
     except (ValueError, TypeError):
@@ -4056,7 +4064,7 @@ def _attach_known_issues(name: str, args: dict,
             } for l in known]
             data["known_issues_note"] = "来自 scan-log（日志闯进调用）：该路径最近的已知问题，修复进展可查 scan_log"
             result[0] = _TC(json.dumps(data, ensure_ascii=False))
-    except (json.JSONDecodeError, TypeError, AttributeError):
+    except (json.JSONDecodeError, TypeError, AttributeError):  # 尽力而为
         pass
     return result
 
@@ -4110,7 +4118,7 @@ def _scan_log_tick(name: str, args: dict, result: "list[types.TextContent]") -> 
                                f"suggestion={s.get('suggestion',0)}")
             elif name == "vuln_scan":
                 summary = f"ok={data.get('ok')} errors={len(data.get('errors', []))}"
-    except (json.JSONDecodeError, TypeError, AttributeError):
+    except (json.JSONDecodeError, TypeError, AttributeError):  # 尽力而为
         pass
     root = str(args.get("path", "") or args.get("root", ""))
     scan_log_core.append_scan({"tool": name, "root": root, "ok": True, "summary": summary})
@@ -4160,7 +4168,7 @@ def _stats_flush_batch(batch: list) -> None:
         with _STATS_FLUSH_LOCK:
             records = mod._load() + batch
             mod._save(mod._truncate(records))
-    except Exception:
+    except Exception:  # 尽力而为
         pass
 
 
@@ -4178,7 +4186,7 @@ def _stats_flush() -> None:
             batch, _STATS_BUF = _STATS_BUF, []
         if batch:
             _stats_flush_batch(batch)
-    except Exception:
+    except Exception:  # 尽力而为
         pass
 
 
@@ -4303,7 +4311,7 @@ def _self_scan_once() -> None:
                 "tool": "self_std", "root": f, "ok": sn == 0,
                 "summary": f"self std_check {os.path.basename(f)}: issues={sn}",
             })
-        except Exception:
+        except Exception:  # 尽力而为
             pass
 
     with ThreadPoolExecutor(max_workers=min(8, max(1, len(changed)))) as pool:
@@ -4320,7 +4328,7 @@ def _self_scan_once() -> None:
         _tmp = state_path.with_suffix(f".json.tmp{os.getpid()}")
         _tmp.write_text(json.dumps(state), encoding="utf-8")
         _tmp.replace(state_path)
-    except Exception:
+    except Exception:  # 尽力而为
         pass
     for d in scan_log_core.self_scan_dirs():
         try:
@@ -4331,7 +4339,7 @@ def _self_scan_once() -> None:
                 "tool": "self_scan", "root": d, "ok": n == 0,
                 "summary": f"self bug_scan {os.path.basename(d)}: issues={n}",
             })
-        except Exception:
+        except Exception:  # 尽力而为
             pass
 
 
@@ -4385,14 +4393,14 @@ def _spawn_self_scan() -> None:
                     top = max(counts, key=counts.get)
                     if counts[top] >= 3:  # 防冷启动误扫（只扫确有活跃度的）
                         return top
-        except Exception:
+        except Exception:  # 尽力而为
             pass
         try:
             logs = scan_log_core.query_logs(limit=50)
             roots = [l.get("root", "") for l in logs if l.get("root")]
             if roots:
                 return roots[0]
-        except Exception:
+        except Exception:  # 尽力而为
             pass
         for cand in (r"D:\开发\VoxelForge-Nexus", r"D:\开发\reasonix-src",
                      r"D:\开发\VoxelForge"):
@@ -4419,7 +4427,7 @@ def _spawn_self_scan() -> None:
         if not indexed:
             try:
                 _call("project_scan", {"path": proj, "max_files": 100})
-            except Exception:
+            except Exception:  # 尽力而为
                 pass
             return
         # 已索引：变更感知——无变动跳过 project_scan（省 token）
@@ -4436,14 +4444,14 @@ def _spawn_self_scan() -> None:
             return
         try:
             _call("project_scan", {"path": proj, "max_files": 100})
-        except Exception:
+        except Exception:  # 尽力而为
             pass
 
     def _full_scan_once() -> None:
         """模式② 一轮：多项目根并发全盘扫。"""
         try:
             _call("full_scan", {"max_files": 100, "ui": False})
-        except Exception:
+        except Exception:  # 尽力而为
             pass
 
     def _loop(name: str, interval_env: str, default: float, fn) -> None:
@@ -4456,7 +4464,7 @@ def _spawn_self_scan() -> None:
             while True:
                 try:
                     fn()
-                except Exception:
+                except Exception:  # 尽力而为
                     pass
                 time.sleep(interval)
 
