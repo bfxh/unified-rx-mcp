@@ -3020,10 +3020,16 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
         sev_counts["warn" if s in ("warn", "warning") else
                    ("error" if s == "error" else "info")] += 1
     total = len(issues)
+    # IDE 增强 142：规则分布（什么 UI 问题类型最多）
+    _rule_counts: dict[str, int] = {}
+    for i in issues:
+        _r = str(i.get("rule", "unknown"))
+        _rule_counts[_r] = _rule_counts.get(_r, 0) + 1
     return [_TC(json.dumps({
         "ok": True, "issue_count": len(issues),
         "severity_counts": sev_counts,
         "noise_ratio": round(sev_counts["info"] / total, 3) if total else 0.0,
+        "rule_counts": dict(sorted(_rule_counts.items(), key=lambda kv: -kv[1])),
         "note": "severity 已归一化（warning→warn）；noise_ratio=info 占比",
         "issues": issues,
     }, ensure_ascii=False))]
