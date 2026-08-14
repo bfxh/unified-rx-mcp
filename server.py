@@ -3393,6 +3393,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "潜水": "dive", "水下": "underwater", "呼吸": "breathe", "水压": "pressure",
         # IDE 增强 357：战役词（战役/战争/战场/征服/占领/入侵/围攻/哨塔）
         "战役": "battle", "战争": "war", "战场": "battlefield", "征服": "conquer",
+        # IDE 增强 358：飞行词（起飞/降落/滑翔/盘旋/升空/俯冲/急升/盘旋）
+        "起飞": "takeoff", "降落": "landing", "滑翔": "glide", "盘旋": "hover",
+        "升空": "ascend", "俯冲": "dive", "急升": "climb", "悬停": "hovers",
         "占领": "occupy", "入侵": "invade", "围攻": "siege", "哨塔": "watchtower",
         "游泳": "swim", "浮力": "buoyancy", "潜水艇": "submarine", "水肺": "scuba",
         "灌溉": "irrigate", "施肥": "fertilize", "畜牧": "livestock", "温室": "greenhouse",
