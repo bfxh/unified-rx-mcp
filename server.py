@@ -1102,6 +1102,14 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
             _worst = (f"最优先：{os.path.basename(str(_e.get('file', '')))}:{_e.get('line')} "
                       f"[{_e.get('rule')}] error（共 {len(_errs)} 条）")
     results["advice"] = _worst or "无 error——按 warning/占位/UI 分布排查（看 detail）"
+    # IDE 增强 189：顶层规则汇总（union 三路子结果 available_rules——
+    # 聚合入口同样可发现 rules= 可传哪些）
+    _ar: set = set()
+    for _k in ("bug_scan", "std_check", "ui_check"):
+        _sub = results.get(_k)
+        if isinstance(_sub, dict):
+            _ar |= set(_sub.get("available_rules", []) or [])
+    results["available_rules"] = sorted(_ar)
     return [_tr(True, "vuln_scan 完成(并行): bug=%d std=%d ui=%d" % (
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
         len(results["std_check"]) if isinstance(results["std_check"], list) else 0,
