@@ -3427,6 +3427,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "铁路": "railway", "火车": "train", "地铁": "subway", "车站": "station",
         # IDE 增强 374：饰品词（项链/戒指/护符/手镯/腰带/徽章/耳环/头饰）
         "项链": "necklace", "戒指": "ring", "护符": "charm", "手镯": "bracelet",
+        # IDE 增强 375：染料词（染料/颜料/染色/调色/油漆/涂料/喷漆/上色）
+        "染料": "dye", "颜料": "pigment", "染色": "color", "调色": "palette",
+        "油漆": "paint", "涂料": "coating", "喷漆": "spray", "上色": "tint",
         "腰带": "belt", "徽章": "badge", "耳环": "earring", "头饰": "headgear",
         "信号灯": "signal", "高架": "elevated", "隧道": "tunnel", "路口": "junction",
         "冰箱": "fridge", "冷冻": "freezer", "桶": "barrel", "罐子": "jar",
