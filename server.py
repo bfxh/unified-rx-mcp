@@ -3373,6 +3373,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "系统": "system", "内核": "kernel", "引擎": "engine", "插件": "plugin",
         # IDE 增强 347：环境词（环境/生态/生物群系/季节/温度/湿度/气压）
         "环境": "environment", "生态": "ecosystem", "生物群系": "biome", "季节": "season",
+        # IDE 增强 348：矿脉词（矿脉/矿石/采矿/采集/收获/种植/木材/水源）
+        "矿脉": "vein", "矿石": "ore", "采矿": "mine", "采集": "gather",
+        "收获": "harvest", "种植": "plant", "木材": "wood", "水源": "water",
         "温度": "temperature", "湿度": "humidity", "气压": "pressure", "氧气": "oxygen",
         "框架": "framework", "运行时": "runtime", "驱动": "driver", "接口": "interface",
         "过场": "cutscene", "叙事": "narrative", "剧本": "script", "镜头": "camera",
