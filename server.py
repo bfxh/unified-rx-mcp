@@ -3521,6 +3521,7 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
     提前告知（本工具不臆测），否则按默认标准兼容绝大多数项目。
     """
     p = _check_path(str(args["path"]))
+    _t0 = time.perf_counter()
     max_files = int(args.get("max_files", 200))
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
@@ -3607,6 +3608,8 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
     } | {"text_placeholder", "name_conflict", "ui_hardcode", "magic_number",
          "dead_code", "secret_detection", "swallowed_exception", "rule_deprecated",
          "goto_used", "as_narrowing", "as_precision_loss"})
+    # IDE 增强 226：扫描耗时（ms——性能可见，对称 kb 215/semantic 216）
+    result["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
