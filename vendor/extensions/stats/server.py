@@ -139,6 +139,8 @@ def _summary(args: dict) -> str:
         "tokens_total": total_in + total_out,
         "estimated_cost_usd": round(cost, 4),
         "avg_duration_ms": round(sum(r.get("duration_ms", 0) for r in records) / n, 1),
+        # IDE 增强 138：平均每次调用 token（成本洞察——单次调用开销）
+        "avg_tokens_per_action": round((total_in + total_out) / n, 1) if n else 0,
         "top_tools": top_tools,
         "tasks": tasks,
     }, ensure_ascii=False)
