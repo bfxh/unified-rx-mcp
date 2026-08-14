@@ -3587,6 +3587,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "开采权": "miningright", "矿权证": "miningclaim", "开发计划": "developmentplan", "产能": "capacity",
         # IDE 增强 454：矿工管理词（排班/工资/工时/考勤/奖惩/班次/轮换/津贴）
         "排班": "schedule", "工资": "wage", "工时": "worktime", "考勤": "attendance",
+        # IDE 增强 455：矿业法规词（环保法规/安全法规/用地许可/环评/复垦/赔偿金/罚款/审计）
+        "环保法规": "environmentalreg", "安全法规": "safetyreg", "用地许可": "landusepermit", "环评": "environmentalreview",
+        "复垦": "reclamation", "赔偿金": "compensation", "罚款": "fine", "审计": "audit",
         "奖惩": "reward", "班次": "shift", "轮换": "rotation", "津贴": "allowance",
         "回收率": "recoveryrate", "品位": "grade", "储量": "reserves", "回采率": "extractionrate",
         "值班室": "dutyroom", "洗衣房": "laundry", "工具房": "toolroom", "警卫室": "guardroom",
