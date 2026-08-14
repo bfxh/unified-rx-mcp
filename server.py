@@ -3472,6 +3472,14 @@ def _tool_cb_index(args: dict) -> "list[types.TextContent]":
     result = index_repo(str(p))
     # 剥离 files（符号表巨大，输出只需统计与变更；files 仅供 scan_repo 内部使用）
     result.pop("files", None)
+    # IDE 增强 195：变更摘要建议（changed/added/removed 一眼可见——
+    # AI 知道这次索引更新了什么）
+    _ch = len(result.get("changed", []))
+    _ad = len(result.get("added", []))
+    _rm = len(result.get("removed", []))
+    result["advice"] = (f"变更 {_ch} / 新增 {_ad} / 删除 {_rm} 个文件"
+                        f"（有变更优先 cb_scan 看 issues）"
+                        if (_ch or _ad or _rm) else "无变更——索引已是最新")
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
