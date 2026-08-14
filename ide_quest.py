@@ -9,6 +9,7 @@
 
 import json
 import os
+import re
 import time
 
 STEPS = [
@@ -45,6 +46,9 @@ class Quest:
 
     @classmethod
     def load(cls, quest_id: str) -> "Quest | None":
+        # IDE 增强 168（安全）：load 同样校验（防读取目录外 json——`../x`）
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", quest_id):
+            return None
         path = cls._state_path(quest_id)
         if not os.path.exists(path):
             return None
@@ -137,6 +141,10 @@ class Quest:
 
 
 def new_quest(quest_id: str, task: str, repo: str) -> Quest:
+    # IDE 增强 168（安全）：quest_id 仅允许安全字符（防路径注入——
+    # quest_id 直接进文件名，`../evil` 会写出 _QUEST_DIR）
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", quest_id):
+        raise ValueError(f"quest_id 非法: {quest_id}（仅允许 [A-Za-z0-9_-]）")
     return Quest(quest_id, task, repo)
 
 
