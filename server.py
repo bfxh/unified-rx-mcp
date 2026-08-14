@@ -2706,6 +2706,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         raise ValueError(f"budget 须在 1..5000（收到 {budget}）")
     if not 1 <= max_depth <= 20:
         raise ValueError(f"max_depth 须在 1..20（收到 {max_depth}）")
+    # IDE 增强 170（安全）：root 过 _check_path 沙盒校验——
+    # 防越界目录树搜索（读取沙盒外文件内容进探索）
+    root = _check_path(root)
     if not root or not os.path.isdir(root):
         return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {root}"}, ensure_ascii=False))]
     if not goal:
