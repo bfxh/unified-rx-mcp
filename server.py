@@ -1373,6 +1373,21 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
         _det = _res.get("detail", {}) if isinstance(_res, dict) else {}
         if isinstance(_det, dict):
             _ar |= set(_det.get("available_rules", []) or [])
+    # IDE 增强 287：full_scan 多项目语言总览（各项目 languages 聚合——
+    # 多项目矩阵语言组成一眼可见）
+    _langs: dict[str, int] = {}
+    _proj_langs: dict[str, dict] = {}
+    for p in results.get("projects", []):
+        _res = p.get("result", {})
+        _det = _res.get("detail", {}) if isinstance(_res, dict) else {}
+        if isinstance(_det, dict) and isinstance(_det.get("languages"), dict):
+            _pl = _det["languages"]
+            _proj_langs[os.path.basename(str(p.get("root", "")).rstrip("/\\"))] = _pl
+            for _l, _c in _pl.items():
+                _langs[_l] = max(_langs.get(_l, 0), int(_c))
+    if _langs:
+        results["languages"] = dict(sorted(_langs.items(), key=lambda kv: -kv[1]))
+        results["project_languages"] = _proj_langs
     results["available_rules"] = sorted(_ar)
     # IDE 增强 243：聚合耗时（ms——多项目聚合收官）
     results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
