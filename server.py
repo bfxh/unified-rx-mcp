@@ -3359,6 +3359,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "天气": "weather", "下雨": "rain", "下雪": "snow", "风暴": "storm",
         # IDE 增强 340：生物词（动物/怪物/鸟/鱼/野兽/NPC/宠物/坐骑）
         "动物": "animal", "怪物": "monster", "鸟": "bird", "鱼": "fish",
+        # IDE 增强 341：建筑词（建筑/房子/城堡/村庄/桥梁/道路/塔/城墙）
+        "建筑": "building", "房子": "house", "城堡": "castle", "村庄": "village",
+        "桥梁": "bridge", "道路": "road", "塔": "tower", "城墙": "wall",
         "野兽": "beast", "宠物": "pet", "坐骑": "mount", "昆虫": "bug",
         "昼夜": "daynight", "光照": "lighting", "雾": "fog", "风": "wind",
         "沙漠": "desert", "洞穴": "cave", "高原": "plateau", "沼泽": "swamp",
