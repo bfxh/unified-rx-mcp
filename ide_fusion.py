@@ -15,7 +15,13 @@ import time
 import re
 
 # 符号归属启发式：行号 → 所在函数（tree-sitter 降级：正则 fn/def 扫描）
-_FN_RE = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\b|^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+_FN_RE = re.compile(
+    r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\b"          # rs
+    r"|^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\b"                                 # py
+    r"|^\s*func\s+(?:\([^)]*\)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\("            # go/gd
+    r"|^\s*(?:export\s+)?(?:function\s+([A-Za-z_$][\w$]*)|class\s+([A-Za-z_$][\w$]*))"  # ts/js
+    r"|^\s*(?:static\s+|inline\s+|extern\s+)*(?!return\b|if\b|while\b|for\b)" # c/cpp
+    r"[A-Za-z_]\w*\s+([A-Za-z_]\w*)\s*\(")
 
 
 def annotate_issues(root: str, issues: list[dict]) -> dict:
@@ -40,7 +46,9 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
                 for i, line in enumerate(f, 1):
                     m = _FN_RE.match(line)
                     if m:
-                        result.append((i, m.group(1) or m.group(2)))
+                        name = next((g for g in m.groups() if g), "")
+                        if name:
+                            result.append((i, name))
         except OSError:
             pass
         fn_lines[path] = result

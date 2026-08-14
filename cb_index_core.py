@@ -260,6 +260,15 @@ def scan_repo(root: str, max_files: int = 200) -> dict:
             continue
         scanned += 1
         is_changed = rel in changed
+        if rel.endswith(".gd"):
+            # IDE 增强 259：cb_scan 含 Godot UI（对齐 ui_check 257——变更优先
+            # UI 扫描对 Bevy + Godot 双引擎生效）
+            from ui_check_core import _scan_gd_ui
+            for issue in _scan_gd_ui(src, rel):
+                issue["file"] = rel
+                issue["priority"] = "changed" if is_changed else "full"
+                issues.append(issue)
+            continue
         for issue in scan_ui_source(src, rel, dir_mode=True):
             issue["file"] = rel
             issue["priority"] = "changed" if is_changed else "full"
