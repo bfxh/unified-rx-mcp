@@ -119,9 +119,9 @@ def _scan_text_placeholder(path: str, src: str, issues: list, limit: int, todo_c
 
 def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
     if not (path.endswith(".py")):
-        # IDE 增强 108/118：ts/js/tsx/jsx + go 文本启发——模块级重复声明
-        # （function/class/const/let/var/func 同名 → 重复定义）
-        if path.endswith((".ts", ".tsx", ".js", ".jsx", ".go")):
+        # IDE 增强 108/118/166：ts/js/tsx/jsx + go + gd 文本启发——模块级重复声明
+        # （function/class/const/let/var/func 同名 → 重复定义；gd 的 func 与 go 同构）
+        if path.endswith((".ts", ".tsx", ".js", ".jsx", ".go", ".gd")):
             count = 0
             seen: dict = {}
             for i, line in enumerate(src.splitlines(), 1):
