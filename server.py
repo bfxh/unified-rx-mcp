@@ -3701,6 +3701,15 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
         result["top_rule"] = f"{_tr}（{_tn} 条）"
     else:
         result["top_rule"] = ""
+    # IDE 增强 222：文件级规则分布（file_rules——对称 std 219/ui 220/bug 221，
+    # 扫描四入口收官）
+    _fr: dict[str, dict[str, int]] = {}
+    for i in _is:
+        _f = os.path.basename(str(i.get("file", "")))
+        _r = str(i.get("rule", "unknown"))
+        _fr.setdefault(_f, {})
+        _fr[_f][_r] = _fr[_f].get(_r, 0) + 1
+    result["file_rules"] = dict(sorted(_fr.items())[:20])
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
