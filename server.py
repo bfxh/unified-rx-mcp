@@ -2819,6 +2819,27 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         result["advice"] = (f"最优候选：{_bn}"
                             f"（深度 {result.get('stats', {}).get('depth_reached', '?')}）"
                             f"——先读该文件再决策")
+        # IDE 增强 181：best 命中行 snippet（探索结果可读性——不用再
+        # 手动读文件就知命中在哪；best 常态为纯路径，先试完整路径
+        # 再剥 :行号——Windows 盘符坑：必须先 isfile 成功）
+        try:
+            _fpath_full = str(_best)
+            _lno = ""
+            if not os.path.isfile(_fpath_full):
+                _fpath_full, _lno = _fpath_full.rsplit(":", 1)
+            if os.path.isfile(_fpath_full):
+                with open(_fpath_full, encoding="utf-8", errors="replace") as _bf:
+                    _blines = _bf.read().splitlines()
+                _i = int(_lno) - 1 if _lno.isdigit() else -1
+                if not (0 <= _i < len(_blines)):
+                    _words = [w for w in goal.lower().replace(",", " ").split()
+                              if len(w) > 1]
+                    _i = next((k for k, ln in enumerate(_blines)
+                               if any(w in ln.lower() for w in _words)), -1)
+                if 0 <= _i < len(_blines):
+                    result["best_hit"] = _blines[_i].strip()[:160]
+        except Exception:  # 尽力而为
+            pass
     else:
         result["advice"] = "未找到高相关候选——换关键词或扩大 root"
     return [_TC(json.dumps(result, ensure_ascii=False, indent=2))]
