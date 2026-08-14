@@ -3457,6 +3457,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "齿轮": "gear", "轴承": "bearing", "弹簧": "spring", "螺丝": "screw",
         # IDE 增强 389：加工机器词（破碎机/研磨机/过滤机/干燥机/冷却机/加热机）
         "破碎机": "crusher", "研磨机": "mill", "过滤机": "filter", "干燥机": "dryer",
+        # IDE 增强 390：液体储存词（储罐/蓄水池/水塔/油罐/储气罐/冷却塔）
+        "储罐": "tank", "蓄水池": "reservoir", "水塔": "watertower", "油罐": "oiltank",
+        "储气罐": "gastank", "冷却塔": "coolingtower", "水渠": "aqueduct", "水井": "well",
         "冷却机": "cooler", "加热机": "heater", "蒸馏器": "distiller", "反应釜": "reactor",
         "皮带": "belt", "链条": "chain", "活塞": "piston", "飞轮": "flywheel",
         "辐射": "radiation", "眩晕": "stun", "冰冻": "freeze", "麻痹": "paralyze",
