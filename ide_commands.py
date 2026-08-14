@@ -59,6 +59,14 @@ _CHEATSHEET: dict[str, list[dict]] = {
         # IDE 增强 111：常驻自扫显式入口（daemon --once：self+project 增量双维度）
         {"name": "self_scan", "cmd": "python -X utf8 daemon.py --once",
          "desc": "常驻自扫一轮（双维度增量，结果落知识库）"},
+        # IDE 增强 158：IDE 测试一键（IDE 链回归入口；显式列文件——
+        # Windows 下 shell 不展开 test_ide_*.py glob）
+        {"name": "pytest_ide",
+         "cmd": "python -X utf8 -m pytest test_ide_tools.py test_ide_session.py "
+                "test_ide_quest_fusion.py test_ide_baseline.py test_ide_cache.py "
+                "test_ide_permission.py test_ide_tiers.py test_unified_rx.py "
+                "test_rustscan.py -q",
+         "desc": "IDE/扫描链测试一键回归"},
     ],
 }
 
