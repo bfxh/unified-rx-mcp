@@ -3521,6 +3521,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "地毯": "carpet", "挂毯": "tapestry", "画作": "painting", "雕塑": "statue",
         # IDE 增强 421：仓库设备词（托盘/吊车/起重机/堆垛机/分拣臂/传送机/货梯/升降台）
         "托盘": "pallet", "吊车": "crane", "起重机": "hoist", "堆垛机": "stacker",
+        # IDE 增强 422：庭院词（栅栏/篱笆/门廊/露台/凉亭/花园/菜园/鸡舍）
+        "栅栏": "fence", "篱笆": "hedge", "门廊": "porch", "露台": "terrace",
+        "凉亭": "gazebo", "花园": "garden", "菜园": "grove", "鸡舍": "coop",
         "分拣臂": "sorterarm", "传送机": "conveyor", "货梯": "freightlift", "升降台": "lift",
         "花瓶": "vase", "窗帘": "curtain", "灯饰": "lantern", "摆件": "decor",
         "燃料棒": "fuelrod", "电池组": "battery", "乙醇": "ethanol", "沼气": "biogas",
