@@ -124,8 +124,15 @@ def generate_wiki(root: str, out_path: str, top: int = 15) -> dict:
     if _dep_cnt:
         _md_f, _md_c = max(_dep_cnt.items(), key=lambda kv: kv[1])
         _most_dep = f"{os.path.basename(_md_f)}（{_md_c} 处依赖）"
+    # IDE 增强 289：符号图语言分布（files 后缀——代码库语言组成一眼可见）
+    _wlangs: dict[str, int] = {}
+    for _f in files:
+        _sfx = os.path.splitext(_f)[1].lower().lstrip(".")
+        if _sfx:
+            _wlangs[_sfx] = _wlangs.get(_sfx, 0) + 1
     return {"ok": True, "root": root, "wiki": out_path,
             "chars": len(md), "modules": len(files),
+            "languages": dict(sorted(_wlangs.items(), key=lambda kv: -kv[1])),
             "hubs": [h["name"] for h in hubs][:10], "index": stats,
             # IDE 增强 196：生成建议（WIKI 可读入口 + 核心模块提示）
             "advice": (f"WIKI 已生成（{len(md)} 字符，{len(files)} 模块）——"

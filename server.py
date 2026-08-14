@@ -3326,6 +3326,13 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         result["total_hits"] = 0
     # IDE 增强 151：探索结果提示（best 文件 + 命中密度）
     _best = result.get("best", "")
+    # IDE 增强 289：探索语言分布（候选文件后缀——AI 知道目标代码的语言）
+    _expl_langs: dict[str, int] = {}
+    for _c in candidates:
+        _sfx = os.path.splitext(str(_c))[1].lower().lstrip(".")
+        if _sfx:
+            _expl_langs[_sfx] = _expl_langs.get(_sfx, 0) + 1
+    result["languages"] = dict(sorted(_expl_langs.items(), key=lambda kv: -kv[1]))
     if _best:
         # 先 basename 再剥 :行号（Windows 盘符在 basename 前已被消化——
         # 对完整路径做任何 split(':') 都会切掉盘符，探针两轮抓出）
