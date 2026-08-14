@@ -848,7 +848,7 @@ def _tool_kb_query(args: dict) -> str:
                            ("target", "node_modules", ".git", "release",
                             ".unified-rx-index", "__pycache__")]
                 for _fn in _fns:
-                    if not _fn.endswith((".rs", ".py", ".ts", ".js", ".md")):
+                    if not _fn.lower().endswith(tuple(_ANALYZE_EXTS)):
                         continue
                     _fp = os.path.join(_dp, _fn)
                     try:
@@ -1946,6 +1946,11 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
 # ——go/ts/js/gd/c/cpp 轻量确定性文本规则（低误报；AST 精度留给 py/rs）
 _BUG_SCAN_EXTS = {".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
                   ".gd", ".c", ".cpp", ".h", ".hpp"}
+# IDE 增强 256：分析入口统一扩展（kb_query/semantic_search/explore_code/
+# repo_wiki 全语言——用户点名"没有多语言处理"，三处白名单此前缺 go/c/cpp）
+_ANALYZE_EXTS = {".rs", ".py", ".go", ".ts", ".tsx", ".js", ".jsx",
+                 ".gd", ".c", ".h", ".cpp", ".hpp", ".cc",
+                 ".toml", ".md", ".ron", ".json", ".yaml", ".yml"}
 
 # (正则, 规则名, 严重度, 消息) 每语言一组——只报确定性模式：
 # 调试残留输出 / 裸 panic / goto 混乱 / any 滥用
@@ -2986,7 +2991,7 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in ("target", "node_modules", ".git", "release")]
         for fn in filenames:
-            if not fn.endswith((".rs", ".py", ".ts", ".js", ".gd")):
+            if not fn.lower().endswith(tuple(_ANALYZE_EXTS)):
                 continue
             p = os.path.join(dirpath, fn)
             try:
@@ -3143,7 +3148,7 @@ def _tool_semantic_search(args: dict) -> "list[types.TextContent]":
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in ("target", "node_modules", ".git", "release", ".unified-rx-index")]
         for fn in filenames:
-            if not fn.endswith((".rs", ".py", ".ts", ".js", ".gd", ".toml", ".md", ".ron")):
+            if not fn.lower().endswith(tuple(_ANALYZE_EXTS)):
                 continue
             p = os.path.join(dirpath, fn)
             try:
