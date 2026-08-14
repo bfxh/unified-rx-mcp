@@ -3417,6 +3417,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "空间站": "station", "轨道": "orbit", "行星": "planet", "星系": "galaxy",
         # IDE 增强 369：配方词（配方/炼金/附魔/强化/改造/修理/分解/组装）
         "配方": "recipe", "炼金": "alchemy", "附魔": "enchant", "强化": "enhance",
+        # IDE 增强 370：装备词（弹药/枪械/剑/盾牌/弓箭/弩/法杖/锤）
+        "弹药": "ammo", "枪械": "gun", "剑": "sword", "盾牌": "shield",
+        "弓箭": "bow", "弩": "crossbow", "法杖": "staff", "锤": "blunt",
         "改造": "modify", "修理": "repair", "分解": "deconstruct", "组装": "assemble",
         "恒星": "star", "卫星": "satellite", "探测器": "probe", "陨石": "meteor",
         "翻耕机": "tiller", "喷灌机": "sprinkler", "粮仓": "granary", "蜂箱": "beehive",
