@@ -3585,6 +3585,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "食堂": "canteen", "澡堂": "bathhouse", "医务室": "infirmary", "娱乐室": "recreationroom",
         # IDE 增强 453：矿权开发词（开采权/矿权证/开发计划/产能/回收率/品位/储量/回采率）
         "开采权": "miningright", "矿权证": "miningclaim", "开发计划": "developmentplan", "产能": "capacity",
+        # IDE 增强 454：矿工管理词（排班/工资/工时/考勤/奖惩/班次/轮换/津贴）
+        "排班": "schedule", "工资": "wage", "工时": "worktime", "考勤": "attendance",
+        "奖惩": "reward", "班次": "shift", "轮换": "rotation", "津贴": "allowance",
         "回收率": "recoveryrate", "品位": "grade", "储量": "reserves", "回采率": "extractionrate",
         "值班室": "dutyroom", "洗衣房": "laundry", "工具房": "toolroom", "警卫室": "guardroom",
         "运输技能": "hauling", "勘探技能": "prospecting", "精炼技能": "refining", "冶炼技能": "smelting",
