@@ -3466,6 +3466,11 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
         result["issues"] = [i for i in result.get("issues", [])
                             if i.get("rule") in _only]
         result["issue_count"] = len(result["issues"])
+    # IDE 增强 187：可用规则列表（rules= 可传哪些——对称 std_check 185/bug_scan 186）
+    result["available_rules"] = sorted({
+        str(i.get("rule")) for i in result.get("issues", [])
+    } | {"ui_root_missing", "camera_missing", "mode_isolation", "focus_pass",
+         "font_missing", "z_ordering", "no_interaction"})
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
