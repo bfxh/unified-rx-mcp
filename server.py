@@ -3543,6 +3543,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "地牢": "dungeon", "墓穴": "crypt", "地下室": "basement", "下水道": "sewer",
         # IDE 增强 432：交易市场词（交易所/拍卖行/收购站/矿价/期货/订单/竞价/挂牌）
         "交易所": "exchange", "拍卖行": "auction", "收购站": "buyer", "矿价": "oreprice",
+        # IDE 增强 433：矿工装备词（矿灯/呼吸面罩/安全绳/护目镜/工作服/防爆服/手套/靴子）
+        "矿灯": "mininglamp", "呼吸面罩": "respirator", "安全绳": "safetyline", "护目镜": "goggles",
+        "工作服": "overall", "防爆服": "blastshield", "手套": "gloves", "靴子": "boots",
         "期货": "futures", "订单": "order", "竞价": "bidding", "挂牌": "listing",
         "避难洞": "bunker", "地下城": "undercity", "地窖": "cellar", "矿井通道": "minepassage",
         "弩炮": "ballista", "破城槌": "ram", "油罐车": "tanker", "爆破组": "demolition",
