@@ -40,7 +40,8 @@ _UI_HARDCODE_RE = re.compile(
     r"(Val::Px\(\s*\d{2,})",  # 2026-08-14 补齐：Bevy 最常见写法（原只认裸数字）
 )
 
-_MAGIC_NUMBER_RE = re.compile(r"\b(?:[3-9]\d{2,}|[1-9]\d{3,})\b")
+# IDE 增强 117：支持带下划线数字（Rust/Python 风格 100_000——防漏检）
+_MAGIC_NUMBER_RE = re.compile(r"\b(?:[3-9][\d_]{2,}|[1-9][\d_]{3,})\b")
 
 # 依赖泄露（secret）检测：常见凭据/令牌模式（对标 gitleaks 子集，零依赖）。
 # 命中即 Critical——提交到仓库的凭据是真实泄露风险。
