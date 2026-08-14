@@ -3449,6 +3449,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "装置": "device", "设备": "equipment", "机器": "machine", "组件": "component",
         # IDE 增强 385：调料词（香料/调料/盐/糖/油/酱汁/醋/胡椒）
         "香料": "spice", "调料": "seasoning", "盐": "salt", "糖": "sugar",
+        # IDE 增强 386：基地词（营地/前哨/据点/总部/避难所/定居点/哨站/基地）
+        "营地": "camp", "前哨": "outpost", "据点": "stronghold", "总部": "hq",
+        "避难所": "shelter", "定居点": "settlement", "哨站": "post", "基地": "base",
         "油": "oil", "酱汁": "sauce", "醋": "vinegar", "胡椒": "pepper",
         "零件": "part", "部件": "assembly", "电路": "circuit", "芯片": "chip",
         "宝石": "gem", "浓缩物": "concentrate", "块": "block", "碎屑": "shard",
