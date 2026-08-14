@@ -95,7 +95,30 @@ def experience_match(ctx: str, limit: int = 5) -> dict:
 
 
 def state_get() -> dict:
-    return _call("state_get", {})
+    # TTL 缓存（2026-08-14 高压优化）：cProfile 热点——state_get 每次 spawn
+    # lse-engine 子进程（~5.8ms/次，std_check 的 _summarize 高频调用）——
+    # 引擎文件未变且 <5s 直接用缓存，spawn 降为 ~0。
+    _now = time.time()
+    _cached = _STATE_CACHE
+    if _cached and _now - _cached[0] < 5.0:
+        try:
+            p = _engine_path()
+            if p and _cached[1] == (os.path.getmtime(p), os.path.getsize(p)):
+                return _cached[2]
+        except OSError:
+            pass
+    r = _call("state_get", {})
+    try:
+        p = _engine_path()
+        sig = (os.path.getmtime(p), os.path.getsize(p)) if p else None
+        _STATE_CACHE[:] = [time.time(), sig, r]
+    except OSError:
+        pass
+    return r
+
+
+# state_get 缓存（列表占位可变——避免 global 声明）
+_STATE_CACHE: list = [0.0, None, {}]
 
 
 # ── P1c 进化记忆升级（2026-08-12，抄 mem0 自动提取 + Letta 三层）──

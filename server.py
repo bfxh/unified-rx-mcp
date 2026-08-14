@@ -5658,6 +5658,8 @@ _SCAN_LOG_TOOLS = {"bug_scan", "std_check", "vuln_scan", "ui_check",
 # 缓存键 = root|tool，值 = (时间戳, 文件 mtime_ns+size, known 列表)；5s TTL。
 _KNOWN_ISSUES_CACHE: dict[str, tuple[float, tuple | None, list]] = {}
 _KNOWN_ISSUES_CACHE_TTL = 5.0
+# 写采样表（2026-08-14 高压优化）：同工具上次落盘时间
+_TICK_LAST: dict[str, float] = {}
 
 
 def _scan_log_tick(name: str, args: dict, result: "list[types.TextContent]") -> None:
@@ -5665,9 +5667,20 @@ def _scan_log_tick(name: str, args: dict, result: "list[types.TextContent]") -> 
 
     与 stats 打点互补：stats 记调用统计（ts/tool/时长），scan-log 记扫描结果
     （root/ok/summary）——"扫完的都放到日志里面"，专项目对话按 root 过滤查询。
+
+    性能（2026-08-14 高压优化）：每工具 5 秒最多落盘 1 条——cProfile 热点
+    （200 次调用 3.14s 中 _scan_log_tick 占 0.996s=32%——每次 append 都触发
+    _truncate 的 stat）——降频后 known_issues 数据仍保真（5s TTL 缓存同频）。
     """
     if name not in _SCAN_LOG_TOOLS:
         return
+    # 写采样：同 root 同工具 5s 内只写一条（不同 root 各自记录——防跨项目
+    # 吞记录；高频调用不再放大日志 IO）
+    _now = time.time()
+    _key = f"{name}|{str(args.get('path', '') or args.get('root', ''))}"
+    if _now - _TICK_LAST.get(_key, 0.0) < 5.0:
+        return
+    _TICK_LAST[_key] = _now
     try:
         import scan_log_core
     except ImportError:
