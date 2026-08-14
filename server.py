@@ -3489,6 +3489,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "频率": "frequency", "波长": "wavelength", "带宽": "bandwidth", "干扰": "interference",
         # IDE 增强 405：建筑结构词（承重/框架/支撑/拱门/柱/梁已有横梁/穹顶/桁架）
         "承重": "loadbearing", "框架": "frame", "支撑": "support", "拱门": "arch",
+        # IDE 增强 406：精炼工艺词（纯化/分离/提取/提纯/冷凝/结晶/沉淀/吸附）
+        "纯化": "purify", "分离": "separate", "提取": "extract", "提纯": "refine",
+        "冷凝": "condense", "结晶": "crystallize", "沉淀": "precipitate", "吸附": "absorb",
         "柱": "column", "穹顶": "dome", "桁架": "truss", "加固": "reinforce",
         "中继": "relay", "加密": "encrypt", "解码": "decode", "广播": "broadcast",
         "淬火": "quench", "镀层": "plating", "退火": "anneal", "烧结": "sinter",
