@@ -279,6 +279,15 @@ def scan_repo(root: str, max_files: int = 200) -> dict:
                 issue["priority"] = "changed" if is_changed else "full"
                 issues.append(issue)
             continue
+        if rel.endswith(".cs"):
+            # IDE 增强 268：cb_scan 含 Unity UI（对齐 ui_check 267——三引擎
+            # 变更优先 UI 扫描）
+            from ui_check_core import _scan_cs_ui
+            for issue in _scan_cs_ui(src, rel):
+                issue["file"] = rel
+                issue["priority"] = "changed" if is_changed else "full"
+                issues.append(issue)
+            continue
         for issue in scan_ui_source(src, rel, dir_mode=True):
             issue["file"] = rel
             issue["priority"] = "changed" if is_changed else "full"

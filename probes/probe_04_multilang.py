@@ -203,3 +203,23 @@ def p23():
     if not ni:
         return True, "Unity Button 有连接不报（无死按钮）"
     return False, f"有连接不应报死按钮: {ni}"
+
+
+@probe("p24_cb_scan_cs_unity")
+def p24():
+    """cb_scan Unity（.cs）死按钮（268）。"""
+    repo = os.path.join(_TMP, "cbcs")
+    os.makedirs(repo, exist_ok=True)
+    with open(os.path.join(repo, "Menu.cs"), "w", encoding="utf-8") as f:
+        f.write("using UnityEngine.UI;\n"
+                "public class Menu {\n"
+                "    public Button startBtn;\n"
+                "}\n")
+    S._call("cb_index", {"path": repo})
+    out = S._call("cb_scan", {"path": repo})
+    data = json.loads(out[0].text)
+    cs = [i for i in data.get("issues", [])
+          if i.get("file", "").endswith(".cs") and i.get("rule") == "no_interaction"]
+    if cs:
+        return True, "cb_scan cs 死按钮检出"
+    return False, f"cb_scan 应含 cs 检出: {data}"
