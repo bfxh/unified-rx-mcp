@@ -2008,6 +2008,17 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
         _worst_f, _worst_n = max(_fc.items(), key=lambda kv: kv[1])
     result["worst_file"] = (f"{os.path.basename(_worst_f)}（{_worst_n} 条问题）"
                             if issues else "")
+    # IDE 增强 210（里程碑）：最多问题规则（top_rule——对称 std_check 209，
+    # 批量修复入口双入口）
+    _rc: dict[str, int] = {}
+    for i in issues:
+        _r = str(i.get("rule", "unknown"))
+        _rc[_r] = _rc.get(_r, 0) + 1
+    if _rc:
+        _tr, _tn = max(_rc.items(), key=lambda kv: kv[1])
+        result["top_rule"] = f"{_tr}（{_tn} 条）"
+    else:
+        result["top_rule"] = ""
     if _errs:
         _e = _errs[0]
         result["advice"] = (f"最优先：{os.path.basename(str(_e.get('file', '')))}:"
