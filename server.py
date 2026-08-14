@@ -1732,6 +1732,12 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                     str(f), n, "shell_injection", "warning",
                     "subprocess shell=True——参数含用户输入时命令注入风险，"
                     "建议列表参数（无 shell）", lines))
+            # IDE 增强 125：pickle 不可信反序列化（任意代码执行——安全敏感）
+            elif _fn in ("loads", "load") and _obj == "pickle":
+                issues.append(_bug_issue(
+                    str(f), n, "unsafe_pickle", "warning",
+                    f"pickle.{_fn}() 反序列化——数据不可信时任意代码执行，"
+                    "建议 JSON/替代格式", lines))
     return issues, len(lines)
 
 
