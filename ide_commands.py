@@ -45,6 +45,26 @@ _CHEATSHEET: dict[str, list[dict]] = {
         {"name": "export_glb", "cmd": "Blender 内 io_bevy_export.py（N 面板/Ctrl+Shift+E）",
          "desc": "Bevy 直通导出（assets/models/）"},
     ],
+    # IDE 增强 292：多语言命令（各语言测试/检查/运行——AI 一键知道
+    # 每个语言的工程命令，配合 languages 画像使用）
+    "lang_go": [
+        {"name": "test", "cmd": "go test ./...", "desc": "全量测试"},
+        {"name": "vet", "cmd": "go vet ./...", "desc": "静态检查"},
+        {"name": "fmt", "cmd": "gofmt -l .", "desc": "格式检查"},
+    ],
+    "lang_ts": [
+        {"name": "test", "cmd": "npx vitest run", "desc": "全量测试"},
+        {"name": "lint", "cmd": "npx eslint .", "desc": "Lint 检查"},
+        {"name": "check", "cmd": "npx tsc --noEmit", "desc": "类型检查"},
+    ],
+    "lang_cs": [
+        {"name": "test", "cmd": "dotnet test", "desc": "全量测试"},
+        {"name": "build", "cmd": "dotnet build", "desc": "编译"},
+    ],
+    "lang_dart": [
+        {"name": "test", "cmd": "flutter test", "desc": "Flutter 全量测试"},
+        {"name": "analyze", "cmd": "flutter analyze", "desc": "静态检查"},
+    ],
     "voxelforge": [
         {"name": "release_deploy", "cmd": "cargo build --release -p nexus_app; Stop-Process -Name nexus_app; Copy-Item target\\release\\nexus_app.exe release\\; Copy-Item assets\\models release\\assets\\models -Recurse",
          "desc": "发布流程：编译→杀进程→复制 exe→同步资产（VoxelForge）"},

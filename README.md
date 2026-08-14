@@ -161,6 +161,8 @@ UI 渲染为**简洁工具卡片**（无角色标签）。unified-rx 在 MCP 侧
 | ui_check/cb_scan | 四引擎（Bevy/Godot/Unity/Flutter 死按钮） |
 | bug_locate | 23 语言（含 file:/// URI 清洗） |
 | 检索/探索 | 32 扩展 + 中文词表 40+ |
+| 语言画像 | 15 入口（扫描 4/聚合 3/索引/探索/符号图/检索/定位/标注/教训/日志） |
+| 语言命令 | cmd_cheatsheet lang_go/lang_ts/lang_cs/lang_dart（各语言测试/检查） |
 | 契约探针 | 32/32（probes/probe_04_multilang.py） |
 
 无 LSP 环境语言（dart 等）→ lsp_query 明确降级到文本规则（防幻觉）。
