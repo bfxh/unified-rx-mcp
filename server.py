@@ -5082,6 +5082,17 @@ def _attach_known_issues(name: str, args: dict,
                 "ts": l.get("ts", ""),
                 "summary": str(l.get("summary", ""))[:120],
             } for l in known]
+            # IDE 增强 291：known_issues 语言分布（该 root 最近扫描涉及的
+            # 文件语言——历史问题集中在哪些语言一眼可见）
+            _ki_langs: dict[str, int] = {}
+            for _l in known:
+                _rt = str(_l.get("root", ""))
+                _sfx = os.path.splitext(_rt)[1].lower().lstrip(".")
+                if _sfx:
+                    _ki_langs[_sfx] = _ki_langs.get(_sfx, 0) + 1
+            if _ki_langs:
+                data["known_issues_languages"] = dict(
+                    sorted(_ki_langs.items(), key=lambda kv: -kv[1]))
             data["known_issues_note"] = "来自 scan-log（日志闯进调用）：该路径最近的已知问题，修复进展可查 scan_log"
             result[0] = _TC(json.dumps(data, ensure_ascii=False))
     except (json.JSONDecodeError, TypeError, AttributeError):  # 尽力而为

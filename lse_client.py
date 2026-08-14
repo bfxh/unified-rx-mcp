@@ -18,6 +18,7 @@ P1c 升级（2026-08-12，抄 mem0 自动提取 + Letta 三层）：
 import hashlib
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -142,13 +143,23 @@ def auto_extract_lessons(text: str, tier: str = "work",
     sentences = [s.strip() for s in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
                  if len(s.strip()) >= 8]
     extracted = []
+    # IDE 增强 291：教训语言标记（从源文本 file 路径后缀推断——
+    # 多语言项目的教训可回溯语言来源）
+    _lang = ""
+    _m = re.search(r"([A-Za-z_][\w./\\-]*\.(?:rs|py|go|ts|tsx|js|jsx|gd|c|cpp|"
+                   r"h|hpp|cs|lua|sh|bash|java|kt|kts|swift|php|rb|ps1|dart))",
+                   text)
+    if _m:
+        _lang = os.path.splitext(_m.group(1))[1].lower().lstrip(".")
     for sent in sentences:
         if any(sig in sent for sig in signals):
             # 截断 200 字符（压缩学习：防状态文件膨胀）
             summary = sent if len(sent) <= 200 else sent[:197] + "..."
+            if _lang:
+                summary = f"[{_lang}] {summary}"  # 语言前缀——recall 一眼可溯
             r = lesson_store_tiered(tier, summary)
             if r.get("ok", False) and r.get("result", {}).get("ok", True):
                 extracted.append(summary)
     return {"ok": True, "tier": tier, "extracted": len(extracted),
-            "lessons": extracted[:20],
+            "lessons": extracted[:20], "language": _lang,
             "note": "规则版自动提取（信号词匹配）；LLM 版可接蒸馏模型升级"}
