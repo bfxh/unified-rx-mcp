@@ -3475,6 +3475,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "湿地": "wetland", "草原": "grassland", "苔原": "tundra", "热带": "tropical",
         # IDE 增强 398：贸易品词（丝绸/瓷器/毛皮/珍珠/琥珀/香木/象牙/珊瑚）
         "丝绸": "silk", "瓷器": "porcelain", "毛皮": "fur", "珍珠": "pearl",
+        # IDE 增强 399：动物行为词（迁徙/冬眠/觅食/繁殖/领地/巢穴/伏击/警戒）
+        "迁徙": "migrate", "冬眠": "hibernate", "觅食": "forage", "繁殖": "breed",
+        "领地": "territory", "巢穴": "nest", "伏击": "ambush", "警戒": "alert",
         "琥珀": "amber", "香木": "sandalwood", "象牙": "ivory", "珊瑚": "coral",
         "温带": "temperate", "海岸": "coast", "礁石": "reef", "冻土": "permafrost",
         "能见度": "visibility", "气压差": "pressuregrad", "湿度变化": "humidity", "风暴强度": "stormintensity",
