@@ -2293,6 +2293,14 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
 
     issues: list = []
     total_lines = 0
+    # IDE 增强 284：项目语言画像（扫描文件后缀分布——AI 一眼知道
+    # 项目有哪些语言，多语言仓库不再靠猜）
+    lang_counts: dict[str, int] = {}
+    for _f in files:
+        _sfx = os.path.splitext(str(_f))[1].lower().lstrip(".")
+        if _sfx:
+            lang_counts[_sfx] = lang_counts.get(_sfx, 0) + 1
+    languages = dict(sorted(lang_counts.items(), key=lambda kv: -kv[1]))
     # 单文件直接扫；多文件并行（≥16 文件才值得起进程池——spawn 开销 vs AST 并行收益）
     if len(files) >= 16:
         try:
@@ -2332,6 +2340,8 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     result = {
         "ok": True, "files": len(files), "issue_count": len(issues),
         "severity_counts": sev_counts,
+        # IDE 增强 284：项目语言画像（多语言仓库语言分布）
+        "languages": languages,
         "noise_ratio": round(sev_counts["info"] / total, 3) if total else 0.0,
         "note": ("noise_ratio=info 占比（高即多为风格提示）；error 为确定性缺陷，"
                  "warn 为需审查项——参考 SCAN_QUALITY_ISSUES.md"),
