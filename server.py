@@ -3030,6 +3030,11 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
         "severity_counts": sev_counts,
         "noise_ratio": round(sev_counts["info"] / total, 3) if total else 0.0,
         "rule_counts": dict(sorted(_rule_counts.items(), key=lambda kv: -kv[1])),
+        # IDE 增强 146：最严重 UI 问题提示（error 级优先——UI 崩溃/不可见）
+        "advice": (f"最优先：{os.path.basename(str(issues[0].get('file', '')))}:"
+                   f"{issues[0].get('line')} [{issues[0].get('rule')}] "
+                   f"{str(issues[0].get('msg', ''))[:40]}"
+                   if issues else "无 UI 问题"),
         "note": "severity 已归一化（warning→warn）；noise_ratio=info 占比",
         "issues": issues,
     }, ensure_ascii=False))]
