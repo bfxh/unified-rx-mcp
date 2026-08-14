@@ -1938,6 +1938,13 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                     str(f), n, "overwide_except", "warning",
                     "except BaseException 过宽——吞 KeyboardInterrupt/SystemExit，"
                     "建议收窄到 Exception 或具体异常", lines))
+            # IDE 增强 299：裸 except（无异常类型——吞所有异常含 KeyboardInterrupt/
+            # SystemExit；即使有处理体也应写明异常类型）
+            if n.type is None:
+                issues.append(_bug_issue(
+                    str(f), n, "bare_except", "warning",
+                    "裸 except:（无异常类型）——吞所有异常，建议写明异常类型"
+                    "（except (ValueError, TypeError):）", lines))
         # 越界：字面量容器 + 字面量索引（确定性）
         seq_len = _bug_seq_len(n.value) if isinstance(n, ast.Subscript) else None
         if seq_len is not None and isinstance(n.slice, ast.Constant) and isinstance(n.slice.value, int):
@@ -3269,6 +3276,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "按钮": "button", "点击": "click", "构建": "build", "部署": "deploy",
         # IDE 增强 293：移动端/桌面词（安卓/苹果/窗口/控件树）
         "安卓": "android", "苹果": "ios", "窗口": "window", "控件树": "widget",
+        # IDE 增强 299：AI/数据词（模型/训练/推理/数据集/特征）
+        "模型": "model", "训练": "train", "推理": "inference", "数据集": "dataset",
+        "特征": "feature", "权重": "weight", "损失": "loss", "梯度": "gradient",
         "像素": "pixel", "触摸": "touch", "手势": "gesture", "滚动": "scroll",
         # IDE 增强 275：Flutter/UI 词（控件/界面/布局/导航/主题/状态）
         "控件": "widget", "界面": "ui", "布局": "layout", "导航": "navigate",
