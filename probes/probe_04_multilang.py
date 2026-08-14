@@ -182,3 +182,24 @@ def p22():
     if mn and "Player" in cs_syms:
         return True, f"cs magic_number + 符号 Player 检出"
     return False, f"应双检出: mn={mn} syms={list(cs_syms)}"
+
+
+@probe("p23_ui_check_cs_unity")
+def p23():
+    """ui_check Unity（.cs）死按钮（267）。"""
+    cs_file = os.path.join(_TMP, "sample_unity.cs")
+    with open(cs_file, "w", encoding="utf-8") as f:
+        f.write("using UnityEngine.UI;\n"
+                "public class M {\n"
+                "    public Button startBtn;\n"
+                "    void Start() {\n"
+                "        startBtn.onClick.AddListener(Go);\n"
+                "    }\n"
+                "}\n")
+    out = S._call("ui_check", {"path": cs_file})
+    data = json.loads(out[0].text)
+    ni = [i for i in data.get("issues", []) if i.get("rule") == "no_interaction"]
+    # 有 onClick 连接 → 不报（契约：不误报）
+    if not ni:
+        return True, "Unity Button 有连接不报（无死按钮）"
+    return False, f"有连接不应报死按钮: {ni}"

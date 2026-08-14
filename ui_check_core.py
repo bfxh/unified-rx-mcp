@@ -129,6 +129,29 @@ def scan_ui_source(src: str, path: str = "", dir_mode: bool = False) -> list[dic
     return issues
 
 
+def _scan_cs_ui(src: str, path: str) -> list[dict]:
+    """Unity（.cs）UI 检查（IDE 增强 267：Button 创建无 onClick 连接——
+    死按钮；对齐 Bevy/Godot）。窗口 = 创建行 + 后 2 行。"""
+    import re as _re
+    issues = []
+    _btn = _re.compile(r"\bButton\b")
+    _click = _re.compile(r"onClick|on_click|AddListener|\.onClick\.AddListener|"
+                         r"clicked\s*=|Click\s*\+=")
+    lines = src.splitlines()
+    for i, line in enumerate(lines, 1):
+        if not _btn.search(line):
+            continue
+        if "using " in line and "Button" not in line.split("using ")[-1]:
+            continue  # import 行非按钮创建
+        block = "\n".join(lines[i - 1:i + 2])
+        if not _click.search(block):
+            issues.append({
+                "rule": "no_interaction", "severity": "warning", "line": i,
+                "msg": "Button 无点击处理（onClick.AddListener 缺失）——死按钮",
+                "file": path})
+    return issues
+
+
 def _scan_gd_ui(src: str, path: str) -> list[dict]:
     """Godot（.gd）UI 检查（IDE 增强 257：用户点名"没有多语言处理 包括扫描"——
     Bevy 之外的游戏 UI 同样检查）。
@@ -172,11 +195,14 @@ def scan_ui_dir(root: str, max_files: int = 100) -> list[dict]:
                 files.append(os.path.join(r, n))
             elif n.endswith(".gd"):
                 gd_files.append(os.path.join(r, n))
+            elif n.endswith(".cs"):
+                # IDE 增强 267：Unity（.cs）UI 文件
+                gd_files.append(os.path.join(r, n))  # 复用 gd 收集桶（下方按扩展分发）
             if len(files) + len(gd_files) >= max_files:
                 break
         if len(files) + len(gd_files) >= max_files:
             break
-    # Godot UI 规则（.gd——Bevy 规则不适用）
+    # Godot/Unity UI 规则（.gd/.cs——Bevy 规则不适用）
     for f in gd_files:
         try:
             size = os.path.getsize(f)
@@ -186,8 +212,12 @@ def scan_ui_dir(root: str, max_files: int = 100) -> list[dict]:
                 gsrc = fh.read()
         except OSError:
             continue
-        for iss in _scan_gd_ui(gsrc, f):
-            issues.append(iss)
+        if f.endswith(".cs"):
+            for iss in _scan_cs_ui(gsrc, f):
+                issues.append(iss)
+        else:
+            for iss in _scan_gd_ui(gsrc, f):
+                issues.append(iss)
     for f in files:
         try:
             size = os.path.getsize(f)

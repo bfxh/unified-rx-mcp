@@ -21,7 +21,16 @@ _FN_RE = re.compile(
     r"|^\s*func\s+(?:\([^)]*\)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\("            # go/gd
     r"|^\s*(?:export\s+)?(?:function\s+([A-Za-z_$][\w$]*)|class\s+([A-Za-z_$][\w$]*))"  # ts/js
     r"|^\s*(?:static\s+|inline\s+|extern\s+)*(?!return\b|if\b|while\b|for\b)" # c/cpp
-    r"[A-Za-z_]\w*\s+([A-Za-z_]\w*)\s*\(")
+    r"[A-Za-z_]\w*\s+([A-Za-z_]\w*)\s*\("
+    r"|^\s*(?:public\s+|private\s+|internal\s+|protected\s+)*"
+    r"(?:static\s+|virtual\s+|override\s+|async\s+)*"
+    r"(?:class|interface|struct|enum)\s+([A-Za-z_]\w*)"                       # cs 类
+    r"|^\s*(?:public\s+|private\s+|internal\s+|protected\s+)*"
+    r"(?:static\s+|virtual\s+|override\s+|async\s+)*"
+    r"[A-Za-z_<>,.]*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*\{"                      # cs 方法
+    r"|^\s*(?:local\s+)?function\s+([A-Za-z_]\w*)"                            # lua
+    r"|^\s*([A-Za-z_]\w*)\s*\(\)\s*(?:\{|$)"                                  # sh/bash
+)
 
 
 def annotate_issues(root: str, issues: list[dict]) -> dict:
