@@ -3443,6 +3443,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "饮料": "drink", "啤酒": "beer", "葡萄酒": "wine", "咖啡": "coffee",
         # IDE 增强 382：作物词（小麦/水稻/玉米/土豆/番茄/胡萝卜/南瓜/棉花）
         "小麦": "wheat", "水稻": "rice", "玉米": "corn", "土豆": "potato",
+        # IDE 增强 383：矿物加工词（锭/粉/矿渣/晶体/宝石/浓缩物/块/碎屑）
+        "锭": "ingot", "粉": "powder", "矿渣": "slag", "晶体": "crystal",
+        "宝石": "gem", "浓缩物": "concentrate", "块": "block", "碎屑": "shard",
         "番茄": "tomato", "胡萝卜": "carrot", "南瓜": "pumpkin", "棉花": "cotton",
         "茶": "tea", "烈酒": "liquor", "果汁": "juice", "牛奶": "milk",
         "蘑菇": "mushroom", "鱼干": "jerky", "蜂蜜": "honey", "奶酪": "cheese",
