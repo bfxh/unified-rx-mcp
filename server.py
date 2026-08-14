@@ -3921,6 +3921,7 @@ def _tool_locate_edit(args: dict) -> "list[types.TextContent]":
 def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
     """报错文本 → file:line 精准定位（含上下文片段，走沙盒校验）。"""
     text = str(args["error_text"])
+    _t0 = time.perf_counter()
     # IDE 增强 160：上下文行数可调（默认 3——大报错上下文按需放宽）
     ctx = int(args.get("context_lines", _BUG_CONTEXT))
     if not 0 <= ctx <= 50:
@@ -3996,6 +3997,8 @@ def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
         # IDE 增强 130：定位后接建议（修复入口直达——定位→修复闭环）
         "advice": ("用 `ide_actions` 看修复建议 / `ide_quest action=auto` 自动诊断链"
                    if locations else "未匹配到 file:line——可用 locate_edit 自然语言定位"),
+        # IDE 增强 248：定位耗时（ms——收官）
+        "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1),
     }, ensure_ascii=False))]
 
 
