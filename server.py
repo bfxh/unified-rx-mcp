@@ -770,8 +770,26 @@ def _tool_pipeline(args: dict) -> str:
                       ensure_ascii=False)
 
 
+# ── 高并发优化（2026-08-14 用户点名"出事了高并发出大问题"）──
+# 共享线程池 + 全局并发闸门：嵌套 ThreadPoolExecutor（parallel 8 路 ×
+# project_scan 4 路 × vuln_scan 3 路）每调用新建池——32 线程风暴实测
+# 嵌套放大 7.3x（线程 churn + GIL 争抢）——共享池消除创建风暴，闸门防爆炸。
+_SHARED_POOL: "object | None" = None  # 惰性创建（首次并发调用时）
+_CONCURRENCY_SEM = threading.Semaphore(24)  # 全局并发上限（防嵌套爆炸）
+
+
+def _pool() -> "object":
+    """共享线程池（惰性创建；daemon 线程——不阻塞进程退出）。"""
+    global _SHARED_POOL
+    if _SHARED_POOL is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _SHARED_POOL = ThreadPoolExecutor(
+            max_workers=16, thread_name_prefix="rx-shared")
+    return _SHARED_POOL
+
+
 def _tool_parallel(args: dict) -> str:
-    """并发组：多工具同时执行（ThreadPoolExecutor ≤8 并发），全部完成后汇总。"""
+    """并发组：多工具同时执行（共享池 ≤16 并发——嵌套不再新建池），全部完成后汇总。"""
     tasks = args.get("tasks") or []
     timeout = float(args.get("timeout", 60))
     depth = int(args.get("_depth", 0))
@@ -797,8 +815,9 @@ def _tool_parallel(args: dict) -> str:
         except Exception as exc:
             results[i] = {"tool": t.get("tool"), "ok": False, "result": f"Error: {type(exc).__name__}: {exc}"}
 
-    with ThreadPoolExecutor(max_workers=min(len(tasks), 8)) as ex:
-        futs = [ex.submit(run, i, t) for i, t in enumerate(tasks)]
+    with _CONCURRENCY_SEM:  # 全局闸门：防嵌套爆炸（24 上限）
+        _pool()  # 确保池已创建
+        futs = [_pool().submit(run, i, t) for i, t in enumerate(tasks)]
         for f in futs:
             f.result(timeout=timeout)
     return json.dumps({"ok": True, "results": results}, ensure_ascii=False)
@@ -1162,7 +1181,8 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
         except Exception as e:  # noqa: BLE001
             results["errors"].append(f"{name}: {e}")
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with _CONCURRENCY_SEM:
+        pool = _pool()
         futures = [pool.submit(run_one, t, n) for t, n in
                    (("bug_scan", "bug_scan"), ("std_check", "std_check"), ("ui_check", "ui_check"))]
         for fut in as_completed(futures):
@@ -1243,7 +1263,8 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
             (_tool_cb_scan, "cb_scan", None)]
     if with_ui:
         jobs.append((_tool_ui_check, "ui_check", None))
-    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+    with _CONCURRENCY_SEM:
+        pool = _pool()
         futs = [pool.submit(run_one, fn, nm, ex) for fn, nm, ex in jobs]
         for fut in as_completed(futs):
             fut.result()
@@ -1346,7 +1367,8 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
         except Exception as e:  # noqa: BLE001
             results["errors"].append(f"{root}: {e}")
 
-    with ThreadPoolExecutor(max_workers=min(4, max(1, len(roots)))) as pool:
+    with _CONCURRENCY_SEM:
+        pool = _pool()
         futs = [pool.submit(scan_project, root) for root in roots]
         for fut in as_completed(futs):
             fut.result()
@@ -5904,7 +5926,8 @@ def _self_scan_once() -> None:
         except Exception:  # 尽力而为
             pass
 
-    with ThreadPoolExecutor(max_workers=min(8, max(1, len(changed)))) as pool:
+    with _CONCURRENCY_SEM:
+        pool = _pool()
         futs = [pool.submit(scan_one, f) for f in changed]
         for fut in as_completed(futs):
             fut.result()
