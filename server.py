@@ -3650,6 +3650,17 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
     result["changed_list"] = sorted({
         str(i.get("file", "")) for i in _is if i.get("priority") == "changed"
     })
+    # IDE 增强 214：最多问题规则（top_rule——扫描四入口收官，
+    # 对称 std 209/bug 210/ui 213）
+    _rc: dict[str, int] = {}
+    for i in _is:
+        _r = str(i.get("rule", "unknown"))
+        _rc[_r] = _rc.get(_r, 0) + 1
+    if _rc:
+        _tr, _tn = max(_rc.items(), key=lambda kv: kv[1])
+        result["top_rule"] = f"{_tr}（{_tn} 条）"
+    else:
+        result["top_rule"] = ""
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
