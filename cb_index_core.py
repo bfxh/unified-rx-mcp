@@ -188,11 +188,24 @@ def repo_status(root: str) -> dict:
         d = os.path.dirname(rel) or "."
         dirs.setdefault(d, []).append({"file": os.path.basename(rel), "symbols": _sym_names(info.get("symbols", []))[:10]})
     top_dirs = sorted(dirs.items(), key=lambda kv: -len(kv[1]))[:20]
+    # IDE 增强 137：索引新鲜度（可读——多久没更新，建议刷新提示）
+    _fresh = ""
+    _iat = data.get("indexed_at")
+    if _iat:
+        try:
+            _age = time.time() - float(_iat)
+            if _age < 86400:
+                _fresh = f"索引距今 {int(_age // 3600)}h{int(_age % 3600 // 60)}m"
+            else:
+                _fresh = f"索引距今 {int(_age // 86400)} 天（建议 cb_index 刷新）"
+        except (TypeError, ValueError):
+            pass
     return {
         "ok": True,
         "indexed": True,
         "root": data.get("root"),
         "indexed_at": data.get("indexed_at"),
+        "freshness": _fresh,
         "file_count": len(files),
         "dir_summary": [{"dir": d, "files": len(v), "symbols": sum(len(x["symbols"]) for x in v)}
                         for d, v in top_dirs],
