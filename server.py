@@ -3579,6 +3579,18 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
         str(i.get("rule")) for i in result.get("issues", [])
     } | {"ui_root_missing", "camera_missing", "mode_isolation", "focus_pass",
          "font_missing", "z_ordering", "no_interaction"})
+    # IDE 增强 206：问题最多文件（worst_file——扫描四入口收官，
+    # 对称 std 204/ui 203/bug 205）
+    _is = result.get("issues", [])
+    if _is:
+        _fc: dict[str, int] = {}
+        for i in _is:
+            _k = str(i.get("file", ""))
+            _fc[_k] = _fc.get(_k, 0) + 1
+        _wf, _wn = max(_fc.items(), key=lambda kv: kv[1])
+        result["worst_file"] = f"{os.path.basename(_wf)}（{_wn} 条问题）"
+    else:
+        result["worst_file"] = ""
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
