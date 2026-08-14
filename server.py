@@ -3111,16 +3111,21 @@ def _tool_local_intel(args: dict) -> "list[types.TextContent]":
     from local_intel import LocalIntel
     li = LocalIntel()
     action = args.get("action", "status")
+    _t0 = time.perf_counter()
     if action == "status":
         return [_TC(json.dumps({"ok": True, "available": li.available(),
-                                "models_dir": str(li._dir)}, ensure_ascii=False, indent=2))]
+                                "models_dir": str(li._dir),
+                                # IDE 增强 238：处理耗时（ms——性能可见收官）
+                                "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1)},
+                               ensure_ascii=False, indent=2))]
     if action == "embed":
         v = li.embed(args.get("text", ""))
         if v is None:
             return [_TC(json.dumps({"ok": False, "error": "embedding 模型不可用（模型缺失或推理失败）"},
                                    ensure_ascii=False))]
         return [_TC(json.dumps({"ok": True, "dim": len(v),
-                                "vector_preview": v[:8], "norm": round(sum(x*x for x in v) ** 0.5, 4)},
+                                "vector_preview": v[:8], "norm": round(sum(x*x for x in v) ** 0.5, 4),
+                                "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1)},
                                ensure_ascii=False, indent=2))]
     if action == "similarity":
         v1, v2 = li.embed(args.get("text", "")), li.embed(args.get("text2", ""))
