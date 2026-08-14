@@ -2708,6 +2708,10 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "碰撞": "collision", "相机": "camera", "输入": "input", "渲染": "render",
         "任务": "quest", "任务目标": "task", "血量": "health", "伤害": "damage",
         "存储": "storage", "缓存": "cache", "索引": "index", "搜索": "search",
+        # IDE 增强 163：游戏/交互常用词（背包/商店/对话/升级/瞄准/射击等）
+        "背包": "inventory", "商店": "shop", "对话": "dialog", "升级": "upgrade",
+        "瞄准": "aim", "射击": "shoot", "跳跃": "jump", "移动": "move",
+        "动画": "animation", "音效": "sound", "背包栏": "inventory",
     }
     for g in list(goals):
         if g in _SYN:
