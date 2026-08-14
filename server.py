@@ -3461,6 +3461,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "储罐": "tank", "蓄水池": "reservoir", "水塔": "watertower", "油罐": "oiltank",
         # IDE 增强 391：职业词（建筑师/工程师/科学家/医生/厨师/商人/矿工/木匠）
         "建筑师": "architect", "工程师": "engineer", "科学家": "scientist", "医生": "doctor",
+        # IDE 增强 392：废料词（废料/废铁/废木/碎布/骨头/垃圾/残渣/碎屑已有碎屑）
+        "废料": "scrap", "废铁": "iron", "废木": "wood", "碎布": "rag",
+        "骨头": "bone", "垃圾": "trash", "残渣": "residue", "尘土": "dust",
         "厨师": "chef", "商人": "trader", "矿工": "miner", "木匠": "carpenter",
         "储气罐": "gastank", "冷却塔": "coolingtower", "水渠": "aqueduct", "水井": "well",
         "冷却机": "cooler", "加热机": "heater", "蒸馏器": "distiller", "反应釜": "reactor",
