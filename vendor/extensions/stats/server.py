@@ -167,6 +167,9 @@ def _status(args: dict) -> str:
         "first_ts": first,
         "last_ts": last,
         "model_prices": {k: list(v) for k, v in _MODEL_PRICES.items()},
+        # IDE 增强 251：数据文件大小（KB——对称 stats_summary 239，三件套收官）
+        "file_size_kb": round(os.path.getsize(str(STATE_FILE)) / 1024, 1)
+        if os.path.exists(str(STATE_FILE)) else 0.0,
         # IDE 增强 224：活跃度建议（对称 stats_summary 223——数据规模一眼可见）
         "advice": (f"共 {len(records)} 条调用记录——"
                    f"stats_summary 看成本/高频工具"
