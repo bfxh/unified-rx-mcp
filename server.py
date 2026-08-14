@@ -3389,6 +3389,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "音乐": "music", "旋律": "melody", "节奏": "rhythm", "和弦": "chord",
         # IDE 增强 355：农业词（农业/农田/作物/播种/灌溉/施肥/畜牧/温室）
         "农业": "farm", "农田": "field", "作物": "crop", "播种": "sow",
+        # IDE 增强 356：潜水词（潜水/水下/呼吸/水压/游泳/浮力/潜水艇/水肺）
+        "潜水": "dive", "水下": "underwater", "呼吸": "breathe", "水压": "pressure",
+        "游泳": "swim", "浮力": "buoyancy", "潜水艇": "submarine", "水肺": "scuba",
         "灌溉": "irrigate", "施肥": "fertilize", "畜牧": "livestock", "温室": "greenhouse",
         "音调": "pitch", "节拍": "beat", "音符": "note", "音效": "sfx",
         "发明": "invention", "升级": "upgrade", "科技树": "techtree", "实验": "experiment",
