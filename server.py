@@ -3533,6 +3533,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "分析仪": "analyzer", "检测仪": "detector", "计量表": "gauge", "指示器": "indicator",
         # IDE 增强 427：气象词（气象站/云层/风向/人工降雨/雷暴/龙卷风/寒潮/热浪）
         "气象站": "weatherstation", "云层": "cloud", "风向": "winddir", "人工降雨": "rainmaking",
+        # IDE 增强 428：生物研究词（基因/菌落/样本/培养/克隆/突变/血清/疫苗）
+        "基因": "gene", "菌落": "colony", "样本": "specimen", "培养": "culture",
+        "克隆": "clone", "突变": "mutation", "血清": "serum", "疫苗": "vaccine",
         "雷暴": "thunderstorm", "龙卷风": "tornado", "寒潮": "coldwave", "热浪": "heatwave",
         "显示器": "display", "仪表盘": "dashboard", "读数": "reading", "校准": "calibrate",
         "渔获": "catch", "猎网": "huntingnet", "捕兽夹": "snare", "狩猎台": "blind",
