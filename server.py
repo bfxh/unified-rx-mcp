@@ -3218,15 +3218,27 @@ def _tool_code_complete(args: dict) -> "list[types.TextContent]":
         return [_tr(False, str(data.get("error", "LSP 补全失败")))]
     raw = data.get("result") or {}
     items = raw.get("items") or []
+    # IDE 增强 97：候选去重（同 label 保留 kind 优先级最高者——LSP 常返回
+    # 重复 label 不同 detail；去重省 token + 候选干净）
+    _KIND_RANK = {"Method": 0, "Function": 1, "Class": 2, "Constructor": 3,
+                  "Field": 4, "Property": 4, "Variable": 5, "Module": 6,
+                  "Interface": 7, "Enum": 8, "Text": 9}
     out = []
+    seen: dict[str, int] = {}
     for it in items[:50]:
         label = it.get("label") or it.get("insertText") or ""
         if not label:
             continue
         kind = _LSP_KIND_NAMES.get(it.get("kind"), it.get("kind"))
         detail = str(it.get("detail") or "")[:80]
-        out.append({"label": str(label)[:160], "kind": kind, "detail": detail})
-    return [_tr(True, f"completion {len(out)} 项",
+        key = str(label)[:160]
+        rank = _KIND_RANK.get(str(kind), 9)
+        prev = seen.get(key)
+        if prev is not None and prev <= rank:
+            continue  # 已保留更优候选
+        seen[key] = rank
+        out.append({"label": key, "kind": kind, "detail": detail})
+    return [_tr(True, f"completion {len(out)} 项（去重 {len(items) - len(out)}）",
                 {"language": language_id,
                  "position": {"line": line, "character": character},
                  "items": out})]
