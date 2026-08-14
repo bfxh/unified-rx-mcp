@@ -3529,6 +3529,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "磨坊": "mill", "铁匠铺": "smithy", "酒馆": "tavern", "马厩": "stable",
         # IDE 增强 425：渔猎词（渔网/鱼叉/钓竿/诱饵/渔获/猎网/捕兽夹/狩猎台）
         "渔网": "fishingnet", "鱼叉": "harpoon", "钓竿": "fishingrod", "诱饵": "bait",
+        # IDE 增强 426：仪表词（分析仪/检测仪/计量表/指示器/显示器/探针已有探测器/仪表盘）
+        "分析仪": "analyzer", "检测仪": "detector", "计量表": "gauge", "指示器": "indicator",
+        "显示器": "display", "仪表盘": "dashboard", "读数": "reading", "校准": "calibrate",
         "渔获": "catch", "猎网": "huntingnet", "捕兽夹": "snare", "狩猎台": "blind",
         "谷仓": "granary", "面包房": "bakery", "木工坊": "carpentry", "染坊": "dyery",
         "神龛": "shrine", "修道院": "monastery", "教堂": "church", "寺庙": "monastery2",
