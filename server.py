@@ -3403,6 +3403,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "钢材": "steel", "玻璃": "glass", "合金": "alloy", "陶瓷": "ceramic",
         # IDE 增强 362：设施词（实验室/反应堆/离心机/装配机/熔炉/钻机/雷达/天线）
         "实验室": "lab", "反应堆": "reactor", "离心机": "centrifuge", "装配机": "assembler",
+        # IDE 增强 363：物流词（传送带/输送机/物流/码头/仓库/货架/叉车/装卸）
+        "传送带": "conveyor", "输送机": "transport", "物流": "logistics", "码头": "dock",
+        "仓库": "warehouse", "货架": "shelf", "叉车": "forklift", "装卸": "loading",
         "熔炉": "furnace", "钻机": "drill", "雷达": "radar", "天线": "antenna",
         "布料": "cloth", "皮革": "leather", "混凝土": "concrete", "塑料": "plastic",
         "燃料": "fuel", "方向盘": "steering", "传动": "transmission", "油箱": "tank",
