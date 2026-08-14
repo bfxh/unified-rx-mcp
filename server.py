@@ -3074,7 +3074,9 @@ def _tool_design_note(args: dict) -> "list[types.TextContent]":
     """项目本质三分（settled/adjustable/doubts）。"""
     from design_notes import add_note, list_notes, get_note
     action = args.get("action", "list")
-    root = args.get("root", "")
+    # IDE 增强 184（安全）：root 过 _check_path（add 写
+    # <root>/design_notes.json——任意路径写文件越界；转 str 防 WindowsPath）
+    root = str(_check_path(str(args.get("root", ""))))
     kind = args.get("kind", "")
     try:
         if action == "add":
