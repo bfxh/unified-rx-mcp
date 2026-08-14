@@ -3575,6 +3575,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "高炉": "blastfurnace", "电炉": "electricfurnace", "转炉": "converter", "反射炉": "reverberatory",
         # IDE 增强 448：炼钢设备词（轧机/连铸机/钢包/精炼炉/拉丝机/锻造机/冲压机/退火炉）
         "轧机": "rollingmill", "连铸机": "caster", "钢包": "ladle", "精炼炉": "refiner",
+        # IDE 增强 449：科研设施词（研究所/试验场/化验室/标本室/图书馆/档案馆/观测台/演算室）
+        "研究所": "institute", "试验场": "testrange", "化验室": "assaylab", "标本室": "specimenroom",
+        "图书馆": "library", "档案馆": "archive", "观测台": "observatory", "演算室": "computationroom",
         "拉丝机": "drawingmachine", "锻造机": "forge", "冲压机": "stamping", "退火炉": "annealingfurnace",
         "鼓风炉": "cupola", "坩埚炉": "cruciblefurnace", "平炉": "openhearth", "感应炉": "inductionfurnace",
         "选矿厂": "oreplant", "冶炼厂": "smeltery", "矿工宿舍": "bunkhouse", "仓库区": "storagesite",
