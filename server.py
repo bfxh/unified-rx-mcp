@@ -3383,6 +3383,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "生存": "survival", "饥饿": "hunger", "口渴": "thirst", "体温": "temperature",
         # IDE 增强 352：界面词（面板/侧边栏/状态栏/标题栏/页脚/标签栏/通知/提示）
         "面板": "panel", "侧边栏": "sidebar", "状态栏": "statusbar", "标题栏": "titlebar",
+        # IDE 增强 353：科技词（科技/研究/解锁/蓝图/发明/升级/科技树/实验）
+        "科技": "tech", "研究": "research", "解锁": "unlock", "蓝图": "blueprint",
+        "发明": "invention", "升级": "upgrade", "科技树": "techtree", "实验": "experiment",
         "页脚": "footer", "标签栏": "tabbar", "通知": "toast", "提示": "hint",
         "睡眠": "sleep", "精力": "stamina", "疲惫": "fatigue", "伤口": "wound",
         "船": "boat", "潜艇": "submarine", "飞行器": "aircraft", "机甲": "mech",
