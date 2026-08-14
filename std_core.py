@@ -369,6 +369,29 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                     count += 1
                     if count >= limit:
                         return
+        # IDE 增强 307：java/kt 未使用 import（import java.util.List /
+        # import android.os.Bundle / import kotlinx.coroutines.*；零引用 → 未使用）
+        if path.endswith((".java", ".kt", ".kts")):
+            count = 0
+            for i, line in enumerate(src.splitlines(), 1):
+                if line.lstrip().startswith("//"):
+                    continue
+                m = re.match(r"\s*import\s+(?:static\s+)?([A-Za-z_][\w.]*)", line)
+                if not m:
+                    continue
+                name = m.group(1).split(".")[-1].strip("*")
+                if not name:
+                    continue
+                if name == "*" or name.endswith(".*"):
+                    continue  # 通配导入豁免（可能使用任意子符号）
+                if len(re.findall(rf"\b{re.escape(name)}\b", src)) <= 1:
+                    issues.append({
+                        "rule": "dead_code", "severity": "Warning",
+                        "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
+                        "file": path})
+                    count += 1
+                    if count >= limit:
+                        return
         return
     try:
         tree = ast.parse(src)

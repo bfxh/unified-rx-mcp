@@ -3297,6 +3297,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "密钥": "secret", "签名": "signature", "校验": "verify", "防火墙": "firewall",
         # IDE 增强 306：网络/协议词（请求/响应/连接/同步——中文目标直达网络代码）
         "网络": "network", "请求": "request", "响应": "response", "连接": "connection",
+        # IDE 增强 307：并发/性能词（线程/锁/队列/缓存——中文目标直达并发代码）
+        "线程": "thread", "锁": "lock", "队列": "queue", "进程": "process",
+        "并发": "concurrent", "缓存": "cache", "内存": "memory", "崩溃": "crash",
         "同步": "sync", "异步": "async", "超时": "timeout", "重试": "retry",
         "像素": "pixel", "触摸": "touch", "手势": "gesture", "滚动": "scroll",
         # IDE 增强 275：Flutter/UI 词（控件/界面/布局/导航/主题/状态）
