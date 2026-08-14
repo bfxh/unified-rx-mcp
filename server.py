@@ -1738,6 +1738,14 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                     str(f), n, "unsafe_pickle", "warning",
                     f"pickle.{_fn}() 反序列化——数据不可信时任意代码执行，"
                     "建议 JSON/替代格式", lines))
+            # IDE 增强 126：yaml.load 未指定 Loader（默认全功能 Loader——
+            # 任意代码执行；应 yaml.safe_load）
+            elif _fn == "load" and _obj == "yaml" \
+                    and not any(k.arg == "Loader" for k in n.keywords):
+                issues.append(_bug_issue(
+                    str(f), n, "unsafe_yaml", "warning",
+                    "yaml.load() 未指定 Loader——默认全功能 Loader 任意代码执行，"
+                    "建议 yaml.safe_load()", lines))
     return issues, len(lines)
 
 
