@@ -123,6 +123,12 @@ def _summary(args: dict) -> str:
         if price:
             cost += r.get("tokens_in", 0) / 1000 * price[0] + r.get("tokens_out", 0) / 1000 * price[1]
 
+    # IDE 增强 114：工具调用 TOP10（活跃度一眼可见——什么工具最常用）
+    tool_counter: dict[str, int] = {}
+    for r in records:
+        tool_counter[str(r.get("tool", "?"))] = tool_counter.get(str(r.get("tool", "?")), 0) + 1
+    top_tools = sorted(tool_counter.items(), key=lambda kv: -kv[1])[:10]
+
     return json.dumps({
         "ok": True,
         "total_actions": n,
@@ -133,6 +139,7 @@ def _summary(args: dict) -> str:
         "tokens_total": total_in + total_out,
         "estimated_cost_usd": round(cost, 4),
         "avg_duration_ms": round(sum(r.get("duration_ms", 0) for r in records) / n, 1),
+        "top_tools": top_tools,
         "tasks": tasks,
     }, ensure_ascii=False)
 
