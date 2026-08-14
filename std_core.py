@@ -390,6 +390,8 @@ def scan_directory(path: str, max_files: int = 200) -> dict:
     issues: list = []
     files = 0
     todo_count = [0]
+    # IDE 增强 140：文件类型分布（语言构成——AI 了解项目用什么语言）
+    ext_counts: dict[str, int] = {}
     per_rule_limit = max(10, max_files // 4)
     for fp in _iter_py_files(path):
         if files >= max_files:
@@ -398,6 +400,8 @@ def scan_directory(path: str, max_files: int = 200) -> dict:
         if src is None:
             continue
         files += 1
+        _ext = os.path.splitext(fp)[1].lower() or "(none)"
+        ext_counts[_ext] = ext_counts.get(_ext, 0) + 1
         if _is_self_exempt(fp):
             # 自身文件豁免：docstring 描述词不报（text_placeholder/magic_number 噪声）
             _scan_name_conflict(fp, src, issues, per_rule_limit)
@@ -412,7 +416,7 @@ def scan_directory(path: str, max_files: int = 200) -> dict:
             _scan_dead_code(fp, src, issues, per_rule_limit)  # 2026-08-14：补实现
         if len(issues) >= max_files:
             break
-    return _summarize(issues, files, path, todo_count[0])
+    return _summarize(issues, files, path, todo_count[0], ext_counts)
 
 
 def scan_file(path: str) -> dict:
@@ -436,7 +440,8 @@ def scan_file(path: str) -> dict:
     return _summarize(issues, 1, path, todo_count[0])
 
 
-def _summarize(issues: list, files: int, path: str, todo_count: int = 0) -> dict:
+def _summarize(issues: list, files: int, path: str, todo_count: int = 0,
+               ext_counts: dict | None = None) -> dict:
     rules: dict = {}
     for i in issues:
         rules[i["rule"]] = rules.get(i["rule"], 0) + 1
@@ -468,6 +473,9 @@ def _summarize(issues: list, files: int, path: str, todo_count: int = 0) -> dict
             "critical": effective_critical, "warning": effective_warning, "suggestion": suggestion,
             "todo_markers": todo_count,
             "rules": rules,
+            # IDE 增强 140：文件类型分布（语言构成）
+            "ext_counts": dict(sorted((ext_counts or {}).items(),
+                                      key=lambda kv: -kv[1])),
             "rule_weights": rule_weights,  # LSE 自适应权重（采纳/忽略反馈进化）
         },
     }
