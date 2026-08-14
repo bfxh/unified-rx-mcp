@@ -3407,6 +3407,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "传送带": "conveyor", "输送机": "transport", "物流": "logistics", "码头": "dock",
         # IDE 增强 364：电力词（电力/电线/电缆/变压器/电池/充电/电网/断电）
         "电力": "power", "电线": "wire", "电缆": "cable", "变压器": "transformer",
+        # IDE 增强 365：流体词（液体/气体/流体/管道/泵/阀门/蒸汽/液压）
+        "液体": "liquid", "气体": "gas", "流体": "fluid", "管道": "pipe",
+        "泵": "pump", "阀门": "valve", "蒸汽": "steam", "液压": "hydraulic",
         "电池": "battery", "充电": "charge", "电网": "grid", "断电": "outage",
         "仓库": "warehouse", "货架": "shelf", "叉车": "forklift", "装卸": "loading",
         "熔炉": "furnace", "钻机": "drill", "雷达": "radar", "天线": "antenna",
