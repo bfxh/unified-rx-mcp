@@ -342,3 +342,21 @@ def p30():
     if ni:
         return True, f"Flutter 死按钮检出 L{ni[0]['line']}"
     return False, f"Flutter 死按钮应检出: {data}"
+
+
+@probe("p31_bug_locate_dart_uri")
+def p31():
+    """bug_locate dart file:/// URI 定位（273）。"""
+    repo = os.path.join(_TMP, "dartloc")
+    os.makedirs(repo, exist_ok=True)
+    p = os.path.join(repo, "app2.dart")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("\n" * 10)
+    err = "EXCEPTION: x\n#0 main (file:///u/app2.dart:7)"
+    out = S._call("bug_locate", {"error_text": err})
+    data = json.loads(out[0].text)
+    locs = data.get("locations", [])
+    if data.get("matched") and locs and locs[0].get("line") == 7 \
+            and "file:" not in locs[0].get("file", ""):
+        return True, "dart file:/// URI 定位 L7（前缀清洗）"
+    return False, f"dart URI 应定位: {data}"
