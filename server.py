@@ -3391,6 +3391,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "农业": "farm", "农田": "field", "作物": "crop", "播种": "sow",
         # IDE 增强 356：潜水词（潜水/水下/呼吸/水压/游泳/浮力/潜水艇/水肺）
         "潜水": "dive", "水下": "underwater", "呼吸": "breathe", "水压": "pressure",
+        # IDE 增强 357：战役词（战役/战争/战场/征服/占领/入侵/围攻/哨塔）
+        "战役": "battle", "战争": "war", "战场": "battlefield", "征服": "conquer",
+        "占领": "occupy", "入侵": "invade", "围攻": "siege", "哨塔": "watchtower",
         "游泳": "swim", "浮力": "buoyancy", "潜水艇": "submarine", "水肺": "scuba",
         "灌溉": "irrigate", "施肥": "fertilize", "畜牧": "livestock", "温室": "greenhouse",
         "音调": "pitch", "节拍": "beat", "音符": "note", "音效": "sfx",
