@@ -3511,6 +3511,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "灌木": "bush", "藤蔓": "vine", "苔藓": "moss", "蕨类": "fern",
         # IDE 增强 416：勘探词（勘探/钻探/采样/测绘/勘察/标图/探矿/岩芯）
         "勘探": "prospect", "钻探": "drilling", "采样": "sample", "测绘": "survey",
+        # IDE 增强 417：实验容器词（坩埚/烧瓶/试管/培养皿/蒸馏瓶/量杯/漏斗/研钵）
+        "坩埚": "crucible", "烧瓶": "flask", "试管": "testtube", "培养皿": "petridish",
+        "蒸馏瓶": "still", "量杯": "beaker", "漏斗": "funnel", "研钵": "mortar",
         "勘察": "recon", "标图": "plotting", "探矿": "oreprospect", "岩芯": "core",
         "花朵": "flower", "仙人掌": "cactus", "芦苇": "reed", "水草": "seaweed",
         "湖泊": "lake", "沙丘": "dune", "火山": "volcano", "冰川": "glacier",
