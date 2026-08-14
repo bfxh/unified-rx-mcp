@@ -3349,6 +3349,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "爆炸": "explosion", "冲击": "impact", "震荡": "shock", "火": "fire",
         # IDE 增强 335：资源管理词（卸载/池化/回收/引用计数/预加载）
         "卸载": "unload", "池化": "pool", "回收": "recycle", "引用计数": "refcount",
+        # IDE 增强 336：物品词（背包/装备/武器/防具/道具/材料）
+        "背包": "inventory", "装备": "equip", "武器": "weapon", "防具": "armor",
+        "道具": "item", "材料": "material", "锻造": "craft", "合成": "recipe",
         "预加载": "preload", "延迟加载": "lazy", "清理": "cleanup", "释放": "release",
         "烟": "smoke", "碎片": "debris", "闪电": "lightning", "毒": "poison",
         "世界生成": "worldgen", "种子": "seed", "难度": "difficulty", "关卡": "level",
