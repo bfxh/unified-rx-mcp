@@ -3597,6 +3597,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "取样点": "samplingpoint", "化验单": "assayreport", "品位曲线": "gradecurve", "矿样袋": "samplebag",
         # IDE 增强 459：采矿设备词（掘进机/凿岩机/装载机/铲运机/台车/锚杆机/喷浆机/提升机）
         "掘进机": "roadheader", "凿岩机": "rockdrill", "装载机": "loader", "铲运机": "scraper",
+        # IDE 增强 460：选矿药剂词（捕收剂/起泡剂/抑制剂/调整剂/絮凝剂/活化剂/分散剂/消泡剂）
+        "捕收剂": "collector", "起泡剂": "frother", "抑制剂": "depressant", "调整剂": "regulator",
+        "絮凝剂": "flocculant", "活化剂": "activator", "分散剂": "dispersant", "消泡剂": "defoamer",
         "台车": "drillrig", "锚杆机": "bolter", "喷浆机": "shotcreter", "提升机": "hoistmachine",
         "样槽": "sampletrench", "岩样": "rocksample", "矿样": "oresample", "标样": "standard",
         "散货船": "bulkcarrier", "转运站": "transferstation", "卸矿站": "unloadingstation", "堆场": "stockyard",
