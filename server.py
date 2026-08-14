@@ -3286,6 +3286,13 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
             _k = str(i.get("file", ""))
             _fc[_k] = _fc.get(_k, 0) + 1
         _worst_f, _worst_n = max(_fc.items(), key=lambda kv: kv[1])
+    # IDE 增强 213：最多问题规则（top_rule——对称 std 209/bug 210，
+    # UI 三入口收官）
+    if _rule_counts:
+        _tr, _tn = max(_rule_counts.items(), key=lambda kv: kv[1])
+        _top_rule = f"{_tr}（{_tn} 条）"
+    else:
+        _top_rule = ""
     # IDE 增强 188：可用规则列表（rules= 可传哪些——四大单入口收官）
     _ar = sorted(set(_rule_counts) | {"ui_root_missing", "camera_missing",
                                       "mode_isolation", "focus_pass",
@@ -3305,6 +3312,7 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
         # IDE 增强 203：问题最多文件（集中修复入口——先处理最脏文件）
         "worst_file": (f"{os.path.basename(str(_worst_f))}（{_worst_n} 条问题）"
                        if issues else ""),
+        "top_rule": _top_rule,
         "note": "severity 已归一化（warning→warn）；noise_ratio=info 占比",
         "issues": issues,
     }, ensure_ascii=False))]
