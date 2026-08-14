@@ -28,6 +28,20 @@ _SYMBOL_PATTERNS = {
     ".ts": re.compile(r"^(?:export\s+)?(?:function|class|interface|type|const|let)\s+(\w+)", re.M),
     ".js": re.compile(r"^(?:export\s+)?(?:function|class)\s+(\w+)", re.M),
     ".gd": re.compile(r"^(?:func|class_name)\s+(\w+)", re.M),
+    # IDE 增强 255：c/cpp 符号（函数声明/struct/typedef——graph_index 已支持，
+    # cb_index 对齐；文本启发防多指针/宏误抓）
+    ".c": re.compile(r"^(?:static\s+|inline\s+|extern\s+)*[A-Za-z_]\w*\s+"
+                     r"([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:\{)?|"
+                     r"^(?:typedef\s+)?(?:struct|enum|union)\s+(\w+)", re.M),
+    ".h": re.compile(r"^(?:static\s+|inline\s+|extern\s+)*[A-Za-z_]\w*\s+"
+                     r"([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:\{)?|"
+                     r"^(?:typedef\s+)?(?:struct|enum|union)\s+(\w+)", re.M),
+    ".cpp": re.compile(r"^(?:static\s+|inline\s+|virtual\s+|explicit\s+)*"
+                       r"[A-Za-z_:]\w*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:\{)?|"
+                       r"^class\s+(\w+)|^(?:struct|enum)\s+(\w+)", re.M),
+    ".hpp": re.compile(r"^(?:static\s+|inline\s+|virtual\s+|explicit\s+)*"
+                       r"[A-Za-z_:]\w*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:\{)?|"
+                       r"^class\s+(\w+)|^(?:struct|enum)\s+(\w+)", re.M),
 }
 
 # 排除目录
