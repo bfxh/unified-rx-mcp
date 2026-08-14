@@ -3485,6 +3485,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "精英": "elite", "头目": "boss", "小兵": "minion", "召唤物": "summon",
         # IDE 增强 403：工艺词（选矿/浮选/煅烧/电解/淬火/镀层/退火/烧结）
         "选矿": "beneficiate", "浮选": "flotation", "煅烧": "calcine", "电解": "electrolyze",
+        # IDE 增强 404：通信词（频率/波长/带宽/干扰/中继/加密/解码/广播）
+        "频率": "frequency", "波长": "wavelength", "带宽": "bandwidth", "干扰": "interference",
+        "中继": "relay", "加密": "encrypt", "解码": "decode", "广播": "broadcast",
         "淬火": "quench", "镀层": "plating", "退火": "anneal", "烧结": "sinter",
         "变异体": "mutant", "傀儡": "golem", "哨兵": "sentinel", "追踪者": "stalker",
         "神圣": "holy", "自然": "nature", "奥术": "arcane", "死灵": "necromancy",
