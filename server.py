@@ -1106,12 +1106,14 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
     path = args["path"]
     max_files = int(args.get("max_files", 100))
     with_ui = bool(args.get("ui", True))  # Bevy 项目才有 .rs UI；非 Rust 项目可关
+    # IDE 增强 177：rules 透传（四路都过滤——对称 vuln_scan 176）
+    _only = str(args.get("rules", ""))
     results = {"path": path, "bug_scan": [], "std_check": [], "ui_check": [],
                "cb_scan": [], "errors": []}
 
     def run_one(tool_fn, name, extra=None):
         try:
-            a = {"path": path, "max_files": max_files}
+            a = {"path": path, "max_files": max_files, "rules": _only}
             if extra:
                 a.update(extra)
             r = tool_fn(a)
