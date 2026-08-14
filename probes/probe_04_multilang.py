@@ -243,3 +243,24 @@ def p25():
     if java_ok and ps_ok:
         return True, "java debug_residue + ps1 shell_injection 双检出"
     return False, f"应双检出: java={java_ok} ps1={ps_ok}"
+
+
+@probe("p26_std_cb_java_ps1")
+def p26():
+    """std_check java + cb_index ps1 符号（270）。"""
+    repo = os.path.join(_TMP, "jk270")
+    os.makedirs(repo, exist_ok=True)
+    with open(os.path.join(repo, "A.java"), "w", encoding="utf-8") as f:
+        f.write("class App {\n    void run() {\n        int speed = 999;\n    }\n}\n")
+    out = S._call("std_check", {"path": os.path.join(repo, "A.java")})
+    mn = any(i.get("rule") == "magic_number"
+             for i in json.loads(out[0].text).get("issues", []))
+    with open(os.path.join(repo, "F.ps1"), "w", encoding="utf-8") as f:
+        f.write("function Build-Module {\n    $speed = 444\n}\n")
+    S._call("cb_index", {"path": repo})
+    idx = json.load(open(os.path.join(repo, ".unified-rx-index", "index.json"),
+                         encoding="utf-8"))
+    ps = idx["files"].get("F.ps1", {}).get("symbols", {})
+    if mn and "Build-Module" in ps:
+        return True, "java magic_number + ps1 连字符符号 双检出"
+    return False, f"应双检出: mn={mn} ps1={list(ps)}"

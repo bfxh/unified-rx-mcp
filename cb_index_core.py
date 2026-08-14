@@ -52,6 +52,17 @@ _SYMBOL_PATTERNS = {
     ".lua": re.compile(r"^(?:local\s+)?function\s+(\w+)|^local\s+(\w+)\s*=", re.M),
     ".sh": re.compile(r"^([A-Za-z_]\w*)\s*\(\)\s*(?:\{|$)", re.M),
     ".bash": re.compile(r"^([A-Za-z_]\w*)\s*\(\)\s*(?:\{|$)", re.M),
+    # IDE 增强 270：java/kt/swift/php/rb/ps1 符号（对齐 bug_scan 22 语言）
+    ".java": re.compile(r"^\s*(?:public\s+|private\s+|protected\s+)*(?:static\s+|final\s+)*"
+                        r"(?:class|interface|enum)\s+(\w+)|"
+                        r"^\s*(?:public\s+|private\s+|protected\s+)*(?:static\s+|final\s+)*"
+                        r"[A-Za-z_<>\[\]]*\s+(\w+)\s*\([^)]*\)\s*(?:\{|$)", re.M),
+    ".kt": re.compile(r"^\s*(?:fun\s+)?(\w+)\s*\(|^\s*class\s+(\w+)", re.M),
+    ".kts": re.compile(r"^\s*(?:fun\s+)?(\w+)\s*\(|^\s*class\s+(\w+)", re.M),
+    ".swift": re.compile(r"^\s*func\s+(\w+)|^\s*class\s+(\w+)|^\s*struct\s+(\w+)", re.M),
+    ".php": re.compile(r"^\s*function\s+(\w+)|^\s*class\s+(\w+)", re.M),
+    ".rb": re.compile(r"^\s*def\s+(\w+)|^\s*class\s+(\w+)|^\s*module\s+(\w+)", re.M),
+    ".ps1": re.compile(r"^\s*function\s+([A-Za-z_][\w-]*)", re.M),
 }
 
 # 排除目录

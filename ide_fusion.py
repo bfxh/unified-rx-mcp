@@ -16,7 +16,8 @@ import re
 
 # 符号归属启发式：行号 → 所在函数（tree-sitter 降级：正则 fn/def 扫描）
 _FN_RE = re.compile(
-    r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\b"          # rs
+    r"^function\s+([A-Za-z_][\w-]*)"                                            # php/ps1（最前——防 ts/js function 分支截断连字符）
+    r"|^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\b"          # rs
     r"|^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\b"                                 # py
     r"|^\s*func\s+(?:\([^)]*\)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\("            # go/gd
     r"|^\s*(?:export\s+)?(?:function\s+([A-Za-z_$][\w$]*)|class\s+([A-Za-z_$][\w$]*))"  # ts/js
@@ -30,6 +31,13 @@ _FN_RE = re.compile(
     r"[A-Za-z_<>,.]*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*\{"                      # cs 方法
     r"|^\s*(?:local\s+)?function\s+([A-Za-z_]\w*)"                            # lua
     r"|^\s*([A-Za-z_]\w*)\s*\(\)\s*(?:\{|$)"                                  # sh/bash
+    r"|^\s*(?:public\s+|private\s+|protected\s+)*(?:static\s+|final\s+)*"
+    r"(?:class|interface|enum)\s+([A-Za-z_]\w*)"                              # java 类
+    r"|^\s*(?:public\s+|private\s+|protected\s+)*(?:static\s+|final\s+)*"
+    r"[A-Za-z_<>\[\]]*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:\{|$)"              # java 方法
+    r"|^\s*(?:fun\s+)?([A-Za-z_]\w*)\s*\(|^class\s+([A-Za-z_]\w*)"            # kt/kts
+    r"|^func\s+([A-Za-z_]\w*)|^class\s+([A-Za-z_]\w*)|^struct\s+([A-Za-z_]\w*)"  # swift
+    r"|^def\s+([A-Za-z_]\w*)|^class\s+([A-Za-z_]\w*)"                        # rb
 )
 
 
