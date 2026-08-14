@@ -3309,6 +3309,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "加载": "loading", "错误": "error", "成功": "success", "空态": "empty",
         # IDE 增强 312：运维词（监控/指标/告警/健康检查/降级/熔断）
         "监控": "monitor", "指标": "metric", "告警": "alert", "健康检查": "health",
+        # IDE 增强 315：时间/调度词（日期/时间/定时/调度/时区/延迟）
+        "日期": "date", "时间": "time", "定时": "schedule", "调度": "cron",
+        "时区": "timezone", "延迟": "delay", "期限": "deadline", "超时": "timeout",
         "降级": "degrade", "熔断": "circuit", "限流": "ratelimit", "灰度": "canary",
         "重试": "retry", "取消": "cancel", "刷新": "refresh", "提示": "toast",
         "特效": "effect", "音效": "audio", "动画": "animation", "场景": "scene",
