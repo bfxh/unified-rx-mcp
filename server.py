@@ -3593,6 +3593,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "破碎站": "crushingstation", "筛分楼": "screeningtower", "储矿仓": "orebin", "装车楼": "loadingtower",
         # IDE 增强 457：矿物运输词（精矿运输/矿石列车/矿用卡车/驳船/散货船/转运站/卸矿站/堆场）
         "精矿运输": "concentratetransport", "矿石列车": "oretrain", "矿用卡车": "minetruck", "驳船": "barge",
+        # IDE 增强 458：矿石取样词（取样点/化验单/品位曲线/矿样袋/样槽/岩样/矿样/标样）
+        "取样点": "samplingpoint", "化验单": "assayreport", "品位曲线": "gradecurve", "矿样袋": "samplebag",
+        "样槽": "sampletrench", "岩样": "rocksample", "矿样": "oresample", "标样": "standard",
         "散货船": "bulkcarrier", "转运站": "transferstation", "卸矿站": "unloadingstation", "堆场": "stockyard",
         "皮带廊": "beltgallery", "浓缩池": "thickener", "精矿仓": "concentratebin", "尾矿管线": "tailingspipeline",
         "复垦": "reclamation", "赔偿金": "compensation", "罚款": "fine", "审计": "audit",
