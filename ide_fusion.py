@@ -38,6 +38,11 @@ _FN_RE = re.compile(
     r"|^\s*(?:fun\s+)?([A-Za-z_]\w*)\s*\(|^class\s+([A-Za-z_]\w*)"            # kt/kts
     r"|^func\s+([A-Za-z_]\w*)|^class\s+([A-Za-z_]\w*)|^struct\s+([A-Za-z_]\w*)"  # swift
     r"|^def\s+([A-Za-z_]\w*)|^class\s+([A-Za-z_]\w*)"                        # rb
+    r"|^\s*(?:class|abstract class|mixin|enum)\s+([A-Za-z_]\w*)"                # dart 类
+    r"|^\s*(?:Future\s*<[^>]*>\s*|Widget\s+|void\s+|int\s+|String\s+|bool\s+|double\s+)?"
+    r"(?!TextButton|ElevatedButton|OutlinedButton|IconButton|FilledButton|"
+    r"Column|Row|Container|Text|SizedBox)"
+    r"([A-Za-z_]\w*)\s*\("                                                      # dart 函数
 )
 
 

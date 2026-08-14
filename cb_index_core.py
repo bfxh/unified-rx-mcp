@@ -63,6 +63,12 @@ _SYMBOL_PATTERNS = {
     ".php": re.compile(r"^\s*function\s+(\w+)|^\s*class\s+(\w+)", re.M),
     ".rb": re.compile(r"^\s*def\s+(\w+)|^\s*class\s+(\w+)|^\s*module\s+(\w+)", re.M),
     ".ps1": re.compile(r"^\s*function\s+([A-Za-z_][\w-]*)", re.M),
+    ".dart": re.compile(r"^(?:class|abstract class|mixin|enum)\s+(\w+)|"
+                        r"^\s*(?:Future\s*<[^>]*>\s*|Widget\s+|void\s+|int\s+|String\s+|"
+                        r"bool\s+|double\s+|List\s*<[^>]*>\s*|Map\s*<[^>]*>\s*)?"
+                        r"(?!TextButton|ElevatedButton|OutlinedButton|IconButton|"
+                        r"FilledButton|Column|Row|Container|Text|SizedBox)"
+                        r"(\w+)\s*\(", re.M),
 }
 
 # 排除目录
@@ -295,6 +301,14 @@ def scan_repo(root: str, max_files: int = 200) -> dict:
             # 变更优先 UI 扫描）
             from ui_check_core import _scan_cs_ui
             for issue in _scan_cs_ui(src, rel):
+                issue["file"] = rel
+                issue["priority"] = "changed" if is_changed else "full"
+                issues.append(issue)
+            continue
+        if rel.endswith(".dart"):
+            # IDE 增强 274：cb_scan 含 Flutter UI（四引擎变更优先扫描）
+            from ui_check_core import _scan_dart_ui
+            for issue in _scan_dart_ui(src, rel):
                 issue["file"] = rel
                 issue["priority"] = "changed" if is_changed else "full"
                 issues.append(issue)

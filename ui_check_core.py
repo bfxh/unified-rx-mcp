@@ -129,6 +129,27 @@ def scan_ui_source(src: str, path: str = "", dir_mode: bool = False) -> list[dic
     return issues
 
 
+def _scan_dart_ui(src: str, path: str) -> list[dict]:
+    """Flutter（.dart）UI 检查（IDE 增强 274：Button 系无 onPressed——
+    死按钮；四引擎 Bevy/Godot/Unity/Flutter）。窗口 = 创建行 + 后 2 行。"""
+    import re as _re
+    issues = []
+    _btn = _re.compile(r"\b(?:TextButton|ElevatedButton|OutlinedButton|"
+                       r"IconButton|FilledButton)\s*\(")
+    _press = _re.compile(r"onPressed|onPressed\s*:|onLongPress")
+    lines = src.splitlines()
+    for i, line in enumerate(lines, 1):
+        if not _btn.search(line):
+            continue
+        block = "\n".join(lines[i - 1:i + 3])
+        if not _press.search(block):
+            issues.append({
+                "rule": "no_interaction", "severity": "warning", "line": i,
+                "msg": "Button 无 onPressed 处理（onPressed 缺失）——死按钮",
+                "file": path})
+    return issues
+
+
 def _scan_cs_ui(src: str, path: str) -> list[dict]:
     """Unity（.cs）UI 检查（IDE 增强 267：Button 创建无 onClick 连接——
     死按钮；对齐 Bevy/Godot）。窗口 = 创建行 + 后 2 行。"""
@@ -198,6 +219,9 @@ def scan_ui_dir(root: str, max_files: int = 100) -> list[dict]:
             elif n.endswith(".cs"):
                 # IDE 增强 267：Unity（.cs）UI 文件
                 gd_files.append(os.path.join(r, n))  # 复用 gd 收集桶（下方按扩展分发）
+            elif n.endswith(".dart"):
+                # IDE 增强 274：Flutter（.dart）UI 文件
+                gd_files.append(os.path.join(r, n))
             if len(files) + len(gd_files) >= max_files:
                 break
         if len(files) + len(gd_files) >= max_files:
@@ -214,6 +238,9 @@ def scan_ui_dir(root: str, max_files: int = 100) -> list[dict]:
             continue
         if f.endswith(".cs"):
             for iss in _scan_cs_ui(gsrc, f):
+                issues.append(iss)
+        elif f.endswith(".dart"):
+            for iss in _scan_dart_ui(gsrc, f):
                 issues.append(iss)
         else:
             for iss in _scan_gd_ui(gsrc, f):

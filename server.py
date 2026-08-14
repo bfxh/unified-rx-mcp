@@ -3599,12 +3599,12 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
     try:
-        from ui_check_core import scan_ui_dir, scan_ui_source, _scan_gd_ui, _scan_cs_ui
+        from ui_check_core import scan_ui_dir, scan_ui_source, _scan_gd_ui, _scan_cs_ui, _scan_dart_ui
     except ImportError:
         # 回退：直接按文件扫描（ui_check_core 与 server.py 同目录）
         _dir = os.path.dirname(os.path.abspath(__file__))
         sys.path.insert(0, _dir)
-        from ui_check_core import scan_ui_dir, scan_ui_source, _scan_gd_ui, _scan_cs_ui  # noqa: F811
+        from ui_check_core import scan_ui_dir, scan_ui_source, _scan_gd_ui, _scan_cs_ui, _scan_dart_ui  # noqa: F811
     if p.is_dir():
         issues = scan_ui_dir(str(p), max_files=max_files)
     elif p.is_file() and p.suffix == ".rs":
@@ -3626,8 +3626,14 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
             raise ValueError(f"文件过大（>{_MAX_READ}）")
         src = p.read_text(encoding="utf-8", errors="replace")
         issues = _scan_cs_ui(src, str(p))
+    elif p.is_file() and p.suffix == ".dart":
+        # IDE 增强 274：Flutter UI 单文件（Button 死按钮检查）
+        if p.stat().st_size > _MAX_READ:
+            raise ValueError(f"文件过大（>{_MAX_READ}）")
+        src = p.read_text(encoding="utf-8", errors="replace")
+        issues = _scan_dart_ui(src, str(p))
     else:
-        raise ValueError(f"仅支持 .rs/.gd/.cs 文件或目录: {p}")
+        raise ValueError(f"仅支持 .rs/.gd/.cs/.dart 文件或目录: {p}")
     # IDE 增强 180（里程碑）：规则过滤（rules 逗号分隔——扫描工具全补齐，
     # 对称 std_check 173/bug_scan 174/cb_scan 175）
     _only = {s.strip() for s in str(args.get("rules", "")).split(",") if s.strip()}

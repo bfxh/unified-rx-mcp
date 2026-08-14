@@ -65,7 +65,8 @@ def _iter_py_files(root: str):
             if not fn.endswith((".py", ".rs", ".ts", ".tsx", ".js", ".jsx", ".go", ".gd",
                                 ".gdshader", ".c", ".h", ".cpp", ".hpp", ".cc",
                                 ".cs", ".lua", ".sh", ".bash",
-                                ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1")):
+                                ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1",
+                                ".dart")):
                 continue
             yield os.path.join(dirpath, fn)
 
@@ -242,7 +243,7 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
     if not (path.endswith((".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".gd",
                             ".c", ".h", ".cpp", ".hpp", ".cc", ".cs", ".lua",
                             ".sh", ".bash", ".java", ".kt", ".kts", ".swift",
-                            ".php", ".rb", ".ps1"))):
+                            ".php", ".rb", ".ps1", ".dart"))):
         return
     count = 0
     lines = src.splitlines()
@@ -260,7 +261,7 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
             "#" if path.endswith((".py", ".gd", ".sh", ".bash")) else (
             "//" if path.endswith((".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
                                    ".c", ".cpp", ".h", ".hpp", ".cs", ".java",
-                                   ".kt", ".kts", ".swift", ".php")) else
+                                   ".kt", ".kts", ".swift", ".php", ".dart")) else
             "#" if path.endswith((".rb", ".ps1")) else ""))
         if _cp and line_txt.lstrip().startswith(_cp):
             continue
