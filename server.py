@@ -3545,6 +3545,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "交易所": "exchange", "拍卖行": "auction", "收购站": "buyer", "矿价": "oreprice",
         # IDE 增强 433：矿工装备词（矿灯/呼吸面罩/安全绳/护目镜/工作服/防爆服/手套/靴子）
         "矿灯": "mininglamp", "呼吸面罩": "respirator", "安全绳": "safetyline", "护目镜": "goggles",
+        # IDE 增强 434：控制终端词（控制台/操作台/终端机/控制面板/操纵杆/按钮/开关/旋钮）
+        "控制台": "console", "操作台": "workstation", "终端机": "terminal", "控制面板": "panel",
+        "操纵杆": "lever", "按钮": "button", "开关": "switch", "旋钮": "knob",
         "工作服": "overall", "防爆服": "blastshield", "手套": "gloves", "靴子": "boots",
         "期货": "futures", "订单": "order", "竞价": "bidding", "挂牌": "listing",
         "避难洞": "bunker", "地下城": "undercity", "地窖": "cellar", "矿井通道": "minepassage",
