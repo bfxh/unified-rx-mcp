@@ -12,6 +12,7 @@ import _common
 import probe_01_sandbox_bugscan  # noqa: F401
 import probe_02_std_cbscan       # noqa: F401
 import probe_03_locate_guard_pure  # noqa: F401
+import probe_04_multilang  # noqa: F401  # IDE 增强 260：多语言契约探针（p13-p16）
 
 if __name__ == "__main__":
     # 确保以 probes/ 为 cwd 或把 probes/ 加入 path

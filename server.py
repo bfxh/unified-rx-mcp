@@ -1976,16 +1976,55 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
     ".c": [(r"\bprintf\s*\(", "debug_residue", "warning",
             "调试残留（printf——建议删或转日志）"),
            (r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
-            "goto 使用（控制流混乱——建议结构化替代）")],
+            "goto 使用（控制流混乱——建议结构化替代）"),
+           (r"\bstrcpy\s*\(|\bstrcat\s*\(|\bsprintf\s*\(", "unsafe_string",
+            "warning",
+            "不安全字符串函数（strcpy/strcat/sprintf——缓冲区溢出，建议 strncpy/snprintf）"),
+           (r"\bgets\s*\(", "gets_unsafe", "error",
+            "gets() 无法安全使用（缓冲区溢出——建议 fgets）")],
     ".cpp": [(r"std::cout\s*<<", "debug_residue", "warning",
               "调试残留（std::cout——建议删或转日志）"),
              (r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
-              "goto 使用（控制流混乱——建议结构化替代）")],
+              "goto 使用（控制流混乱——建议结构化替代）"),
+             (r"\bstrcpy\s*\(|\bstrcat\s*\(|\bsprintf\s*\(", "unsafe_string",
+              "warning",
+              "不安全字符串函数（strcpy/strcat/sprintf——缓冲区溢出，建议 strncpy/snprintf）"),
+             (r"\bgets\s*\(", "gets_unsafe", "error",
+              "gets() 无法安全使用（缓冲区溢出——建议 fgets）")],
     ".h": [(r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
             "goto 使用（控制流混乱——建议结构化替代）")],
     ".hpp": [(r"\bgoto\s+[A-Za-z_]\w*\s*;", "goto_used", "warning",
               "goto 使用（控制流混乱——建议结构化替代）")],
 }
+
+
+def _scan_c_null_deref(src: str, path: str) -> list:
+    """c/cpp 空指针解引用（IDE 增强 260：NULL/0 初始化后解引用——
+    确定性状态跟踪：`int *p = NULL;` → `*p`/`p->` 即 bug）。"""
+    issues = []
+    null_ptrs: dict[str, int] = {}
+    lines = src.splitlines()
+    for i, line in enumerate(lines, 1):
+        m = re.search(r"\b([A-Za-z_]\w*)\s*=\s*(?:NULL|0)\s*;", line)
+        if m:
+            # 指针声明（名字含 p/ptr 或 * 前缀；排除整型变量 `int x = 0;`）
+            decl = line[:m.start()]
+            if "*" in decl or "ptr" in m.group(1).lower():
+                null_ptrs[m.group(1)] = i
+    for i, line in enumerate(lines, 1):
+        for name, decl_line in null_ptrs.items():
+            if i == decl_line:
+                continue  # 声明行自身（`int *p = 0;`）不是解引用
+            if re.search(rf"(?<!\w)\*{name}\b|\b{name}\s*->", line):
+                col = line.find(name) + 1
+                issues.append({
+                    "file": str(Path(path).resolve()), "line": i,
+                    "col": col,
+                    "rule": "null_deref", "severity": "error",
+                    "msg": f"空指针解引用（{name} 初始化为 NULL/0 于行 {decl_line}）",
+                    "snippet": line.strip()[:80]})
+                break
+    return issues
 
 
 def _multi_lang_scan(path: str, src: str) -> list:
@@ -2007,6 +2046,9 @@ def _multi_lang_scan(path: str, src: str) -> list:
                     "col": m.start() + 1, "rule": rule, "severity": sev,
                     "msg": msg, "snippet": line.strip()[:80]})
                 break
+    if ext in (".c", ".cpp"):
+        # IDE 增强 260：c/cpp 空指针解引用（状态跟踪——行级规则无法表达）
+        issues.extend(_scan_c_null_deref(src, path))
     return issues
 
 
