@@ -3563,6 +3563,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "助熔剂": "flux", "催化剂": "catalyst", "反应剂": "reagent", "淬火液": "quenchfluid",
         # IDE 增强 442：贸易政策词（关税/配额/许可证/垄断/补贴/禁运/特惠/配额制）
         "关税": "tariff", "配额": "quota", "许可证": "license", "垄断": "monopoly",
+        # IDE 增强 443：特种矿物词（硫磺/硝石/磷矿/盐岩/云母/石膏/石墨/石英）
+        "硫磺": "sulfur", "硝石": "saltpeter", "磷矿": "phosphate", "盐岩": "rocksalt",
+        "云母": "mica", "石膏": "gypsum", "石墨": "graphite", "石英": "quartz",
         "补贴": "subsidy", "禁运": "embargo", "特惠": "preference", "配额制": "quota2",
         "冷却液": "coolant", "电解液": "electrolyte", "研磨剂": "abrasive", "润滑剂": "lubricant",
         "安全通道": "escape", "避难硐室": "refuge", "排水沟": "drainage", "支架区": "supportzone",
