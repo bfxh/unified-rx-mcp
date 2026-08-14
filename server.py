@@ -1188,14 +1188,14 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
     }
     # IDE 增强 241：聚合耗时（ms——聚合入口收官）
     results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
-    # IDE 增强 285：聚合语言画像（union 各子结果 languages——vuln 顶层
-    # 也看到项目语言组成；bug_scan 单入口 284 已有）
+    # IDE 增强 285：聚合语言画像（union 各子结果 languages——取 max 防
+    # 多路扫同批文件重复计数；vuln 顶层看到项目语言组成）
     _langs: dict[str, int] = {}
     for _k in ("bug_scan", "std_check", "ui_check"):
         _sub = results.get(_k)
         if isinstance(_sub, dict) and isinstance(_sub.get("languages"), dict):
             for _l, _c in _sub["languages"].items():
-                _langs[_l] = _langs.get(_l, 0) + int(_c)
+                _langs[_l] = max(_langs.get(_l, 0), int(_c))
     if _langs:
         results["languages"] = dict(sorted(_langs.items(), key=lambda kv: -kv[1]))
     return [_tr(True, "vuln_scan 完成(并行): bug=%d std=%d ui=%d" % (
@@ -3687,6 +3687,15 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
         issues = _scan_dart_ui(src, str(p))
     else:
         raise ValueError(f"仅支持 .rs/.gd/.cs/.dart 文件或目录: {p}")
+    # IDE 增强 286：ui_check 语言画像（从 issues 的 file 后缀统计——
+    # 覆盖目录与单文件两种模式）
+    _ui_langs: dict[str, int] = {}
+    for _i in issues:
+        _sfx = os.path.splitext(str(_i.get("file", "")))[1].lower().lstrip(".")
+        if _sfx:
+            _ui_langs[_sfx] = _ui_langs.get(_sfx, 0) + 1
+    if not _ui_langs and p.is_file():
+        _ui_langs[p.suffix.lower().lstrip(".")] = 1
     # IDE 增强 180（里程碑）：规则过滤（rules 逗号分隔——扫描工具全补齐，
     # 对称 std_check 173/bug_scan 174/cb_scan 175）
     _only = {s.strip() for s in str(args.get("rules", "")).split(",") if s.strip()}
@@ -3745,6 +3754,9 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
         "noise_ratio": round(sev_counts["info"] / total, 3) if total else 0.0,
         "rule_counts": dict(sorted(_rule_counts.items(), key=lambda kv: -kv[1])),
         "available_rules": _ar,
+        # IDE 增强 286：ui_check 语言画像（扫描后缀分布——四引擎一眼可见；
+        # vuln/project 聚合认 languages 字段）
+        "languages": dict(sorted(_ui_langs.items(), key=lambda kv: -kv[1])),
         # IDE 增强 146：最严重 UI 问题提示（error 级优先——UI 崩溃/不可见）
         "advice": (f"最优先：{os.path.basename(str(issues[0].get('file', '')))}:"
                    f"{issues[0].get('line')} [{issues[0].get('rule')}] "

@@ -516,6 +516,11 @@ def _summarize(issues: list, files: int, path: str, todo_count: int = 0,
             # IDE 增强 140：文件类型分布（语言构成）
             "ext_counts": dict(sorted((ext_counts or {}).items(),
                                       key=lambda kv: -kv[1])),
+            # IDE 增强 286：languages 别名（与 bug_scan/cb_scan 统一——
+            # vuln/project 聚合入口认 languages 字段；key 去点对齐）
+            "languages": dict(sorted(
+                {k.lstrip("."): v for k, v in (ext_counts or {}).items()}.items(),
+                key=lambda kv: -kv[1])),
             "rule_weights": rule_weights,  # LSE 自适应权重（采纳/忽略反馈进化）
             # IDE 增强 144：空仓库/空目录明确提示（files=0 时不产生歧义）
             "hint": ("未扫描到代码文件（空目录/无支持后缀）——检查路径或语言支持"
