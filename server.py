@@ -3413,6 +3413,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "金矿": "gold", "铁矿": "iron", "铜矿": "copper", "煤矿": "coal",
         # IDE 增强 367：农机词（拖拉机/收割机/播种机/无人机/翻耕机/喷灌机）
         "拖拉机": "tractor", "收割机": "harvester", "播种机": "seeder", "无人机": "drone",
+        # IDE 增强 368：太空词（空间站/轨道/行星/星系/恒星/卫星/探测器/陨石）
+        "空间站": "station", "轨道": "orbit", "行星": "planet", "星系": "galaxy",
+        "恒星": "star", "卫星": "satellite", "探测器": "probe", "陨石": "meteor",
         "翻耕机": "tiller", "喷灌机": "sprinkler", "粮仓": "granary", "蜂箱": "beehive",
         "铀矿": "uranium", "稀土": "rare", "硅矿": "silicon", "石油": "oil",
         "泵": "pump", "阀门": "valve", "蒸汽": "steam", "液压": "hydraulic",
