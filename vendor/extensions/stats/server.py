@@ -161,6 +161,10 @@ def _status(args: dict) -> str:
         "first_ts": first,
         "last_ts": last,
         "model_prices": {k: list(v) for k, v in _MODEL_PRICES.items()},
+        # IDE 增强 224：活跃度建议（对称 stats_summary 223——数据规模一眼可见）
+        "advice": (f"共 {len(records)} 条调用记录——"
+                   f"stats_summary 看成本/高频工具"
+                   if records else "暂无记录——工具调用后自动打点"),
     }, ensure_ascii=False)
 
 
