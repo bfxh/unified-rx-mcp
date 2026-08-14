@@ -14,7 +14,5 @@ ai_code_baseline.json
 risk_baseline.json
 server_risk.json
 *_baseline.json
-skills/arch-optimize/
-skills/anti-ai-flavor/
 __pycache__/
 .regression-baseline.json
