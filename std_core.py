@@ -244,8 +244,8 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
     仅 .py（AST 精确分析）；防误报：pass 函数带 docstring 或 raise 不算空实现。
     """
     if not path.endswith(".py"):
-        # IDE 增强 107：ts/js/tsx/jsx 文本启发——未使用 import
-        # （import { A, B } from / import A from；零引用 → 未使用）
+        # IDE 增强 107/119：ts/js/tsx/jsx + go 文本启发——未使用 import
+        # （import { A, B } from / import A from / go import "pkg"；零引用 → 未使用）
         if path.endswith((".ts", ".tsx", ".js", ".jsx")):
             count = 0
             for i, line in enumerate(src.splitlines(), 1):
@@ -270,6 +270,32 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                         count += 1
                         if count >= limit:
                             return
+        elif path.endswith(".go"):
+            # IDE 增强 119：go 未使用 import（`import "fmt"` / 别名 `import f "fmt"`
+            # 零引用 → 未使用；`_ "pkg"` 副作用导入豁免）
+            count = 0
+            for i, line in enumerate(src.splitlines(), 1):
+                if line.lstrip().startswith("//"):
+                    continue
+                if re.search(r'\b_\s+"', line):
+                    continue  # 副作用导入豁免
+                m = re.search(
+                    r'\bimport\s+(?:([A-Za-z_][\w]*)\s+)?"([^"]+)"'
+                    r'|^\s*"([^"]+)"\s*$', line)
+                if not m:
+                    continue
+                name = (m.group(1) or m.group(2) or m.group(3) or "")
+                name = name.split("/")[-1].split("-")[-1]
+                if not name:
+                    continue
+                if len(re.findall(rf"\b{re.escape(name)}\b", src)) <= 1:
+                    issues.append({
+                        "rule": "dead_code", "severity": "Warning",
+                        "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
+                        "file": path})
+                    count += 1
+                    if count >= limit:
+                        return
         return
     try:
         tree = ast.parse(src)
