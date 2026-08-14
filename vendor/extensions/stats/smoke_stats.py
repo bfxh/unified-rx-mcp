@@ -15,7 +15,7 @@ os.environ["UNIFIED_RX_STATE"] = str(TEST_STATE.parent)
 STATE_FILE = TEST_STATE.parent / "stats.json"
 try:
     STATE_FILE.unlink()
-except OSError:
+except OSError:  # 尽力而为
     pass
 
 
@@ -88,7 +88,7 @@ def main() -> int:
         proc.kill()
         try:
             STATE_FILE.unlink()
-        except OSError:
+        except OSError:  # 尽力而为
             pass
 
 

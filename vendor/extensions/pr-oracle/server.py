@@ -115,7 +115,7 @@ def _check_repo_limits(repo_path: str, max_files: int = 50_000, max_bytes: int =
                 return f"Error: 仓库文件数超过 {max_files} 上限（防 DoS）"
             try:
                 total_size += os.path.getsize(os.path.join(root, f))
-            except OSError:
+            except OSError:  # 尽力而为
                 pass
             if total_size > max_bytes:
                 return f"Error: 仓库体积超过 {max_bytes // (1024 * 1024)}MB 上限（防 DoS）"

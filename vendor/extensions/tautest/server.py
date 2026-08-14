@@ -51,7 +51,7 @@ def _run_cli(repo_path: str, args: list[str], timeout: int) -> str:
                     ["taskkill", "/PID", str(exc.pid), "/T", "/F"],
                     capture_output=True, timeout=5,
                 )
-            except Exception:
+            except Exception:  # 尽力而为
                 pass
         return f"Error: tautest {args[0] if args else ''} timed out after {timeout}s"
     except (OSError, Exception) as exc:
