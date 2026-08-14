@@ -1064,6 +1064,17 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
                    (("bug_scan", "bug_scan"), ("std_check", "std_check"), ("ui_check", "ui_check"))]
         for fut in as_completed(futures):
             fut.result()  # 异常已在 run_one 内捕获
+    # IDE 增强 135：最严重问题提示（与 project_scan 对称）
+    _worst = ""
+    _bs = results.get("bug_scan")
+    if isinstance(_bs, dict):
+        _errs = [i for i in _bs.get("issues", [])
+                 if str(i.get("severity", "")).lower() in ("error", "critical")]
+        if _errs:
+            _e = _errs[0]
+            _worst = (f"最优先：{os.path.basename(str(_e.get('file', '')))}:{_e.get('line')} "
+                      f"[{_e.get('rule')}] error（共 {len(_errs)} 条）")
+    results["advice"] = _worst or "无 error——按 warning/占位/UI 分布排查（看 detail）"
     return [_tr(True, "vuln_scan 完成(并行): bug=%d std=%d ui=%d" % (
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
         len(results["std_check"]) if isinstance(results["std_check"], list) else 0,
