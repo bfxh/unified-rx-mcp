@@ -480,5 +480,11 @@ def ide_actions(path: str) -> dict:
                 "note": "目录批量模式：每文件≤20 建议，文件≤50，总≤200"}
     # 单文件（向后兼容：file/actions/count 字段不变）
     actions = _actions_for_file(path)
+    # IDE 增强 112：kind 分布（safety/cleanup/correctness 计数——修复
+    # 优先级一眼可见）
+    _kinds: dict[str, int] = {}
+    for a in actions:
+        _k = str(a.get("kind", "")) or "other"
+        _kinds[_k] = _kinds.get(_k, 0) + 1
     return {"ok": True, "file": path, "actions": actions,
-            "count": len(actions)}
+            "count": len(actions), "kind_counts": _kinds}
