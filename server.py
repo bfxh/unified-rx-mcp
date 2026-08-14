@@ -2753,6 +2753,17 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False))]
     result["goal"] = goal
     result["candidates_found"] = len(candidates)
+    # IDE 增强 151：探索结果提示（best 文件 + 命中密度）
+    _best = result.get("best", "")
+    if _best:
+        # 先 basename 再剥 :行号（Windows 盘符在 basename 前已被消化——
+        # 对完整路径做任何 split(':') 都会切掉盘符，探针两轮抓出）
+        _bn = os.path.basename(str(_best)).rsplit(":", 1)[0]
+        result["advice"] = (f"最优候选：{_bn}"
+                            f"（深度 {result.get('stats', {}).get('depth_reached', '?')}）"
+                            f"——先读该文件再决策")
+    else:
+        result["advice"] = "未找到高相关候选——换关键词或扩大 root"
     return [_TC(json.dumps(result, ensure_ascii=False, indent=2))]
 
 
