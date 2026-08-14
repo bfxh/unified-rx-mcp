@@ -173,7 +173,8 @@ def _scan_ui_hardcode(path: str, src: str, issues: list, limit: int):
 
 
 def _scan_magic_number(path: str, src: str, issues: list, limit: int):
-    if not (path.endswith((".py", ".rs", ".go"))):
+    # IDE 增强 106：支持 .ts/.js（前端代码魔法数字同样要查）
+    if not (path.endswith((".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx"))):
         return
     count = 0
     lines = src.splitlines()
@@ -187,7 +188,8 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
             line_txt = ""
         # 修复（自扫抓出 2026-08-14）：整行注释里的数字不报
         # （SPDX 版权年份/版本注释——非魔法数字）
-        _cp = "#" if path.endswith(".py") else ("//" if path.endswith((".rs", ".go")) else "")
+        _cp = "#" if path.endswith(".py") else (
+            "//" if path.endswith((".rs", ".go", ".ts", ".tsx", ".js", ".jsx")) else "")
         if _cp and line_txt.lstrip().startswith(_cp):
             continue
         if "Val::Px" in line_txt or "Val::Percent" in line_txt \
