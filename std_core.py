@@ -117,6 +117,35 @@ def _scan_text_placeholder(path: str, src: str, issues: list, limit: int, todo_c
 
 def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
     if not (path.endswith(".py")):
+        # IDE 增强 108：ts/js/tsx/jsx 文本启发——模块级重复声明
+        # （function/class/const/let/var 同名 → 重复定义）
+        if path.endswith((".ts", ".tsx", ".js", ".jsx")):
+            count = 0
+            seen: dict = {}
+            for i, line in enumerate(src.splitlines(), 1):
+                if line.lstrip().startswith("//"):
+                    continue
+                m = re.match(
+                    r"\s*(?:export\s+default\s+|export\s+)?"
+                    r"(?:function\s+([A-Za-z_$][\w$]*)|class\s+([A-Za-z_$][\w$]*)|"
+                    r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:function|class|\(|\{|[A-Za-z_$]))",
+                    line)
+                if not m:
+                    continue
+                name = next((g for g in m.groups() if g), "")
+                if not name:
+                    continue
+                if name in seen:
+                    issues.append({
+                        "file": path, "line": i, "rule": "name_conflict",
+                        "severity": "Warning",
+                        "msg": f"重复定义 {name}（首次在行 {seen[name]}）",
+                    })
+                    count += 1
+                    if count >= limit:
+                        return
+                else:
+                    seen[name] = i
         return
     try:
         tree = ast.parse(src)
