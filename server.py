@@ -1889,6 +1889,18 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
                  "warn 为需审查项——参考 SCAN_QUALITY_ISSUES.md"),
         "issues": issues,
     }
+    # IDE 增强 148：最严重 bug 提示（error 优先——确定性缺陷先修）
+    _errs = [i for i in issues
+             if str(i.get("severity", "")).lower() in ("error", "critical")]
+    if _errs:
+        _e = _errs[0]
+        result["advice"] = (f"最优先：{os.path.basename(str(_e.get('file', '')))}:"
+                            f"{_e.get('line')} [{_e.get('rule')}] "
+                            f"{str(_e.get('msg', ''))[:40]}（共 {len(_errs)} 条 error）")
+    elif issues:
+        result["advice"] = "无 error——按 warn 分布排查（多数为需审查项）"
+    else:
+        result["advice"] = "无问题"
     # 单文件成功结果入缓存（幂等只读；mtime/size 变了自动失效）
     if p.is_file():
         try:
