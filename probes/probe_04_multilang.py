@@ -322,3 +322,23 @@ def p29():
     if {"debug_residue", "dynamic_abuse", "unsafe_cast"} <= rules:
         return True, f"dart 三规则检出: {sorted(rules)}"
     return False, f"dart 应三规则: {rules}"
+
+
+@probe("p30_ui_check_dart_flutter")
+def p30():
+    """ui_check Flutter 死按钮（274）。"""
+    dart_file = os.path.join(_TMP, "sample_flutter.dart")
+    with open(dart_file, "w", encoding="utf-8") as f:
+        f.write("class App extends StatelessWidget {\n"
+                "  Widget build(BuildContext c) {\n"
+                "    return TextButton(\n"
+                "      child: Text('Start'),\n"
+                "    );\n"
+                "  }\n"
+                "}\n")
+    out = S._call("ui_check", {"path": dart_file})
+    data = json.loads(out[0].text)
+    ni = [i for i in data.get("issues", []) if i.get("rule") == "no_interaction"]
+    if ni:
+        return True, f"Flutter 死按钮检出 L{ni[0]['line']}"
+    return False, f"Flutter 死按钮应检出: {data}"

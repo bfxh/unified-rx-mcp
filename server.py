@@ -3177,6 +3177,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         # IDE 增强 268：cs/lua/sh 代码词（游戏脚本/CI 探索）
         "类": "class", "函数": "function", "方法": "method", "脚本": "script",
         "按钮": "button", "点击": "click", "构建": "build", "部署": "deploy",
+        # IDE 增强 275：Flutter/UI 词（控件/界面/布局/导航/主题/状态）
+        "控件": "widget", "界面": "ui", "布局": "layout", "导航": "navigate",
+        "主题": "theme", "状态": "state", "动画": "animation", "页面": "page",
         # IDE 增强 163：游戏/交互常用词（背包/商店/对话/升级/瞄准/射击等）
         "背包": "inventory", "商店": "shop", "对话": "dialog", "升级": "upgrade",
         "瞄准": "aim", "射击": "shoot", "跳跃": "jump", "移动": "move",
