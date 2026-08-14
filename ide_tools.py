@@ -180,7 +180,35 @@ def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20,
     - items 保持字符串列表（向后兼容）
     """
     if not prefix:
-        return {"ok": True, "items": [], "note": "空前缀"}
+        # 清单 C（IDE 增强九十三）：空前缀 → 声明符号浏览（补全体验——
+        # 输入空也能看到库里有什么符号，按行号/名字排序取 limit）
+        exts = (".rs", ".py", ".ts", ".js", ".c", ".h", ".cpp", ".hpp", ".gd")
+        decls: dict[str, dict] = {}
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames
+                           if d not in ("target", "node_modules", ".git", "release")]
+            for fn in filenames:
+                if not fn.endswith(exts):
+                    continue
+                p = os.path.join(dirpath, fn)
+                try:
+                    with open(p, encoding="utf-8", errors="replace") as f:
+                        text = f.read()
+                except OSError:
+                    continue
+                for i, line in enumerate(text.splitlines(), 1):
+                    m = _DECL_RE.match(line)
+                    if m:
+                        name = m.group(1)
+                        if name not in decls:
+                            decls[name] = {"name": name, "kind": "decl",
+                                           "file": p, "line": i}
+        ranked = sorted(decls.values(),
+                        key=lambda c: (c["line"], c["name"]))[:max(limit, 1)]
+        return {"ok": True, "prefix": "", "items": [c["name"] for c in ranked],
+                "detailed": ranked, "count": len(ranked),
+                "match_mode": "browse",
+                "note": "空前缀 → 声明符号浏览（库里有什么一目了然）"}
     prefix_re = re.compile(rf"\b{re.escape(prefix)}{_IDENT_RE}")
     # 子串匹配：先匹配"含 prefix 的标识符片段"（[A-Za-z0-9_]* 允许 _ 前导——
     # compute_area 中 area 前是 _），再向左右扩展成完整符号名（防 \b 挡中间子串、
