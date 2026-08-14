@@ -3451,6 +3451,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "香料": "spice", "调料": "seasoning", "盐": "salt", "糖": "sugar",
         # IDE 增强 386：基地词（营地/前哨/据点/总部/避难所/定居点/哨站/基地）
         "营地": "camp", "前哨": "outpost", "据点": "stronghold", "总部": "hq",
+        # IDE 增强 387：状态词（中毒/流血/烧伤/感染/辐射/眩晕/冰冻/麻痹）
+        "中毒": "poison", "流血": "bleed", "烧伤": "burn", "感染": "infection",
+        "辐射": "radiation", "眩晕": "stun", "冰冻": "freeze", "麻痹": "paralyze",
         "避难所": "shelter", "定居点": "settlement", "哨站": "post", "基地": "base",
         "油": "oil", "酱汁": "sauce", "醋": "vinegar", "胡椒": "pepper",
         "零件": "part", "部件": "assembly", "电路": "circuit", "芯片": "chip",
