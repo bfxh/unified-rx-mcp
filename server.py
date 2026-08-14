@@ -3376,6 +3376,8 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
     max_files = int(args.get("max_files", 200))
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
+    # IDE 增强 175：规则过滤（rules 逗号分隔——对称 std_check 173/bug_scan 174）
+    _only = {s.strip() for s in str(args.get("rules", "")).split(",") if s.strip()}
     try:
         from cb_index_core import scan_repo
     except ImportError:
@@ -3383,6 +3385,11 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
         sys.path.insert(0, _dir)
         from cb_index_core import scan_repo  # noqa: F811
     result = scan_repo(str(p), max_files=max_files)
+    # IDE 增强 175：规则过滤应用
+    if _only:
+        result["issues"] = [i for i in result.get("issues", [])
+                            if i.get("rule") in _only]
+        result["issue_count"] = len(result["issues"])
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
