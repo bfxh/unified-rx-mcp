@@ -1199,6 +1199,19 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
         })
     except Exception:  # 尽力而为
         pass
+    # IDE 增强 139：最严重项目提示（各项目 advice 汇总取 error 最多者）
+    _worst_proj = ""
+    _best_adv = ""
+    for p in results.get("projects", []):
+        _res = p.get("result", {})
+        _det = _res.get("detail", {}) if isinstance(_res, dict) else {}
+        _adv = _det.get("advice", "") if isinstance(_det, dict) else ""
+        if _adv and "最优先" in _adv:
+            _worst_proj = os.path.basename(str(p.get("root", "")).rstrip("/\\"))
+            _best_adv = _adv
+            break
+    results["advice"] = (_worst_proj and f"最严重项目：{_worst_proj}——{_best_adv}") \
+        or "各项目无 error 级问题"
     return [_tr(True, "full_scan 完成(并发 %d 项目): ok=%d errors=%d" % (
         len(roots), len(results["projects"]), len(results["errors"])), results)]
 
