@@ -633,7 +633,9 @@ def _inject(args, ctx: dict):
     if isinstance(args, list):
         return [_inject(v, ctx) for v in args]
     if isinstance(args, str) and args.startswith("${") and args.endswith("}"):
-        return ctx.get(args[2:-1], args)
+        # IDE 增强 179：缺失键 → 空串（原样返回 `${key}` 字面量会污染
+        # 工具参数——如 rules="${rules}" 会把字面量当规则名过滤）
+        return ctx.get(args[2:-1], "")
     return args
 
 
@@ -643,15 +645,19 @@ _PIPELINE_PRESETS: dict[str, list[dict]] = {
     # 仓库审计：索引 → 状态 → 漏洞 → 工程标准（4 步 1 次调用）
     "audit_repo": [
         {"tool": "cb_status", "args": {"path": "${path}"}, "as": "index"},
-        {"tool": "bug_scan", "args": {"path": "${path}", "max_files": 100}, "as": "bugs"},
-        {"tool": "std_check", "args": {"path": "${path}", "max_files": 100}, "as": "std"},
-        {"tool": "vuln_scan", "args": {"path": "${path}", "max_files": 100}, "as": "vuln"},
+        {"tool": "bug_scan", "args": {"path": "${path}", "max_files": 100,
+                                      "rules": "${rules}"}, "as": "bugs"},
+        {"tool": "std_check", "args": {"path": "${path}", "max_files": 100,
+                                       "rules": "${rules}"}, "as": "std"},
+        {"tool": "vuln_scan", "args": {"path": "${path}", "max_files": 100,
+                                       "rules": "${rules}"}, "as": "vuln"},
     ],
     # 挖漏洞默认链（2026-08-13 M1）：生产危险规则 → Python bug → 质量后端 → 符号聚合
     # 智能体做任何改动默认先跑——不用问用户"要不要扫描"
     "bug_hunt": [
         {"tool": "rust_scan", "args": {"path": "${path}"}, "as": "panic"},
-        {"tool": "bug_scan", "args": {"path": "${path}", "max_files": 100}, "as": "bugs"},
+        {"tool": "bug_scan", "args": {"path": "${path}", "max_files": 100,
+                                      "rules": "${rules}"}, "as": "bugs"},
         {"tool": "quality_scan", "args": {"path": "${path}", "max_files": 100}, "as": "quality"},
         {"tool": "ide_fusion", "args": {"path": "${path}"}, "as": "annotated"},
     ],
