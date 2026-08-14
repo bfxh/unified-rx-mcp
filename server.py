@@ -895,10 +895,11 @@ def _tool_repo_graph(args: dict) -> str:
     depth = min(int(args.get("depth", 3)), 6)
     top = min(int(args.get("top", 10)), 50)
     # IDE 增强 172（安全）：root/file 过 _check_path 沙盒校验（防越界
-    # 符号图索引/影响面分析读取沙盒外文件）
-    root = _check_path(root)
+    # 符号图索引/影响面分析读取沙盒外文件）；转 str 防 WindowsPath
+    # 序列化失败（探针 201 抓出：impact 的 affected 含 WindowsPath）
+    root = str(_check_path(root))
     if file:
-        file = _check_path(file)
+        file = str(_check_path(file))
     if not root or not os.path.isdir(root):
         raise ValueError(f"root 必须存在: {root}")
     try:
@@ -941,7 +942,12 @@ def _tool_repo_graph(args: dict) -> str:
             hits = gi.impact(fpath, depth=depth)
             return json.dumps({"ok": True, "query": "impact", "file": file,
                                "depth": depth, "count": len(hits), "affected": hits,
-                               "index": stats}, ensure_ascii=False, indent=2)
+                               "index": stats,
+                               # IDE 增强 201：影响面建议（改动前评估范围）
+                               "advice": (f"影响 {len(hits)} 个文件（深度 {depth}）——"
+                                          f"改动前先过一遍，防连带破坏"
+                                          if hits else "无影响文件——改动安全")},
+                              ensure_ascii=False, indent=2)
         if query == "hubs":
             hits = gi.hubs(top=top)
             return json.dumps({"ok": True, "query": "hubs", "count": len(hits),
