@@ -2183,7 +2183,10 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
              (r"\bmysql_query\s*\(", "unsafe_sql", "warning",
               "mysql_query 直接拼接（SQL 注入风险——建议 PDO 预处理）"),
              (r"(?<![=!<>])==(?!=)", "loose_eq", "warning",
-              "== 宽松比较（PHP 类型强转坑——建议 === 严格比较）")],
+              "== 宽松比较（PHP 类型强转坑——建议 === 严格比较）"),
+             (r"\$_(?:GET|POST|REQUEST|COOKIE)\s*\[", "unsanitized_input", "warning",
+              "超全局输入直接使用（$_GET/$_POST 未过滤——XSS/SQL 注入风险，"
+              "建议 filter_input/htmlspecialchars/预处理）")],
     ".rb": [(r"\bputs\s+|\bp\s+", "debug_residue", "warning",
              "调试残留（puts/p——建议删或转日志）"),
             (r"\beval\s*\(", "dynamic_exec", "error",
