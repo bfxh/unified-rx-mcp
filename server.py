@@ -1116,6 +1116,7 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
     from concurrent.futures import ThreadPoolExecutor, as_completed
     path = args["path"]
     max_files = int(args.get("max_files", 100))
+    _t0 = time.perf_counter()
     # IDE 增强 176：rules 透传（三路都过滤——对称 std_check 173/bug_scan 174/cb_scan 175）
     _only = str(args.get("rules", ""))
     results = {"path": path, "bug_scan": [], "std_check": [], "ui_check": [], "errors": []}
@@ -1154,6 +1155,8 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
         if isinstance(_sub, dict):
             _ar |= set(_sub.get("available_rules", []) or [])
     results["available_rules"] = sorted(_ar)
+    # IDE 增强 241：聚合耗时（ms——聚合入口收官）
+    results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_tr(True, "vuln_scan 完成(并行): bug=%d std=%d ui=%d" % (
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
         len(results["std_check"]) if isinstance(results["std_check"], list) else 0,
