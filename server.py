@@ -3292,6 +3292,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "测试": "test", "断言": "assert", "模拟": "mock", "覆盖率": "coverage",
         "基准": "benchmark", "调试": "debug", "日志": "log", "性能": "performance",
         "特征": "feature", "权重": "weight", "损失": "loss", "梯度": "gradient",
+        # IDE 增强 305：安全词（权限/认证/加密/令牌/密钥——中文目标直达安全代码）
+        "权限": "permission", "认证": "auth", "加密": "encrypt", "令牌": "token",
+        "密钥": "secret", "签名": "signature", "校验": "verify", "防火墙": "firewall",
         "像素": "pixel", "触摸": "touch", "手势": "gesture", "滚动": "scroll",
         # IDE 增强 275：Flutter/UI 词（控件/界面/布局/导航/主题/状态）
         "控件": "widget", "界面": "ui", "布局": "layout", "导航": "navigate",
@@ -3304,6 +3307,11 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
     for g in list(goals):
         if g in _SYN:
             goals.append(_SYN[g])
+    # IDE 增强 305：中文复合词子串映射（"校验令牌" 无空格——
+    # _SYN 的键作为子串出现也映射——中文目标直达安全/业务代码）
+    for _k, _v in _SYN.items():
+        if _k in goal and _v not in goals:
+            goals.append(_v)
 
     # 预扫：目标词相关文件作为起始候选
     import re as _re
