@@ -2076,7 +2076,9 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
             (r"setTimeout\s*\(\s*['\"]", "string_exec", "warning",
              "setTimeout 字符串参数（eval 变体——建议传函数引用）"),
             (r"\bvar\s+[A-Za-z_$][\w$]*", "var_leak", "info",
-             "var 声明（函数级作用域泄漏——建议 let/const 块级）")],
+             "var 声明（函数级作用域泄漏——建议 let/const 块级）"),
+            (r"\bparseInt\s*\(\s*[A-Za-z_$][\w$]*\s*\)", "parseint_radix", "warning",
+             "parseInt 无基数（旧引擎 '08' 解析为 0——建议 parseInt(x, 10)")],
     ".jsx": [(r"console\.log\s*\(", "debug_residue", "warning",
               "调试残留（console.log——建议删或转日志）"),
              (r"\beval\s*\(", "dynamic_exec", "error",
@@ -3311,6 +3313,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "监控": "monitor", "指标": "metric", "告警": "alert", "健康检查": "health",
         # IDE 增强 315：时间/调度词（日期/时间/定时/调度/时区/延迟）
         "日期": "date", "时间": "time", "定时": "schedule", "调度": "cron",
+        # IDE 增强 318：格式/编解码词（解析/序列化/编码/解码/压缩）
+        "解析": "parse", "序列化": "serialize", "编码": "encode", "解码": "decode",
+        "压缩": "compress", "格式化": "format", "校验和": "checksum", "转换": "convert",
         "时区": "timezone", "延迟": "delay", "期限": "deadline", "超时": "timeout",
         "降级": "degrade", "熔断": "circuit", "限流": "ratelimit", "灰度": "canary",
         "重试": "retry", "取消": "cancel", "刷新": "refresh", "提示": "toast",
