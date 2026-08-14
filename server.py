@@ -2127,7 +2127,10 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
             (r"\bthrow\s+new\s+Exception\s*\(", "bare_throw", "warning",
              "裸 throw new Exception（应抛具体异常类型——建议 ArgumentException 等）"),
             (r"\(\s*(?:string|int|long|double|float|bool|object)\s*\)\s*[A-Za-z_]", "unsafe_cast", "warning",
-             "(T)x 强制转换（类型不匹配时抛 InvalidCastException——建议 as 安全转换或 is 检查）")],
+             "(T)x 强制转换（类型不匹配时抛 InvalidCastException——建议 as 安全转换或 is 检查）"),
+            (r"\basync\s+void\s+[A-Za-z_]\w*\s*\(", "async_void", "warning",
+             "async void（异常不可捕获——崩溃直接冒泡到线程；"
+             "建议 async Task，仅事件处理器除外）")],
     ".lua": [(r"\bprint\s*\(", "debug_residue", "warning",
               "调试残留（print——建议删或转日志）"),
              (r"\bos\.execute\s*\(", "shell_injection", "error",
