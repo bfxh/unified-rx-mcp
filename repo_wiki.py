@@ -15,6 +15,7 @@
   供 server.repo_wiki 工具调用（AI 一次调用"看全"仓库）。
 """
 import os
+import time
 from collections import Counter, defaultdict
 
 try:
@@ -38,6 +39,7 @@ def _module_name(file: str, root: str) -> str:
 
 def generate_wiki(root: str, out_path: str, top: int = 15) -> dict:
     """生成代码库 Wiki markdown 并落盘。返回统计。"""
+    _t0 = time.perf_counter()
     if not os.path.isdir(root):
         raise ValueError(f"root 不存在: {root}")
     idx_dir = os.path.join(root, ".unified-rx-index")
@@ -131,4 +133,6 @@ def generate_wiki(root: str, out_path: str, top: int = 15) -> dict:
                        f"{hubs[0]['name'] if hubs else '无'}），改动前先看调用方"
                        if md else "WIKI 生成失败"),
             # IDE 增强 217：依赖密集模块（edges 最多——改动影响面最大）
-            "most_depended": _most_dep}
+            "most_depended": _most_dep,
+            # IDE 增强 233：生成耗时（ms——性能可见收官）
+            "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1)}
