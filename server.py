@@ -3453,6 +3453,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "营地": "camp", "前哨": "outpost", "据点": "stronghold", "总部": "hq",
         # IDE 增强 387：状态词（中毒/流血/烧伤/感染/辐射/眩晕/冰冻/麻痹）
         "中毒": "poison", "流血": "bleed", "烧伤": "burn", "感染": "infection",
+        # IDE 增强 388：机械零件词（齿轮/轴承/弹簧/螺丝/皮带/链条/活塞/飞轮）
+        "齿轮": "gear", "轴承": "bearing", "弹簧": "spring", "螺丝": "screw",
+        "皮带": "belt", "链条": "chain", "活塞": "piston", "飞轮": "flywheel",
         "辐射": "radiation", "眩晕": "stun", "冰冻": "freeze", "麻痹": "paralyze",
         "避难所": "shelter", "定居点": "settlement", "哨站": "post", "基地": "base",
         "油": "oil", "酱汁": "sauce", "醋": "vinegar", "胡椒": "pepper",
