@@ -21,8 +21,15 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from pathlib import Path
+
+# 并发安全（2026-08-14 高并发压力测试抓出）：多线程（自扫循环 + vuln_scan
+# 3 路 + project_scan 4 路 + parallel 8 路）并发 append 同一 JSONL——
+# 无锁时 append 与 _truncate 的 read→replace 竞态丢行（实测 1600 丢 47）。
+# 锁覆盖 append + truncate 整段（append 单行 + truncate 仅在超限时——开销可接受）。
+_append_lock = threading.Lock()
 
 # 日志上限（防膨胀：超过则截断保留最近 N 条）
 _MAX_LOG_LINES = 2000
@@ -60,9 +67,10 @@ def append_scan(entry: dict) -> None:
             "ok": bool(entry.get("ok", True)),
             "summary": entry.get("summary", ""),
         }
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        _truncate(path)
+        with _append_lock:  # 并发安全：append + truncate 原子段（防丢行）
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            _truncate(path)
     except Exception:  # 尽力而为
         pass  # 日志失败不影响扫描
 

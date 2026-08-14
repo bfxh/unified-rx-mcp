@@ -14,6 +14,7 @@
 
 import json
 import os
+import threading
 import time
 
 _FILENAME = "design.json"
@@ -24,6 +25,11 @@ KINDS = ("settled", "adjustable", "doubts")
 
 def _path(root: str) -> str:
     return os.path.join(root, _DIR, _FILENAME)
+
+
+# 并发安全（2026-08-14 高并发压力测试抓出）：add_note 的读-改-写整文件
+# 无锁时并发丢数据（实测 400 丢 398）——锁覆盖 add/delete 的 read-modify-write。
+_note_lock = threading.Lock()
 
 
 def _load(root: str) -> dict:
@@ -37,8 +43,10 @@ def _load(root: str) -> dict:
 
 def _save(root: str, data: dict) -> None:
     os.makedirs(os.path.dirname(_path(root)), exist_ok=True)
-    with open(_path(root), "w", encoding="utf-8") as f:
+    tmp = _path(root) + f".tmp{os.getpid()}"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, _path(root))  # 原子替换（崩溃不留半截 JSON）
 
 
 def add_note(root: str, kind: str, text: str, tag: str = "") -> dict:
@@ -46,12 +54,13 @@ def add_note(root: str, kind: str, text: str, tag: str = "") -> dict:
         return {"ok": False, "error": f"kind 需在 {KINDS}，收到 {kind}"}
     if not root or not os.path.isdir(root):
         return {"ok": False, "error": f"目录不存在: {root}"}
-    data = _load(root)
     rec = {"text": text, "ts": time.time()}
     if tag:
         rec["tag"] = tag
-    data[kind].append(rec)
-    _save(root, data)
+    with _note_lock:  # 并发安全：读-改-写原子段（防丢数据）
+        data = _load(root)
+        data[kind].append(rec)
+        _save(root, data)
     return {"ok": True, "kind": kind, "note": rec,
             "counts": {k: len(v) for k, v in data.items()}}
 

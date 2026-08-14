@@ -5399,6 +5399,9 @@ _EXT_BASE = next(
     _EXT_BASE_CANDIDATES[0],
 )
 _EXT_LOADED: dict[str, object] = {}
+# 并发安全（2026-08-14 高并发压力测试）：多线程首次并发加载同一扩展——
+# 无锁时双重 exec_module（重复注册/浪费）——检查-加载-写入原子段。
+_EXT_LOAD_LOCK = threading.Lock()
 
 
 def _load_ext(label: str) -> object | None:
@@ -5409,10 +5412,13 @@ def _load_ext(label: str) -> object | None:
         spec = _ilu.spec_from_file_location(f"unifiedrx_{label}", path)
         if spec is None or spec.loader is None:
             return None
-        mod = _ilu.module_from_spec(spec)
-        sys.modules[spec.name] = mod
-        spec.loader.exec_module(mod)
-        _EXT_LOADED[label] = mod
+        with _EXT_LOAD_LOCK:
+            if label in _EXT_LOADED:  # 双检：等待锁期间可能已被加载
+                return _EXT_LOADED[label]
+            mod = _ilu.module_from_spec(spec)
+            sys.modules[spec.name] = mod
+            spec.loader.exec_module(mod)
+            _EXT_LOADED[label] = mod
         return mod
     except Exception as exc:
         print(f"[unified-rx] WARNING: 扩展 {label} 加载失败: {type(exc).__name__}: {exc}",
