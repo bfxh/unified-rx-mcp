@@ -3233,6 +3233,14 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
     for i in issues:
         _r = str(i.get("rule", "unknown"))
         _rule_counts[_r] = _rule_counts.get(_r, 0) + 1
+    # IDE 增强 203：问题最多文件（worst_file 用）
+    _worst_f, _worst_n = "", 0
+    if issues:
+        _fc: dict[str, int] = {}
+        for i in issues:
+            _k = str(i.get("file", ""))
+            _fc[_k] = _fc.get(_k, 0) + 1
+        _worst_f, _worst_n = max(_fc.items(), key=lambda kv: kv[1])
     # IDE 增强 188：可用规则列表（rules= 可传哪些——四大单入口收官）
     _ar = sorted(set(_rule_counts) | {"ui_root_missing", "camera_missing",
                                       "mode_isolation", "focus_pass",
@@ -3249,6 +3257,9 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
                    f"{issues[0].get('line')} [{issues[0].get('rule')}] "
                    f"{str(issues[0].get('msg', ''))[:40]}"
                    if issues else "无 UI 问题"),
+        # IDE 增强 203：问题最多文件（集中修复入口——先处理最脏文件）
+        "worst_file": (f"{os.path.basename(str(_worst_f))}（{_worst_n} 条问题）"
+                       if issues else ""),
         "note": "severity 已归一化（warning→warn）；noise_ratio=info 占比",
         "issues": issues,
     }, ensure_ascii=False))]
