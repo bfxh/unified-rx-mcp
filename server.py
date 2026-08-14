@@ -3369,6 +3369,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "势力": "faction", "阵营": "alignment", "声望": "reputation", "友好": "friendly",
         # IDE 增强 345：剧情词（剧情/对话/台词/演出/过场/叙事/剧本/镜头）
         "剧情": "story", "对话": "dialogue", "台词": "line", "演出": "scene",
+        # IDE 增强 346：系统词（系统/内核/引擎/插件/框架/运行时/驱动/接口）
+        "系统": "system", "内核": "kernel", "引擎": "engine", "插件": "plugin",
+        "框架": "framework", "运行时": "runtime", "驱动": "driver", "接口": "interface",
         "过场": "cutscene", "叙事": "narrative", "剧本": "script", "镜头": "camera",
         "敌对": "hostile", "联盟": "alliance", "关系": "relation", "招募": "recruit",
         "价格": "price", "商人": "merchant", "货币": "currency", "买卖": "buy",
