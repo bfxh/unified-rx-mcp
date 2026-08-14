@@ -3499,6 +3499,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "蜡烛": "candle", "肥皂": "soap", "牙刷": "toothbrush", "毛巾": "towel",
         # IDE 增强 410：自动化词（自动化/远程控制/监控/警报/传感器/联动/程序控制）
         "自动化": "automation", "远程控制": "remote", "监控": "monitor", "警报": "alarm",
+        # IDE 增强 411：运输方式词（空运/海运/陆运/管道运输/快递/货运/客运/配送）
+        "空运": "airlift", "海运": "shipping", "陆运": "ground", "管道运输": "pipeline",
+        "快递": "express", "货运": "freight", "客运": "passenger", "配送": "delivery",
         "传感器": "sensor", "联动": "interlock", "程序控制": "logic", "配电": "distribution",
         "毯子": "blanket", "灯油": "lampoil", "水壶": "kettle", "餐具": "cutlery",
         "边界": "border", "缓冲带": "buffer", "市中心": "downtown", "郊区": "suburb",
