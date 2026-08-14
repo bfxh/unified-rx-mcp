@@ -1263,6 +1263,7 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
     from concurrent.futures import ThreadPoolExecutor, as_completed
     roots = args.get("roots") or _FULL_SCAN_DEFAULT_ROOTS
     auto_roots = not args.get("roots")  # 未显式传 roots = 自动默认（过排除清单）
+    _t0 = time.perf_counter()
     max_files = int(args.get("max_files", 100))
     ui = bool(args.get("ui", True))
     # IDE 增强 178：rules 透传（每项目 project_scan 都过滤——多项目入口收官）
@@ -1319,6 +1320,8 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
         if isinstance(_det, dict):
             _ar |= set(_det.get("available_rules", []) or [])
     results["available_rules"] = sorted(_ar)
+    # IDE 增强 243：聚合耗时（ms——多项目聚合收官）
+    results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_tr(True, "full_scan 完成(并发 %d 项目): ok=%d errors=%d" % (
         len(roots), len(results["projects"]), len(results["errors"])), results)]
 
