@@ -182,8 +182,13 @@ def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20,
     if not prefix:
         # 清单 C（IDE 增强九十三）：空前缀 → 声明符号浏览（补全体验——
         # 输入空也能看到库里有什么符号，按行号/名字排序取 limit）
+        # IDE 增强九十四：文件数上限（防大仓库读全库耗 token——浏览够用即可，
+        # 达到上限提前退出并标记 truncated）
         exts = (".rs", ".py", ".ts", ".js", ".c", ".h", ".cpp", ".hpp", ".gd")
         decls: dict[str, dict] = {}
+        _files_scanned = 0
+        _MAX_BROWSE_FILES = 200
+        _browse_truncated = False
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames
                            if d not in ("target", "node_modules", ".git", "release")]
@@ -191,6 +196,10 @@ def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20,
                 if not fn.endswith(exts):
                     continue
                 p = os.path.join(dirpath, fn)
+                _files_scanned += 1
+                if _files_scanned > _MAX_BROWSE_FILES:
+                    _browse_truncated = True
+                    break
                 try:
                     with open(p, encoding="utf-8", errors="replace") as f:
                         text = f.read()
@@ -203,12 +212,16 @@ def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20,
                         if name not in decls:
                             decls[name] = {"name": name, "kind": "decl",
                                            "file": p, "line": i}
+            if _browse_truncated:
+                break
         ranked = sorted(decls.values(),
                         key=lambda c: (c["line"], c["name"]))[:max(limit, 1)]
         return {"ok": True, "prefix": "", "items": [c["name"] for c in ranked],
                 "detailed": ranked, "count": len(ranked),
                 "match_mode": "browse",
-                "note": "空前缀 → 声明符号浏览（库里有什么一目了然）"}
+                "truncated": _browse_truncated,
+                "note": "空前缀 → 声明符号浏览（库里有什么一目了然；"
+                        f"大仓库最多扫 {_MAX_BROWSE_FILES} 个文件防耗 token）"}
     prefix_re = re.compile(rf"\b{re.escape(prefix)}{_IDENT_RE}")
     # 子串匹配：先匹配"含 prefix 的标识符片段"（[A-Za-z0-9_]* 允许 _ 前导——
     # compute_area 中 area 前是 _），再向左右扩展成完整符号名（防 \b 挡中间子串、
