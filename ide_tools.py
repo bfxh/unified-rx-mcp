@@ -387,6 +387,15 @@ def _actions_for_file(file_path: str) -> list[dict]:
                 "detail": f"`{s[:60]}` 待实现/待修复",
                 "kind": "cleanup",
             })
+        # IDE 增强 98：裸 panic!/todo!/unimplemented!（生产代码裸崩溃——
+        # 比 unwrap 更直接；测试文件豁免）
+        elif re.search(r"\b(panic!|todo!|unimplemented!)\s*\(", s) \
+                and "test" not in file_path.lower():
+            actions.append({
+                "line": i, "title": "裸 panic!/todo!/unimplemented!",
+                "detail": f"`{s[:60]}` 生产代码裸崩溃/占位——建议返回 Result 或显式错误处理",
+                "kind": "safety",
+            })
         elif is_python and ("except" in s and _EXCEPT_PASS_RE.match(s)
                             or _NEXT_LINE_PASS_RE.match(s)):
             actions.append({
