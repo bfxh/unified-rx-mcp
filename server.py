@@ -3435,6 +3435,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "砖块": "brick", "木板": "plank", "石材": "stone", "屋顶": "roof",
         # IDE 增强 378：建筑内部词（楼层/走廊/楼梯/门/窗/房间/天窗/壁炉）
         "楼层": "floor", "走廊": "corridor", "楼梯": "stairs", "门": "door",
+        # IDE 增强 379：矿业机器词（矿机/挖掘机/洗矿机/分拣机/压缩机/磨矿机）
+        "矿机": "miner", "挖掘机": "excavator", "洗矿机": "washer", "分拣机": "sorter",
+        "压缩机": "compressor", "磨矿机": "grinder", "筛矿机": "screen", "装填机": "loader",
         "窗": "window", "房间": "room", "天窗": "skylight", "壁炉": "fireplace",
         "地基": "foundation", "墙板": "wall", "横梁": "beam", "脚手架": "scaffold",
         "煎": "fry", "烤": "roast", "炖": "stew", "烘焙": "bake",
