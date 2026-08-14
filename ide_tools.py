@@ -415,6 +415,14 @@ def _actions_for_file(file_path: str) -> list[dict]:
                 "detail": f"`{s[:60]}` 生产代码调试输出——建议移除或转正式日志",
                 "kind": "cleanup",
             })
+        # IDE 增强 104：Python == None/!= None（应为 is None/is not None——
+        # 语义正确性：== 触发 __eq__ 可能误判）
+        elif is_python and re.search(r"(==|!=)\s*None\b", s):
+            actions.append({
+                "line": i, "title": "== None 应为 is None",
+                "detail": f"`{s[:60]}` 建议 is None/is not None（== 可能触发 __eq__ 误判）",
+                "kind": "correctness",
+            })
         if len(actions) >= 20:
             break
     # IDE 增强三十五：相邻同规则建议合并（连续行同 title → 区间 + count）——
