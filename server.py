@@ -3076,6 +3076,23 @@ def _tool_design_note(args: dict) -> "list[types.TextContent]":
             r = add_note(root, kind, args.get("text", ""), args.get("tag", ""))
         elif action == "get":
             r = get_note(root, kind)
+        elif action == "search":
+            # IDE 增强 182：全文检索（query 在全部 notes 里搜——含 tag）
+            q = str(args.get("query", "")).strip().lower()
+            r = list_notes(root)
+            if r.get("ok"):
+                _hits = [n for n in r.get("recent", [])]  # 占位（recent 只 3 条）
+                _all = []
+                for _k in ("settled", "adjustable", "doubts"):
+                    for _n in r.get(_k, []):
+                        _all.append({"kind": _k, **{kk: v for kk, v in _n.items()
+                                                    if kk != "kind"}})
+                _hits = [n for n in _all
+                         if not q or q in str(n.get("text", "")).lower()
+                         or q in str(n.get("tag", "")).lower()]
+                r = {"ok": True, "root": root, "query": args.get("query", ""),
+                     "hits": _hits, "hit_count": len(_hits),
+                     "advice": f"{len(_hits)} 条命中（text/tag 含 '{args.get('query', '')}'）"}
         else:
             r = list_notes(root)
         return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
