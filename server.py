@@ -3623,6 +3623,7 @@ def _tool_cb_index(args: dict) -> "list[types.TextContent]":
     """代码库索引（认知层）：全库扫描构建/更新持久化索引（文件树+符号+哈希），
     返回变更感知（changed/added/removed）——工具知道代码库全貌和你改了哪。"""
     p = _check_path(str(args["path"]))
+    _t0 = time.perf_counter()
     try:
         from cb_index_core import index_repo
     except ImportError:
@@ -3630,6 +3631,8 @@ def _tool_cb_index(args: dict) -> "list[types.TextContent]":
         sys.path.insert(0, _dir)
         from cb_index_core import index_repo  # noqa: F811
     result = index_repo(str(p))
+    # IDE 增强 232：索引耗时（ms——索引构建性能可见收官）
+    result["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     # 剥离 files（符号表巨大，输出只需统计与变更；files 仅供 scan_repo 内部使用）
     result.pop("files", None)
     # IDE 增强 195：变更摘要建议（changed/added/removed 一眼可见——
