@@ -3659,6 +3659,7 @@ def _tool_cb_status(args: dict) -> "list[types.TextContent]":
 def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
     """全库扫描（认知层）：增量索引 + UI 规则全库扫描，变更优先排序。"""
     p = _check_path(str(args["path"]))
+    _t0 = time.perf_counter()
     max_files = int(args.get("max_files", 200))
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
@@ -3719,6 +3720,8 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
         _fr.setdefault(_f, {})
         _fr[_f][_r] = _fr[_f].get(_r, 0) + 1
     result["file_rules"] = dict(sorted(_fr.items())[:20])
+    # IDE 增强 229：扫描耗时（ms——扫描全入口收官 std 226/bug 227/ui 228/cb 229）
+    result["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
