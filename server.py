@@ -1749,7 +1749,7 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
         if p.suffix in (".py", ".rs"):
             files = [p]
         else:
-            raise ValueError(f"仅支持 Python/Rust 文件: {p}")
+            raise ValueError(f"仅支持 Python/Rust 文件（.py/.pyw/.rs）: {p}")
     elif p.is_dir():
         for root, _, names in os.walk(p):
             for name in sorted(names):
