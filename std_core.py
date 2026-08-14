@@ -212,6 +212,32 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
     仅 .py（AST 精确分析）；防误报：pass 函数带 docstring 或 raise 不算空实现。
     """
     if not path.endswith(".py"):
+        # IDE 增强 107：ts/js/tsx/jsx 文本启发——未使用 import
+        # （import { A, B } from / import A from；零引用 → 未使用）
+        if path.endswith((".ts", ".tsx", ".js", ".jsx")):
+            count = 0
+            for i, line in enumerate(src.splitlines(), 1):
+                if line.lstrip().startswith("//"):
+                    continue
+                m = re.search(
+                    r"\bimport\s+(?:type\s+)?(?:\{([^}]*)\}|([A-Za-z_$][\w$]*))"
+                    r"\s+from\s+", line)
+                if not m:
+                    continue
+                names = [n.strip() for n in
+                         (m.group(1) or m.group(2) or "").split(",") if n.strip()]
+                for name in names:
+                    name = name.split(" as ")[-1].strip()
+                    if not name:
+                        continue
+                    if len(re.findall(rf"\b{re.escape(name)}\b", src)) <= 1:
+                        issues.append({
+                            "rule": "dead_code", "severity": "Warning",
+                            "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
+                            "file": path})
+                        count += 1
+                        if count >= limit:
+                            return
         return
     try:
         tree = ast.parse(src)
