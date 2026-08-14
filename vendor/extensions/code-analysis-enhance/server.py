@@ -1250,11 +1250,14 @@ LSP_SERVER_CONFIG = {
     "python": ("pylsp", []),
     "typescript": ("typescript-language-server", ["--stdio"]),
     "javascript": ("typescript-language-server", ["--stdio"]),
-    "c": (r"C:\Program Files\LLVM\bin\clangd.exe", []),
-    "cpp": (r"C:\Program Files\LLVM\bin\clangd.exe", []),
-    # IDE 增强 465：go（gopls v0.23.0——Go 1.26.5 zip 工具链 D:\开发\go-toolchain
-    # 免安装；gopls 需要 GOROOT/GOPATH env——_lsp_spawn 注入）
-    "go": (r"D:\开发\go-toolchain\gopath\bin\gopls.exe", []),
+    # IDE 增强 472：工具路径 env 可覆盖（UNIFIED_RX_CLANGD/UNIFIED_RX_GOPLS）——
+    # 默认值保留本机路径（运行必需；换机/容器用 env 指向自己的工具链）
+    "c": (os.environ.get("UNIFIED_RX_CLANGD", r"C:\Program Files\LLVM\bin\clangd.exe"), []),
+    "cpp": (os.environ.get("UNIFIED_RX_CLANGD", r"C:\Program Files\LLVM\bin\clangd.exe"), []),
+    # IDE 增强 465：go（gopls v0.23.0——Go 1.26.5 zip 工具链免安装；
+    # gopls 需要 GOROOT/GOPATH env——_lsp_spawn 注入）
+    "go": (os.environ.get("UNIFIED_RX_GOPLS",
+                          r"D:\开发\go-toolchain\gopath\bin\gopls.exe"), []),
     # IDE 增强 465：vscode-langservers-extracted（css/html/json 配置类语言——
     # npm 全局已装；_command_available 校验后可用）
     "json": ("vscode-json-language-server", ["--stdio"]),
@@ -1313,9 +1316,10 @@ class _LspClient:
                      "GOPATH": r"D:\开发\go-toolchain\gopath",
                      "GOTMPDIR": r"D:\开发\go-toolchain\tmp",
                      "GOCACHE": r"D:\开发\go-toolchain\cache",
-                     # gopls 内部调 go 命令（go list 建 view）——PATH 必须含 go
-                     "PATH": os.environ.get("PATH", "")
-                             + r";D:\开发\go-toolchain\go\bin;D:\开发\go-toolchain\gopath\bin"}
+                     # gopls 内部调 go 命令（go list 建 view）——PATH 必须含 go；
+                     # security review 修复：工具链路径**前置**（防系统旧版 go 遮蔽）
+                     "PATH": r"D:\开发\go-toolchain\go\bin;D:\开发\go-toolchain\gopath\bin;"
+                             + os.environ.get("PATH", "")}
                     if command.endswith("gopls.exe") else {})},
         )
         self._msg_id = 0

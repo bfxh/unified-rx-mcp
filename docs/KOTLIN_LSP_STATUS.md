@@ -5,9 +5,9 @@
 ## ✅ 已完成（JDK 就绪）
 
 - **JDK 17（Microsoft OpenJDK 17.0.20 LTS）**：zip 免安装
-  - 路径：`D:\开发\jdk-toolchain\jdk-17.0.20+8`
+  - 路径：`%JDK_HOME%`
   - 验证：`.../bin/java -version` → `openjdk version "17.0.20" 2026-07-21 LTS` ✓
-- **KLS 源码**：`D:\开发\ktsrc\kotlin-language-server-1.3.12`（codeload 下载 1.4MB）
+- **KLS 源码**：`<ktsrc>/kotlin-language-server-1.3.12`（codeload 下载 1.4MB）
   - gradle wrapper 就绪（`gradlew.bat`）
 
 ## ⛔ 阻塞（网络 TLS 受限）
@@ -24,11 +24,11 @@
 # 方式 A：release zip（优先——免构建）
 curl -L -o ktserver.zip \
   "https://github.com/fwcd/kotlin-language-server/releases/download/1.3.12/kotlin-language-server-1.3.12.zip"
-unzip -q ktserver.zip -d D:\开发\kotlin-lsp
+unzip -q ktserver.zip -d <toolchain>/kotlin-lsp
 
 # 方式 B：源码构建（release 不可用时）
-cd D:\开发\ktsrc\kotlin-language-server-1.3.12
-set JAVA_HOME=D:\开发\jdk-toolchain\jdk-17.0.20+8
+cd <ktsrc>/kotlin-language-server-1.3.12
+set JAVA_HOME=%JDK_HOME%
 gradlew.bat --no-daemon -x test assemble
 # 产物：server/build/libs/kotlin-language-server-all.jar
 
