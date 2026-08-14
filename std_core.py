@@ -93,8 +93,18 @@ def _read(path: str) -> str | None:
 def _scan_text_placeholder(path: str, src: str, issues: list, limit: int, todo_count: list):
     count = 0
     todo_count[0] += len(_TODO_RE.findall(src))
+    lines = src.splitlines()
     for m in _TEXT_PLACEHOLDER_RE.finditer(src):
         line = src.count("\n", 0, m.start()) + 1
+        # 修复（自扫第三轮抓出）：整行注释里的占位词不报
+        # （示例 URL 说明/文档注释——非占位文字）
+        try:
+            line_txt = lines[line - 1]
+        except IndexError:
+            line_txt = ""
+        _cp = "#" if path.endswith(".py") else ("//" if path.endswith((".rs", ".go")) else "")
+        if _cp and line_txt.lstrip().startswith(_cp):
+            continue
         issues.append({
             "file": path, "line": line, "rule": "text_placeholder",
             "severity": "Suggestion",
