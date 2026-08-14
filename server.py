@@ -3473,6 +3473,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "降雨量": "rainfall", "风速": "windspeed", "气候": "climate", "季节变化": "seasonal",
         # IDE 增强 397：群落词（湿地/草原/苔原/热带/温带/海岸/礁石/冻土）
         "湿地": "wetland", "草原": "grassland", "苔原": "tundra", "热带": "tropical",
+        # IDE 增强 398：贸易品词（丝绸/瓷器/毛皮/珍珠/琥珀/香木/象牙/珊瑚）
+        "丝绸": "silk", "瓷器": "porcelain", "毛皮": "fur", "珍珠": "pearl",
+        "琥珀": "amber", "香木": "sandalwood", "象牙": "ivory", "珊瑚": "coral",
         "温带": "temperate", "海岸": "coast", "礁石": "reef", "冻土": "permafrost",
         "能见度": "visibility", "气压差": "pressuregrad", "湿度变化": "humidity", "风暴强度": "stormintensity",
         "沉船": "shipwreck", "宝箱": "treasure", "烽火台": "beacon", "地标": "landmark",
