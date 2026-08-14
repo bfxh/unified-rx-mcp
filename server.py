@@ -3439,6 +3439,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "矿机": "miner", "挖掘机": "excavator", "洗矿机": "washer", "分拣机": "sorter",
         # IDE 增强 380：食物词（面包/肉/蔬菜/水果/蘑菇/鱼干/蜂蜜/奶酪）
         "面包": "bread", "肉": "meat", "蔬菜": "vegetable", "水果": "fruit",
+        # IDE 增强 381：饮品词（饮料/啤酒/葡萄酒/咖啡/茶/烈酒/果汁/牛奶）
+        "饮料": "drink", "啤酒": "beer", "葡萄酒": "wine", "咖啡": "coffee",
+        "茶": "tea", "烈酒": "liquor", "果汁": "juice", "牛奶": "milk",
         "蘑菇": "mushroom", "鱼干": "jerky", "蜂蜜": "honey", "奶酪": "cheese",
         "压缩机": "compressor", "磨矿机": "grinder", "筛矿机": "screen", "装填机": "loader",
         "窗": "window", "房间": "room", "天窗": "skylight", "壁炉": "fireplace",
