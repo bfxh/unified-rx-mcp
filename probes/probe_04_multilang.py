@@ -102,3 +102,23 @@ def p18():
     if "dynamic_exec" in rules and "loose_eq" in rules:
         return True, f"ts 双规则检出: {sorted(rules)}"
     return False, f"ts 应检出 dynamic_exec+loose_eq: {rules}"
+
+
+@probe("p19_bug_scan_py_jsx_rules")
+def p19():
+    """bug_scan py 可变默认参数 + jsx XSS（263）。"""
+    py_file = os.path.join(_TMP, "sample_mut.py")
+    with open(py_file, "w", encoding="utf-8") as f:
+        f.write("def f(x=[]):\n    x.append(1)\n    return x\n")
+    out = S._call("bug_scan", {"path": py_file})
+    data = json.loads(out[0].text)
+    mda = [i for i in data.get("issues", []) if i.get("rule") == "mutable_default_arg"]
+    jsx_file = os.path.join(_TMP, "sample.jsx")
+    with open(jsx_file, "w", encoding="utf-8") as f:
+        f.write("const C = () => <div dangerouslySetInnerHTML={{__html: u}} />;\n")
+    out = S._call("bug_scan", {"path": jsx_file})
+    data2 = json.loads(out[0].text)
+    xss = [i for i in data2.get("issues", []) if i.get("rule") == "xss_risk"]
+    if mda and xss:
+        return True, f"py mutable_default_arg + jsx xss_risk 双检出"
+    return False, f"应双检出: mda={bool(mda)} xss={bool(xss)}"

@@ -1895,6 +1895,16 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
             issues.append(_bug_issue(
                 str(f), n, "dynamic_exec", "warning",
                 f"{n.func.id}() 动态执行——输入不可信时任意代码注入，建议安全替代", lines))
+        # IDE 增强 263：可变默认参数（def f(x=[])——跨调用共享同一对象——
+        # 经典 Python bug——默认值应为 None+内部初始化）
+        if isinstance(n, ast.FunctionDef) and n.args.defaults:
+            for d, arg in zip(n.args.defaults, n.args.args[-len(n.args.defaults):]):
+                if isinstance(d, (ast.List, ast.Dict, ast.Set)):
+                    issues.append(_bug_issue(
+                        str(f), n, "mutable_default_arg", "warning",
+                        f"可变默认参数 `{arg.arg}=[.../{{}}/set`——跨调用共享同一"
+                        f"对象（经典 bug）——建议 None+内部初始化", lines))
+                    break
         # IDE 增强 124：shell 命令注入（os.system / subprocess shell=True）
         if isinstance(n, ast.Call):
             _fn = ""
@@ -1978,7 +1988,10 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
              (r"\beval\s*\(", "dynamic_exec", "error",
               "eval() 动态执行——输入不可信时任意代码注入，建议安全替代"),
              (r"(?<![=!<>])==(?!=)", "loose_eq", "warning",
-              "== 宽松比较（类型强转坑——建议 ===/!==）")],
+              "== 宽松比较（类型强转坑——建议 ===/!==）"),
+             (r"dangerouslySetInnerHTML", "xss_risk", "warning",
+              "dangerouslySetInnerHTML（React 直接注入 HTML——XSS 风险，"
+              "建议转义或 textContent）")],
     ".js": [(r"console\.log\s*\(", "debug_residue", "warning",
              "调试残留（console.log——建议删或转日志）"),
             (r"\beval\s*\(", "dynamic_exec", "error",
@@ -1992,7 +2005,10 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
              (r"\beval\s*\(", "dynamic_exec", "error",
               "eval() 动态执行——输入不可信时任意代码注入，建议安全替代"),
              (r"(?<![=!<>])==(?!=)", "loose_eq", "warning",
-              "== 宽松比较（类型强转坑——建议 ===/!==）")],
+              "== 宽松比较（类型强转坑——建议 ===/!==）"),
+             (r"dangerouslySetInnerHTML", "xss_risk", "warning",
+              "dangerouslySetInnerHTML（React 直接注入 HTML——XSS 风险，"
+              "建议转义或 textContent）")],
     ".gd": [(r"\bprint\s*\(", "debug_residue", "warning",
              "调试残留（print——建议删或转 push_warning 日志）"),
             (r"\bget_node\s*\([^)]*\)\s*\.", "null_access",
