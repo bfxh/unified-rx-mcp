@@ -3317,6 +3317,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "解析": "parse", "序列化": "serialize", "编码": "encode", "解码": "decode",
         # IDE 增强 319：文件/IO 词（文件/路径/目录/上传/下载/读写）
         "文件": "file", "路径": "path", "目录": "dir", "上传": "upload",
+        # IDE 增强 320：配置词（配置/设置/选项/参数/默认值）
+        "配置": "config", "设置": "setting", "选项": "option", "参数": "param",
+        "默认值": "default", "环境": "env", "标志": "flag", "注册": "register",
         "下载": "download", "读写": "io", "存储": "storage", "备份": "backup",
         "压缩": "compress", "格式化": "format", "校验和": "checksum", "转换": "convert",
         "时区": "timezone", "延迟": "delay", "期限": "deadline", "超时": "timeout",
