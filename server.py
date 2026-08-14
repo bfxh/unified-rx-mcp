@@ -3541,6 +3541,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "攻城锤": "batteringram", "投石机": "catapult", "云梯": "ladder", "攻城塔": "siegetower",
         # IDE 增强 431：地下建筑词（地牢/墓穴/地下室/下水道/避难洞/地下城/地窖/矿井通道）
         "地牢": "dungeon", "墓穴": "crypt", "地下室": "basement", "下水道": "sewer",
+        # IDE 增强 432：交易市场词（交易所/拍卖行/收购站/矿价/期货/订单/竞价/挂牌）
+        "交易所": "exchange", "拍卖行": "auction", "收购站": "buyer", "矿价": "oreprice",
+        "期货": "futures", "订单": "order", "竞价": "bidding", "挂牌": "listing",
         "避难洞": "bunker", "地下城": "undercity", "地窖": "cellar", "矿井通道": "minepassage",
         "弩炮": "ballista", "破城槌": "ram", "油罐车": "tanker", "爆破组": "demolition",
         "装甲板": "armorplate", "穿甲": "piercing", "高爆": "highyield", "燃烧弹": "incendiary",
