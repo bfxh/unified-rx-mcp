@@ -111,7 +111,14 @@ def _scan_text_placeholder(path: str, src: str, issues: list, limit: int, todo_c
             line_txt = lines[line - 1]
         except IndexError:
             line_txt = ""
-        _cp = "#" if path.endswith(".py") else ("//" if path.endswith((".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".c", ".cpp", ".h", ".hpp")) else "")
+        # 注释前缀按语言完整映射（IDE 增强 461：java/kt/swift/cs/dart 的 //、
+        # gd/sh/bash/rb/ps1 的 #、lua 的 --——注释里的占位词不报）
+        if path.endswith((".py", ".gd", ".sh", ".bash", ".rb", ".ps1")):
+            _cp = "#"
+        elif path.endswith((".lua",)):
+            _cp = "--"
+        else:
+            _cp = "//"  # rs/go/ts/js/c/cpp/h/hpp/java/kt/swift/cs/dart 等
         if _cp and line_txt.lstrip().startswith(_cp):
             continue
         issues.append({
