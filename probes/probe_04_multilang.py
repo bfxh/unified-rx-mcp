@@ -442,3 +442,27 @@ def p35():
     if ("App.cs", "dead_code") not in s_rules:
         return False, f"cs 未使用 using 应 dead_code: {s_rules}"
     return True, ".cc/.bash 规则 + php name_conflict + cs dead_code 全契约"
+
+
+@probe("p36_lang24_remainder")
+def p36():
+    """24 语言覆盖矩阵补漏（470）：.h/.cpp/.hpp/.lua/.kts 契约。"""
+    repo = os.path.join(_TMP, "lang36")
+    os.makedirs(repo, exist_ok=True)
+    cases = {
+        "util.h": ("#include <string.h>\nvoid f() { strcpy(d, s); }\n", "unsafe_string"),
+        "main.cpp": ("#include <iostream>\nint main() { std::cout << 1; }\n", "debug_residue"),
+        "defs.hpp": ("#pragma once\nvoid g() { sprintf(buf, \"%d\", x); }\n", "unsafe_string"),
+        "game.lua": ("function f()\n    print(\"x\")\nend\n", "debug_residue"),
+        "script.kts": ("fun main() {\n    println(\"hi\")\n    val s: String? = null\n    println(s!!)\n}\n", "debug_residue"),
+    }
+    for fn, (s, want) in cases.items():
+        fp = os.path.join(repo, fn)
+        with open(fp, "w", encoding="utf-8") as f:
+            f.write(s)
+        out = S._call("bug_scan", {"path": fp})
+        data = json.loads(out[0].text)
+        rules = {i.get("rule") for i in data.get("issues", [])}
+        if want not in rules:
+            return False, f"{fn} 应检出 {want}: {rules}"
+    return True, ".h/.cpp/.hpp/.lua/.kts 五语言规则全契约"
