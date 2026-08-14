@@ -1188,13 +1188,16 @@ def _tool_full_scan(args: dict) -> "list[types.TextContent]":
     auto_roots = not args.get("roots")  # 未显式传 roots = 自动默认（过排除清单）
     max_files = int(args.get("max_files", 100))
     ui = bool(args.get("ui", True))
+    # IDE 增强 178：rules 透传（每项目 project_scan 都过滤——多项目入口收官）
+    _only = str(args.get("rules", ""))
     results = {"roots": roots, "projects": [], "errors": []}
 
     def scan_project(root: str) -> None:
         if auto_roots and _scan_excluded(root):
             return  # 自动发现的默认 roots 过排除清单（不扫 Steam/无关目录）
         try:
-            r = _call("project_scan", {"path": root, "max_files": max_files, "ui": ui})
+            r = _call("project_scan", {"path": root, "max_files": max_files,
+                                       "ui": ui, "rules": _only})
             text = r[0].text if isinstance(r, list) else str(r)
             results["projects"].append({
                 "root": root,
