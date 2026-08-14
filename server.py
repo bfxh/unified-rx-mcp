@@ -2373,6 +2373,10 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     _ml_rules = {r for _rules in _MULTI_LANG_RULES.values()
                  for _, r, _, _ in _rules}
     _ml_rules |= {"null_deref", "nil_map_write"}
+    # IDE 增强 281：rust_scan 规则（panic/unreachable/todo/unimplemented/
+    # expect/unsafe/transmute/as/io——rust 规则名进清单）
+    _ml_rules |= {"panic", "unreachable", "todo", "unimplemented", "expect",
+                  "unsafe", "transmute", "as", "io"}
     result["available_rules"] = sorted({
         str(i.get("rule")) for i in issues
     } | {"divide_by_zero", "undefined_name", "none_deref", "unwrap",
