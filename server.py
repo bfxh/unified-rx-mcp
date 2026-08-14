@@ -644,7 +644,9 @@ def _inject(args, ctx: dict):
 _PIPELINE_PRESETS: dict[str, list[dict]] = {
     # 仓库审计：索引 → 状态 → 漏洞 → 工程标准（4 步 1 次调用）
     "audit_repo": [
-        {"tool": "cb_status", "args": {"path": "${path}"}, "as": "index"},
+        # IDE 增强 199：首步 cb_index（构建/更新索引——未索引时一键审计
+        # 也能直接可用，不再返回 indexed=False）
+        {"tool": "cb_index", "args": {"path": "${path}"}, "as": "index"},
         {"tool": "bug_scan", "args": {"path": "${path}", "max_files": 100,
                                       "rules": "${rules}"}, "as": "bugs"},
         {"tool": "std_check", "args": {"path": "${path}", "max_files": 100,

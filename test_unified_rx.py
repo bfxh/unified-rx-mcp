@@ -1385,7 +1385,8 @@ def test_pipeline_preset_audit_repo(tmp_path):
     assert d["ok"] is True, d
     assert d["preset"] == "audit_repo", "preset 标识保留"
     tools = [s["tool"] for s in d["steps"]]
-    assert tools == ["cb_status", "bug_scan", "std_check", "vuln_scan"], tools
+    # IDE 增强 199：首步 cb_status → cb_index（未索引时一键审计直接可用）
+    assert tools == ["cb_index", "bug_scan", "std_check", "vuln_scan"], tools
     assert all(s["ok"] for s in d["steps"]), d
 
 
