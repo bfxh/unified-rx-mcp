@@ -11,6 +11,7 @@
 
 import json
 import os
+import time
 import re
 
 # 符号归属启发式：行号 → 所在函数（tree-sitter 降级：正则 fn/def 扫描）
@@ -23,6 +24,7 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
     issues: [{file, line, kind, message}]（bug_scan/quality_scan 输出格式）
     返回 {symbol_map: {file#symbol: count}, by_file: {...}, total: n}
     """
+    _t0 = time.perf_counter()
     fn_lines: dict[str, list[tuple[int, str]]] = {}
     by_symbol: dict[str, int] = {}
     by_file: dict[str, int] = {}
@@ -81,6 +83,8 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
              "issues": cnt}
             for sym, cnt in sorted(by_symbol.items(), key=lambda kv: -kv[1])[:5]
         ],
+        # IDE 增强 246：融合耗时（ms——收官；由 server 包装层注入）
+        "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1),
     }
 
 

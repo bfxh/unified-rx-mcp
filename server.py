@@ -2143,6 +2143,7 @@ def _tool_ide_fusion(args: dict) -> "list[types.TextContent]":
     """IDE 融合：annotate（诊断→符号图聚合，默认）/ impact（双引擎影响面校验）。"""
     action = args.get("action", "annotate")
     path = args.get("path", "")
+    _t0 = time.perf_counter()
     if not path or not os.path.isdir(path):
         return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {path}"}, ensure_ascii=False))]
     if action == "impact":
