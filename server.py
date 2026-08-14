@@ -3493,6 +3493,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "纯化": "purify", "分离": "separate", "提取": "extract", "提纯": "refine",
         # IDE 增强 407：矿井设备词（绞车/矿车/通风机/排水泵/支柱/巷道灯）
         "绞车": "winch", "矿车": "cart", "通风机": "fan", "排水泵": "dewater",
+        # IDE 增强 408：区域规划词（分区/地块/网格/区块/边界/边界墙/缓冲带/市中心）
+        "分区": "zone", "地块": "plot", "网格": "grid", "区块": "chunk",
+        "边界": "border", "缓冲带": "buffer", "市中心": "downtown", "郊区": "suburb",
         "支柱": "support", "巷道灯": "lamp", "轨道": "track", "安全帽": "helmet",
         "冷凝": "condense", "结晶": "crystallize", "沉淀": "precipitate", "吸附": "absorb",
         "柱": "column", "穹顶": "dome", "桁架": "truss", "加固": "reinforce",
