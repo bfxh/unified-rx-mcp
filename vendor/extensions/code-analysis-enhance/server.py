@@ -1311,14 +1311,19 @@ class _LspClient:
             bufsize=0,
             # IDE 增强 465：gopls 需要 GOROOT/GOPATH（zip 工具链免安装）——
             # 注入 go 语言环境变量；其他语言继承原 env
+            # IDE 增强 465/472：gopls 需要 GOROOT/GOPATH（zip 工具链免安装）——
+            # 注入 go 语言环境变量；其他语言继承原 env。
+            # 472：工具链路径随 env 参数化（UNIFIED_RX_GOROOT 等——换机/容器可指向
+            # 自己的工具链，不再硬编码本机路径）
             env={**os.environ,
-                 **({"GOROOT": r"D:\开发\go-toolchain\go",
-                     "GOPATH": r"D:\开发\go-toolchain\gopath",
-                     "GOTMPDIR": r"D:\开发\go-toolchain\tmp",
-                     "GOCACHE": r"D:\开发\go-toolchain\cache",
+                 **({"GOROOT": os.environ.get("UNIFIED_RX_GOROOT", r"D:\开发\go-toolchain\go"),
+                     "GOPATH": os.environ.get("UNIFIED_RX_GOPATH", r"D:\开发\go-toolchain\gopath"),
+                     "GOTMPDIR": os.environ.get("UNIFIED_RX_GOTMPDIR", r"D:\开发\go-toolchain\tmp"),
+                     "GOCACHE": os.environ.get("UNIFIED_RX_GOCACHE", r"D:\开发\go-toolchain\cache"),
                      # gopls 内部调 go 命令（go list 建 view）——PATH 必须含 go；
                      # security review 修复：工具链路径**前置**（防系统旧版 go 遮蔽）
-                     "PATH": r"D:\开发\go-toolchain\go\bin;D:\开发\go-toolchain\gopath\bin;"
+                     "PATH": os.environ.get("UNIFIED_RX_GOBIN",
+                                            r"D:\开发\go-toolchain\go\bin;D:\开发\go-toolchain\gopath\bin;")
                              + os.environ.get("PATH", "")}
                     if command.endswith("gopls.exe") else {})},
         )
