@@ -3579,6 +3579,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "研究所": "institute", "试验场": "testrange", "化验室": "assaylab", "标本室": "specimenroom",
         # IDE 增强 450：金属锭词（铜锭/钢锭/铝锭/锌锭/锡锭/铅锭/镍锭/钛锭）
         "铜锭": "copperingot", "钢锭": "steelingot", "铝锭": "aluminum", "锌锭": "zinc",
+        # IDE 增强 451：矿工技能词（挖掘/爆破/支护/通风技能/运输技能/勘探技能/精炼技能/冶炼技能）
+        "挖掘": "digging", "爆破": "blasting", "支护": "supporting", "通风技能": "ventilation",
+        "运输技能": "hauling", "勘探技能": "prospecting", "精炼技能": "refining", "冶炼技能": "smelting",
         "锡锭": "tin", "铅锭": "lead", "镍锭": "nickel", "钛锭": "titanium",
         "图书馆": "library", "档案馆": "archive", "观测台": "observatory", "演算室": "computationroom",
         "拉丝机": "drawingmachine", "锻造机": "forge", "冲压机": "stamping", "退火炉": "annealingfurnace",
