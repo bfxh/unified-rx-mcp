@@ -2213,8 +2213,40 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                         ctx.append(f"{i}: {f_lines[i - 1].rstrip()}")
                     loc["context"] = ctx
                     if 1 <= ln <= len(f_lines):
-                        _sym = re.search(r"\b([A-Za-z_][A-Za-z0-9_]*)\b", f_lines[ln - 1])
-                        loc["symbol_hint"] = _sym.group(1) if _sym else ""
+                        # IDE 增强九十六（探针抓出两轮）：symbol_hint 先取
+                        # 「第一个函数调用目标」（`foo().unwrap()` → foo），
+                        # 无调用再回退第一个非关键字标识符——影响面线索准确
+                        _KW = {"let", "const", "var", "fn", "pub", "mut", "static",
+                               "use", "mod", "struct", "enum", "trait", "impl",
+                               "def", "class", "function", "if", "else", "for",
+                               "while", "return", "import", "from", "new", "void",
+                               "int", "float", "double", "char", "bool", "true",
+                               "false", "none", "self", "this", "super", "as",
+                               "in", "is", "of", "match", "ref", "unsafe"}
+                        _line_txt = f_lines[ln - 1]
+                        _call_m = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(",
+                                            _line_txt)
+                        _hint = ""
+                        if _call_m and _call_m.group(1).lower() not in _KW:
+                            _hint = _call_m.group(1)
+                        else:
+                            for _m in re.finditer(r"\b([A-Za-z_][A-Za-z0-9_]*)\b",
+                                                  _line_txt):
+                                if _m.group(1).lower() not in _KW:
+                                    _hint = _m.group(1)
+                                    break
+                        loc["symbol_hint"] = _hint
+                        # IDE 增强九十五：符号引用数（影响面线索——AI 一眼看到
+                        # 这个符号被多少处引用，判断修复影响范围）
+                        if loc.get("symbol_hint"):
+                            try:
+                                from ide_tools import _find_symbol_refs
+                                _refs = _find_symbol_refs(
+                                    str(args.get("path", "")), loc["symbol_hint"],
+                                    300, exclude_comments=True)
+                                loc["symbol_refs"] = len(_refs)
+                            except Exception:
+                                loc["symbol_refs"] = 0
                 except OSError:
                     pass
             _finish(loc, "locate", "locate",
