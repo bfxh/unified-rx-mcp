@@ -1342,9 +1342,12 @@ def _tool_hallucination_guard(args: dict) -> "list[types.TextContent]":
         sys.path.insert(0, _dir)
         from guard_core import guard_text  # noqa: F811
     tool_names = set(_TOOLS.keys()) | set(_EXT_DEFS.keys())
+    _t0 = time.perf_counter()
     res = guard_text(text, root=root, tool_names=tool_names)
     res["ok"] = True
     res["tool_names_checked"] = len(tool_names)
+    # IDE 增强 235：守卫耗时（ms——性能可见收官）
+    res["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     # 防幻觉闭环：refuted（被证伪=幻觉）自动回灌 LSE——负 delta 惩罚该模式
     # + 经验教训卡片入库，下次 lesson_recall/experience_match 可召回防复发。
     if res.get("refuted"):
