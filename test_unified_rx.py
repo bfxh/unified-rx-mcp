@@ -2688,7 +2688,15 @@ def test_std_check_import_usage_edge_cases(tmp_path, monkeypatch):
         "<?php\nuse Foo\\Bar;\nfunction f() {}\n", encoding="utf-8")
     (tmp_path / "useused.php").write_text(
         "<?php\nuse Foo\\Bar;\nfunction f() { $x = new Bar(); }\n", encoding="utf-8")
-    d = json.loads(server._call("std_check", {"path": str(tmp_path)})[0].text)
+    # php use function/use const 前缀 + as 别名（第四轮 review LOW）
+    (tmp_path / "usefn.php").write_text(
+        "<?php\nuse function Foo\\strlen;\nfunction f() { strlen(\"x\"); }\n", encoding="utf-8")
+    (tmp_path / "usealias.php").write_text(
+        "<?php\nuse Foo\\Bar as B;\nfunction f() { $x = new B(); }\n", encoding="utf-8")
+    _r = server._call("std_check", {"path": str(tmp_path)})
+    if not _r[0].text.startswith("{"):
+        raise AssertionError("std_check 非 JSON: " + _r[0].text[:200])
+    d = json.loads(_r[0].text)
     dc = [(i["file"], i.get("msg", "")) for i in d.get("issues", [])
           if i.get("rule") == "dead_code"]
     nc = [i["file"] for i in d.get("issues", []) if i.get("rule") == "name_conflict"]
@@ -2699,3 +2707,5 @@ def test_std_check_import_usage_edge_cases(tmp_path, monkeypatch):
     assert any(f.endswith("final.php") for f in nc), nc
     assert any(str(f).endswith("useunused.php") for f, _ in dc), dc
     assert not any(str(f).endswith("useused.php") for f, _ in dc), dc
+    assert not any(str(f).endswith("usefn.php") for f, _ in dc), dc
+    assert not any(str(f).endswith("usealias.php") for f, _ in dc), dc

@@ -582,10 +582,20 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                                 return
                         continue
                 elif path.endswith(".php"):
-                    m = re.match(r"\s*use\s+([A-Za-z_\\][\w\\]*)", line)
+                    # 第四轮 review LOW：剥离 use function/use const 前缀（否则
+                    # 捕获 function/const 作 name）；as 别名取别名（用 B 时误报）
+                    m = re.match(
+                        r"\s*use\s+(?:function\s+|const\s+)?"
+                        r"([A-Za-z_\\][\w\\]*)\s*(?:as\s+([A-Za-z_][\w]*))?\s*;",
+                        line)
                 if not m:
                     continue
-                name = m.group(1).split(".")[-1].split("\\")[-1].strip()
+                # IDE 增强 469：php 正则才有组 2（as 别名）——cs/dart 正则只有
+                # 组 1——m.group(2) 对 cs/dart 抛 no such group（探针 9 文件抓出）
+                if path.endswith(".php"):
+                    name = m.group(2) or m.group(1).split(".")[-1].split("\\")[-1].strip()
+                else:
+                    name = m.group(1).split(".")[-1].split("\\")[-1].strip()
                 if not name or name == "*" or name.endswith(".*"):
                     continue  # 通配导入豁免
                 if path.endswith(".cs"):
