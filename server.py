@@ -3331,6 +3331,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "重力": "gravity", "摩擦": "friction", "速度": "velocity", "加速度": "accel",
         # IDE 增强 326：音视频词（视频/播放/流媒体/录制/音频流）
         "视频": "video", "播放": "play", "流媒体": "stream", "录制": "record",
+        # IDE 增强 327：UI 组件词（对话框/弹窗/菜单/标签页/工具提示）
+        "对话框": "dialog", "弹窗": "modal", "菜单": "menu", "标签页": "tab",
+        "工具提示": "tooltip", "下拉框": "dropdown", "复选框": "checkbox", "滑块": "slider",
         "音频流": "audio", "字幕": "subtitle", "音量": "volume", "画面": "frame",
         "扭矩": "torque", "阻尼": "damping", "刚度": "stiffness", "惯性": "inertia",
         "遮挡": "occlusion", "阴影": "shadow", "贴图": "texture", "网格": "mesh",
