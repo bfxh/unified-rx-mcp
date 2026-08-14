@@ -3551,6 +3551,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "风车": "windmill", "水轮机": "waterturbine", "太阳能板": "solarpanel", "地热": "geothermal",
         # IDE 增强 436：交通设施词（收费站/加油站/充电站/服务区/停车场/洗车站/修理厂/加油站2）
         "收费站": "toll", "加油站": "gasstation", "充电站": "chargingstation", "服务区": "restarea",
+        # IDE 增强 437：贸易路线词（商路/航线/驼队/贸易站/驿站/通商口岸/货运站/补给站）
+        "商路": "caravanroute", "航线": "shippingroute", "驼队": "caravan", "贸易站": "tradingpost",
+        "驿站": "relaystation", "通商口岸": "port", "货运站": "freightstation", "补给站": "supplystation",
         "停车场": "parking", "洗车站": "carwash", "修理厂": "garage", "加油站2": "fuelstation",
         "潮汐能": "tidal", "燃料电池": "fuelcell", "热电联产": "cogeneration", "储电塔": "batterytower",
         "操纵杆": "lever", "按钮": "button", "开关": "switch", "旋钮": "knob",
