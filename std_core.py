@@ -219,6 +219,36 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
+    if path.endswith((".java",)):
+        # IDE 增强 313：java 重复类/方法检测（class/方法声明同名——
+        # 对齐 dart/c 分支；排除构造器与 main 重载）
+        count = 0
+        seen: dict = {}
+        for i, line in enumerate(src.splitlines(), 1):
+            if line.lstrip().startswith(("//", "*")):
+                continue
+            m = re.match(
+                r"\s*(?:public\s+|private\s+|protected\s+)*(?:static\s+|final\s+)*"
+                r"(?:class|interface|enum)\s+(\w+)|"
+                r"\s*(?:public\s+|private\s+|protected\s+)*(?:static\s+|final\s+)*"
+                r"[A-Za-z_<>\[\],\s]*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:\{|$)", line)
+            if not m:
+                continue
+            name = next((g for g in m.groups() if g), "")
+            if not name:
+                continue
+            if name in seen:
+                issues.append({
+                    "file": path, "line": i, "rule": "name_conflict",
+                    "severity": "Warning",
+                    "msg": f"重复定义 {name}（首次在行 {seen[name]}）",
+                })
+                count += 1
+                if count >= limit:
+                    return
+            else:
+                seen[name] = i
+        return
     try:
         tree = ast.parse(src)
     except SyntaxError:
