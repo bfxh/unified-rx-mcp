@@ -3589,6 +3589,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "排班": "schedule", "工资": "wage", "工时": "worktime", "考勤": "attendance",
         # IDE 增强 455：矿业法规词（环保法规/安全法规/用地许可/环评/复垦/赔偿金/罚款/审计）
         "环保法规": "environmentalreg", "安全法规": "safetyreg", "用地许可": "landusepermit", "环评": "environmentalreview",
+        # IDE 增强 456：选矿建筑词（破碎站/筛分楼/储矿仓/装车楼/皮带廊/浓缩池/精矿仓/尾矿管线）
+        "破碎站": "crushingstation", "筛分楼": "screeningtower", "储矿仓": "orebin", "装车楼": "loadingtower",
+        "皮带廊": "beltgallery", "浓缩池": "thickener", "精矿仓": "concentratebin", "尾矿管线": "tailingspipeline",
         "复垦": "reclamation", "赔偿金": "compensation", "罚款": "fine", "审计": "audit",
         "奖惩": "reward", "班次": "shift", "轮换": "rotation", "津贴": "allowance",
         "回收率": "recoveryrate", "品位": "grade", "储量": "reserves", "回采率": "extractionrate",
