@@ -305,6 +305,39 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
+    if path.endswith((".rb", ".lua", ".ps1", ".cs")):
+        # IDE 增强 317：rb/lua/ps1/cs 重复定义（def/function/func 同名——
+        # name_conflict 全语言收官）
+        count = 0
+        seen: dict = {}
+        _cs = path.endswith(".cs")
+        for i, line in enumerate(src.splitlines(), 1):
+            if line.lstrip().startswith(("//", "#", "--", "*")):
+                continue
+            if _cs:
+                # cs 方法声明（返回类型+名——对齐 java）
+                m = re.match(
+                    r"\s*(?:public\s+|private\s+|internal\s+|protected\s+)*"
+                    r"(?:static\s+|virtual\s+|override\s+|async\s+)*"
+                    r"[A-Za-z_<>\[\],\s]*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*\{", line)
+            else:
+                m = re.match(
+                    r"\s*(?:def|function|func)\s+([A-Za-z_][\w-]*)", line)
+            if not m:
+                continue
+            name = m.group(1)
+            if name in seen:
+                issues.append({
+                    "file": path, "line": i, "rule": "name_conflict",
+                    "severity": "Warning",
+                    "msg": f"重复定义 {name}（首次在行 {seen[name]}）",
+                })
+                count += 1
+                if count >= limit:
+                    return
+            else:
+                seen[name] = i
+        return
     try:
         tree = ast.parse(src)
     except SyntaxError:
