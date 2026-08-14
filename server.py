@@ -3509,6 +3509,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "山峰": "peak", "峡谷": "canyon", "悬崖": "cliff", "瀑布": "waterfall",
         # IDE 增强 415：植物词（灌木/藤蔓/苔藓/蕨类/花朵/仙人掌/芦苇/水草）
         "灌木": "bush", "藤蔓": "vine", "苔藓": "moss", "蕨类": "fern",
+        # IDE 增强 416：勘探词（勘探/钻探/采样/测绘/勘察/标图/探矿/岩芯）
+        "勘探": "prospect", "钻探": "drilling", "采样": "sample", "测绘": "survey",
+        "勘察": "recon", "标图": "plotting", "探矿": "oreprospect", "岩芯": "core",
         "花朵": "flower", "仙人掌": "cactus", "芦苇": "reed", "水草": "seaweed",
         "湖泊": "lake", "沙丘": "dune", "火山": "volcano", "冰川": "glacier",
         "公告栏": "bulletin", "邮箱": "mailbox", "电话亭": "phonebooth", "报刊亭": "kiosk",
