@@ -49,8 +49,9 @@ _MAGIC_NUMBER_RE = re.compile(r"\b(?:[3-9][\d_]{2,}|[1-9][\d_]{3,})\b")
 # 弱赋值模式（password=xxx）跳过测试文件（夹具常用）。
 _SECRET_RE = re.compile(
     r"(?i)\b(ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|"
-    r"AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|"
-    r"AIza[0-9A-Za-z_-]{35}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)",
+    r"AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|"
+    r"AIza[0-9A-Za-z_-]{35}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|"
+    r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})",
 )
 _SECRET_ASSIGN_RE = re.compile(
     r"(?i)\b(password|passwd|secret|api[_-]?key|token)\s*[=:]\s*['\"][A-Za-z0-9_./+=-]{12,}['\"]",
