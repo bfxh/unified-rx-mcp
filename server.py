@@ -3591,6 +3591,12 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
         result["worst_file"] = f"{os.path.basename(_wf)}（{_wn} 条问题）"
     else:
         result["worst_file"] = ""
+    # IDE 增强 207：变更文件列表（priority=changed 的 issue 文件去重——
+    # 你正在改的文件，优先排查；命名 changed_list 避免与既有
+    # changed_files=数量 语义冲突）
+    result["changed_list"] = sorted({
+        str(i.get("file", "")) for i in _is if i.get("priority") == "changed"
+    })
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
