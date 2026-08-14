@@ -3223,6 +3223,7 @@ def _tool_design_note(args: dict) -> "list[types.TextContent]":
     # <root>/design_notes.json——任意路径写文件越界；转 str 防 WindowsPath）
     root = str(_check_path(str(args.get("root", ""))))
     kind = args.get("kind", "")
+    _t0 = time.perf_counter()
     try:
         if action == "add":
             r = add_note(root, kind, args.get("text", ""), args.get("tag", ""))
@@ -3247,6 +3248,9 @@ def _tool_design_note(args: dict) -> "list[types.TextContent]":
                      "advice": f"{len(_hits)} 条命中（text/tag 含 '{args.get('query', '')}'）"}
         else:
             r = list_notes(root)
+        # IDE 增强 236：操作耗时（ms——性能可见收官）
+        if isinstance(r, dict):
+            r["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
         return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
     except Exception as e:
         return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"},
