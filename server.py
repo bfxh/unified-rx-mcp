@@ -3692,8 +3692,14 @@ def _tool_ui_check(args: dict) -> "list[types.TextContent]":
                                       "mode_isolation", "focus_pass",
                                       "font_missing", "z_ordering",
                                       "no_interaction"})
+    # IDE 增强 282：规则引擎来源标注（no_interaction 覆盖四引擎）
+    _eng = {"ui_root_missing": "bevy", "camera_missing": "bevy",
+            "mode_isolation": "bevy", "focus_pass": "bevy",
+            "font_missing": "bevy", "z_ordering": "bevy",
+            "no_interaction": "bevy/godot/unity/flutter"}
     return [_TC(json.dumps({
         "ok": True, "issue_count": len(issues),
+        "rule_engines": _eng,
         "severity_counts": sev_counts,
         "noise_ratio": round(sev_counts["info"] / total, 3) if total else 0.0,
         "rule_counts": dict(sorted(_rule_counts.items(), key=lambda kv: -kv[1])),
@@ -4049,6 +4055,13 @@ def _tool_cb_scan(args: dict) -> "list[types.TextContent]":
         str(i.get("rule")) for i in result.get("issues", [])
     } | {"ui_root_missing", "camera_missing", "mode_isolation", "focus_pass",
          "font_missing", "z_ordering", "no_interaction"})
+    # IDE 增强 282：规则引擎来源标注（AI 知道 no_interaction 覆盖四引擎）
+    result["rule_engines"] = {
+        "ui_root_missing": "bevy", "camera_missing": "bevy",
+        "mode_isolation": "bevy", "focus_pass": "bevy",
+        "font_missing": "bevy", "z_ordering": "bevy",
+        "no_interaction": "bevy/godot/unity/flutter",
+    }
     # IDE 增强 206：问题最多文件（worst_file——扫描四入口收官，
     # 对称 std 204/ui 203/bug 205）
     _is = result.get("issues", [])
