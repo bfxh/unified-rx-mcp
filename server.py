@@ -3467,6 +3467,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "经验": "exp", "等级": "level", "技能点": "skillpoint", "天赋": "talent",
         # IDE 增强 394：战斗机制词（连击/反击/格挡/闪避/招架/瞄准/蓄力/处决）
         "连击": "combo", "反击": "counter", "格挡": "block", "闪避": "dodge",
+        # IDE 增强 395：资源点词（矿点/泉眼/遗迹/废墟/沉船/宝箱/营地已有营地/烽火台）
+        "矿点": "ore", "泉眼": "spring", "遗迹": "ruins", "废墟": "wreck",
+        "沉船": "shipwreck", "宝箱": "treasure", "烽火台": "beacon", "地标": "landmark",
         "招架": "parry", "瞄准": "aim", "蓄力": "charge", "处决": "execute",
         "属性": "stat", "熟练度": "mastery", "专精": "specialize", "声望点": "rep",
         "骨头": "bone", "垃圾": "trash", "残渣": "residue", "尘土": "dust",
