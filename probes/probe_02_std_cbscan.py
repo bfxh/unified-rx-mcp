@@ -47,10 +47,14 @@ def p06():
 
 @probe("p07_std_check_placeholder")
 def p07():
-    """检出占位文字（lorem/placeholder 等真实违规词；TODO 仅统计不判违规）。"""
+    """检出占位文字（lorem/placeholder 等真实违规词；TODO 仅统计不判违规）。
+
+    样例在字符串字面量（非注释——占位检测跳过注释是既有行为，
+    注释里的占位词不误报）。
+    """
     f = os.path.join(_TMP, "placeholder.py")
     with open(f, "w", encoding="utf-8") as fh:
-        fh.write("# placeholder text here\ndef g():\n    return 1\n")
+        fh.write("TEXT = 'placeholder text here'\ndef g():\n    return 1\n")
     out = S._call("std_check", {"path": f})
     data = json.loads(out[0].text)
     rules = " ".join(str(i.get("rule", "")) for i in data.get("issues", []))
