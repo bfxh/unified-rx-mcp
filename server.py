@@ -3236,6 +3236,20 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
         _s = _i.get("severity", "info")
         _sev[_s] = _sev.get(_s, 0) + 1
     result["severity_counts"] = _sev
+    # IDE 增强 147：最严重标准问题提示（Critical 优先——secret 泄露等）
+    _issues = result.get("issues", [])
+    _critical = [i for i in _issues
+                 if str(i.get("severity", "")).lower() in ("critical", "error")]
+    if _critical:
+        _c = _critical[0]
+        result["advice"] = (f"最优先：{os.path.basename(str(_c.get('file', '')))}:"
+                            f"{_c.get('line')} [{_c.get('rule')}] "
+                            f"{str(_c.get('msg', ''))[:40]}"
+                            f"（共 {len(_critical)} 条 Critical/error）")
+    elif _issues:
+        result["advice"] = "无 Critical——按 Warning/Suggestion 分布排查（看 rule_counts）"
+    else:
+        result["advice"] = "无标准问题"
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
