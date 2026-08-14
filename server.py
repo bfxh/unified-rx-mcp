@@ -3335,6 +3335,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "对话框": "dialog", "弹窗": "modal", "菜单": "menu", "标签页": "tab",
         # IDE 增强 328：数据词（数据库/表/行/列/事务/主键/索引/查询）
         "数据库": "database", "表": "table", "行": "row", "列": "column",
+        # IDE 增强 329：文本词（文本/字符串/字符/正则/分词/截取）
+        "文本": "text", "字符串": "string", "字符": "char", "正则": "regex",
+        "分词": "token", "截取": "substring", "拼接": "concat", "替换": "replace",
         "事务": "transaction", "主键": "primary", "索引": "index", "查询": "query",
         "工具提示": "tooltip", "下拉框": "dropdown", "复选框": "checkbox", "滑块": "slider",
         "音频流": "audio", "字幕": "subtitle", "音量": "volume", "画面": "frame",
