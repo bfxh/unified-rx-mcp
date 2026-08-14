@@ -3381,6 +3381,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "载具": "vehicle", "车辆": "car", "坦克": "tank", "飞船": "spaceship",
         # IDE 增强 351：生存词（生存/饥饿/口渴/体温/睡眠/精力/疲惫/伤口）
         "生存": "survival", "饥饿": "hunger", "口渴": "thirst", "体温": "temperature",
+        # IDE 增强 352：界面词（面板/侧边栏/状态栏/标题栏/页脚/标签栏/通知/提示）
+        "面板": "panel", "侧边栏": "sidebar", "状态栏": "statusbar", "标题栏": "titlebar",
+        "页脚": "footer", "标签栏": "tabbar", "通知": "toast", "提示": "hint",
         "睡眠": "sleep", "精力": "stamina", "疲惫": "fatigue", "伤口": "wound",
         "船": "boat", "潜艇": "submarine", "飞行器": "aircraft", "机甲": "mech",
         "铲": "shovel", "绳索": "rope", "扳手": "wrench", "焊枪": "welder",
