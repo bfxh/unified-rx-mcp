@@ -1491,7 +1491,7 @@ _TRACEBACK_RE = re.compile(r'File "([^"]+)", line (\d+)(?:, in ([^\n]+))?')
 # IDE 增强 272：对齐 22 语言（Java 栈帧 at App.run(App.java:12) 等）
 _SIMPLE_POS_RE = re.compile(
     r'((?:[A-Za-z]:[\\/])?[^\s:()"]+\.(?:py|rs|go|ts|tsx|js|jsx|gd|c|cpp|h|hpp|'
-    r'cs|lua|sh|bash|java|kt|kts|swift|php|rb|ps1)):(\d+)(?::(\d+))?')
+    r'cs|lua|sh|bash|java|kt|kts|swift|php|rb|ps1|dart)):(\d+)(?::(\d+))?')
 
 
 def _bug_is_open(node) -> bool:
@@ -1959,13 +1959,13 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
 _BUG_SCAN_EXTS = {".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
                   ".gd", ".c", ".cpp", ".h", ".hpp",
                   ".cs", ".lua", ".sh", ".bash",
-                  ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1"}
+                  ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1", ".dart"}
 # IDE 增强 256：分析入口统一扩展（kb_query/semantic_search/explore_code/
 # repo_wiki 全语言——用户点名"没有多语言处理"，三处白名单此前缺 go/c/cpp）
 _ANALYZE_EXTS = {".rs", ".py", ".go", ".ts", ".tsx", ".js", ".jsx",
                  ".gd", ".c", ".h", ".cpp", ".hpp", ".cc",
                  ".cs", ".lua", ".sh", ".bash",
-                 ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1",
+                 ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1", ".dart",
                  ".toml", ".md", ".ron", ".json", ".yaml", ".yml"}
 
 # (正则, 规则名, 严重度, 消息) 每语言一组——只报确定性模式：
@@ -2113,6 +2113,13 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
               "Invoke-Expression（PowerShell eval——输入不可信时任意命令执行）"),
              (r"\bRemove-Item\s+[^\n]*\s-Recurse", "destructive", "warning",
               "Remove-Item -Recurse（递归删除——建议精确路径+确认）")],
+    # IDE 增强 273：Dart（Flutter——移动/桌面 UI 主流语言）
+    ".dart": [(r"\bprint\s*\(", "debug_residue", "warning",
+               "调试残留（print——建议删或转 debugPrint/日志）"),
+              (r"\bdynamic\s+[A-Za-z_]\w*", "dynamic_abuse", "info",
+               "dynamic 类型滥用（Dart dynamic——建议具体类型）"),
+              (r"\bas\s+[A-Za-z_]\w*\s*[);]", "unsafe_cast", "warning",
+               "as 强转（类型不匹配时抛异常——建议 is 检查后安全转换）")],
 }
 
 
@@ -4218,7 +4225,12 @@ def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
         matches.append((m.group(1), int(m.group(2)), 0, (m.group(3) or "").strip()))
     if not matches:
         for m in _SIMPLE_POS_RE.finditer(text):
-            matches.append((m.group(1), int(m.group(2)), int(m.group(3) or 0), ""))
+            raw_p = m.group(1)
+            # IDE 增强 273：file:/// URI 前缀清洗（Dart/JS 报错 file:///u/x.dart:7
+            # 的 e: 盘符误判——正则把 file 末字符+:// 吃成盘符）
+            if len(raw_p) >= 4 and raw_p[0].isalpha() and raw_p[1:4] == "://":
+                raw_p = raw_p.split("://", 1)[1].lstrip("/")
+            matches.append((raw_p, int(m.group(2)), int(m.group(3) or 0), ""))
     locations = []
     for raw, line, col, func in matches:
         try:

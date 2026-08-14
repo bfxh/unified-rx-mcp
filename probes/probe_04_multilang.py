@@ -304,3 +304,21 @@ def p28():
     if data.get("matched") and locs and locs[0].get("line") == 12:
         return True, "Java 栈帧定位 L12"
     return False, f"Java 栈帧应定位: {data}"
+
+
+@probe("p29_bug_scan_dart")
+def p29():
+    """bug_scan Dart（273：print/dynamic/as 强转）。"""
+    dart_file = os.path.join(_TMP, "sample.dart")
+    with open(dart_file, "w", encoding="utf-8") as f:
+        f.write("void main() {\n"
+                "  print('hi');\n"
+                "  dynamic x = 1;\n"
+                "  var s = obj as String;\n"
+                "}\n")
+    out = S._call("bug_scan", {"path": dart_file})
+    data = json.loads(out[0].text)
+    rules = {i.get("rule") for i in data.get("issues", [])}
+    if {"debug_residue", "dynamic_abuse", "unsafe_cast"} <= rules:
+        return True, f"dart 三规则检出: {sorted(rules)}"
+    return False, f"dart 应三规则: {rules}"
