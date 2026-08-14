@@ -132,6 +132,15 @@ def _scan_text_placeholder(path: str, src: str, issues: list, limit: int, todo_c
 
 
 def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
+    # IDE 增强 466（security review LOW）：别名归一——.cc/.cxx→.cpp、.hh/.hxx→.hpp、
+    # .bash/.zsh→.sh（分支判断与 bug_scan 对齐，否则 .cc 的 c 规则不生效；
+    # 只影响分支判断，issue 的 file 字段保留原路径）
+    _ext = os.path.splitext(path)[1].lower()
+    _ext = {".cc": ".cpp", ".cxx": ".cpp", ".hh": ".hpp", ".hxx": ".hpp",
+            ".bash": ".sh", ".zsh": ".sh"}.get(_ext, _ext)
+    if _ext != os.path.splitext(path)[1].lower():
+        _root, _ = os.path.splitext(path)
+        path = _root + _ext
     if not (path.endswith(".py")):
         # IDE 增强 108/118/166：ts/js/tsx/jsx + go + gd 文本启发——模块级重复声明
         # （function/class/const/let/var/func 同名 → 重复定义；gd 的 func 与 go 同构）
@@ -152,10 +161,12 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
                     r"func\s+(?:\([^)]*\)\s+)?([A-Za-z_$][\w$]*)\s*\()",
                     line)
                 if not m:
-                    # IDE 增强 462：php（function/class）与 sh/bash（name()）重复声明
+                    # IDE 增强 462/466：php（function/class）与 sh/bash（name()）重复声明。
+                    # security review 修复：php 只匹配**裸** `function name(`（类方法带
+                    # public/private/protected 修饰——多类同名方法合法，不报）
                     m2 = re.match(
-                        r"\s*(?:public\s+|private\s+|protected\s+|static\s+|final\s+)*"
-                        r"(?:function\s+([A-Za-z_][\w]*)|class\s+([A-Za-z_][\w]*))\b"
+                        r"\s*function\s+([A-Za-z_][\w]*)\s*\("
+                        r"|^\s*class\s+([A-Za-z_][\w]*)\b"
                         r"|^\s*([A-Za-z_][\w]*)\s*\(\s*\)\s*(?:\{|$)",
                         line)
                     if not m2:
@@ -451,6 +462,12 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
 
 
 def _scan_dead_code(path: str, src: str, issues: list, limit: int):
+    # IDE 增强 466：别名归一（与 name_conflict/bug_scan 对齐）
+    _ext = os.path.splitext(path)[1].lower()
+    if _ext in (".cc", ".cxx", ".hh", ".hxx", ".bash", ".zsh"):
+        _root, _ = os.path.splitext(path)
+        path = _root + {".cc": ".cpp", ".cxx": ".cpp", ".hh": ".hpp", ".hxx": ".hpp",
+                        ".bash": ".sh", ".zsh": ".sh"}[_ext]
     """死代码/空实现（2026-08-14 补实现——文档宣称但缺失）：
     1. 空实现：函数体仅 pass（占位未实现）→ warning
     2. 未使用 import（AST 启发：import 名在文件中零引用）→ warning
@@ -532,9 +549,12 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                     count += 1
                     if count >= limit:
                         return
-        # IDE 增强 463：cs/swift/dart/php 未使用 import（using X; / import X /
-        # import 'x.dart' / use X\Y;——零引用 → 未使用；通配豁免）
-        if path.endswith((".cs", ".swift", ".dart", ".php")):
+        # IDE 增强 463/466：cs/dart/php 未使用 import——security review 修复：
+        # cs 的 `using System;`（命名空间）短名引用无法静态判定（Console 不带 System.
+        # 前缀）——只查**含点** using（`using System.IO;`→`IO.` 前缀引用）；
+        # dart 查 `base.` 前缀引用；swift 无前缀直接用（UIView 不带 UIKit.）——
+        # 无法判定 → 去掉 swift 分支（宁可不报不误报）
+        if path.endswith((".cs", ".dart", ".php")):
             count = 0
             for i, line in enumerate(src.splitlines(), 1):
                 if line.lstrip().startswith(("//", "#", "/*", "*", "--")):
@@ -542,19 +562,19 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                 m = None
                 if path.endswith(".cs"):
                     m = re.match(r"\s*using\s+([A-Za-z_][\w.]*)\s*;", line)
-                elif path.endswith(".swift"):
-                    m = re.match(r"\s*import\s+([A-Za-z_][\w.]*)", line)
+                    if m and "." not in m.group(1):
+                        continue  # using System; 类命名空间——短名引用无法判定
                 elif path.endswith(".dart"):
                     m = re.match(r"\s*import\s+['\"]([^'\"]+)['\"]", line)
                     if m:
                         base = m.group(1).split("/")[-1].split(".")[0]
                         if not base:
                             continue
-                        name = base
-                        if len(re.findall(rf"\b{re.escape(name)}\b", src)) <= 1:
+                        # 引用 = `base.` 前缀（dart 库访问是 base.Symbol 形式）
+                        if not re.search(rf"\b{re.escape(base)}\s*\.", src):
                             issues.append({
                                 "rule": "dead_code", "severity": "Warning",
-                                "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
+                                "line": i, "msg": f"未使用 import：`{base}`（文件内零引用）",
                                 "file": path})
                             count += 1
                             if count >= limit:
@@ -567,7 +587,9 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                 name = m.group(1).split(".")[-1].split("\\")[-1].strip()
                 if not name or name == "*" or name.endswith(".*"):
                     continue  # 通配导入豁免
-                if len(re.findall(rf"\b{re.escape(name)}\b", src)) <= 1:
+                # cs：含点 using 的短名（System.IO→IO）——引用是 `IO.` 前缀
+                pat = rf"\b{re.escape(name)}\s*\." if path.endswith(".cs") else rf"\b{re.escape(name)}\b"
+                if len(re.findall(pat, src)) <= 1:
                     issues.append({
                         "rule": "dead_code", "severity": "Warning",
                         "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
