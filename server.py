@@ -2571,6 +2571,67 @@ def _tool_ide_references(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=2))]
 
 
+def _tool_game_check(args: dict) -> "list[types.TextContent]":
+    """游戏工程引擎中立检查（skill M1/M5：每帧 IO/输入节流/物理数量级）。"""
+    from game_check import check_project
+    p = _check_path(str(args.get("path", "")))
+    rules = [r.strip() for r in str(args.get("rules", "")).split(",") if r.strip()]
+    return [_TC(json.dumps(check_project(p, rules or None),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_game_feel(args: dict) -> "list[types.TextContent]":
+    """表现寄存器判定（skill M2：character/abstract/serious）。"""
+    from game_check import judge_register, check_project
+    p = _check_path(str(args.get("path", "")))
+    if os.path.isfile(p):
+        try:
+            with open(p, encoding="utf-8", errors="replace") as f:
+                src = f.read()
+        except OSError as e:
+            return [_TC(json.dumps({"ok": False, "error": str(e)},
+                                   ensure_ascii=False))]
+        return [_TC(json.dumps(judge_register(src, p),
+                               ensure_ascii=False, indent=2))]
+    d = check_project(p)
+    return [_TC(json.dumps({"ok": True, "registers": d["registers"],
+                            "advice": d["advice"]},
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_game_api(args: dict) -> "list[types.TextContent]":
+    """引擎 API 语义查询（防幻觉：未收录诚实拒绝）。"""
+    from game_api import query_api
+    engine = str(args.get("engine", ""))
+    symbol = str(args.get("symbol", ""))
+    return [_TC(json.dumps(query_api(engine, symbol),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_game_verify(args: dict) -> "list[types.TextContent]":
+    """可复现验证检查（skill M4：smoke/XDG/日志——无头验证不靠猜）。"""
+    from game_check import verify_headless_setup
+    p = _check_path(str(args.get("path", "")))
+    return [_TC(json.dumps(verify_headless_setup(str(p)),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_game_rules(args: dict) -> "list[types.TextContent]":
+    """项目级游戏规则读写（通用默认 + 项目覆盖——在游戏文件里再搞一个）。"""
+    from game_check import load_game_rules, save_game_rules
+    p = _check_path(str(args.get("path", "")))
+    action = str(args.get("action", "load"))
+    if action == "save":
+        rules = args.get("rules")
+        if not isinstance(rules, dict):
+            return [_TC(json.dumps({"ok": False, "error": "rules 须为 JSON 对象"},
+                                   ensure_ascii=False))]
+        return [_TC(json.dumps(save_game_rules(str(p), rules),
+                               ensure_ascii=False, indent=2))]
+    return [_TC(json.dumps(load_game_rules(str(p)),
+                           ensure_ascii=False, indent=2))]
+
+
 def _tool_ide_actions(args: dict) -> "list[types.TextContent]":
     from ide_tools import ide_actions
     return [_TC(json.dumps(ide_actions(args.get("path", "")), ensure_ascii=False, indent=2))]
@@ -4835,10 +4896,37 @@ def _tool_code_complete(args: dict) -> "list[types.TextContent]":
             continue  # 已保留更优候选
         seen[key] = rank
         out.append({"label": key, "kind": kind, "detail": detail})
+    # 阶段3 引擎语义层：LSP 空结果时附 game_api 词典提示（游戏文件——
+    # .gd → godot、.rs 含 bevy 导入 → bevy；未收录诚实提示防幻觉）
+    game_hints: list = []
+    if not out:
+        try:
+            from game_api import BEVY_API, GODOT_API
+            engine = None
+            if p.suffix.lower() == ".gd":
+                engine = "godot"
+            elif p.suffix.lower() == ".rs" and "bevy" in text:
+                engine = "bevy"
+            if engine:
+                db = BEVY_API if engine == "bevy" else GODOT_API
+                # 光标前最后一个词 → 词典前缀/包含匹配（防幻觉：仅提示已收录）
+                m = re.search(r"([A-Za-z_]\w*)\s*$",
+                              text[: character if character >= 0 else len(text)])
+                prefix = m.group(1) if m else ""
+                if prefix:
+                    for k, (kind, desc) in db.items():
+                        if prefix.lower() in k.lower() or k.lower() in prefix.lower():
+                            game_hints.append({"symbol": k, "kind": kind,
+                                               "description": desc[:60]})
+                            if len(game_hints) >= 6:
+                                break
+        except Exception:
+            game_hints = []
     return [_tr(True, f"completion {len(out)} 项（去重 {len(items) - len(out)}）",
                 {"language": language_id,
                  "position": {"line": line, "character": character},
                  "items": out,
+                 "game_hints": game_hints,
                  # IDE 增强 247：补全耗时（ms——收官）
                  "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1)})]
 
@@ -5258,6 +5346,25 @@ _TOOLS: dict[str, tuple] = {
         "root": _S("string", "代码库根目录"),
         "symbol": _S("string", "要查的符号"),
     }, ["root", "symbol"]), "查找符号定义与全部引用（IDE goto-references，无 LSP 可用）"),
+    "game_check": (_tool_game_check, _schema({
+        "path": _S("string", "项目路径"),
+        "rules": _S("string", "可选：逗号分隔规则名过滤（frame_io/input_unthrottled/physics_scale/frame_rate_dependent）"),
+    }, ["path"]), "游戏工程引擎中立检查（skill M1/M5：每帧 IO 红线/输入节流不变量/物理参数数量级）"),
+    "game_feel": (_tool_game_feel, _schema({
+        "path": _S("string", "项目路径（或单文件）"),
+    }, ["path"]), "表现寄存器判定（skill M2：character/abstract/serious——效果建议前先定寄存器）"),
+    "game_api": (_tool_game_api, _schema({
+        "engine": _S("string", "引擎（bevy/godot）"),
+        "symbol": _S("string", "API 符号名（Transform/_process/Button…）"),
+    }, ["engine", "symbol"]), "引擎 API 语义查询（Bevy 0.18 优先+Godot 4 基础——未收录诚实拒绝防幻觉）"),
+    "game_verify": (_tool_game_verify, _schema({
+        "path": _S("string", "项目路径"),
+    }, ["path"]), "可复现验证检查（skill M4：smoke 脚本/XDG/日志捕获——无头验证不靠猜）"),
+    "game_rules": (_tool_game_rules, _schema({
+        "path": _S("string", "项目路径"),
+        "action": _S("string", "load（默认）/save"),
+        "rules": _S("object", "save 时的规则对象（engine/physics_range/…）"),
+    }, ["path"]), "项目级游戏规则读写（通用默认 + 项目覆盖——在游戏文件里再搞一个）"),
     "ide_actions": (_tool_ide_actions, _schema({
         "path": _S("string", "文件路径"),
     }, ["path"]), "快速修复建议（unwrap/expect/as 收窄等安全规则→code action）"),
