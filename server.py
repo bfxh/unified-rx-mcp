@@ -2827,7 +2827,12 @@ def _tool_semantic_search(args: dict) -> "list[types.TextContent]":
     root = args.get("root", "")
     query = args.get("query", "")
     limit = int(args.get("limit", 15))
+    # IDE 增强 171（安全）：root/db 过 _check_path 沙盒校验（防任意 .db
+    # 读取/越界索引——与 kb_query 169 同族）
+    root = _check_path(root)
     db_path = args.get("db", os.path.join(root or ".", ".unified-rx-index", "semantic.db"))
+    if db_path:
+        db_path = _check_path(db_path)
     if not root or not os.path.isdir(root):
         return [_TC(json.dumps({"ok": False, "error": f"目录不存在: {root}"}, ensure_ascii=False))]
     if not query:
