@@ -754,3 +754,18 @@ def test_lsp_query_go_real():
     finally:
         import shutil
         shutil.rmtree(repo, ignore_errors=True)
+
+
+def test_lsp_gopls_env_override(monkeypatch):
+    """UNIFIED_RX_GOPLS env 覆盖（472：工具路径参数化——security review 观察项）。
+
+    设 UNIFIED_RX_GOPLS 指向 gopls → LSP_SERVER_CONFIG["go"] 应解析到覆盖值。
+    """
+    import os as _os
+    gopls = r"D:\开发\go-toolchain\gopath\bin\gopls.exe"
+    if not _os.path.exists(gopls):
+        pytest.skip("gopls 未安装")
+    monkeypatch.setenv("UNIFIED_RX_GOPLS", gopls)
+    cfg = server.LSP_SERVER_CONFIG["go"]
+    assert cfg[0] == gopls, f"env 覆盖应生效: {cfg}"
+    assert server._command_available(cfg[0]), "覆盖路径应可执行"
