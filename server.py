@@ -3299,6 +3299,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "网络": "network", "请求": "request", "响应": "response", "连接": "connection",
         # IDE 增强 307：并发/性能词（线程/锁/队列/缓存——中文目标直达并发代码）
         "线程": "thread", "锁": "lock", "队列": "queue", "进程": "process",
+        # IDE 增强 308：算法/结构词（哈希/图/树/排序/递归——中文目标直达算法代码）
+        "哈希": "hash", "图": "graph", "树": "tree", "排序": "sort",
+        "查找": "find", "递归": "recursive", "遍历": "traverse", "匹配": "match",
         "并发": "concurrent", "缓存": "cache", "内存": "memory", "崩溃": "crash",
         "同步": "sync", "异步": "async", "超时": "timeout", "重试": "retry",
         "像素": "pixel", "触摸": "touch", "手势": "gesture", "滚动": "scroll",
