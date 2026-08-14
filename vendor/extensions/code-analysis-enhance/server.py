@@ -731,7 +731,7 @@ def _generic_metadata(content: str, suffix: str) -> dict:
         try:
             for m in re.finditer(ip, content, re.M):
                 meta["imports"].append(m.group(0).strip())
-        except re.error:
+        except re.error:  # 尽力而为
             pass
     meta["imports"] = list(dict.fromkeys(meta["imports"]))[:20]
     return meta
@@ -1398,7 +1398,7 @@ class _LspClient:
         except Exception:
             try:
                 self.proc.kill()
-            except Exception:
+            except Exception:  # 尽力而为
                 pass
 
 
