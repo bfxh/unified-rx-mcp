@@ -106,9 +106,11 @@ def scan_ui_source(src: str, path: str = "", dir_mode: bool = False) -> list[dic
                 issues.append({"rule": "font_missing", "severity": "warning",
                                "line": i, "msg": "Text 无字体兜底（CJK 缺失会方框/白屏）"})
 
-        # IDE 增强 121：交互缺失——Button spawn 无交互处理（不可点击/死按钮；
+        # IDE 增强 121/164：交互缺失——Button 系 spawn 无交互处理
+        # （死按钮；164：支持 UiButton/TextButton/ImageButton/IconButton 变体；
         # 只查 spawn 行本身——块检查会误吃相邻按钮的 Interaction）
-        if "spawn(Button" in line or re.search(r"\bspawn\([^)]*Button\)", line):
+        if re.search(r"\bspawn\([^)]*(?:Button|Btn)", line) \
+                or re.search(r"\bUi(?:Button|TextButton|ImageButton|IconButton)\b", line):
             if not re.search(r"Interaction|on_press|on_click|Pressed|Clicked|listener|"
                              r"\.clicked|pressed\s*\(|Released", line):
                 issues.append({"rule": "no_interaction", "severity": "warning",
