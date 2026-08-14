@@ -3029,6 +3029,7 @@ def _tool_semantic_search(args: dict) -> "list[types.TextContent]":
                 continue
     try:
         # 混合检索（2026-08-13 向量增强）：BM25 召回 top-20 → 本地 embedding 余弦重排 → RRF
+        _t0 = time.perf_counter()
         results = idx.search(_cjk_bigram_query(query), limit=20)
         vector_used = False
         try:
@@ -3070,6 +3071,8 @@ def _tool_semantic_search(args: dict) -> "list[types.TextContent]":
         return [_TC(json.dumps({"ok": False, "error": f"检索失败: {e}"}, ensure_ascii=False))]
     return [_TC(json.dumps({"ok": True, "query": query, "indexed_files": added,
                             "results": results,
+                            # IDE 增强 216：检索耗时（ms——对称 kb_query 215）
+                            "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1),
                             "note": ("BM25+向量 RRF 混合检索（bge-small-zh 本地 embedding）" if vector_used
                                      else "BM25 全文检索（无 embedding 模型——纯 BM25 降级）"),
                             # IDE 增强 194：命中质量建议（对称 kb_query 150）
