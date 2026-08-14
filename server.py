@@ -1956,12 +1956,14 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
 # ——go/ts/js/gd/c/cpp 轻量确定性文本规则（低误报；AST 精度留给 py/rs）
 _BUG_SCAN_EXTS = {".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
                   ".gd", ".c", ".cpp", ".h", ".hpp",
-                  ".cs", ".lua", ".sh", ".bash"}
+                  ".cs", ".lua", ".sh", ".bash",
+                  ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1"}
 # IDE 增强 256：分析入口统一扩展（kb_query/semantic_search/explore_code/
 # repo_wiki 全语言——用户点名"没有多语言处理"，三处白名单此前缺 go/c/cpp）
 _ANALYZE_EXTS = {".rs", ".py", ".go", ".ts", ".tsx", ".js", ".jsx",
                  ".gd", ".c", ".h", ".cpp", ".hpp", ".cc",
                  ".cs", ".lua", ".sh", ".bash",
+                 ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1",
                  ".toml", ".md", ".ron", ".json", ".yaml", ".yml"}
 
 # (正则, 规则名, 严重度, 消息) 每语言一组——只报确定性模式：
@@ -2072,6 +2074,43 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
             (r"\bcurl\s+[^\|]*\|\s*(?:sudo\s+)?(?:bash|sh)\b", "pipe_exec",
              "warning",
              "curl | bash（从网络管道执行——供应链风险，建议先下载审查）")],
+    # IDE 增强 269：Java/Kotlin/Swift/PHP/Ruby/PowerShell（6 大主流语言）
+    ".java": [(r"\bSystem\.out\.print(?:ln)?\s*\(", "debug_residue", "warning",
+               "调试残留（System.out.print——建议删或转日志框架）"),
+              (r"\.printStackTrace\s*\(", "debug_residue", "warning",
+               "printStackTrace（堆栈打印到 stderr——建议日志框架记录）"),
+              (r"\bClass\.forName\s*\(", "dynamic_load", "warning",
+               "Class.forName 动态加载（输入不可信时任意类加载——建议白名单）")],
+    ".kt": [(r"!!(?=\s|\)|,|;|$)", "nonnull_assert", "warning",
+             "!! 非空断言（Kotlin 中 null 时抛 NPE——建议安全调用 ?. 或判空）"),
+            (r"\bprintln\s*\(", "debug_residue", "warning",
+             "调试残留（println——建议删或转日志）")],
+    ".kts": [(r"!!(?=\s|\)|,|;|$)", "nonnull_assert", "warning",
+              "!! 非空断言（null 时抛 NPE——建议安全调用）"),
+             (r"\bprintln\s*\(", "debug_residue", "warning",
+              "调试残留（println——建议删或转日志）")],
+    ".swift": [(r"\bprint\s*\(", "debug_residue", "warning",
+                "调试残留（print——建议删或转 os_log）"),
+               (r"!\s*(?:\.|\)|\)\s*\.|\s*=|\s*\()", "force_unwrap", "warning",
+                "强制解包 !（nil 时崩溃——建议 guard let/if let 安全解包）")],
+    ".php": [(r"\becho\s+|\bprint_r\s*\(", "debug_residue", "warning",
+              "调试残留（echo/print_r——建议删或转日志）"),
+             (r"\beval\s*\(", "dynamic_exec", "error",
+              "eval() 动态执行——输入不可信时任意代码注入，建议安全替代"),
+             (r"\bmysql_query\s*\(", "unsafe_sql", "warning",
+              "mysql_query 直接拼接（SQL 注入风险——建议 PDO 预处理）")],
+    ".rb": [(r"\bputs\s+|\bp\s+", "debug_residue", "warning",
+             "调试残留（puts/p——建议删或转日志）"),
+            (r"\beval\s*\(", "dynamic_exec", "error",
+             "eval() 动态执行——输入不可信时任意代码注入，建议安全替代"),
+            (r"\bsystem\s*\(", "shell_injection", "warning",
+             "system() 命令执行（输入不可信时命令注入——建议参数化）")],
+    ".ps1": [(r"\bWrite-Host\s+", "debug_residue", "warning",
+              "调试残留（Write-Host——建议删或转 Write-Verbose 日志）"),
+             (r"\bInvoke-Expression(?:\s*\(|\s+[$\w])", "shell_injection", "error",
+              "Invoke-Expression（PowerShell eval——输入不可信时任意命令执行）"),
+             (r"\bRemove-Item\s+[^\n]*\s-Recurse", "destructive", "warning",
+              "Remove-Item -Recurse（递归删除——建议精确路径+确认）")],
 }
 
 

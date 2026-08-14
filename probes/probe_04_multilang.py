@@ -223,3 +223,23 @@ def p24():
     if cs:
         return True, "cb_scan cs 死按钮检出"
     return False, f"cb_scan 应含 cs 检出: {data}"
+
+
+@probe("p25_bug_scan_java_ps1")
+def p25():
+    """bug_scan Java/PowerShell 新语言（269）。"""
+    java_file = os.path.join(_TMP, "sample.java")
+    with open(java_file, "w", encoding="utf-8") as f:
+        f.write("class A {\n    void m() {\n        System.out.println(\"x\");\n    }\n}\n")
+    out = S._call("bug_scan", {"path": java_file})
+    java_ok = any(i.get("rule") == "debug_residue"
+                  for i in json.loads(out[0].text).get("issues", []))
+    ps_file = os.path.join(_TMP, "sample.ps1")
+    with open(ps_file, "w", encoding="utf-8") as f:
+        f.write("Invoke-Expression $input\n")
+    out = S._call("bug_scan", {"path": ps_file})
+    ps_ok = any(i.get("rule") == "shell_injection"
+                for i in json.loads(out[0].text).get("issues", []))
+    if java_ok and ps_ok:
+        return True, "java debug_residue + ps1 shell_injection 双检出"
+    return False, f"应双检出: java={java_ok} ps1={ps_ok}"
