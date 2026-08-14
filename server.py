@@ -3415,6 +3415,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "拖拉机": "tractor", "收割机": "harvester", "播种机": "seeder", "无人机": "drone",
         # IDE 增强 368：太空词（空间站/轨道/行星/星系/恒星/卫星/探测器/陨石）
         "空间站": "station", "轨道": "orbit", "行星": "planet", "星系": "galaxy",
+        # IDE 增强 369：配方词（配方/炼金/附魔/强化/改造/修理/分解/组装）
+        "配方": "recipe", "炼金": "alchemy", "附魔": "enchant", "强化": "enhance",
+        "改造": "modify", "修理": "repair", "分解": "deconstruct", "组装": "assemble",
         "恒星": "star", "卫星": "satellite", "探测器": "probe", "陨石": "meteor",
         "翻耕机": "tiller", "喷灌机": "sprinkler", "粮仓": "granary", "蜂箱": "beehive",
         "铀矿": "uranium", "稀土": "rare", "硅矿": "silicon", "石油": "oil",
