@@ -27,6 +27,7 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
     by_symbol: dict[str, int] = {}
     by_file: dict[str, int] = {}
     by_rule: dict[str, int] = {}  # IDE 增强 100：规则分布（问题类型一眼可见）
+    by_sev: dict[str, int] = {}   # IDE 增强 110：严重度分布（优先级一眼可见）
 
     def load_fn_lines(path: str) -> list[tuple[int, str]]:
         if path in fn_lines:
@@ -50,6 +51,11 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
         # IDE 增强 100：规则分布（AI 判断修复优先级——什么类型问题最多）
         rule = str(iss.get("rule") or iss.get("kind") or "unknown")[:40]
         by_rule[rule] = by_rule.get(rule, 0) + 1
+        # IDE 增强 110：严重度分布（error/warn/info 计数——优先级一眼可见）
+        sev = str(iss.get("severity") or "").lower()
+        if sev not in ("error", "warning", "warn", "info", "suggestion"):
+            sev = "unknown"
+        by_sev[sev] = by_sev.get(sev, 0) + 1
         symbol = "<unknown>"
         cur = None
         for ln, name in load_fn_lines(path):
@@ -67,6 +73,7 @@ def annotate_issues(root: str, issues: list[dict]) -> dict:
         "total": len(issues),
         "by_file": dict(sorted(by_file.items(), key=lambda kv: -kv[1])),
         "by_rule": dict(sorted(by_rule.items(), key=lambda kv: -kv[1])),
+        "severity_counts": dict(sorted(by_sev.items(), key=lambda kv: -kv[1])),
         "symbol_map": dict(sorted(by_symbol.items(), key=lambda kv: -kv[1])[:50]),
     }
 
