@@ -341,6 +341,9 @@ def ide_references(root: str, symbol: str, max_refs: int = 200,
         "definition_count": len(definitions),
         "reference_count": len(references),
         "count": len(refs),
+        # IDE 增强 99：文件级汇总（影响面文件数——AI 评估改动范围）
+        "file_count": len({r["file"] for r in refs}),
+        "files": sorted({r["file"] for r in refs}),
         "advice": "用 ide_rename 生成重命名方案（L3 建议层，确认后 fs_write 应用）",
     }
 
