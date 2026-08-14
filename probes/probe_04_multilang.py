@@ -264,3 +264,25 @@ def p26():
     if mn and "Build-Module" in ps:
         return True, "java magic_number + ps1 连字符符号 双检出"
     return False, f"应双检出: mn={mn} ps1={list(ps)}"
+
+
+@probe("p27_bug_scan_rest_langs")
+def p27():
+    """bug_scan 剩余语言契约（271：swift/php/rb/kt/tsx——语言全覆盖收官）。"""
+    cases = {
+        "s.swift": ("print(\"x\")\nlet s: String? = nil\nprint(s!)\n", "debug_residue"),
+        "p.php": ("<?php\neval($x);\n", "dynamic_exec"),
+        "r.rb": ("def m\n  eval(\"1\")\nend\n", "dynamic_exec"),
+        "k.kt": ("fun m() {\n    println(s!!)\n}\n", "nonnull_assert"),
+        "t.tsx": ("const C = () => <div dangerouslySetInnerHTML={{__html: u}} />;\n", "xss_risk"),
+    }
+    for fn, (src, want) in cases.items():
+        fp = os.path.join(_TMP, fn)
+        with open(fp, "w", encoding="utf-8") as f:
+            f.write(src)
+        out = S._call("bug_scan", {"path": fp})
+        data = json.loads(out[0].text)
+        rules = {i.get("rule") for i in data.get("issues", [])}
+        if want not in rules:
+            return False, f"{fn} 应检出 {want}: {rules}"
+    return True, "swift/php/rb/kt/tsx 五语言规则全检出"
