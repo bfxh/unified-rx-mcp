@@ -3523,6 +3523,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "托盘": "pallet", "吊车": "crane", "起重机": "hoist", "堆垛机": "stacker",
         # IDE 增强 422：庭院词（栅栏/篱笆/门廊/露台/凉亭/花园/菜园/鸡舍）
         "栅栏": "fence", "篱笆": "hedge", "门廊": "porch", "露台": "terrace",
+        # IDE 增强 423：宗教建筑词（祭坛/神殿/圣所/图腾/神龛/修道院/教堂/寺庙）
+        "祭坛": "altar", "神殿": "temple", "圣所": "sanctum", "图腾": "totem",
+        "神龛": "shrine", "修道院": "monastery", "教堂": "church", "寺庙": "monastery2",
         "凉亭": "gazebo", "花园": "garden", "菜园": "grove", "鸡舍": "coop",
         "分拣臂": "sorterarm", "传送机": "conveyor", "货梯": "freightlift", "升降台": "lift",
         "花瓶": "vase", "窗帘": "curtain", "灯饰": "lantern", "摆件": "decor",
