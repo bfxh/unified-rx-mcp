@@ -245,4 +245,7 @@ def scan_repo(root: str, max_files: int = 200) -> dict:
         "changed_files": len(changed),
         "issue_count": len(issues),
         "issues": issues,
+        # IDE 增强 133：变更优先提示（changed 文件 = 你正在改的——优先排查）
+        "advice": (f"{len(changed)} 个文件有改动（优先排查——issues 中 priority=changed 排前）"
+                   if changed else "无变更文件——按 severity 排序"),
     }
