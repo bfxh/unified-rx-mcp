@@ -169,7 +169,7 @@ _IDENT_RE = r"[A-Za-z_][A-Za-z0-9_]*"
 
 
 def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20,
-                 match: str = "auto") -> dict:
+                 match: str = "auto", sort: str = "line") -> dict:
     """补全：同库符号匹配前缀（tree-sitter 图降级版——无 LSP 也可用）。
 
     IDE 增强五（2026-08-13）：
@@ -214,8 +214,13 @@ def ide_complete(root: str, file_path: str, prefix: str, limit: int = 20,
                                            "file": p, "line": i}
             if _browse_truncated:
                 break
-        ranked = sorted(decls.values(),
-                        key=lambda c: (c["line"], c["name"]))[:max(limit, 1)]
+        # IDE 增强 131：browse 排序参数（sort=line 按行号 / sort=name 按名字）
+        if sort == "name":
+            ranked = sorted(decls.values(),
+                            key=lambda c: (c["name"], c["line"]))[:max(limit, 1)]
+        else:
+            ranked = sorted(decls.values(),
+                            key=lambda c: (c["line"], c["name"]))[:max(limit, 1)]
         return {"ok": True, "prefix": "", "items": [c["name"] for c in ranked],
                 "detailed": ranked, "count": len(ranked),
                 "match_mode": "browse",
