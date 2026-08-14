@@ -3559,6 +3559,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "料斗": "hopper", "加料口": "inlet", "出料口": "outlet", "搅拌器": "agitator",
         # IDE 增强 440：矿井结构词（竖井/平巷/主巷/通风井/安全通道/避难硐室/排水沟/支架区）
         "竖井": "shaft", "平巷": "drift", "主巷": "mainhaulage", "通风井": "ventilation",
+        # IDE 增强 441：冶炼辅料词（助熔剂/催化剂/反应剂/淬火液/冷却液/电解液/研磨剂/润滑剂）
+        "助熔剂": "flux", "催化剂": "catalyst", "反应剂": "reagent", "淬火液": "quenchfluid",
+        "冷却液": "coolant", "电解液": "electrolyte", "研磨剂": "abrasive", "润滑剂": "lubricant",
         "安全通道": "escape", "避难硐室": "refuge", "排水沟": "drainage", "支架区": "supportzone",
         "乳化器": "emulsifier", "均质机": "homogenizer", "离心分离": "centrifuge", "过滤槽": "filterbed",
         "里程碑": "milestone", "路标": "signpost", "灯塔": "lighthouse", "界碑": "boundarymark",
