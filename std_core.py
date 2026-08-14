@@ -132,21 +132,18 @@ def _scan_text_placeholder(path: str, src: str, issues: list, limit: int, todo_c
 
 
 def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
-    # IDE 增强 466（security review LOW）：别名归一——.cc/.cxx→.cpp、.hh/.hxx→.hpp、
-    # .bash/.zsh→.sh（分支判断与 bug_scan 对齐，否则 .cc 的 c 规则不生效；
-    # 只影响分支判断，issue 的 file 字段保留原路径）
-    _ext = os.path.splitext(path)[1].lower()
-    _ext = {".cc": ".cpp", ".cxx": ".cpp", ".hh": ".hpp", ".hxx": ".hpp",
-            ".bash": ".sh", ".zsh": ".sh"}.get(_ext, _ext)
-    if _ext != os.path.splitext(path)[1].lower():
-        _root, _ = os.path.splitext(path)
-        path = _root + _ext
-    if not (path.endswith(".py")):
+    # IDE 增强 466/467（security review 复检修复）：别名归一**只用于分支判断**——
+    # 不改写 path 参数（issue 的 file 字段必须保留磁盘真实路径）
+    _norm_ext = os.path.splitext(path)[1].lower()
+    _norm_ext = {".cc": ".cpp", ".cxx": ".cpp", ".hh": ".hpp", ".hxx": ".hpp",
+                 ".bash": ".sh", ".zsh": ".sh"}.get(_norm_ext, _norm_ext)
+    _branch = os.path.splitext(path)[0] + _norm_ext  # 仅 endswith 判断用
+    if not (_branch.endswith(".py")):
         # IDE 增强 108/118/166：ts/js/tsx/jsx + go + gd 文本启发——模块级重复声明
         # （function/class/const/let/var/func 同名 → 重复定义；gd 的 func 与 go 同构）
         # IDE 增强 258：c/cpp 并入（函数声明同名 → 重复定义；c 的 static 函数重名是错误）
         # IDE 增强 462：php/sh/bash 并入（php 的 function/class、sh 的 name() 重复声明）
-        if path.endswith((".ts", ".tsx", ".js", ".jsx", ".go", ".gd",
+        if _branch.endswith((".ts", ".tsx", ".js", ".jsx", ".go", ".gd",
                           ".php", ".sh", ".bash")):
             count = 0
             seen: dict = {}
@@ -166,7 +163,7 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
                     # public/private/protected 修饰——多类同名方法合法，不报）
                     m2 = re.match(
                         r"\s*function\s+([A-Za-z_][\w]*)\s*\("
-                        r"|^\s*class\s+([A-Za-z_][\w]*)\b"
+                        r"|^\s*(?:final\s+|abstract\s+)*class\s+([A-Za-z_][\w]*)\b"
                         r"|^\s*([A-Za-z_][\w]*)\s*\(\s*\)\s*(?:\{|$)",
                         line)
                     if not m2:
@@ -188,7 +185,7 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
                 else:
                     seen[name] = i
             return
-    if path.endswith((".c", ".cpp", ".h", ".hpp")):
+    if _branch.endswith((".c", ".cpp", ".h", ".hpp")):
         # IDE 增强 258：c/cpp 函数声明重复（行首声明——排除 return/if 等
         # 关键字开头防调用/语句误匹配）
         count = 0
@@ -216,7 +213,7 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
-    if path.endswith((".dart",)):
+    if _branch.endswith((".dart",)):
         # IDE 增强 294：dart 重复类/函数检测（class/func 同名——
         # 对齐 c 分支；排除 Flutter 控件名）
         count = 0
@@ -248,7 +245,7 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
-    if path.endswith((".java",)):
+    if _branch.endswith((".java",)):
         # IDE 增强 313：java 重复类/方法检测（class/方法声明同名——
         # 对齐 dart/c 分支；排除构造器与 main 重载）
         count = 0
@@ -278,7 +275,7 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
-    if path.endswith((".kt", ".kts")):
+    if _branch.endswith((".kt", ".kts")):
         # IDE 增强 314：kotlin 重复类/函数检测（class/fun 同名——
         # 对齐 java/dart 分支）
         count = 0
@@ -306,7 +303,7 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
-    if path.endswith((".swift",)):
+    if _branch.endswith((".swift",)):
         # IDE 增强 316：swift 重复类/函数检测（class/struct/func 同名——
         # 对齐 kt/java 分支）
         count = 0
@@ -334,12 +331,12 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
-    if path.endswith((".rb", ".lua", ".ps1", ".cs")):
+    if _branch.endswith((".rb", ".lua", ".ps1", ".cs")):
         # IDE 增强 317：rb/lua/ps1/cs 重复定义（def/function/func 同名——
         # name_conflict 全语言收官）
         count = 0
         seen: dict = {}
-        _cs = path.endswith(".cs")
+        _cs = _branch.endswith(".cs")
         for i, line in enumerate(src.splitlines(), 1):
             if line.lstrip().startswith(("//", "#", "--", "*")):
                 continue
@@ -462,7 +459,7 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
 
 
 def _scan_dead_code(path: str, src: str, issues: list, limit: int):
-    # IDE 增强 466：别名归一（与 name_conflict/bug_scan 对齐）
+    # IDE 增强 466/467：别名归一只用于分支判断（不改 path——file 字段保留原路径）
     _ext = os.path.splitext(path)[1].lower()
     if _ext in (".cc", ".cxx", ".hh", ".hxx", ".bash", ".zsh"):
         _root, _ = os.path.splitext(path)
@@ -570,8 +567,10 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                         base = m.group(1).split("/")[-1].split(".")[0]
                         if not base:
                             continue
-                        # 引用 = `base.` 前缀（dart 库访问是 base.Symbol 形式）
-                        if not re.search(rf"\b{re.escape(base)}\s*\.", src):
+                        # 引用 = `base.` 前缀——**只搜 import 行之后**（import 行
+                        # 自身 `bar.dart` 命中 `bar.`——security review 复检修复）
+                        rest = "\n".join(src.splitlines()[i:])
+                        if not re.search(rf"\b{re.escape(base)}\s*\.", rest):
                             issues.append({
                                 "rule": "dead_code", "severity": "Warning",
                                 "line": i, "msg": f"未使用 import：`{base}`（文件内零引用）",
@@ -587,16 +586,20 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                 name = m.group(1).split(".")[-1].split("\\")[-1].strip()
                 if not name or name == "*" or name.endswith(".*"):
                     continue  # 通配导入豁免
-                # cs：含点 using 的短名（System.IO→IO）——引用是 `IO.` 前缀
-                pat = rf"\b{re.escape(name)}\s*\." if path.endswith(".cs") else rf"\b{re.escape(name)}\b"
-                if len(re.findall(pat, src)) <= 1:
-                    issues.append({
-                        "rule": "dead_code", "severity": "Warning",
-                        "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
-                        "file": path})
-                    count += 1
-                    if count >= limit:
-                        return
+                # cs：含点 using 的短名（System.IO→IO）——引用是 `IO.` 前缀；
+                # 阈值 ==0（using 行自身无 `IO.`——security review 复检修复：
+                # 恰好一次完全限定引用 System.IO.File 不误报）
+                if path.endswith(".cs"):
+                    pat = rf"\b{re.escape(name)}\s*\."
+                    if len(re.findall(pat, src)) == 0:
+                        issues.append({
+                            "rule": "dead_code", "severity": "Warning",
+                            "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
+                            "file": path})
+                        count += 1
+                        if count >= limit:
+                            return
+                    continue
         return
     try:
         tree = ast.parse(src)

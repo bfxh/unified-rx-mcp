@@ -2662,3 +2662,34 @@ def test_self_scan_incremental_skips_unchanged(tmp_path, monkeypatch):
     logs = slc.query_logs(limit=50)
     heart = [l for l in logs if "无变动" in l.get("summary", "")]
     assert heart, f"无变动应产生心跳记录: {[l['summary'] for l in logs[:3]]}"
+
+
+def test_std_check_import_usage_edge_cases(tmp_path, monkeypatch):
+    """security review 复检回归（467）：cs 完全限定引用不误报、
+    dart 只搜 import 行之后、.cc file 保留原路径、php final class。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    # cs 完全限定引用恰好一次 → 不误报（阈值 ==0）
+    (tmp_path / "fq.cs").write_text(
+        "using System.IO;\nclass A {\n    void M() { System.IO.File.ReadAllText(\"x\"); }\n}\n",
+        encoding="utf-8")
+    # dart 未使用 → 报；使用 → 不报（只搜 import 行之后）
+    (tmp_path / "unused.dart").write_text(
+        "import 'package:foo/bar.dart';\nvoid main() {}\n", encoding="utf-8")
+    (tmp_path / "used.dart").write_text(
+        "import 'package:foo/bar.dart';\nvoid main() { bar.Baz().go(); }\n", encoding="utf-8")
+    # .cc 重复函数 → c 分支检出且 file 保留 .cc
+    (tmp_path / "dup.cc").write_text(
+        "int helper() { return 1; }\nint helper() { return 2; }\n", encoding="utf-8")
+    # php final class 重复 → 报
+    (tmp_path / "final.php").write_text(
+        "<?php\nfinal class Dup {}\nfinal class Dup {}\n", encoding="utf-8")
+    d = json.loads(server._call("std_check", {"path": str(tmp_path)})[0].text)
+    dc = [(i["file"], i.get("msg", "")) for i in d.get("issues", [])
+          if i.get("rule") == "dead_code"]
+    nc = [i["file"] for i in d.get("issues", []) if i.get("rule") == "name_conflict"]
+    assert not any(str(f).endswith("fq.cs") for f, _ in dc), dc
+    assert any(str(f).endswith("unused.dart") for f, _ in dc), dc
+    assert not any(os.path.basename(f) == "used.dart" for f, _ in dc), dc
+    assert any(f.endswith("dup.cc") for f in nc), nc
+    assert all(f.endswith(".cc") for f in nc if f.endswith("dup.cc")), nc
+    assert any(f.endswith("final.php") for f in nc), nc
