@@ -3325,6 +3325,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "线条": "line", "形状": "shape", "画笔": "brush", "画布": "canvas",
         # IDE 增强 323：通信词（消息/事件/广播/订阅/通知/回调）
         "消息": "message", "事件": "event", "广播": "broadcast", "订阅": "subscribe",
+        # IDE 增强 324：渲染词（光照/着色器/景深/抗锯齿/遮挡/阴影）
+        "光照": "light", "着色器": "shader", "景深": "depth", "抗锯齿": "antialias",
+        "遮挡": "occlusion", "阴影": "shadow", "贴图": "texture", "网格": "mesh",
         "通知": "notify", "回调": "callback", "信号": "signal", "指令": "command",
         "填充": "fill", "描边": "stroke", "渐变": "gradient", "投影": "shadow",
         "方差": "variance", "样本": "sample", "概率": "probability", "期望": "expectation",
