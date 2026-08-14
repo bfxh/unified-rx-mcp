@@ -70,3 +70,21 @@ def p16():
     if gd:
         return True, f"cb_scan gd 死按钮检出"
     return False, f"cb_scan 应含 gd 检出: {data}"
+
+
+@probe("p17_bug_scan_go_rules")
+def p17():
+    """bug_scan go 确定性规则（261：nil map 写入 / goroutine / recover）。"""
+    go_file = os.path.join(_TMP, "sample.go")
+    with open(go_file, "w", encoding="utf-8") as f:
+        f.write("package main\n"
+                "var m map[string]int\n"
+                "func f() {\n"
+                "    m[\"k\"] = 1\n"
+                "}\n")
+    out = S._call("bug_scan", {"path": go_file})
+    data = json.loads(out[0].text)
+    nm = [i for i in data.get("issues", []) if i.get("rule") == "nil_map_write"]
+    if nm:
+        return True, f"go nil map 写入检出 L{nm[0]['line']}"
+    return False, f"go nil map 写入应检出: {data}"

@@ -1958,7 +1958,11 @@ _MULTI_LANG_RULES: dict[str, list[tuple]] = {
     ".go": [(r"\bfmt\.Println?\s*\(", "debug_residue", "warning",
              "调试残留（fmt.Print 生产输出——建议删或转日志）"),
             (r"\bpanic\s*\(", "panic", "warning",
-             "裸 panic（生产崩溃——建议返回 error）")],
+             "裸 panic（生产崩溃——建议返回 error）"),
+            (r"\bgo\s+[A-Za-z_][\w.]*\s*\(", "goroutine_sync", "info",
+             "go 启动协程无同步（共享变量读写竞态风险——建议加锁/通道）"),
+            (r"\brecover\s*\(\).*$", "recover_ignored", "warning",
+             "recover() 返回值被忽略（panic 吞掉但无处理——建议记录日志）")],
     ".ts": [(r"console\.log\s*\(", "debug_residue", "warning",
              "调试残留（console.log——建议删或转日志）"),
             (r"\bany\s*[\):,=\s]", "any_abuse", "info",
@@ -2027,6 +2031,34 @@ def _scan_c_null_deref(src: str, path: str) -> list:
     return issues
 
 
+def _scan_go_nil_map(src: str, path: str) -> list:
+    """go nil map 写入（IDE 增强 261：`var m map[string]int` 后 `m["k"] = v`
+    即 panic——确定性状态跟踪；make 初始化后不报）。"""
+    issues = []
+    nil_maps: dict[str, int] = {}
+    lines = src.splitlines()
+    for i, line in enumerate(lines, 1):
+        m = re.search(r"\bvar\s+([A-Za-z_]\w*)\s+map\[", line)
+        if m and not re.search(r"\bmake\s*\(", line):
+            nil_maps[m.group(1)] = i
+        # `m = make(...)` 之后解除
+        m2 = re.search(r"\b([A-Za-z_]\w*)\s*=\s*make\s*\(", line)
+        if m2:
+            nil_maps.pop(m2.group(1), None)
+    for i, line in enumerate(lines, 1):
+        for name, decl_line in nil_maps.items():
+            if re.search(rf"\b{name}\s*\[[^\]]*\]\s*=", line):
+                issues.append({
+                    "file": str(Path(path).resolve()), "line": i,
+                    "col": line.find(name) + 1,
+                    "rule": "nil_map_write", "severity": "error",
+                    "msg": f"nil map 写入（{name} 声明于行 {decl_line} 未 make——写入即 panic，"
+                           f"建议先 make/初始化）",
+                    "snippet": line.strip()[:80]})
+                break
+    return issues
+
+
 def _multi_lang_scan(path: str, src: str) -> list:
     """多语言轻量确定性扫描（go/ts/js/gd/c/cpp——文本规则）。
 
@@ -2049,6 +2081,9 @@ def _multi_lang_scan(path: str, src: str) -> list:
     if ext in (".c", ".cpp"):
         # IDE 增强 260：c/cpp 空指针解引用（状态跟踪——行级规则无法表达）
         issues.extend(_scan_c_null_deref(src, path))
+    elif ext == ".go":
+        # IDE 增强 261：go nil map 写入（状态跟踪）
+        issues.extend(_scan_go_nil_map(src, path))
     return issues
 
 
