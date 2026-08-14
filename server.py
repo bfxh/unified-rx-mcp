@@ -977,7 +977,13 @@ def _tool_repo_graph(args: dict) -> str:
             hits = gi.communities(max_communities=top)
             return json.dumps({"ok": True, "query": "communities",
                                "count": len(hits), "communities": hits,
-                               "index": stats}, ensure_ascii=False, indent=2)
+                               "index": stats,
+                               # IDE 增强 218：社区建议（模块聚簇提示——
+                               # 社区内耦合高，跨社区改动先评估）
+                               "advice": (f"发现 {len(hits)} 个模块社区——"
+                                          f"社区内耦合高，改动先看同社区依赖"
+                                          if hits else "无社区结构——模块间弱耦合")},
+                              ensure_ascii=False, indent=2)
         # search
         hits = gi.search_symbols(name or symbol, limit=top)
         return json.dumps({"ok": True, "query": "search", "name": name or symbol,
