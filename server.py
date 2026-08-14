@@ -3537,6 +3537,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "基因": "gene", "菌落": "colony", "样本": "specimen", "培养": "culture",
         # IDE 增强 429：军火词（导弹/鱼雷/火箭/炸弹/装甲板/穿甲/高爆/燃烧弹）
         "导弹": "missile", "鱼雷": "torpedo", "火箭": "rocket", "炸弹": "bomb",
+        # IDE 增强 430：攻城词（攻城锤/投石机/云梯/攻城塔/弩炮/破城槌/油罐车/爆破组）
+        "攻城锤": "batteringram", "投石机": "catapult", "云梯": "ladder", "攻城塔": "siegetower",
+        "弩炮": "ballista", "破城槌": "ram", "油罐车": "tanker", "爆破组": "demolition",
         "装甲板": "armorplate", "穿甲": "piercing", "高爆": "highyield", "燃烧弹": "incendiary",
         "克隆": "clone", "突变": "mutation", "血清": "serum", "疫苗": "vaccine",
         "雷暴": "thunderstorm", "龙卷风": "tornado", "寒潮": "coldwave", "热浪": "heatwave",
