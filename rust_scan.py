@@ -199,12 +199,12 @@ def scan_rust_file(path: str) -> tuple[list, int]:
 
     # 文本降级
     for i, line in enumerate(lines, 1):
-        for token, desc, sev in _MACRO_RULES.items():
+        for token, (desc, sev) in _MACRO_RULES.items():
             if f"{token}!" in line:
                 issues.append({"file": path, "line": i, "message": desc,
                                "severity": sev, "rule": token, "col": 0,
                                "snippet": line[:120]})
-        for token, desc, sev in _METHOD_RULES.items():
+        for token, (desc, sev) in _METHOD_RULES.items():
             if f".{token}(" in line:
                 issues.append({"file": path, "line": i, "message": desc,
                                "severity": sev, "rule": token, "col": 0,
@@ -213,6 +213,13 @@ def scan_rust_file(path: str) -> tuple[list, int]:
             issues.append({"file": path, "line": i,
                            "message": "unsafe 块（需人工审查）",
                            "severity": "info", "rule": "unsafe", "col": 0,
+                           "snippet": line[:120]})
+        # IDE 增强 129：文本降级同步 transmute（tree-sitter 不可用时保持覆盖；
+        # 名字匹配——transmute::<T,U>( 泛型写法也要命中）
+        if "transmute" in line:
+            issues.append({"file": path, "line": i,
+                           "message": "transmute() 高危类型转换（布局假设错误即 UB）",
+                           "severity": "warning", "rule": "transmute", "col": 0,
                            "snippet": line[:120]})
         if " as " in line:
             issues.append({"file": path, "line": i,
