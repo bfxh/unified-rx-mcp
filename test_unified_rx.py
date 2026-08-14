@@ -2683,6 +2683,11 @@ def test_std_check_import_usage_edge_cases(tmp_path, monkeypatch):
     # php final class 重复 → 报
     (tmp_path / "final.php").write_text(
         "<?php\nfinal class Dup {}\nfinal class Dup {}\n", encoding="utf-8")
+    # php use 未使用 → 报；使用 → 不报（第三轮 review MEDIUM 回归）
+    (tmp_path / "useunused.php").write_text(
+        "<?php\nuse Foo\\Bar;\nfunction f() {}\n", encoding="utf-8")
+    (tmp_path / "useused.php").write_text(
+        "<?php\nuse Foo\\Bar;\nfunction f() { $x = new Bar(); }\n", encoding="utf-8")
     d = json.loads(server._call("std_check", {"path": str(tmp_path)})[0].text)
     dc = [(i["file"], i.get("msg", "")) for i in d.get("issues", [])
           if i.get("rule") == "dead_code"]
@@ -2691,5 +2696,6 @@ def test_std_check_import_usage_edge_cases(tmp_path, monkeypatch):
     assert any(str(f).endswith("unused.dart") for f, _ in dc), dc
     assert not any(os.path.basename(f) == "used.dart" for f, _ in dc), dc
     assert any(f.endswith("dup.cc") for f in nc), nc
-    assert all(f.endswith(".cc") for f in nc if f.endswith("dup.cc")), nc
     assert any(f.endswith("final.php") for f in nc), nc
+    assert any(str(f).endswith("useunused.php") for f, _ in dc), dc
+    assert not any(str(f).endswith("useused.php") for f, _ in dc), dc

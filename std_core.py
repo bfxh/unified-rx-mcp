@@ -459,7 +459,9 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
 
 
 def _scan_dead_code(path: str, src: str, issues: list, limit: int):
-    # IDE 增强 466/467：别名归一只用于分支判断（不改 path——file 字段保留原路径）
+    # IDE 增强 466/467/468：别名归一只用于分支判断（第三轮 review：
+    # 不改写 path——issue.file 保留磁盘真实路径；dead_code 目前无 c/cpp/sh
+    # 分支（消费者为空）——归一保留为未来分支预留）
     _ext = os.path.splitext(path)[1].lower()
     if _ext in (".cc", ".cxx", ".hh", ".hxx", ".bash", ".zsh"):
         _root, _ = os.path.splitext(path)
@@ -586,10 +588,10 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                 name = m.group(1).split(".")[-1].split("\\")[-1].strip()
                 if not name or name == "*" or name.endswith(".*"):
                     continue  # 通配导入豁免
-                # cs：含点 using 的短名（System.IO→IO）——引用是 `IO.` 前缀；
-                # 阈值 ==0（using 行自身无 `IO.`——security review 复检修复：
-                # 恰好一次完全限定引用 System.IO.File 不误报）
                 if path.endswith(".cs"):
+                    # cs：含点 using 的短名（System.IO→IO）——引用是 `IO.` 前缀；
+                    # 阈值 ==0（using 行自身无 `IO.`——security review 复检修复：
+                    # 恰好一次完全限定引用 System.IO.File 不误报）
                     pat = rf"\b{re.escape(name)}\s*\."
                     if len(re.findall(pat, src)) == 0:
                         issues.append({
@@ -600,6 +602,15 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                         if count >= limit:
                             return
                     continue
+                # php：use 行自身命中 1 次——引用 >1 才不报（第三轮 review 回归修复）
+                if len(re.findall(rf"\b{re.escape(name)}\b", src)) == 1:
+                    issues.append({
+                        "rule": "dead_code", "severity": "Warning",
+                        "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
+                        "file": path})
+                    count += 1
+                    if count >= limit:
+                        return
         return
     try:
         tree = ast.parse(src)
