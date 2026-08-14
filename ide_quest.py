@@ -21,7 +21,9 @@ STEPS = [
 ]
 
 # 任务目录（状态文件）
-_QUEST_DIR = os.environ.get("UNIFIED_RX_QUEST_DIR", ".unified-rx-quests")
+_QUEST_DIR = os.environ.get(
+    "UNIFIED_RX_QUEST_DIR",
+    str(os.path.join(os.path.expanduser("~"), ".unified-rx", "quests")))
 
 
 class Quest:

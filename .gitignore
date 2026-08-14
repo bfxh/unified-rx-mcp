@@ -7,3 +7,6 @@ models/
 
 # 探针运行时临时目录
 _probe_tmp/
+
+# quest 状态（默认 ~/.unified-rx/quests/；历史 cwd 版本防再犯）
+.unified-rx-quests/
