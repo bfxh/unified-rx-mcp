@@ -3487,6 +3487,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "选矿": "beneficiate", "浮选": "flotation", "煅烧": "calcine", "电解": "electrolyze",
         # IDE 增强 404：通信词（频率/波长/带宽/干扰/中继/加密/解码/广播）
         "频率": "frequency", "波长": "wavelength", "带宽": "bandwidth", "干扰": "interference",
+        # IDE 增强 405：建筑结构词（承重/框架/支撑/拱门/柱/梁已有横梁/穹顶/桁架）
+        "承重": "loadbearing", "框架": "frame", "支撑": "support", "拱门": "arch",
+        "柱": "column", "穹顶": "dome", "桁架": "truss", "加固": "reinforce",
         "中继": "relay", "加密": "encrypt", "解码": "decode", "广播": "broadcast",
         "淬火": "quench", "镀层": "plating", "退火": "anneal", "烧结": "sinter",
         "变异体": "mutant", "傀儡": "golem", "哨兵": "sentinel", "追踪者": "stalker",
