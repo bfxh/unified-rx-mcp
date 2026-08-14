@@ -2227,7 +2227,9 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
         if action == "list":
             # IDE 增强十七：status 过滤（all/active/finished/aborted）
             status_filter = str(args.get("status", "all"))
-            quests = list_quests()
+            listed = list_quests()
+            quests = listed[0]["quests"] if listed and isinstance(listed[0], dict) \
+                else listed
             if status_filter == "active":
                 quests = [q for q in quests if not q["finished"] and not q.get("aborted")]
             elif status_filter == "finished":
@@ -2238,8 +2240,12 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
                 return [_TC(json.dumps({"ok": False,
                                         "error": f"未知过滤: {status_filter}（all/active/finished/aborted）"},
                                        ensure_ascii=False))]
+            _act = sum(1 for q in quests
+                       if not q["finished"] and not q.get("aborted")) \
+                if status_filter == "all" else len(quests)
             return [_TC(json.dumps({"ok": True, "filter": status_filter,
-                                    "quests": quests, "count": len(quests)},
+                                    "quests": quests, "count": len(quests),
+                                    "active_count": _act},
                                    ensure_ascii=False, indent=2))]
         if action == "clean":
             # IDE 增强十七：清理 finished/aborted 任务（保留 active；days 可选只删过期）

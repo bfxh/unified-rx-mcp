@@ -67,8 +67,10 @@ def test_quest_list(tmp_path, monkeypatch):
     monkeypatch.setattr(ide_quest, "_QUEST_DIR", str(tmp_path))
     ide_quest.new_quest("q3", "任务3", "/r")._save()
     lst = ide_quest.list_quests()
-    assert len(lst) == 1
-    assert lst[0]["quest_id"] == "q3"
+    # IDE 增强 167：list_quests 返回 {active_count, total, quests} 包装
+    assert lst[0]["total"] == 1
+    assert lst[0]["quests"][0]["quest_id"] == "q3"
+    assert lst[0]["active_count"] == 1
 
 
 def test_quest_abort_and_note(tmp_path, monkeypatch):

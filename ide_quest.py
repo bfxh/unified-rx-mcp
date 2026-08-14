@@ -156,6 +156,9 @@ def list_quests() -> list[dict]:
             q = Quest.load(fn[:-5])
             if q:
                 out.append(q.status())
-        return out
+        # IDE 增强 167：活跃任务计数（进行中/未中止——AI 一眼看到手头任务）
+        _active = [s for s in out
+                   if not s.get("finished") and not s.get("aborted")]
+        return [{"active_count": len(_active), "total": len(out), "quests": out}]
     except OSError:
         return []
