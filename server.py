@@ -3419,6 +3419,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "配方": "recipe", "炼金": "alchemy", "附魔": "enchant", "强化": "enhance",
         # IDE 增强 370：装备词（弹药/枪械/剑/盾牌/弓箭/弩/法杖/锤）
         "弹药": "ammo", "枪械": "gun", "剑": "sword", "盾牌": "shield",
+        # IDE 增强 371：防御词（防御塔/炮台/陷阱/地雷/哨戒/碉堡/路障/铁丝网）
+        "防御塔": "tower", "炮台": "turret", "陷阱": "trap", "地雷": "mine",
+        "哨戒": "sentry", "碉堡": "bunker", "路障": "barricade", "铁丝网": "barbed",
         "弓箭": "bow", "弩": "crossbow", "法杖": "staff", "锤": "blunt",
         "改造": "modify", "修理": "repair", "分解": "deconstruct", "组装": "assemble",
         "恒星": "star", "卫星": "satellite", "探测器": "probe", "陨石": "meteor",
