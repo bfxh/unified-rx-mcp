@@ -3397,6 +3397,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "起飞": "takeoff", "降落": "landing", "滑翔": "glide", "盘旋": "hover",
         # IDE 增强 359：工业词（工业/工厂/冶炼/精炼/加工/流水线/发电机/能源）
         "工业": "industry", "工厂": "factory", "冶炼": "smelt", "精炼": "refine",
+        # IDE 增强 360：车辆配件词（轮胎/底盘/悬挂/刹车/燃料/方向盘/传动/油箱）
+        "轮胎": "tire", "底盘": "chassis", "悬挂": "suspension", "刹车": "brake",
+        "燃料": "fuel", "方向盘": "steering", "传动": "transmission", "油箱": "tank",
         "加工": "process", "流水线": "pipeline", "发电机": "generator", "能源": "energy",
         "升空": "ascend", "俯冲": "dive", "急升": "climb", "悬停": "hovers",
         "占领": "occupy", "入侵": "invade", "围攻": "siege", "哨塔": "watchtower",
