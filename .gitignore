@@ -10,3 +10,7 @@ _probe_tmp/
 
 # quest 状态（默认 ~/.unified-rx/quests/；历史 cwd 版本防再犯）
 .unified-rx-quests/
+ai_code_baseline.json
+risk_baseline.json
+server_risk.json
+*_baseline.json
