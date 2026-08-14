@@ -89,4 +89,12 @@ def get_note(root: str, kind: str) -> dict:
     if kind not in KINDS:
         return {"ok": False, "error": f"kind 需在 {KINDS}"}
     data = _load(root)
-    return {"ok": True, "kind": kind, "notes": data.get(kind, [])}
+    notes = data.get(kind, [])
+    # IDE 增强 197：tag 分布（同类笔记的标签一眼可见——筛选入口）
+    _tags: dict[str, int] = {}
+    for n in notes:
+        t = str(n.get("tag", "") or "（无标签）")
+        _tags[t] = _tags.get(t, 0) + 1
+    return {"ok": True, "kind": kind, "notes": notes,
+            "count": len(notes),
+            "tags": dict(sorted(_tags.items(), key=lambda kv: -kv[1]))}
