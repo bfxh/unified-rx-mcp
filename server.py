@@ -4227,6 +4227,14 @@ def _self_scan_once() -> None:
                 "tool": "self_scan", "root": f, "ok": n == 0,
                 "summary": f"self bug_scan {os.path.basename(f)}: issues={n}",
             })
+            # 清单 A（2026-08-14 用户理念『注释/占位都会挖出来』）：
+            # std_check 维度（占位文字/魔法数字/命名冲突/UI 硬编码）随变更文件常驻挖
+            s = json.loads(_call("std_check", {"path": f})[0].text)
+            sn = len(s.get("issues", [])) if isinstance(s, dict) else -1
+            scan_log_core.append_scan({
+                "tool": "self_std", "root": f, "ok": sn == 0,
+                "summary": f"self std_check {os.path.basename(f)}: issues={sn}",
+            })
         except Exception:
             pass
 
