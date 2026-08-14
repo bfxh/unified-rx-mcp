@@ -3425,6 +3425,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "货箱": "crate", "容器": "container", "箱子": "chest", "柜子": "cabinet",
         # IDE 增强 373：交通词（铁路/火车/地铁/车站/信号灯/高架/隧道/路口）
         "铁路": "railway", "火车": "train", "地铁": "subway", "车站": "station",
+        # IDE 增强 374：饰品词（项链/戒指/护符/手镯/腰带/徽章/耳环/头饰）
+        "项链": "necklace", "戒指": "ring", "护符": "charm", "手镯": "bracelet",
+        "腰带": "belt", "徽章": "badge", "耳环": "earring", "头饰": "headgear",
         "信号灯": "signal", "高架": "elevated", "隧道": "tunnel", "路口": "junction",
         "冰箱": "fridge", "冷冻": "freezer", "桶": "barrel", "罐子": "jar",
         "哨戒": "sentry", "碉堡": "bunker", "路障": "barricade", "铁丝网": "barbed",
