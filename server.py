@@ -1954,6 +1954,13 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
         result["advice"] = "无 error——按 warn 分布排查（多数为需审查项）"
     else:
         result["advice"] = "无问题"
+    # IDE 增强 186：可用规则列表（rules= 过滤参数可传哪些——对称 std_check 185）
+    result["available_rules"] = sorted({
+        str(i.get("rule")) for i in issues
+    } | {"divide_by_zero", "undefined_name", "none_deref", "unwrap",
+         "resource_leak", "swallowed_exception", "index_out_of_range",
+         "dynamic_exec", "shell_injection", "unsafe_pickle", "unsafe_yaml",
+         "tar_extractall"})
     # 单文件成功结果入缓存（幂等只读；mtime/size 变了自动失效）
     if p.is_file():
         try:
