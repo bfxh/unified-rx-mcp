@@ -2368,12 +2368,17 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     else:
         result["advice"] = "无问题"
     # IDE 增强 186：可用规则列表（rules= 过滤参数可传哪些——对称 std_check 185）
+    # IDE 增强 280：available_rules 补全 23 语言规则（原静态 12 条 Python 规则——
+    # 多语言规则缺失，AI 看不到可用规则清单）
+    _ml_rules = {r for _rules in _MULTI_LANG_RULES.values()
+                 for _, r, _, _ in _rules}
+    _ml_rules |= {"null_deref", "nil_map_write"}
     result["available_rules"] = sorted({
         str(i.get("rule")) for i in issues
     } | {"divide_by_zero", "undefined_name", "none_deref", "unwrap",
          "resource_leak", "swallowed_exception", "index_out_of_range",
          "dynamic_exec", "shell_injection", "unsafe_pickle", "unsafe_yaml",
-         "tar_extractall"})
+         "tar_extractall"} | _ml_rules)
     # 单文件成功结果入缓存（幂等只读；mtime/size 变了自动失效）
     if p.is_file():
         try:
