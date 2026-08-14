@@ -1746,6 +1746,14 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                     str(f), n, "unsafe_yaml", "warning",
                     "yaml.load() 未指定 Loader——默认全功能 Loader 任意代码执行，"
                     "建议 yaml.safe_load()", lines))
+            # IDE 增强 127：tarfile.extractall 路径穿越（CWE-22——恶意 tar
+            # 成员可写到解压目录外，建议成员路径过滤；extractall 方法名独有，
+            # 链式调用 tarfile.open(...).extractall() 也能命中）
+            elif _fn == "extractall":
+                issues.append(_bug_issue(
+                    str(f), n, "tar_path_traversal", "warning",
+                    "tarfile.extractall() 路径穿越风险——恶意 tar 成员可写到"
+                    "解压目录外，建议过滤成员路径（../../ 拒绝）", lines))
     return issues, len(lines)
 
 
