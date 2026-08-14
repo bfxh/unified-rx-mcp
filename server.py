@@ -3497,6 +3497,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "分区": "zone", "地块": "plot", "网格": "grid", "区块": "chunk",
         # IDE 增强 409：生活品词（蜡烛/肥皂/牙刷/毛巾/毯子/灯油/水壶/餐具）
         "蜡烛": "candle", "肥皂": "soap", "牙刷": "toothbrush", "毛巾": "towel",
+        # IDE 增强 410：自动化词（自动化/远程控制/监控/警报/传感器/联动/程序控制）
+        "自动化": "automation", "远程控制": "remote", "监控": "monitor", "警报": "alarm",
+        "传感器": "sensor", "联动": "interlock", "程序控制": "logic", "配电": "distribution",
         "毯子": "blanket", "灯油": "lampoil", "水壶": "kettle", "餐具": "cutlery",
         "边界": "border", "缓冲带": "buffer", "市中心": "downtown", "郊区": "suburb",
         "支柱": "support", "巷道灯": "lamp", "轨道": "track", "安全帽": "helmet",
