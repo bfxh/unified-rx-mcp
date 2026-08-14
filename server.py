@@ -3355,6 +3355,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "攻击": "attack", "防御": "defense", "生命": "health", "魔法": "mana",
         # IDE 增强 338：地形词（地形/山脉/河流/森林/沙漠/洞穴/高原/沼泽）
         "地形": "terrain", "山脉": "mountain", "河流": "river", "森林": "forest",
+        # IDE 增强 339：天气词（天气/下雨/下雪/风暴/昼夜/光照/雾/风）
+        "天气": "weather", "下雨": "rain", "下雪": "snow", "风暴": "storm",
+        "昼夜": "daynight", "光照": "lighting", "雾": "fog", "风": "wind",
         "沙漠": "desert", "洞穴": "cave", "高原": "plateau", "沼泽": "swamp",
         "技能": "skill", "伤害": "damage", "暴击": "crit", "护盾": "shield",
         "道具": "item", "材料": "material", "锻造": "craft", "合成": "recipe",
