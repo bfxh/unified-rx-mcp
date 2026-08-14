@@ -62,7 +62,8 @@ def _iter_py_files(root: str):
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if not d.startswith((".", "__")) and d not in ("node_modules", "target", "bin", "dist", "build")]
         for fn in filenames:
-            if not fn.endswith((".py", ".rs", ".ts", ".tsx", ".js", ".jsx", ".go", ".gd", ".gdshader")):
+            if not fn.endswith((".py", ".rs", ".ts", ".tsx", ".js", ".jsx", ".go", ".gd",
+                                ".gdshader", ".c", ".h", ".cpp", ".hpp", ".cc")):
                 continue
             yield os.path.join(dirpath, fn)
 
@@ -104,7 +105,7 @@ def _scan_text_placeholder(path: str, src: str, issues: list, limit: int, todo_c
             line_txt = lines[line - 1]
         except IndexError:
             line_txt = ""
-        _cp = "#" if path.endswith(".py") else ("//" if path.endswith((".rs", ".go")) else "")
+        _cp = "#" if path.endswith(".py") else ("//" if path.endswith((".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".c", ".cpp", ".h", ".hpp")) else "")
         if _cp and line_txt.lstrip().startswith(_cp):
             continue
         issues.append({
@@ -121,6 +122,7 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
     if not (path.endswith(".py")):
         # IDE 增强 108/118/166：ts/js/tsx/jsx + go + gd 文本启发——模块级重复声明
         # （function/class/const/let/var/func 同名 → 重复定义；gd 的 func 与 go 同构）
+        # IDE 增强 258：c/cpp 并入（函数声明同名 → 重复定义；c 的 static 函数重名是错误）
         if path.endswith((".ts", ".tsx", ".js", ".jsx", ".go", ".gd")):
             count = 0
             seen: dict = {}
@@ -150,6 +152,34 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
                         return
                 else:
                     seen[name] = i
+            return
+    if path.endswith((".c", ".cpp", ".h", ".hpp")):
+        # IDE 增强 258：c/cpp 函数声明重复（行首声明——排除 return/if 等
+        # 关键字开头防调用/语句误匹配）
+        count = 0
+        seen: dict = {}
+        for i, line in enumerate(src.splitlines(), 1):
+            if line.lstrip().startswith(("//", "#", "*")):
+                continue
+            m = re.match(
+                r"\s*(?:static\s+|inline\s+|extern\s+|virtual\s+|explicit\s+)*"
+                r"(?!return\b|if\b|while\b|for\b|switch\b|else\b|case\b|sizeof\b|"
+                r"new\b|delete\b|throw\b|goto\b)"
+                r"[A-Za-z_]\w*\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:\{|;)", line)
+            if not m:
+                continue
+            name = m.group(1)
+            if name in seen:
+                issues.append({
+                    "file": path, "line": i, "rule": "name_conflict",
+                    "severity": "Warning",
+                    "msg": f"重复定义 {name}（首次在行 {seen[name]}）",
+                })
+                count += 1
+                if count >= limit:
+                    return
+            else:
+                seen[name] = i
         return
     try:
         tree = ast.parse(src)
@@ -207,7 +237,7 @@ def _scan_ui_hardcode(path: str, src: str, issues: list, limit: int):
 
 def _scan_magic_number(path: str, src: str, issues: list, limit: int):
     # IDE 增强 106：支持 .ts/.js（前端代码魔法数字同样要查）
-    if not (path.endswith((".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".gd"))):
+    if not (path.endswith((".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".gd", ".c", ".h", ".cpp", ".hpp", ".cc"))):
         return
     count = 0
     lines = src.splitlines()
@@ -222,7 +252,7 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
         # 修复（自扫抓出 2026-08-14）：整行注释里的数字不报
         # （SPDX 版权年份/版本注释——非魔法数字）
         _cp = "#" if path.endswith((".py", ".gd")) else (
-            "//" if path.endswith((".rs", ".go", ".ts", ".tsx", ".js", ".jsx")) else "")
+            "//" if path.endswith((".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".c", ".cpp", ".h", ".hpp")) else "")
         if _cp and line_txt.lstrip().startswith(_cp):
             continue
         if "Val::Px" in line_txt or "Val::Percent" in line_txt \
