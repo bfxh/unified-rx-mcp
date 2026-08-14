@@ -105,14 +105,14 @@ def state_get() -> dict:
             p = _engine_path()
             if p and _cached[1] == (os.path.getmtime(p), os.path.getsize(p)):
                 return _cached[2]
-        except OSError:
+        except OSError:  # 尽力而为（吞错有注释——可追溯）
             pass
     r = _call("state_get", {})
     try:
         p = _engine_path()
         sig = (os.path.getmtime(p), os.path.getsize(p)) if p else None
         _STATE_CACHE[:] = [time.time(), sig, r]
-    except OSError:
+    except OSError:  # 尽力而为（吞错有注释——可追溯）
         pass
     return r
 

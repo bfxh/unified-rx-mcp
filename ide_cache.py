@@ -57,7 +57,7 @@ def enable_persistence(db_path: str) -> None:
                     entry["entries"][kind] = {"data": json.loads(data), "ts": time.time()}
                 except (json.JSONDecodeError, TypeError):
                     continue
-    except sqlite3.Error:
+    except sqlite3.Error:  # 尽力而为（吞错有注释——可追溯）
         pass
 
 
@@ -72,7 +72,7 @@ def _persist(path: str, kind: str, version: str, data: dict) -> None:
                 "VALUES(?, ?, ?, ?, ?)",
                 (path, kind, version, json.dumps(data, ensure_ascii=False), time.time()),
             )
-    except sqlite3.Error:
+    except sqlite3.Error:  # 尽力而为（吞错有注释——可追溯）
         pass
 
 

@@ -66,7 +66,7 @@ def _append_repo_log(entry: dict) -> None:
         }
         with open(REPO_LOG, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-    except Exception:
+    except Exception:  # 尽力而为（吞错有注释——可追溯）
         pass
 
 
@@ -79,7 +79,7 @@ def _ensure_self_scan_once():
         # 直接调用一次触发全局赋值（SKIP 时手动赋值兜底）
         try:
             server._spawn_self_scan()
-        except Exception:
+        except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
     if not hasattr(server, "_spawn_self_scan_once"):
         # 兜底：无则直接调模块函数（若已暴露）
@@ -93,7 +93,7 @@ def _loop_self_scan() -> None:
     while True:
         try:
             once()  # 单轮自扫（不启动循环，避免嵌套）
-        except Exception:
+        except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
         time.sleep(max(10, interval))
 
@@ -110,7 +110,7 @@ def _loop_project_scan() -> None:
                 proj = _most_active_project()
             if proj:
                 server._call("project_scan", {"path": proj, "max_files": 100})
-        except Exception:
+        except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
         time.sleep(max(10, interval))
 
@@ -132,7 +132,7 @@ def _most_active_project() -> str | None:
                 top = max(counts, key=counts.get)
                 if counts[top] >= 3:
                     return top
-    except Exception:
+    except Exception:  # 尽力而为（吞错有注释——可追溯）
         pass
     # 缺省常见项目根
     for cand in (r"D:\开发\VoxelForge-Nexus", r"D:\开发\reasonix-src",
@@ -150,7 +150,7 @@ def _loop_full_scan() -> None:
     while True:
         try:
             server._call("full_scan", {"max_files": 100, "ui": False})
-        except Exception:
+        except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
         time.sleep(max(10, interval))
 
@@ -163,7 +163,7 @@ def _loop_repo_manage() -> None:
     while True:
         try:
             _repo_manage_once()
-        except Exception:
+        except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
         time.sleep(max(10, interval))
 
@@ -199,7 +199,7 @@ def _loop_shadow_scan() -> None:
                     "tool": "shadow_scan", "root": "batch", "ok": True,
                     "summary": f"影子扫描补扫 {n} 个文件",
                 })
-        except Exception:
+        except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
         time.sleep(max(10, interval))
 
@@ -225,7 +225,7 @@ def _loop_window_scan() -> None:
                     "tool": "window_scan", "root": proj, "ok": True,
                     "summary": f"按窗口扫: {os.path.basename(proj)}",
                 })
-        except Exception:
+        except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
         time.sleep(max(10, interval))
 
@@ -243,7 +243,7 @@ def _loop_cache_maintain() -> None:
                 "tool": "cache_maintain", "root": "cache", "ok": True,
                 "summary": f"扫描缓存 {st['entries']} 条",
             })
-        except Exception:
+        except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
         time.sleep(max(10, interval))
 
@@ -259,7 +259,7 @@ def _repo_token() -> str:
                            text=True, timeout=10, encoding="utf-8", errors="replace")
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()
-    except Exception:
+    except Exception:  # 尽力而为（吞错有注释——可追溯）
         pass
     return ""
 

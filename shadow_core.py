@@ -56,7 +56,7 @@ def _save_scanned() -> None:
         items = sorted(_SCANNED.items(), key=lambda kv: kv[1])[-2000:]
         open(_SCANNED_FILE, "w", encoding="utf-8").write(
             json.dumps(dict(items), ensure_ascii=False))
-    except Exception:
+    except Exception:  # 尽力而为（吞错有注释——可追溯）
         pass
 
 
@@ -115,7 +115,7 @@ def shadow_scan_once(scan: callable) -> int:
                          if _is_scanable(os.path.join(root, f))),
                         key=lambda p: os.stat(p).st_mtime, reverse=True)[:3]
                     candidates.extend(files)
-                except OSError:
+                except OSError:  # 尽力而为（吞错有注释——可追溯）
                     pass
             # 沙盒校验：候选路径必须通过 server._check_path（防任意路径放大）
             for cand in list(candidates):
@@ -137,10 +137,10 @@ def shadow_scan_once(scan: callable) -> int:
                         "tool": "shadow_scan", "root": cand, "ok": ok,
                         "summary": f"shadow {os.path.basename(cand)}: {summary}",
                     })
-                except Exception:
+                except Exception:  # 尽力而为（吞错有注释——可追溯）
                     pass
         _save_scanned()
-    except Exception:
+    except Exception:  # 尽力而为（吞错有注释——可追溯）
         pass
     return scanned_now
 

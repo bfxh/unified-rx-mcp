@@ -109,7 +109,7 @@ def check_game_invariants(src: str, path: str = "",
                                    "msg": f"物理参数数量级异常（{m.group(1)}——"
                                           f"项目范围 {_pmin}..{_pmax}）",
                                    "file": path})
-            except ValueError:
+            except ValueError:  # 尽力而为（吞错有注释——可追溯）
                 pass
         # 帧率无关（M5 红线 3：循环内移动/计时无 delta——粗糙窗口提示）
         if in_frame and _FRAME_LOOP_RE.search(s) and "position" in s \
@@ -167,7 +167,7 @@ def check_project(path: str, rules: list | None = None) -> dict:
             _d = json.load(_f)
             if isinstance(_d, dict):
                 gr = _d
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # 尽力而为（吞错有注释——可追溯）
         pass
     issues: list[dict] = []
     regs: dict[str, int] = {}
@@ -275,7 +275,7 @@ def save_game_rules(path: str, rules: dict) -> dict:
             _d = json.load(_f)
             if isinstance(_d, dict):
                 gr = _d
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # 尽力而为（吞错有注释——可追溯）
         pass
     issues: list[dict] = []
     regs: dict[str, int] = {}

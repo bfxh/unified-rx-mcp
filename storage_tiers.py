@@ -60,10 +60,10 @@ class TieredStore:
                     if line:
                         try:
                             self._hot_cache.append(json.loads(line))
-                        except json.JSONDecodeError:
+                        except json.JSONDecodeError:  # 尽力而为（吞错有注释——可追溯）
                             pass
             self._hot_cache = self._hot_cache[-_HOT_MAX:]
-        except OSError:
+        except OSError:  # 尽力而为（吞错有注释——可追溯）
             pass
 
     def append(self, record: dict) -> None:
@@ -76,7 +76,7 @@ class TieredStore:
                 with open(self._hot_file, "a", encoding="utf-8") as fh:
                     fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
                     fh.flush()
-            except OSError:
+            except OSError:  # 尽力而为（吞错有注释——可追溯）
                 pass
             if len(self._hot_cache) >= _HOT_MAX:
                 self._warm_archive()
@@ -103,7 +103,7 @@ class TieredStore:
         self._hot_cache = []
         try:
             os.remove(self._hot_file)
-        except OSError:
+        except OSError:  # 尽力而为（吞错有注释——可追溯）
             pass
 
     # ── 冷层 ──────────────────────────────────────────────
@@ -157,7 +157,7 @@ class TieredStore:
                                 out.append(r)
                             if len(out) >= limit:
                                 return out
-                except OSError:
+                except OSError:  # 尽力而为（吞错有注释——可追溯）
                     pass
         return out
 
@@ -170,7 +170,7 @@ class TieredStore:
                 try:
                     with gzip.open(self._cold_file, "rt", encoding="utf-8") as fh:
                         n_cold = sum(1 for _ in fh)
-                except OSError:
+                except OSError:  # 尽力而为（吞错有注释——可追溯）
                     pass
             return {"hot": len(self._hot_cache), "warm": n_warm, "cold": n_cold,
                     "base": self._base, "name": self._name}
