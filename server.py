@@ -857,9 +857,13 @@ def _tool_kb_query(args: dict) -> str:
                                       "content": _content, "title": _fn})
             if _docs:
                 idx.add_many(_docs)
+        _t0 = time.perf_counter()
         hits = idx.search_hybrid(query, embed_fn=None, limit=limit)
+        _ms = round((time.perf_counter() - _t0) * 1000, 1)
         return json.dumps({
             "ok": True, "query": query, "count": len(hits), "db": db,
+            # IDE 增强 215：检索耗时（ms——性能可见）
+            "elapsed_ms": _ms,
             "hits": [{"id": h["id"], "title": h.get("title", ""),
                       "meta": h.get("meta", {}),
                       "snippet": (h.get("content") or "")[:200]} for h in hits],
