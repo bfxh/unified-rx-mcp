@@ -44,11 +44,19 @@ class LocalIntel:
             return None
 
     def available(self) -> dict[str, bool]:
-        """各模型可用性。"""
+        """各模型可用性。IDE 增强 115：附缺失提示（调用方一眼知道降级原因）。"""
+        embed_ok = self._session("embed_model") is not None
+        error_ok = self._session("error_model") is not None
+        value_ok = self._session("value_model") is not None
+        missing = [n for n, ok in (("embed", embed_ok), ("error", error_ok),
+                                   ("value", value_ok)) if not ok]
         return {
-            "embed": self._session("embed_model") is not None,
-            "error": self._session("error_model") is not None,
-            "value": self._session("value_model") is not None,
+            "embed": embed_ok,
+            "error": error_ok,
+            "value": value_ok,
+            "hint": (f"模型缺失：{', '.join(missing)}——"
+                     f"放置模型到 {self._dir}（详见 models/README）"
+                     if missing else "全部模型就绪"),
         }
 
     # ── 嵌入（→ search_index.embed_fn）────────────────────
