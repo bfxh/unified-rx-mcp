@@ -304,7 +304,7 @@ def py_find_trivial_excepts(tree: ast.AST, src_lines: Optional[List[str]] = None
             # 注释化吞错豁免（except 行或 pass 行有注释）
             if src_lines is not None:
                 block_text = "\n".join(
-                    src_lines[node.lineno - 1:body[0].lineno]) if body else ""
+                    src_lines[node.lineno - 1:body[0].lineno + 1]) if body else ""
                 if "#" in block_text:
                     return
             # 空异常体（只有 pass）

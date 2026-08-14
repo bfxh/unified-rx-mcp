@@ -23,8 +23,7 @@ def run_auto(args: dict, quest_id: str) -> dict:
     _chain_t0 = _t.perf_counter()
     path = str(args.get("path", ""))
     if not path:
-        return [_TC(json.dumps({"ok": False, "error": "auto 需要 path 参数"},
-                               ensure_ascii=False))]
+        return {"ok": False, "error": "auto 需要 path 参数"}
     if not quest_id:
         quest_id = f"auto-{int(_t.time_ns())}"  # 纳秒防同秒碰撞（探针：秒级同秒复用旧任务）
     # IDE 增强十六：force=True 重置 quest 后重跑整链（上次诊断失败/不完整时重试）
