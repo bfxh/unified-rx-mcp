@@ -148,6 +148,23 @@ UI 渲染为**简洁工具卡片**（无角色标签）。unified-rx 在 MCP 侧
 避免占用主上下文；在最强（max）模式下效果最佳。工具测试流程（pytest + selftest）由 CI 自带，
 无需人工干预。
 
+## 多语言全链（23 语言 × 八层，IDE 增强 254-278）
+
+**23 语言**：rs/py/go/ts/tsx/js/jsx/gd/c/cpp/h/hpp/cs/lua/sh/bash/java/kt/kts/swift/php/rb/ps1/dart
+
+| 层 | 覆盖 |
+|---|---|
+| bug_scan | 23 语言（py 12 条 AST + c/go 确定性状态跟踪 null_deref/nil_map_write + 各语言安全规则） |
+| std_check | 25 后缀（风格/魔法数字/占位/命名冲突/未使用） |
+| cb_index 符号 | 23 语言 |
+| annotate 映射 | 23 语言 |
+| ui_check/cb_scan | 四引擎（Bevy/Godot/Unity/Flutter 死按钮） |
+| bug_locate | 23 语言（含 file:/// URI 清洗） |
+| 检索/探索 | 32 扩展 + 中文词表 40+ |
+| 契约探针 | 32/32（probes/probe_04_multilang.py） |
+
+无 LSP 环境语言（dart 等）→ lsp_query 明确降级到文本规则（防幻觉）。
+
 ## 工程标准契约（std_check）
 
 `std_check` 是**默认标准**：软件、游戏、UI 前端、文档项目通用，兼容绝大多数场景。
