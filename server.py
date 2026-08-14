@@ -2864,6 +2864,22 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         return [_TC(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False))]
     result["goal"] = goal
     result["candidates_found"] = len(candidates)
+    # IDE 增强 202：命中密度（所有候选文件里目标词的命中行总数——
+    # 目标词在仓库的分布一眼可见）
+    try:
+        _words2 = [w for w in goal.lower().replace(",", " ").split() if len(w) > 1]
+        _total_hits = 0
+        for _c in candidates:
+            _cp = str(_c)
+            if not os.path.isfile(_cp):
+                continue
+            with open(_cp, encoding="utf-8", errors="replace") as _cf:
+                for _ln in _cf:
+                    if any(w in _ln.lower() for w in _words2):
+                        _total_hits += 1
+        result["total_hits"] = _total_hits
+    except Exception:  # 尽力而为
+        result["total_hits"] = 0
     # IDE 增强 151：探索结果提示（best 文件 + 命中密度）
     _best = result.get("best", "")
     if _best:
