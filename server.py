@@ -3284,6 +3284,8 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
     max_files = int(args.get("max_files", 200))
     if not 1 <= max_files <= 500:
         raise ValueError("max_files 须在 1..500")
+    # IDE 增强 173：规则过滤（rules 逗号分隔——只报指定规则，定点排查）
+    only = {s.strip() for s in str(args.get("rules", "")).split(",") if s.strip()}
     try:
         from std_core import scan_directory, scan_file
     except ImportError:
@@ -3298,11 +3300,21 @@ def _tool_std_check(args: dict) -> "list[types.TextContent]":
         result = scan_file(str(p))
     else:
         raise ValueError(f"仅支持文件或目录: {p}")
+    # IDE 增强 173：规则过滤应用（只报指定规则）
+    if only:
+        result["issues"] = [i for i in result.get("issues", [])
+                            if i.get("rule") in only]
+        result["summary"]["total"] = len(result["issues"])
+        result["severity_counts"] = {}
+        for i in result["issues"]:
+            _s = i.get("severity", "suggestion").lower()
+            _sev_k = "warning" if _s == "warn" else _s
+            result["severity_counts"][_sev_k] = result["severity_counts"].get(_sev_k, 0) + 1
     # IDE 增强四十四前序：severity_counts 聚合（与 bug_scan 返回结构一致——
     # AI 消费端统一按 severity_counts 判断报告可信度）
     _sev = {}
     for _i in result.get("issues", []):
-        _s = _i.get("severity", "info")
+        _s = str(_i.get("severity", "info")).lower()
         _sev[_s] = _sev.get(_s, 0) + 1
     result["severity_counts"] = _sev
     # IDE 增强 147：最严重标准问题提示（Critical 优先——secret 泄露等）

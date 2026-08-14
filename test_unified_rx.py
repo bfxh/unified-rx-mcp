@@ -2113,7 +2113,7 @@ def test_std_check_secret_and_counts(tmp_path):
     r = server._call("std_check", {"path": str(proj)})
     d = json.loads(r[0].text)
     assert d["ok"] is False, "有 Critical 合规失败"
-    assert d.get("severity_counts", {}).get("Critical", 0) == 1, \
+    assert d.get("severity_counts", {}).get("critical", 0) == 1, \
         f"severity_counts 应含 Critical=1: {d.get('severity_counts')}"
     sec = [i for i in d["issues"] if i.get("rule") == "secret_detection"]
     assert len(sec) == 1 and sec[0]["severity"] == "Critical"
@@ -2532,7 +2532,7 @@ def test_std_dead_code_severity_case(tmp_path):
                                encoding="utf-8")
     d = json.loads(server._call("std_check", {"path": str(proj / "a.py")})[0].text)
     assert d["summary"]["warning"] == 2, f"warning 计数应 2: {d['summary']}"
-    assert d["severity_counts"].get("Warning") == 2, d["severity_counts"]
+    assert d["severity_counts"].get("warning") == 2, d["severity_counts"]
     # guard 沙盒外 file_line → unverified（拒绝探测设计）
     d = json.loads(server._call("hallucination_guard",
                                 {"text": f"配置在 {proj.parent / 'outside' / 'x.rs'}:3",
