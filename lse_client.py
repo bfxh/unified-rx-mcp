@@ -19,7 +19,6 @@ import hashlib
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 _ENGINE_CANDIDATES = [
