@@ -62,6 +62,25 @@ def analyze(logs: list[dict], window_days: int = 7) -> dict:
     noisy = {t: c for t, c in tool_freq.items() if c >= 3
              and all(t not in str(l) for l in recent[:50])}
 
+    # 5. 趋势方向（IDE 增强 113）：最近窗口 vs 窗口外问题总量（升/降/平）
+    def _issue_total(ls: list) -> int:
+        n = 0
+        for l in ls:
+            iss = l.get("issues") or l.get("result") or []
+            n += len(iss) if isinstance(iss, list) else 0
+        return n
+
+    recent_n = _issue_total(recent)
+    prev_n = _issue_total([l for l in logs if l not in recent])
+    if prev_n == 0:
+        trend = "持平" if recent_n == 0 else "上升"
+    elif recent_n > prev_n * 1.2:
+        trend = "上升"
+    elif recent_n < prev_n * 0.8:
+        trend = "下降"
+    else:
+        trend = "持平"
+
     return {
         "ok": True,
         "window_days": window_days,
@@ -72,5 +91,7 @@ def analyze(logs: list[dict], window_days: int = 7) -> dict:
         "hot_rules_advice": [f"规则 {r} 命中 {c} 次——建议重点排查/规则提权"
                              for r, c in hot_rules[:3]],
         "noisy_tools": list(noisy.keys()),
+        "trend": trend,
+        "trend_detail": {"recent_issues": recent_n, "prev_issues": prev_n},
         "note": "趋势数据来自 scan-log（日志→统计→增强规则闭环）",
     }
