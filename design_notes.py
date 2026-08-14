@@ -73,6 +73,13 @@ def list_notes(root: str) -> dict:
             "advice": (f"有 {len(data.get('doubts', []))} 条未决疑点（doubts）——"
                        f"实现前先验证，避免按未定设定开发"
                        if data.get("doubts") else "无未决疑点"),
+            # IDE 增强 152：标签统计（tag 分布——按主题聚合决策）
+            "tag_counts": dict(sorted(
+                {t: sum(1 for k, notes in data.items()
+                        for n in notes if n.get("tag") == t)
+                 for t in {n.get("tag") for k, notes in data.items()
+                           for n in notes if n.get("tag")}}.items(),
+                key=lambda kv: -kv[1])),
             "legend": {"settled": "设定性——原样不改",
                        "adjustable": "设计性——可调选项",
                        "doubts": "疑点——先标记再验证"}}
