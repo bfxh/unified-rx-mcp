@@ -806,6 +806,11 @@ def _tool_kb_query(args: dict) -> str:
     query = str(args.get("query") or "")
     index_file = str(args.get("index_file") or "")
     limit = min(int(args.get("limit", 20)), 100)
+    # IDE 增强 169（安全）：index_dir/index_file 沙盒校验——防任意目录
+    # .db 读取（信息泄露）/越界索引构建
+    index_dir = _check_path(index_dir)
+    if index_file:
+        index_file = _check_path(index_file)
     if not index_dir or not query.strip():
         raise ValueError("index_dir 和 query 必填")
     if not os.path.isdir(index_dir):
