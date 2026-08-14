@@ -2020,7 +2020,9 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
 _BUG_SCAN_EXTS = {".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
                   ".gd", ".c", ".cpp", ".h", ".hpp",
                   ".cs", ".lua", ".sh", ".bash",
-                  ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1", ".dart"}
+                  ".java", ".kt", ".kts", ".swift", ".php", ".rb", ".ps1", ".dart",
+                  # IDE 增强 464：别名扩展（.cc/.cxx→cpp、.hh/.hxx→hpp、.zsh→sh）
+                  ".cc", ".cxx", ".hh", ".hxx", ".zsh"}
 # IDE 增强 256：分析入口统一扩展（kb_query/semantic_search/explore_code/
 # repo_wiki 全语言——用户点名"没有多语言处理"，三处白名单此前缺 go/c/cpp）
 _ANALYZE_EXTS = {".rs", ".py", ".go", ".ts", ".tsx", ".js", ".jsx",
@@ -2270,6 +2272,10 @@ def _scan_go_nil_map(src: str, path: str) -> list:
     return issues
 
 
+_CPP_ALIASES = {".cc": ".cpp", ".cxx": ".cpp", ".hh": ".hpp", ".hxx": ".hpp",
+                ".bash": ".sh", ".zsh": ".sh"}
+
+
 def _multi_lang_scan(path: str, src: str) -> list:
     """多语言轻量确定性扫描（go/ts/js/gd/c/cpp——文本规则）。
 
@@ -2277,6 +2283,9 @@ def _multi_lang_scan(path: str, src: str) -> list:
     服务其余语言。每行最多报一条（防多规则重复）。"""
     issues = []
     ext = os.path.splitext(path)[1].lower()
+    # IDE 增强 464：.cc/.cxx 与 .cpp 同语言、.hh 与 .hpp 同语言（契约 p35 抓出：
+    # .cc 此前落入 syntax_error——规则表未映射）
+    ext = _CPP_ALIASES.get(ext, ext)
     rules = _MULTI_LANG_RULES.get(ext, [])
     if not rules:
         return issues
@@ -2302,6 +2311,8 @@ def _scan_file_dispatch(f: str) -> tuple[list, int]:
     """按后缀分发扫描：.py 用 _bug_scan_file（Python AST），.rs 用 rust_scan（tree-sitter），
     其余支持语言（go/ts/js/gd/c/cpp）用 _multi_lang_scan（轻量文本规则）。"""
     ext = os.path.splitext(f)[1].lower()
+    # IDE 增强 464：.cc/.cxx/.hh/.hxx 别名归一（契约 p35 抓出）
+    ext = _CPP_ALIASES.get(ext, ext)
     if ext == ".rs":
         try:
             from rust_scan import scan_rust_file
@@ -3599,6 +3610,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "掘进机": "roadheader", "凿岩机": "rockdrill", "装载机": "loader", "铲运机": "scraper",
         # IDE 增强 460：选矿药剂词（捕收剂/起泡剂/抑制剂/调整剂/絮凝剂/活化剂/分散剂/消泡剂）
         "捕收剂": "collector", "起泡剂": "frother", "抑制剂": "depressant", "调整剂": "regulator",
+        # IDE 增强 461：选矿工艺词（破碎/磨矿/重选/磁选/电选/浮选槽/摇床/跳汰机）
+        "破碎": "crushing", "磨矿": "grinding", "重选": "gravity", "磁选": "magnetic",
+        "电选": "electrostatic", "浮选槽": "flotationcell", "摇床": "shakingtable", "跳汰机": "jig",
         "絮凝剂": "flocculant", "活化剂": "activator", "分散剂": "dispersant", "消泡剂": "defoamer",
         "台车": "drillrig", "锚杆机": "bolter", "喷浆机": "shotcreter", "提升机": "hoistmachine",
         "样槽": "sampletrench", "岩样": "rocksample", "矿样": "oresample", "标样": "standard",

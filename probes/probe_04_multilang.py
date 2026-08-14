@@ -401,3 +401,44 @@ def p34():
     if data.get("candidates_found", 0) >= 1 and "sort.rs" in str(data.get("best", "")):
         return True, "中文词子串映射 '快速排序'→sort.rs"
     return False, f"中文词映射应命中: {data}"
+
+
+@probe("p35_cc_bash_and_std_align")
+def p35():
+    """24 语言契约收官（462-463）：.cc 走 cpp 规则、.bash 走 sh 规则、
+    std_check 本轮对齐（php name_conflict、cs/dart dead_code）。"""
+    repo = os.path.join(_TMP, "lang24")
+    os.makedirs(repo, exist_ok=True)
+    # .cc → cpp 规则（strcpy 危险）
+    with open(os.path.join(repo, "a.cc"), "w", encoding="utf-8") as f:
+        f.write("#include <cstring>\nvoid f() { strcpy(d, s); }\n")
+    # .bash → sh 规则（rm -rf 危险）
+    with open(os.path.join(repo, "b.bash"), "w", encoding="utf-8") as f:
+        f.write("#!/bin/bash\nrm -rf /\n")
+    # php 重复函数 → name_conflict
+    with open(os.path.join(repo, "dup.php"), "w", encoding="utf-8") as f:
+        f.write("<?php\nfunction helper() {}\nfunction helper() {}\n")
+    # cs 未使用 using → dead_code
+    with open(os.path.join(repo, "App.cs"), "w", encoding="utf-8") as f:
+        f.write("using System.IO;\nclass App {}\n")
+    out = S._call("bug_scan", {"path": repo})
+    data = json.loads(out[0].text)
+    rules = {i.get("rule") for i in data.get("issues", [])}
+    if "unsafe_string" not in rules:
+        c_rules = {i.get("rule") for i in data.get("issues", [])
+                   if i.get("file", "").endswith(".cc")}
+        if "unsafe_string" not in c_rules:
+            return False, f".cc 应检出 unsafe_string（strcpy）: {rules} / {c_rules}"
+    if "rm_rf" not in rules and not {i.get("rule") for i in data.get("issues", [])
+                                     if i.get("file", "").endswith(".bash")}:
+        return False, f".bash 应检出 sh 规则: {rules}"
+    out = S._call("std_check", {"path": repo})
+    sd = json.loads(out[0].text)
+    s_rules = {}
+    for i in sd.get("issues", []):
+        s_rules.setdefault((os.path.basename(i["file"]), i.get("rule")), i["line"])
+    if ("dup.php", "name_conflict") not in s_rules:
+        return False, f"php 重复函数应 name_conflict: {s_rules}"
+    if ("App.cs", "dead_code") not in s_rules:
+        return False, f"cs 未使用 using 应 dead_code: {s_rules}"
+    return True, ".cc/.bash 规则 + php name_conflict + cs dead_code 全契约"

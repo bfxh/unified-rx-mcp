@@ -136,7 +136,9 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
         # IDE 增强 108/118/166：ts/js/tsx/jsx + go + gd 文本启发——模块级重复声明
         # （function/class/const/let/var/func 同名 → 重复定义；gd 的 func 与 go 同构）
         # IDE 增强 258：c/cpp 并入（函数声明同名 → 重复定义；c 的 static 函数重名是错误）
-        if path.endswith((".ts", ".tsx", ".js", ".jsx", ".go", ".gd")):
+        # IDE 增强 462：php/sh/bash 并入（php 的 function/class、sh 的 name() 重复声明）
+        if path.endswith((".ts", ".tsx", ".js", ".jsx", ".go", ".gd",
+                          ".php", ".sh", ".bash")):
             count = 0
             seen: dict = {}
             for i, line in enumerate(src.splitlines(), 1):
@@ -150,8 +152,17 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
                     r"func\s+(?:\([^)]*\)\s+)?([A-Za-z_$][\w$]*)\s*\()",
                     line)
                 if not m:
-                    continue
-                name = next((g for g in m.groups() if g), "")
+                    # IDE 增强 462：php（function/class）与 sh/bash（name()）重复声明
+                    m2 = re.match(
+                        r"\s*(?:public\s+|private\s+|protected\s+|static\s+|final\s+)*"
+                        r"(?:function\s+([A-Za-z_][\w]*)|class\s+([A-Za-z_][\w]*))\b"
+                        r"|^\s*([A-Za-z_][\w]*)\s*\(\s*\)\s*(?:\{|$)",
+                        line)
+                    if not m2:
+                        continue
+                    name = next((g for g in m2.groups() if g), "")
+                else:
+                    name = next((g for g in m.groups() if g), "")
                 if not name:
                     continue
                 if name in seen:
@@ -513,6 +524,49 @@ def _scan_dead_code(path: str, src: str, issues: list, limit: int):
                     continue
                 if name == "*" or name.endswith(".*"):
                     continue  # 通配导入豁免（可能使用任意子符号）
+                if len(re.findall(rf"\b{re.escape(name)}\b", src)) <= 1:
+                    issues.append({
+                        "rule": "dead_code", "severity": "Warning",
+                        "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
+                        "file": path})
+                    count += 1
+                    if count >= limit:
+                        return
+        # IDE 增强 463：cs/swift/dart/php 未使用 import（using X; / import X /
+        # import 'x.dart' / use X\Y;——零引用 → 未使用；通配豁免）
+        if path.endswith((".cs", ".swift", ".dart", ".php")):
+            count = 0
+            for i, line in enumerate(src.splitlines(), 1):
+                if line.lstrip().startswith(("//", "#", "/*", "*", "--")):
+                    continue
+                m = None
+                if path.endswith(".cs"):
+                    m = re.match(r"\s*using\s+([A-Za-z_][\w.]*)\s*;", line)
+                elif path.endswith(".swift"):
+                    m = re.match(r"\s*import\s+([A-Za-z_][\w.]*)", line)
+                elif path.endswith(".dart"):
+                    m = re.match(r"\s*import\s+['\"]([^'\"]+)['\"]", line)
+                    if m:
+                        base = m.group(1).split("/")[-1].split(".")[0]
+                        if not base:
+                            continue
+                        name = base
+                        if len(re.findall(rf"\b{re.escape(name)}\b", src)) <= 1:
+                            issues.append({
+                                "rule": "dead_code", "severity": "Warning",
+                                "line": i, "msg": f"未使用 import：`{name}`（文件内零引用）",
+                                "file": path})
+                            count += 1
+                            if count >= limit:
+                                return
+                        continue
+                elif path.endswith(".php"):
+                    m = re.match(r"\s*use\s+([A-Za-z_\\][\w\\]*)", line)
+                if not m:
+                    continue
+                name = m.group(1).split(".")[-1].split("\\")[-1].strip()
+                if not name or name == "*" or name.endswith(".*"):
+                    continue  # 通配导入豁免
                 if len(re.findall(rf"\b{re.escape(name)}\b", src)) <= 1:
                     issues.append({
                         "rule": "dead_code", "severity": "Warning",
