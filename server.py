@@ -3555,6 +3555,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "商路": "caravanroute", "航线": "shippingroute", "驼队": "caravan", "贸易站": "tradingpost",
         # IDE 增强 438：导航词（罗盘/星图/信标/航点/里程碑/路标/灯塔/界碑）
         "罗盘": "compass", "星图": "starmap", "信标": "beacon", "航点": "waypoint",
+        # IDE 增强 439：处理辅助词（料斗/加料口/出料口/搅拌器/乳化器/均质机/离心分离/过滤槽）
+        "料斗": "hopper", "加料口": "inlet", "出料口": "outlet", "搅拌器": "agitator",
+        "乳化器": "emulsifier", "均质机": "homogenizer", "离心分离": "centrifuge", "过滤槽": "filterbed",
         "里程碑": "milestone", "路标": "signpost", "灯塔": "lighthouse", "界碑": "boundarymark",
         "驿站": "relaystation", "通商口岸": "port", "货运站": "freightstation", "补给站": "supplystation",
         "停车场": "parking", "洗车站": "carwash", "修理厂": "garage", "加油站2": "fuelstation",
