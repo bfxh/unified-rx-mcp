@@ -2838,6 +2838,7 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
     # 会静默失败，与 ide_complete 键名坑同类）
     root = args.get("root") or args.get("path", "")
     goal = args.get("goal") or args.get("query", "")
+    _t0 = time.perf_counter()
     # 安全（2026-08-14 深查）：budget/max_depth 上限校验——
     # 原无上限，budget=10⁹ 会卡死搜索循环（DoS）；负数/0 无意义
     budget = int(args.get("budget", 20))
@@ -2979,6 +2980,8 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
             pass
     else:
         result["advice"] = "未找到高相关候选——换关键词或扩大 root"
+    # IDE 增强 234：探索耗时（ms——性能可见收官）
+    result["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_TC(json.dumps(result, ensure_ascii=False, indent=2))]
 
 
