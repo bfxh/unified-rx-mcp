@@ -3395,6 +3395,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "战役": "battle", "战争": "war", "战场": "battlefield", "征服": "conquer",
         # IDE 增强 358：飞行词（起飞/降落/滑翔/盘旋/升空/俯冲/急升/盘旋）
         "起飞": "takeoff", "降落": "landing", "滑翔": "glide", "盘旋": "hover",
+        # IDE 增强 359：工业词（工业/工厂/冶炼/精炼/加工/流水线/发电机/能源）
+        "工业": "industry", "工厂": "factory", "冶炼": "smelt", "精炼": "refine",
+        "加工": "process", "流水线": "pipeline", "发电机": "generator", "能源": "energy",
         "升空": "ascend", "俯冲": "dive", "急升": "climb", "悬停": "hovers",
         "占领": "occupy", "入侵": "invade", "围攻": "siege", "哨塔": "watchtower",
         "游泳": "swim", "浮力": "buoyancy", "潜水艇": "submarine", "水肺": "scuba",
