@@ -1704,6 +1704,12 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
             if idx >= seq_len or idx < -seq_len:
                 issues.append(_bug_issue(str(f), n, "index_out_of_range", "error",
                                          f"索引 {idx} 越界（容器长度 {seq_len}）", lines))
+        # IDE 增强 123：eval/exec 动态执行（任意代码注入风险——安全敏感）
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
+                and n.func.id in ("eval", "exec"):
+            issues.append(_bug_issue(
+                str(f), n, "dynamic_exec", "warning",
+                f"{n.func.id}() 动态执行——输入不可信时任意代码注入，建议安全替代", lines))
     return issues, len(lines)
 
 
