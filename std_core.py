@@ -184,6 +184,38 @@ def _scan_name_conflict(path: str, src: str, issues: list, limit: int):
             else:
                 seen[name] = i
         return
+    if path.endswith((".dart",)):
+        # IDE 增强 294：dart 重复类/函数检测（class/func 同名——
+        # 对齐 c 分支；排除 Flutter 控件名）
+        count = 0
+        seen: dict = {}
+        for i, line in enumerate(src.splitlines(), 1):
+            if line.lstrip().startswith(("//", "#")):
+                continue
+            m = re.match(
+                r"\s*(?:class|abstract class|mixin|enum)\s+(\w+)|"
+                r"\s*(?:Future\s*<[^>]*>\s*|Widget\s+|void\s+|int\s+|String\s+|"
+                r"bool\s+|double\s+)?"
+                r"(?!TextButton\b|ElevatedButton\b|OutlinedButton\b|IconButton\b|"
+                r"FilledButton\b|Column\b|Row\b|Container\b|Text\b|SizedBox\b)"
+                r"(\w+)\s*\(", line)
+            if not m:
+                continue
+            name = next((g for g in m.groups() if g), "")
+            if not name:
+                continue
+            if name in seen:
+                issues.append({
+                    "file": path, "line": i, "rule": "name_conflict",
+                    "severity": "Warning",
+                    "msg": f"重复定义 {name}（首次在行 {seen[name]}）",
+                })
+                count += 1
+                if count >= limit:
+                    return
+            else:
+                seen[name] = i
+        return
     try:
         tree = ast.parse(src)
     except SyntaxError:
