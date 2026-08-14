@@ -3501,6 +3501,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "自动化": "automation", "远程控制": "remote", "监控": "monitor", "警报": "alarm",
         # IDE 增强 411：运输方式词（空运/海运/陆运/管道运输/快递/货运/客运/配送）
         "空运": "airlift", "海运": "shipping", "陆运": "ground", "管道运输": "pipeline",
+        # IDE 增强 412：商业链词（生产链/供应链/分销/零售/批发/代理/直销/电商）
+        "生产链": "production", "供应链": "supply", "分销": "distribute", "零售": "retail",
+        "批发": "wholesale", "代理": "agency", "直销": "direct", "电商": "ecommerce",
         "快递": "express", "货运": "freight", "客运": "passenger", "配送": "delivery",
         "传感器": "sensor", "联动": "interlock", "程序控制": "logic", "配电": "distribution",
         "毯子": "blanket", "灯油": "lampoil", "水壶": "kettle", "餐具": "cutlery",
