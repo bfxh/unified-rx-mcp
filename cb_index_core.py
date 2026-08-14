@@ -275,6 +275,7 @@ def scan_repo(root: str, max_files: int = 200) -> dict:
 
     issues = []
     scanned = 0
+    _lang_count: dict[str, int] = {}
     files = idx["files"]
     # 变更优先排序：先扫 changed/added，再扫其余
     ordered = sorted(files, key=lambda rel: (rel not in changed, rel))
@@ -289,6 +290,9 @@ def scan_repo(root: str, max_files: int = 200) -> dict:
             continue
         scanned += 1
         is_changed = rel in changed
+        _sfx = os.path.splitext(rel)[1].lower().lstrip(".")
+        if _sfx:
+            _lang_count[_sfx] = _lang_count.get(_sfx, 0) + 1
         if rel.endswith(".gd"):
             # IDE 增强 259：cb_scan 含 Godot UI（对齐 ui_check 257——变更优先
             # UI 扫描对 Bevy + Godot 双引擎生效）
@@ -330,6 +334,8 @@ def scan_repo(root: str, max_files: int = 200) -> dict:
         "changed_files": len(changed),
         "issue_count": len(issues),
         "issues": issues,
+        # IDE 增强 285：cb_scan 语言画像（UI 文件后缀分布——四引擎一眼可见）
+        "languages": dict(sorted(_lang_count.items(), key=lambda kv: -kv[1])),
         # IDE 增强 133：变更优先提示（changed 文件 = 你正在改的——优先排查）
         "advice": (f"{len(changed)} 个文件有改动（优先排查——issues 中 priority=changed 排前）"
                    if changed else "无变更文件——按 severity 排序"),

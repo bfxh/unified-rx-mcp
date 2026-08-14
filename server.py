@@ -1188,6 +1188,16 @@ def _tool_vuln_scan(args: dict) -> "list[types.TextContent]":
     }
     # IDE 增强 241：聚合耗时（ms——聚合入口收官）
     results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
+    # IDE 增强 285：聚合语言画像（union 各子结果 languages——vuln 顶层
+    # 也看到项目语言组成；bug_scan 单入口 284 已有）
+    _langs: dict[str, int] = {}
+    for _k in ("bug_scan", "std_check", "ui_check"):
+        _sub = results.get(_k)
+        if isinstance(_sub, dict) and isinstance(_sub.get("languages"), dict):
+            for _l, _c in _sub["languages"].items():
+                _langs[_l] = _langs.get(_l, 0) + int(_c)
+    if _langs:
+        results["languages"] = dict(sorted(_langs.items(), key=lambda kv: -kv[1]))
     return [_tr(True, "vuln_scan 完成(并行): bug=%d std=%d ui=%d" % (
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
         len(results["std_check"]) if isinstance(results["std_check"], list) else 0,
@@ -1268,6 +1278,12 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
     }
     # IDE 增强 242：聚合耗时（ms——聚合入口收官）
     results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
+    # IDE 增强 285：project 聚合语言画像（只用 bug_scan——cb_scan 扫同批
+    # 文件会双计；语言画像以 bug_scan 全量扫描为准）
+    _sub = results.get("bug_scan")
+    if isinstance(_sub, dict) and isinstance(_sub.get("languages"), dict):
+        results["languages"] = dict(
+            sorted(_sub["languages"].items(), key=lambda kv: -kv[1]))
     return [_tr(True, "project_scan 完成(并行 %d 路): bug=%d std=%d ui=%d cb=%d" % (
         len(jobs),
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
