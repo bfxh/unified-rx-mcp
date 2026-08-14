@@ -387,3 +387,17 @@ def p33():
     if be:
         return True, f"py 裸 except 检出 L{be[0]['line']}"
     return False, f"裸 except 应检出: {data}"
+
+
+@probe("p34_explore_chinese_synonyms")
+def p34():
+    """explore 中文词子串映射（305-308）。"""
+    repo = os.path.join(_TMP, "syn308")
+    os.makedirs(repo, exist_ok=True)
+    with open(os.path.join(repo, "sort.rs"), "w", encoding="utf-8") as f:
+        f.write("pub fn quick_sort(v: &mut [i32]) {}\n")
+    out = S._call("explore_code", {"root": repo, "goal": "快速排序", "budget": "10"})
+    data = json.loads(out[0].text)
+    if data.get("candidates_found", 0) >= 1 and "sort.rs" in str(data.get("best", "")):
+        return True, "中文词子串映射 '快速排序'→sort.rs"
+    return False, f"中文词映射应命中: {data}"

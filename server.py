@@ -3301,6 +3301,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "线程": "thread", "锁": "lock", "队列": "queue", "进程": "process",
         # IDE 增强 308：算法/结构词（哈希/图/树/排序/递归——中文目标直达算法代码）
         "哈希": "hash", "图": "graph", "树": "tree", "排序": "sort",
+        # IDE 增强 309：业务词（订单/支付/用户/账户/库存/价格）
+        "订单": "order", "支付": "payment", "用户": "user", "账户": "account",
+        "库存": "inventory", "价格": "price", "商品": "product", "交易": "trade",
         "查找": "find", "递归": "recursive", "遍历": "traverse", "匹配": "match",
         "并发": "concurrent", "缓存": "cache", "内存": "memory", "崩溃": "crash",
         "同步": "sync", "异步": "async", "超时": "timeout", "重试": "retry",
