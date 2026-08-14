@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import shutil
+import time
 
 # ── 命令手册（按域）──────────────────────────────────────
 _CHEATSHEET: dict[str, list[dict]] = {
@@ -104,6 +105,7 @@ def local_run(domain: str, name: str, args: dict | None = None,
         return {"ok": False, "error": f"缺少参数: {e}",
                 "template": template}
     cwd = workdir or os.getcwd()
+    _t0 = time.perf_counter()
     try:
         # 分号连接的多命令（如 release_deploy）在 PowerShell 语义下由 shell 执行
         r = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True,
@@ -112,6 +114,8 @@ def local_run(domain: str, name: str, args: dict | None = None,
                 "domain": domain, "name": name,
                 "cmd": cmd,
                 "exit": r.returncode,
+                # IDE 增强 231：命令耗时（ms——性能可见）
+                "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1),
                 "stdout_tail": (r.stdout or "")[-1500:],
                 "stderr_tail": (r.stderr or "")[-500:]}
     except subprocess.TimeoutExpired:
