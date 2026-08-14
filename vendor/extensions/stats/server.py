@@ -79,7 +79,10 @@ def _record(args: dict) -> str:
     }
     records = _truncate(_load() + [rec])
     _save(records)
-    return json.dumps({"ok": True, "recorded": len(records)}, ensure_ascii=False)
+    return json.dumps({"ok": True, "recorded": len(records),
+                       # IDE 增强 225：缓冲提示（三件套收官——写盘规模可见）
+                       "advice": f"已记录 {len(records)} 条——stats_status/summary 查询"},
+                      ensure_ascii=False)
 
 
 def _summary(args: dict) -> str:
