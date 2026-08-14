@@ -1675,6 +1675,20 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                 issues.append(_bug_issue(
                     str(f), n, "swallowed_exception", "warning",
                     "空 except 吞错（pass）——静默吞异常，建议记录或显式处理", lines))
+            # IDE 增强 103：except BaseException 过宽捕获（吞 KeyboardInterrupt/
+            # SystemExit——程序无法 Ctrl-C 退出，运行期隐患）
+            _exc_names: set[str] = set()
+            if isinstance(n.type, ast.Name):
+                _exc_names.add(n.type.id)
+            elif isinstance(n.type, ast.Tuple):
+                for _e in n.type.elts:
+                    if isinstance(_e, ast.Name):
+                        _exc_names.add(_e.id)
+            if "BaseException" in _exc_names:
+                issues.append(_bug_issue(
+                    str(f), n, "overwide_except", "warning",
+                    "except BaseException 过宽——吞 KeyboardInterrupt/SystemExit，"
+                    "建议收窄到 Exception 或具体异常", lines))
         # 越界：字面量容器 + 字面量索引（确定性）
         seq_len = _bug_seq_len(n.value) if isinstance(n, ast.Subscript) else None
         if seq_len is not None and isinstance(n.slice, ast.Constant) and isinstance(n.slice.value, int):
