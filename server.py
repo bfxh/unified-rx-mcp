@@ -3387,6 +3387,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "科技": "tech", "研究": "research", "解锁": "unlock", "蓝图": "blueprint",
         # IDE 增强 354：音乐词（音乐/旋律/节奏/和弦/音调/节拍/音符/音效库）
         "音乐": "music", "旋律": "melody", "节奏": "rhythm", "和弦": "chord",
+        # IDE 增强 355：农业词（农业/农田/作物/播种/灌溉/施肥/畜牧/温室）
+        "农业": "farm", "农田": "field", "作物": "crop", "播种": "sow",
+        "灌溉": "irrigate", "施肥": "fertilize", "畜牧": "livestock", "温室": "greenhouse",
         "音调": "pitch", "节拍": "beat", "音符": "note", "音效": "sfx",
         "发明": "invention", "升级": "upgrade", "科技树": "techtree", "实验": "experiment",
         "页脚": "footer", "标签栏": "tabbar", "通知": "toast", "提示": "hint",
