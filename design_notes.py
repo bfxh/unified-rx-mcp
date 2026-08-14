@@ -69,6 +69,10 @@ def list_notes(root: str) -> dict:
             "doubts": data.get("doubts", []),
             "counts": {k: len(v) for k, v in data.items()},
             "recent": _recent,
+            # IDE 增强 149：未决疑点提示（doubts 待验证——AI 处理时注意）
+            "advice": (f"有 {len(data.get('doubts', []))} 条未决疑点（doubts）——"
+                       f"实现前先验证，避免按未定设定开发"
+                       if data.get("doubts") else "无未决疑点"),
             "legend": {"settled": "设定性——原样不改",
                        "adjustable": "设计性——可调选项",
                        "doubts": "疑点——先标记再验证"}}
