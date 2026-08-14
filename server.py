@@ -3465,6 +3465,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "废料": "scrap", "废铁": "iron", "废木": "wood", "碎布": "rag",
         # IDE 增强 393：角色成长词（经验/等级/技能点/天赋/属性/熟练度/专精/声望点）
         "经验": "exp", "等级": "level", "技能点": "skillpoint", "天赋": "talent",
+        # IDE 增强 394：战斗机制词（连击/反击/格挡/闪避/招架/瞄准/蓄力/处决）
+        "连击": "combo", "反击": "counter", "格挡": "block", "闪避": "dodge",
+        "招架": "parry", "瞄准": "aim", "蓄力": "charge", "处决": "execute",
         "属性": "stat", "熟练度": "mastery", "专精": "specialize", "声望点": "rep",
         "骨头": "bone", "垃圾": "trash", "残渣": "residue", "尘土": "dust",
         "厨师": "chef", "商人": "trader", "矿工": "miner", "木匠": "carpenter",
