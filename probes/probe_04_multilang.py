@@ -286,3 +286,21 @@ def p27():
         if want not in rules:
             return False, f"{fn} 应检出 {want}: {rules}"
     return True, "swift/php/rb/kt/tsx 五语言规则全检出"
+
+
+@probe("p28_bug_locate_multilang")
+def p28():
+    """bug_locate 多语言报错（272：Java/Go/C#/Swift 定位）。"""
+    repo = os.path.join(_TMP, "bl272")
+    os.makedirs(repo, exist_ok=True)
+    p = os.path.join(repo, "App.java")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("\n" * 15)
+    err = ("Exception in thread \"main\" java.lang.NullPointerException\n"
+           "        at com.game.App.run(App.java:12)")
+    out = S._call("bug_locate", {"error_text": err})
+    data = json.loads(out[0].text)
+    locs = data.get("locations", [])
+    if data.get("matched") and locs and locs[0].get("line") == 12:
+        return True, "Java 栈帧定位 L12"
+    return False, f"Java 栈帧应定位: {data}"

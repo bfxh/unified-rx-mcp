@@ -1488,8 +1488,10 @@ _BUG_BUILTINS = set(dir(builtins)) | {
 _TRACEBACK_RE = re.compile(r'File "([^"]+)", line (\d+)(?:, in ([^\n]+))?')
 # IDE 增强 159：支持 .rs/.go/.ts/.js（原仅 .py——Rust panic 位置
 # src/main.rs:2:5 无法定位，探针验证抓出）
+# IDE 增强 272：对齐 22 语言（Java 栈帧 at App.run(App.java:12) 等）
 _SIMPLE_POS_RE = re.compile(
-    r'((?:[A-Za-z]:[\\/])?[^\s:"]+\.(?:py|rs|go|ts|js)):(\d+)(?::(\d+))?')
+    r'((?:[A-Za-z]:[\\/])?[^\s:()"]+\.(?:py|rs|go|ts|tsx|js|jsx|gd|c|cpp|h|hpp|'
+    r'cs|lua|sh|bash|java|kt|kts|swift|php|rb|ps1)):(\d+)(?::(\d+))?')
 
 
 def _bug_is_open(node) -> bool:
