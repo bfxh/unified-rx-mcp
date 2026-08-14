@@ -1444,9 +1444,13 @@ def _tool_lsp_query(arguments: dict) -> list[types.TextContent]:
             {"ok": False, "error": "timeout 需在 [1,300] 秒范围"}, ensure_ascii=False))]
 
     if language_id not in LSP_SERVER_CONFIG:
+        # IDE 增强 277：未知语言降级建议（dart/go 等无 LSP 环境——
+        # AI 拿到不支持后知道下一步用 unified-rx 文本分析，防幻觉）
         return [types.TextContent(type="text", text=json.dumps(
             {"ok": False, "error": f"不支持的语言: {language_id}",
-             "supported": list(LSP_SERVER_CONFIG.keys())}, ensure_ascii=False))]
+             "supported": list(LSP_SERVER_CONFIG.keys()),
+             "fallback": "可降级用 unified-rx bug_scan/ide_tools 文本分析"
+                         "（23 语言规则——含 dart/go）"}, ensure_ascii=False))]
     # R1 增量同步：text 未提供时从文件读（否则 didOpen 空文本 → line index 错误）
     if not text and path and os.path.isfile(path):
         try:
