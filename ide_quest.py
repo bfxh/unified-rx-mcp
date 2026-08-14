@@ -170,3 +170,73 @@ def list_quests() -> list[dict]:
         return [{"active_count": len(_active), "total": len(out), "quests": out}]
     except OSError:
         return []
+
+
+def build_auto_report(ctx: dict) -> str:
+    """自动诊断 markdown 报告（2026-08-15 从 server _tool_ide_quest 拆出——
+    纯字符串构造，CC=164 巨型处理器瘦身第一刀）。
+
+    ctx 键：args/path/quest_id/mode/chain/result_note/scan_data/loc/
+    std_sev/result_verdict/chain_elapsed/log_path/notes_count
+    """
+    import time as _t
+    args = ctx.get("args") or {}
+    path = ctx.get("path", "")
+    quest_id = ctx.get("quest_id", "")
+    mode = ctx.get("mode", "full")
+    chain = ctx.get("chain") or []
+    result_note = ctx.get("result_note", "")
+    scan_data = ctx.get("scan_data") or {}
+    loc = ctx.get("loc") or {}
+    std_sev = ctx.get("std_sev") or {}
+    result_verdict = ctx.get("result_verdict", "failed")
+    chain_elapsed = ctx.get("chain_elapsed", 0)
+    log_path = ctx.get("log_path", "~/.unified-rx/scan-log.jsonl")
+    notes_count = ctx.get("notes_count", 0)
+
+    _step_titles = {"diagnose": "诊断", "locate": "定位", "impact": "影响面",
+                    "fix": "修复建议", "verify": "验证", "lesson": "教训"}
+    _report = [f"# 自动诊断报告",
+               f"**任务名**：{str(args.get('task', ''))[:60] or '（未命名）'}",
+               f"**结果**：{'✅ success' if result_verdict == 'success' else '⚠️ partial' if result_verdict == 'partial' else '❌ failed'}",
+               f"**模式**：{'⚡ quick（未深查影响面）' if mode == 'quick' else 'full'}",
+               f"**时间**：{_t.strftime('%Y-%m-%d %H:%M:%S')}",
+               f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s",
+               f"**文件**：{scan_data.get('files', '?')}",
+               f"**扫描耗时**：{next((c.get('elapsed_s') for c in chain if c.get('tool') == 'bug_scan'), '?')}s",
+               f"**定位**：`{loc.get('file', '')}:{loc.get('line', 0)}`"
+               f" [{loc.get('rule', '')}]" if loc.get("file") else "",
+               *(["**重跑**：force（覆盖上次链）"] if args.get("force") else []),
+               f"**任务**：`{quest_id}`",
+               f"**结论**：{result_note[:100]}",
+               f"**步数**：{len(chain)}（含 std_check 联动）" if any(
+                   c.get("tool") == "std_check" for c in chain) else f"**步数**：{len(chain)}",
+               f"**重现**：`ide_quest action=auto path={path}`",
+               f"**验证**：修复后 `ide_quest action=verify_fix quest_id={quest_id}`",
+               f"**日志**：`{log_path}`（`scan_log root={path}` 查询）",
+               f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
+               f"limit={args.get('limit', '默认')}",
+               f"**扫描**：bug_scan error {scan_data.get('severity_counts', {}).get('error', 0)}"
+               f" / std Critical {std_sev.get('Critical', 0)}"
+               f" Error {std_sev.get('Error', 0)}"
+               f" Warning {std_sev.get('Warning', 0)}", ""]
+    for c in chain:
+        _report.append(f"### {_step_titles.get(c.get('step', ''), c.get('step', ''))}")
+        _report.append(c.get("summary", ""))
+        _report.append("")
+        if c.get("elapsed_s") is not None:
+            _report.append(f"⏱ {c.get('elapsed_s')}s")
+            _report.append("")
+    _report.append("### 耗时分布")
+    _report.append("| 步骤 | 耗时 |")
+    _report.append("|---|---|")
+    for c in chain:
+        _report.append(f"| {_step_titles.get(c.get('step', ''), c.get('step', ''))} "
+                       f"| {c.get('elapsed_s', 0)}s |")
+    _report.append("")
+    _report.append("> 后续：`stats_summary` 统计 / `vuln_scan` 三引擎复扫 / "
+                   "`pipeline preset=audit_repo` 一键审计；扫描文件被修改后 "
+                   "shadow 扫描自动补扫。")
+    _report.append(f"> 任务备注：{notes_count} 条"
+                   f"（`ide_quest action=status quest_id={quest_id}` 查看）。")
+    return "\n".join(_report)

@@ -2760,81 +2760,17 @@ def _tool_ide_quest(args: dict) -> "list[types.TextContent]":
             except Exception:
                 pass  # 日志失败静默（不拖垮 auto 链）
             # IDE 增强十九：markdown 报告（human-readable，AI 可直接展示/粘贴）
-            _step_titles = {"diagnose": "诊断", "locate": "定位", "impact": "影响面",
-                            "fix": "修复建议", "verify": "验证", "lesson": "教训"}
-            _report = [f"# 自动诊断报告",
-                       # IDE 增强八十二：任务名归档（多任务报告可区分）
-                       f"**任务名**：{str(args.get('task', ''))[:60] or '（未命名）'}",
-                       f"**结果**：{'✅ success' if result_verdict == 'success' else '⚠️ partial' if result_verdict == 'partial' else '❌ failed'}",  # IDE 增强二十六
-                       f"**模式**：{'⚡ quick（未深查影响面）' if mode == 'quick' else 'full'}",  # IDE 增强三十三
-                       f"**时间**：{time.strftime('%Y-%m-%d %H:%M:%S')}",  # IDE 增强四十三
-                       f"**路径**：`{path}`", f"**耗时**：{chain_elapsed}s",
-                       # IDE 增强七十二：扫描文件数（诊断覆盖范围一眼可见）
-                       f"**文件**：{scan_data.get('files', '?')}",
-                       # IDE 增强七十三：诊断扫描耗时（性能分布头部一览）
-                       f"**扫描耗时**：{next((c.get('elapsed_s') for c in chain if c.get('tool') == 'bug_scan'), '?')}s",
-                       # IDE 增强七十八：定位信息（top 问题位置头部一览）
-                       f"**定位**：`{loc.get('file', '')}:{loc.get('line', 0)}`"
-                       f" [{loc.get('rule', '')}]" if loc.get("file") else "",
-                       # IDE 增强六十九：force 重跑标记（报告归档区分首次/重跑）
-                       *(["**重跑**：force（覆盖上次链）"] if args.get("force") else []),
-                       # IDE 增强六十八：quest_id 头部归档（断点续跑直达）
-                       f"**任务**：`{quest_id}`",
-                       # IDE 增强七十九：结论理由行（verdict 一句话归档）
-                       f"**结论**：{result_note[:100]}",
-                       # IDE 增强八十一：链步数（六步+std 联动一览）
-                       f"**步数**：{len(chain)}（含 std_check 联动）" if any(
-                           c.get("tool") == "std_check" for c in chain) else f"**步数**：{len(chain)}",
-                       # IDE 增强八十四：重现命令（报告可复现执行）
-                       f"**重现**：`ide_quest action=auto path={path}`",
-                       # IDE 增强八十九：verify_fix 指引（修复后验证入口顶部直达）
-                       f"**验证**：修复后 `ide_quest action=verify_fix quest_id={quest_id}`",
-                       # IDE 增强九十：scan-log 落盘路径（链路记忆可查；
-                       # 动态渲染 log_path——review 观察：env 覆盖场景硬编码不准）
-                       f"**日志**：`{_slc.log_path() if '_slc' in dir() else '~/.unified-rx/scan-log.jsonl'}`"
-                       f"（`scan_log root={path}` 查询）",
-                       # IDE 增强五十六：链配置回显（可复现性——参数归档）
-                       f"**配置**：mode={mode} / max_files={args.get('max_files', '默认')} / "
-                       f"limit={args.get('limit', '默认')}",
-                       # IDE 增强六十一：双引擎总览一行（bug_scan + std_check 全貌）
-                       f"**扫描**：bug_scan error {scan_data.get('severity_counts', {}).get('error', 0)}"
-                       f" / std Critical {_std_sev.get('Critical', 0)}"
-                       f" Error {_std_sev.get('Error', 0)}"
-                       f" Warning {_std_sev.get('Warning', 0)}", ""]
-            for c in chain:
-                # IDE 增强六十三：std_check 链项标题标注（区分双 diagnose 步）
-                # 注意：循环变量勿用 _t（会覆盖上方 `import time as _t`——落盘
-                # int(_t.time()) 崩溃，实测 AttributeError 回归）
-                _title = _step_titles.get(c['step'], c['step'])
-                if c.get("tool") == "std_check":
-                    _title += "（工程标准）"
-                _report.append(f"### {_title}")
-                _report.append(c.get("summary", ""))
-                _report.append("")
-            _report.append("---")
-            # IDE 增强二十三：各步耗时表（性能分布一眼可见）
-            _report.append("### 耗时分布")
-            _report.append("| 步骤 | 耗时 |")
-            _report.append("|---|---|")
-            for c in chain:
-                _report.append(f"| {_step_titles.get(c['step'], c['step'])} | "
-                               f"{c.get('elapsed_s', 0)}s |")
-            _report.append("")
-            _report.append("---")
-            _report.append("> 完整结果：`ide_quest action=result` 按步查询；"
-                           "修复应用后：`action=verify_fix` 验证生效。")
-            # IDE 增强七十：任务状态尾注（归档一眼看完成态）
-            _qstatus = q.status()
-            _report.append(f"> 任务状态：{'✅ 已完成' if _qstatus.get('finished') else '⏳ 进行中'}"
-                           f"（`ide_quest action=resume quest_id={quest_id}` 断点续跑）")
-            # IDE 增强八十八：尾部提示合并为 2 行（省 token——原 4 条独立 append）
-            _report.append("> 后续：`stats_summary` 统计 / `vuln_scan` 三引擎复扫 / "
-                           "`pipeline preset=audit_repo` 一键审计；扫描文件被修改后 "
-                           "shadow 扫描自动补扫。")
-            # IDE 增强九十二：备注数提示（协作痕迹一眼可见）
-            _report.append(f"> 任务备注：{len(q.state.get('notes', []))} 条"
-                           f"（`ide_quest action=status quest_id={quest_id}` 查看）。")
-            report_md = "\n".join(_report)
+            # IDE 增强十九：markdown 报告（2026-08-15 构造逻辑拆出——
+            # ide_quest.build_auto_report——_tool_ide_quest CC=164 瘦身）
+            from ide_quest import build_auto_report
+            report_md = build_auto_report({
+                "args": args, "path": path, "quest_id": quest_id,
+                "mode": mode, "chain": chain, "result_note": result_note,
+                "scan_data": scan_data, "loc": loc, "std_sev": _std_sev,
+                "result_verdict": result_verdict, "chain_elapsed": chain_elapsed,
+                "log_path": _slc.log_path() if '_slc' in dir() else '~/.unified-rx/scan-log.jsonl',
+                "notes_count": len(q.state.get("notes", [])),
+            })
             # IDE 增强二十：报告摘要入 quest note（断点续跑可见上轮报告）
             try:
                 q.add_note(f"自动诊断报告（{chain_elapsed}s）：{chain_summary[:300]}")
