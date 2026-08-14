@@ -941,7 +941,14 @@ def _tool_repo_graph(args: dict) -> str:
         if query == "hubs":
             hits = gi.hubs(top=top)
             return json.dumps({"ok": True, "query": "hubs", "count": len(hits),
-                               "hubs": hits, "index": stats}, ensure_ascii=False, indent=2)
+                               "hubs": hits, "index": stats,
+                               # IDE 增强 193：核心符号建议（改动前先看调用方）
+                               "advice": (f"核心符号 {len(hits)} 个——"
+                                          f"首个 {hits[0].get('name')}（引用 "
+                                          f"{hits[0].get('refs', '?')} 次），"
+                                          f"改动前先查调用方（query=callers）"
+                                          if hits else "无核心符号")},
+                              ensure_ascii=False, indent=2)
         if query == "communities":
             hits = gi.communities(max_communities=top)
             return json.dumps({"ok": True, "query": "communities",
