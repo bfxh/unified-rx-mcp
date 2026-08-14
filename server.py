@@ -3399,6 +3399,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "工业": "industry", "工厂": "factory", "冶炼": "smelt", "精炼": "refine",
         # IDE 增强 360：车辆配件词（轮胎/底盘/悬挂/刹车/燃料/方向盘/传动/油箱）
         "轮胎": "tire", "底盘": "chassis", "悬挂": "suspension", "刹车": "brake",
+        # IDE 增强 361：材料词（钢材/玻璃/合金/陶瓷/布料/皮革/混凝土/塑料）
+        "钢材": "steel", "玻璃": "glass", "合金": "alloy", "陶瓷": "ceramic",
+        "布料": "cloth", "皮革": "leather", "混凝土": "concrete", "塑料": "plastic",
         "燃料": "fuel", "方向盘": "steering", "传动": "transmission", "油箱": "tank",
         "加工": "process", "流水线": "pipeline", "发电机": "generator", "能源": "energy",
         "升空": "ascend", "俯冲": "dive", "急升": "climb", "悬停": "hovers",
