@@ -3591,6 +3591,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "环保法规": "environmentalreg", "安全法规": "safetyreg", "用地许可": "landusepermit", "环评": "environmentalreview",
         # IDE 增强 456：选矿建筑词（破碎站/筛分楼/储矿仓/装车楼/皮带廊/浓缩池/精矿仓/尾矿管线）
         "破碎站": "crushingstation", "筛分楼": "screeningtower", "储矿仓": "orebin", "装车楼": "loadingtower",
+        # IDE 增强 457：矿物运输词（精矿运输/矿石列车/矿用卡车/驳船/散货船/转运站/卸矿站/堆场）
+        "精矿运输": "concentratetransport", "矿石列车": "oretrain", "矿用卡车": "minetruck", "驳船": "barge",
+        "散货船": "bulkcarrier", "转运站": "transferstation", "卸矿站": "unloadingstation", "堆场": "stockyard",
         "皮带廊": "beltgallery", "浓缩池": "thickener", "精矿仓": "concentratebin", "尾矿管线": "tailingspipeline",
         "复垦": "reclamation", "赔偿金": "compensation", "罚款": "fine", "审计": "audit",
         "奖惩": "reward", "班次": "shift", "轮换": "rotation", "津贴": "allowance",
