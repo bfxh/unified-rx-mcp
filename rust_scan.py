@@ -14,6 +14,7 @@
   scan_rust_file(path) -> (issues, line_count)
 """
 import os
+import re  # IDE 增强 128：_UNSAFE_RE 需要（此前缺失——模块级编译即炸）
 
 try:
     import tree_sitter as ts
@@ -35,6 +36,9 @@ _METHOD_RULES = {
     "unwrap": ("unwrap() 裸用（None/Err 时 panic——建议 match/ok_or/?)", "warn"),
     "expect": ("expect() 裸用（失败即 panic——建议返回 Result）", "warn"),
 }
+
+# IDE 增强 128：unsafe 块/裸指针（安全敏感——unsafe 代码需逐处审查标注）
+_UNSAFE_RE = re.compile(r"\bunsafe\s*\{|\bunsafe\s+fn\b|\bunsafe\s+impl\b")
 
 # as 目标类型三级分类（SCAN_QUALITY_ISSUES.md 问题 A 修复，2026-08-13）：
 # - NARROW_WARN：真实窄化（任意来源 → 更窄整数）——warn，必报（截断/溢出真风险）
@@ -128,6 +132,14 @@ def _scan_tree(root, path: str, lines: list[str]) -> list[dict]:
             issues.append({"file": path, "line": line_no,
                            "message": "unsafe 块（需人工审查：裸指针/未定义行为风险）",
                            "severity": "info", "rule": "unsafe",
+                           "col": n.start_point[1] + 1, "snippet": snippet})
+        elif t == "call_expression" and "transmute" in _node_text(n):
+            # IDE 增强 128：mem::transmute 高危类型转换（未定义行为风险——
+            # 布局假设错误即 UB；建议 from_raw/安全转换）
+            issues.append({"file": path, "line": line_no,
+                           "message": "transmute() 高危类型转换（布局假设错误即 UB——"
+                                      "建议安全转换/from_raw）",
+                           "severity": "warning", "rule": "transmute",
                            "col": n.start_point[1] + 1, "snippet": snippet})
         elif t == "type_cast_expression":
             # as 裸 cast：按目标类型三级分类（SCAN_QUALITY_ISSUES.md 问题 A）——
