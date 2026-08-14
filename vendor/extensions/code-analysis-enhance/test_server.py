@@ -768,4 +768,5 @@ def test_lsp_gopls_env_override(monkeypatch):
     monkeypatch.setenv("UNIFIED_RX_GOPLS", gopls)
     cfg = server.LSP_SERVER_CONFIG["go"]
     assert cfg[0] == gopls, f"env 覆盖应生效: {cfg}"
+    # 覆盖路径可执行校验（_command_available 用 which/isfile——env 值直通）
     assert server._command_available(cfg[0]), "覆盖路径应可执行"
