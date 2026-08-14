@@ -884,6 +884,25 @@ def _tool_kb_query(args: dict) -> str:
 
 
 # ── P1a/P1b 掌握引擎（2026-08-12：tree-sitter 符号图，抄 codebase-memory 图查询）──
+def _timed_json(fn):
+    """IDE 增强 245：JSON 返回工具的耗时注入装饰器（通用——多分支
+    返回工具一次覆盖；repo_graph 先启用，其他工具按需）。"""
+
+    def _wrapped(*a, **kw):
+        _t0 = time.perf_counter()
+        r = fn(*a, **kw)
+        try:
+            d = json.loads(r)
+            if isinstance(d, dict):
+                d["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
+                return json.dumps(d, ensure_ascii=False, indent=2)
+        except Exception:  # 尽力而为
+            pass
+        return r
+    return _wrapped
+
+
+@_timed_json
 def _tool_repo_graph(args: dict) -> str:
     """代码库符号图查询：调用链/影响面/核心模块/符号搜索（tree-sitter 多语言图索引）。
 
