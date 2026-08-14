@@ -1171,6 +1171,7 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
     from concurrent.futures import ThreadPoolExecutor, as_completed
     path = args["path"]
     max_files = int(args.get("max_files", 100))
+    _t0 = time.perf_counter()
     with_ui = bool(args.get("ui", True))  # Bevy 项目才有 .rs UI；非 Rust 项目可关
     # IDE 增强 177：rules 透传（四路都过滤——对称 vuln_scan 176）
     _only = str(args.get("rules", ""))
@@ -1227,6 +1228,8 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
         if isinstance(_sub, dict):
             _ar |= set(_sub.get("available_rules", []) or [])
     results["available_rules"] = sorted(_ar)
+    # IDE 增强 242：聚合耗时（ms——聚合入口收官）
+    results["elapsed_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
     return [_tr(True, "project_scan 完成(并行 %d 路): bug=%d std=%d ui=%d cb=%d" % (
         len(jobs),
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
