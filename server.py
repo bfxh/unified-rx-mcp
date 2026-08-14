@@ -3517,6 +3517,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "装配线": "assemblyline", "总装": "finalassembly", "质检": "quality", "包装": "packaging",
         # IDE 增强 419：燃料词（柴油/汽油/煤油/木炭/燃料棒/电池组/乙醇/沼气）
         "柴油": "diesel", "汽油": "gasoline", "煤油": "kerosene", "木炭": "charcoal",
+        # IDE 增强 420：装饰词（地毯/挂毯/画作/雕塑/花瓶/窗帘/灯饰/摆件）
+        "地毯": "carpet", "挂毯": "tapestry", "画作": "painting", "雕塑": "statue",
+        "花瓶": "vase", "窗帘": "curtain", "灯饰": "lantern", "摆件": "decor",
         "燃料棒": "fuelrod", "电池组": "battery", "乙醇": "ethanol", "沼气": "biogas",
         "封箱": "sealing", "贴标": "labeling", "上漆": "painting", "干燥线": "dryingline",
         "蒸馏瓶": "still", "量杯": "beaker", "漏斗": "funnel", "研钵": "mortar",
