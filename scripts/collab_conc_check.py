@@ -73,7 +73,6 @@ report["tools"] = ntools
 assert ntools == 54, f"预期 54，实际 {ntools}"
 
 # 并发 20 请求（不等待逐个响应——一次性发出，检验服务器并发处理）
-import asyncio
 
 n = 20
 t0 = time.perf_counter()
