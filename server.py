@@ -3463,6 +3463,9 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         "建筑师": "architect", "工程师": "engineer", "科学家": "scientist", "医生": "doctor",
         # IDE 增强 392：废料词（废料/废铁/废木/碎布/骨头/垃圾/残渣/碎屑已有碎屑）
         "废料": "scrap", "废铁": "iron", "废木": "wood", "碎布": "rag",
+        # IDE 增强 393：角色成长词（经验/等级/技能点/天赋/属性/熟练度/专精/声望点）
+        "经验": "exp", "等级": "level", "技能点": "skillpoint", "天赋": "talent",
+        "属性": "stat", "熟练度": "mastery", "专精": "specialize", "声望点": "rep",
         "骨头": "bone", "垃圾": "trash", "残渣": "residue", "尘土": "dust",
         "厨师": "chef", "商人": "trader", "矿工": "miner", "木匠": "carpenter",
         "储气罐": "gastank", "冷却塔": "coolingtower", "水渠": "aqueduct", "水井": "well",
