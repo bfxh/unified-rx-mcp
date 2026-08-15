@@ -2709,3 +2709,40 @@ def test_std_check_import_usage_edge_cases(tmp_path, monkeypatch):
     assert not any(str(f).endswith("useused.php") for f, _ in dc), dc
     assert not any(str(f).endswith("usefn.php") for f, _ in dc), dc
     assert not any(str(f).endswith("usealias.php") for f, _ in dc), dc
+
+
+def test_vuln_new_rules_and_taint(tmp_path, monkeypatch):
+    """挖漏洞增强（2026-08-15）：新规则 + 污点分析。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    # taint：args.get → open（数据流——面对复杂漏洞）
+    p1 = tmp_path / "taint1.py"
+    p1.write_text("def h(args):\n    p = args.get('file')\n"
+                  "    return open(p).read()\n", encoding="utf-8")
+    d = json.loads(server._call("bug_scan", {"path": str(p1)})[0].text)
+    t = [i for i in d["issues"] if i.get("rule") == "taint_flow"]
+    assert len(t) >= 1 and "open" in t[0]["msg"], d["issues"]
+    # taint：args.get → os.system
+    p2 = tmp_path / "taint2.py"
+    p2.write_text("def h(args):\n    c = args.get('cmd')\n"
+                  "    os.system(c)\n", encoding="utf-8")
+    d = json.loads(server._call("bug_scan", {"path": str(p2)})[0].text)
+    t = [i for i in d["issues"] if i.get("rule") == "taint_flow"]
+    assert len(t) >= 1 and "system" in t[0]["msg"], d["issues"]
+    # 路径遍历（CWE-22）
+    p3 = tmp_path / "pt.py"
+    p3.write_text("def f():\n    return open('../s.txt').read()\n",
+                  encoding="utf-8")
+    d = json.loads(server._call("bug_scan", {"path": str(p3)})[0].text)
+    assert any(i.get("rule") == "path_traversal" for i in d["issues"])
+    # 请求无超时
+    p4 = tmp_path / "req.py"
+    p4.write_text("import requests\ndef f():\n"
+                  "    return requests.get('http://x')\n", encoding="utf-8")
+    d = json.loads(server._call("bug_scan", {"path": str(p4)})[0].text)
+    assert any(i.get("rule") == "request_no_timeout" for i in d["issues"])
+    # Rust unsafe_mem（树解析）
+    p5 = tmp_path / "mem.rs"
+    p5.write_text("fn f(p: *const i32) {\n    let v = unsafe { ptr::read(p) };\n}\n",
+                  encoding="utf-8")
+    d = json.loads(server._call("bug_scan", {"path": str(p5)})[0].text)
+    assert any(i.get("rule") == "unsafe_mem" for i in d["issues"])

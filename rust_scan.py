@@ -133,6 +133,18 @@ def _scan_tree(root, path: str, lines: list[str]) -> list[dict]:
                            "message": "unsafe 块（需人工审查：裸指针/未定义行为风险）",
                            "severity": "info", "rule": "unsafe",
                            "col": n.start_point[1] + 1, "snippet": snippet})
+        elif t == "call_expression" and any(
+                k in _node_text(n) for k in
+                ("ptr::read", "ptr::write", "ptr::null", "zeroed",
+                 "from_utf8_unchecked", "mem::forget", "ManuallyDrop")):
+            # 挖漏洞增强（2026-08-15）：Rust 未定义行为族（树解析——
+            # 覆盖 tree-sitter 可用路径；文本降级同步有）
+            issues.append({"file": path, "line": line_no,
+                           "message": "unsafe 内存操作（ptr::read/write/null/zeroed/"
+                                      "from_utf8_unchecked/forget/ManuallyDrop——"
+                                      "未定义行为/泄漏风险）",
+                           "severity": "warning", "rule": "unsafe_mem",
+                           "col": n.start_point[1] + 1, "snippet": snippet})
         elif t == "call_expression" and "transmute" in _node_text(n):
             # IDE 增强 128：mem::transmute 高危类型转换（未定义行为风险——
             # 布局假设错误即 UB；建议 from_raw/安全转换）
@@ -221,6 +233,23 @@ def scan_rust_file(path: str) -> tuple[list, int]:
                            "message": "transmute() 高危类型转换（布局假设错误即 UB）",
                            "severity": "warning", "rule": "transmute", "col": 0,
                            "snippet": line[:120]})
+        # 挖漏洞增强（2026-08-15）：Rust 未定义行为族（文本降级——
+        # 树解析分支已报同 token 的在此跳过防双报；ptr::null 排除
+        # null_mut（安全 API 不误伤））
+        for token, desc in (
+            ("ptr::read", "ptr::read 裸读（悬垂/未初始化即 UB——建议 safe 引用）"),
+            ("ptr::write", "ptr::write 裸写（别名/对齐违反即 UB——建议 safe 引用）"),
+            ("ptr::null", "ptr::null 裸指针（判空后解引用风险——建议 Option/NonNull）"),
+            ("zeroed", "mem::zeroed 零初始化（非零合法类型即 UB——建议 Default）"),
+            ("from_utf8_unchecked", "from_utf8_unchecked 跳过校验（非法 UTF-8 即 UB）"),
+            ("mem::forget", "mem::forget 泄漏（资源不释放——需显式理由）"),
+            ("ManuallyDrop", "ManuallyDrop 手动释放（析构不跑——泄漏风险）"),
+        ):
+            if token in line and not (token == "ptr::null" and "null_mut" in line):
+                issues.append({"file": path, "line": i,
+                               "message": desc,
+                               "severity": "warning", "rule": "unsafe_mem",
+                               "col": 0, "snippet": line[:120]})
         if " as " in line:
             issues.append({"file": path, "line": i,
                            "message": "as 类型转换（文本降级模式，目标类型未知——仅提示）",

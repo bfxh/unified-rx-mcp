@@ -378,6 +378,8 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                 len(lines))
     _bug_scope_scan(tree.body, set(), str(f), lines, issues)
     _bug_resource_leak(tree, str(f), lines, issues)
+    # 挖漏洞增强（2026-08-15）：污点分析（Python 数据流——面对复杂漏洞）
+    issues.extend(py_taint_scan(src, str(f), lines))
     for n in ast.walk(tree):
         # 除零：字面量 0 分母（确定性）
         if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)) \
@@ -494,4 +496,172 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                     str(f), n, "tar_path_traversal", "warning",
                     "tarfile.extractall() 路径穿越风险——恶意 tar 成员可写到"
                     "解压目录外，建议过滤成员路径（../../ 拒绝）", lines))
+        # 挖漏洞增强（2026-08-15——面对日益复杂的漏洞）：
+        # 路径遍历：路径拼接含 ../（open/Path/os.path.join 等——CWE-22）
+        if isinstance(n, ast.Call):
+            _pfn = n.func.attr if isinstance(n.func, ast.Attribute) else (
+                n.func.id if isinstance(n.func, ast.Name) else "")
+            if _pfn in ("join", "open", "Path", "read_text", "write_text",
+                        "unlink", "rename", "copy", "move"):
+                for a in n.args:
+                    if isinstance(a, ast.Constant) and isinstance(a.value, str) \
+                            and ("../" in a.value or "..\\" in a.value
+                                 or a.value.startswith("..")):
+                        issues.append(_bug_issue(
+                            str(f), n, "path_traversal", "warning",
+                            f"路径拼接含 '../'（{_pfn}()）——CWE-22 路径穿越，"
+                            "建议路径规范化/沙盒校验", lines))
+                        break
+        # assert 用于验证（security-review MEDIUM：全量 assert 报=噪音——
+        # 只在 assert 行附近 3 行内有外部输入获取（args.get/input/getenv）
+        # 时报——真实"用户输入校验被 -O 移除"场景；测试文件豁免）
+        if isinstance(n, ast.Assert) \
+                and "test_" not in str(f).replace("\\", "/").split("/")[-1]:
+            _ctx = " ".join(lines[max(0, n.lineno - 4):n.lineno])
+            if any(k in _ctx for k in ("args.get", "input(", "getenv",
+                                       "environ", "request.", ".get(")):
+                issues.append(_bug_issue(
+                    str(f), n, "assert_validation", "hint",
+                    "assert 用于用户输入校验——python -O 运行时 assert 被移除"
+                    "（验证失效），关键校验建议显式 if+raise", lines))
+        # 安全场景用 random（token/密码/密钥——应 secrets 模块）
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) \
+                and getattr(n.func.value, "id", "") == "random" \
+                and n.func.attr in ("random", "randint", "choice", "choices",
+                                    "shuffle", "sample"):
+            _ctx = " ".join(lines[max(0, n.lineno - 4):n.lineno]).lower()
+            if any(k in _ctx for k in ("token", "password", "secret", "key",
+                                       "密钥", "密码", "令牌")):
+                issues.append(_bug_issue(
+                    str(f), n, "insecure_random", "warning",
+                    "random.* 用于安全场景（token/密码/密钥）——random 可预测，"
+                    "建议 secrets 模块", lines))
+        # 请求无超时（requests/urlopen——慢速攻击/挂起 DoS）
+        if isinstance(n, ast.Call):
+            _rfn = n.func.attr if isinstance(n.func, ast.Attribute) else (
+                n.func.id if isinstance(n.func, ast.Name) else "")
+            _robj = getattr(getattr(n.func, "value", None), "id", "") \
+                if isinstance(n.func, ast.Attribute) else ""
+            if _rfn in ("get", "post", "put", "delete", "patch") \
+                    and _robj == "requests" \
+                    and not any(k.arg == "timeout" for k in n.keywords):
+                issues.append(_bug_issue(
+                    str(f), n, "request_no_timeout", "warning",
+                    "requests.* 无 timeout——慢速攻击/挂起（DoS），"
+                    "建议 timeout=(3, 10)", lines))
+            if _rfn == "urlopen" \
+                    and not any(k.arg == "timeout" for k in n.keywords):
+                issues.append(_bug_issue(
+                    str(f), n, "request_no_timeout", "warning",
+                    "urlopen() 无 timeout——挂起风险，建议 timeout=10", lines))
+        # ReDoS：嵌套量词（(a+)+ / (a*)* / (a|a)*——指数回溯）
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) \
+                and len(n.value) < 200:
+            _p = n.value
+            if re.search(r"\([^)]*[+*][^)]*\)[+*]", _p) \
+                    or re.search(r"\([^)]*\|[^)]*\)\*", _p):
+                _parent = lines[n.lineno - 1] if n.lineno <= len(lines) else ""
+                if "re." in _parent or "compile" in _parent or "match" in _parent \
+                        or "search" in _parent or "findall" in _parent:
+                    issues.append(_bug_issue(
+                        str(f), n, "regex_dos", "warning",
+                        "正则嵌套量词（(a+)+ 类）——指数回溯 ReDoS，"
+                        "建议原子分组/无嵌套量词写法", lines))
     return issues, len(lines)
+
+
+# ── 挖漏洞增强（2026-08-15）：污点分析（Python 函数级数据流）────
+_SINK_FUNCS = {
+    "open": "文件读写", "eval": "动态执行", "exec": "动态执行",
+    "system": "shell 命令", "run": "子进程", "Popen": "子进程",
+    "loads": "反序列化", "load": "反序列化", "extractall": "解压",
+    "remove": "文件删除", "unlink": "文件删除",
+}  # 收窄（security-review MEDIUM：get/post/join/urlopen 太泛——合法业务
+    # 模式误报爆炸）——网络类用独立规则（request_no_timeout）
+_SOURCE_FUNCS = {
+    "get": "外部参数", "getenv": "环境变量", "environ": "环境变量",
+    "input": "用户输入", "argv": "命令行参数", "read": "文件内容",
+    "recv": "网络接收", "body": "请求体", "query": "查询参数",
+    "form": "表单数据", "headers": "请求头", "cookie": "Cookie",
+    "json": "JSON 解析", "load": "配置加载",
+}
+
+
+def py_taint_scan(src: str, path: str, lines: list) -> list:
+    """Python 函数级污点分析（面对日益复杂的漏洞——数据流而非单点规则）。
+
+    函数内：外部源（args.get/input/getenv/request 参数）→ 危险 sink
+    （open/eval/subprocess/反序列化/网络）——变量级跟踪 + 函数参数
+    传播（跨函数 1 层）。确定性（AST 数据流——非启发）。
+    """
+    issues = []
+    try:
+        tree = ast.parse(src, filename=str(path))
+    except SyntaxError:
+        return issues
+
+    # 函数参数收集（跨函数传播：main(args) → 函数内 args.get 使用）
+    fn_params: dict[str, set] = {}
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            fn_params[n.name] = {a.arg for a in n.args.args}
+
+    # parent 映射预建（security-review HIGH：每 Call 全树 walk 是 O(n²)——
+    # 大文件分钟级卡死；单趟 iter_child_nodes O(n)）
+    parent_map: dict[object, object] = {}
+    for _pn in ast.walk(tree):
+        for _ch in ast.iter_child_nodes(_pn):
+            parent_map[_ch] = _pn
+
+    # 每个函数体内污点流（source 变量 → sink 调用）
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        tainted: dict[str, int] = {}  # 变量 → 污染行
+        # 1) 形参不无条件污染（security-review MEDIUM：全参数污染=误报
+        #    爆炸；跨函数调用边传播标注为未来方向——函数内 source 已覆盖
+        #    MCP 工具模式 handler(args)→args.get→sink）
+        # 2) 遍历函数体语句
+        for st in ast.walk(fn):
+            # source：外部输入获取
+            if isinstance(st, ast.Call):
+                _fn = st.func.attr if isinstance(st.func, ast.Attribute) else (
+                    st.func.id if isinstance(st.func, ast.Name) else "")
+                _obj = getattr(getattr(st.func, "value", None), "id", "") \
+                    if isinstance(st.func, ast.Attribute) else ""
+                src_name = _fn if _obj in ("", "os", "sys", "flask",
+                                           "request", "fastapi") else ""
+                if src_name in _SOURCE_FUNCS or (_fn == "get" and _obj == "args"):
+                    # 赋值目标：x = args.get(...)——parent 映射 O(1) 查找
+                    parent = parent_map.get(st)
+                    if isinstance(parent, ast.Assign):
+                        for t in parent.targets:
+                            if isinstance(t, ast.Name):
+                                tainted[t.id] = st.lineno
+            # sink：危险调用 + 参数含污点变量
+            if isinstance(st, ast.Call):
+                _fn2 = st.func.attr if isinstance(st.func, ast.Attribute) else (
+                    st.func.id if isinstance(st.func, ast.Name) else "")
+                if _fn2 in _SINK_FUNCS:
+                    arg_names = set()
+                    for a in st.args:
+                        if isinstance(a, ast.Name):
+                            arg_names.add(a.id)
+                        elif isinstance(a, ast.JoinedStr):  # f-string 含污点
+                            for v in ast.walk(a):
+                                if isinstance(v, ast.Name) and v.id in tainted:
+                                    arg_names.add(v.id)
+                    hits = arg_names & set(tainted)
+                    if hits:
+                        issues.append({
+                            "file": str(path), "line": st.lineno, "col": 0,
+                            "rule": "taint_flow",
+                            "severity": "warning",
+                            "msg": (f"污点流：外部输入 {sorted(hits)[:3]} "
+                                    f"(源 {sorted(set(tainted[h] for h in hits))[:2]}) "
+                                    f"→ {_fn2}()（{_SINK_FUNCS[_fn2]}）——"
+                                    f"输入不可信时注入/越权风险，建议校验/白名单"),
+                            "snippet": (lines[st.lineno - 1].strip()[:80]
+                                        if st.lineno <= len(lines) else ""),
+                        })
+    return issues
