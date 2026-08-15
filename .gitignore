@@ -2,7 +2,8 @@ __pycache__/
 *.pyc
 .unified-rx-index/
 
-# 模型文件不进 git（94MB+，运行时按需下载/本地放置）
+# ONNX 大模型不进 git（94MB+，运行时按需下载/本地放置）；tokenizer.json 入库
+models/*.onnx
 
 # 探针运行时临时目录
 _probe_tmp/

@@ -22,9 +22,6 @@ def _stop_scan_loops_after():
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# 测试禁用沙盒（fs 测试用 tmp_path 在沙盒外）；生产默认沙盒=启动 cwd
-os.environ["UNIFIED_RX_SANDBOX"] = ""
-
 import server
 
 # pytest prepend 导入模式会把最后收集的测试文件目录顶到 sys.path 首位——

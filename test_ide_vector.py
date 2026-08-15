@@ -28,6 +28,21 @@ def test_tokenizer():
     assert tk.vocab_size() == 21128
 
 
+def test_tokenizer_long_input_truncated():
+    """DoS 防护（security-review MEDIUM）：超长无分隔输入在 encode 入口
+    截断 4096 字符——_wordpiece O(n²) 有上界，不会卡死本地服务。"""
+    import time
+    from mini_bert_tokenizer import MiniBertTokenizer
+    tk = MiniBertTokenizer(os.path.join(MODELS, "embed_tokenizer.json"))
+    long_text = "字" * 100000  # 10 万字符无分隔
+    t0 = time.perf_counter()
+    e = tk.encode(long_text)
+    elapsed = time.perf_counter() - t0
+    assert len(e["input_ids"]) == len(e["attention_mask"])
+    assert e["input_ids"][0] == 101 and e["input_ids"][-1] == 102
+    assert elapsed < 2.0, f"超长输入编码应被截断控制上界，实际 {elapsed:.2f}s"
+
+
 def test_local_intel_embed():
     from local_intel import LocalIntel
     li = LocalIntel()
