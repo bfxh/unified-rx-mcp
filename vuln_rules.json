@@ -1,0 +1,40 @@
+{
+  "_comment": "外部模板规则（Nuclei 概念：确定性规则 DSL——不改代码加规则）。格式：{id, pattern(正则), language(.py/.rs/all), severity, msg}。环境变量 UNIFIED_RX_VULN_RULES 可指向自定义规则文件。",
+  "rules": [
+    {
+      "id": "sql_injection",
+      "pattern": "(execute|executemany|query)\\s*\\(\\s*f?[\"']?.*(SELECT|INSERT|UPDATE|DELETE).*\\+",
+      "language": ".py",
+      "severity": "warning",
+      "msg": "SQL 字符串拼接（f-string/+ 拼接 SQL——注入风险，建议参数化查询）"
+    },
+    {
+      "id": "ssrf_open_url",
+      "pattern": "urlopen\\s*\\(\\s*[a-z_]",
+      "language": ".py",
+      "severity": "warning",
+      "msg": "urlopen 接收变量 URL（用户可控时 SSRF——建议白名单/内网拒绝）"
+    },
+    {
+      "id": "zip_slip",
+      "pattern": "ZipFile\\s*\\(|zipfile\\.",
+      "language": ".py",
+      "severity": "info",
+      "msg": "zipfile 解压（恶意 zip 成员路径穿越——建议成员路径校验）"
+    },
+    {
+      "id": "proto_pollution",
+      "pattern": "__proto__|prototype\\s*=",
+      "language": ".js",
+      "severity": "warning",
+      "msg": "原型污染（__proto__/prototype 赋值——对象原型被篡改，建议白名单键）"
+    },
+    {
+      "id": "log_injection",
+      "pattern": "logging\\..*\\(f?[\"'].*\\{.*\\}",
+      "language": ".py",
+      "severity": "info",
+      "msg": "日志格式化含变量（换行注入伪造日志——建议转义/结构化日志）"
+    }
+  ]
+}

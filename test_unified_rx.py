@@ -7,6 +7,18 @@ from pathlib import Path
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _stop_scan_loops_after():
+    """2026-08-15：每个测试后停后台扫描循环——防线程跨测试污染
+    （flaky 根治：self_scan/project 线程写后续测试的 env 日志）。"""
+    yield
+    try:
+        server._stop_scan_loops()
+    except Exception:
+        pass
+    server._SCAN_LOOPS_STOP = False
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 测试禁用沙盒（fs 测试用 tmp_path 在沙盒外）；生产默认沙盒=启动 cwd
@@ -83,7 +95,7 @@ def test_tools_count_and_schema():
     # 2026-08-13 M5 本质三分：+design_note → 55
     # 2026-08-13 M6 趋势分析：+scan_trend → 56
     # 2026-08-14 游戏方向：+game_check/game_feel（引擎中立检查）→ 59
-    assert len(server._TOOLS) == 84, f"核心工具数变化: {len(server._TOOLS)}"
+    assert len(server._TOOLS) == 85, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -1557,6 +1569,8 @@ def test_self_scan_active_project_env(tmp_path, monkeypatch):
     server._call("cb_index", {"path": str(tmp_path)})
 
     server._SCAN_LOOPS_STARTED = False  # 重置防重复标志（测试隔离）
+    server._SCAN_LOOPS_STOP = False
+    server._SCAN_LOOPS_STOP = False  # 2026-08-15：复位停止标志（测试对称）
     server._spawn_self_scan()
     import time
     deadline = time.time() + 20
@@ -1569,6 +1583,7 @@ def test_self_scan_active_project_env(tmp_path, monkeypatch):
             break
         time.sleep(1)
     assert proj, "活跃项目被自动扫描"
+    server._stop_scan_loops()  # 2026-08-15：停线程——防跨测试污染（flaky 根治）
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1638,6 +1653,7 @@ def test_active_project_most_used(monkeypatch, tmp_path):
 
     # 通过 server 内部 _active_project 验证（间接：spawn 后 scan-log 应有最活跃项目）
     server._SCAN_LOOPS_STARTED = False  # 重置防重复标志（测试隔离）
+    server._SCAN_LOOPS_STOP = False  # 2026-08-15：复位停止标志（测试对称）
     server._spawn_self_scan()
     import time
     deadline = time.time() + 20
@@ -1670,6 +1686,7 @@ def test_scan_loops_spawned_and_running(monkeypatch, tmp_path):
 
     before = set(t.name for t in threading.enumerate())
     server._SCAN_LOOPS_STARTED = False  # 允许本次 spawn
+    server._SCAN_LOOPS_STOP = False  # 2026-08-15：复位停止标志（测试对称）
     server._spawn_self_scan()
     after = set(t.name for t in threading.enumerate())
     new = after - before
@@ -1697,6 +1714,7 @@ def test_scan_loops_spawned_and_running(monkeypatch, tmp_path):
 def test_scan_loop_interval_floor(monkeypatch):
     """循环间隔下限 10s（防 DoS：设 1s 也按 10s）。"""
     monkeypatch.setenv("UNIFIED_RX_SCAN_INTERVAL_SELF", "1")
+    server._SCAN_LOOPS_STOP = False  # 2026-08-15：复位停止标志（测试对称）
     server._spawn_self_scan()
     import threading
     for t in threading.enumerate():
@@ -1712,6 +1730,7 @@ def test_scan_loops_skip_when_disabled(monkeypatch):
     monkeypatch.setenv("UNIFIED_RX_SKIP_SELF_SCAN", "1")
     import threading
     before = set(t.name for t in threading.enumerate())
+    server._SCAN_LOOPS_STOP = False  # 2026-08-15：复位停止标志（测试对称）
     server._spawn_self_scan()
     after = set(t.name for t in threading.enumerate())
     assert not {"rx-scan-self", "rx-scan-project", "rx-scan-full"} & (after - before), "禁用时不得启动循环"
@@ -1826,6 +1845,9 @@ def test_shadow_core_scan_follows_called_file(tmp_path, monkeypatch):
     """影子扫描：RX 调用的文件被跟随扫描（scan-log 有记录 → 补扫）。"""
     import shadow_core
     import scan_log_core
+    shadow_core.reset()  # 测试隔离（2026-08-15：完整重置——防全量残留）
+    monkeypatch.setenv("UNIFIED_RX_SHADOW_SCANNED",
+                       str(tmp_path / "shadow-scanned.json"))
     log = tmp_path / "scan-log.jsonl"
     monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))
     src = tmp_path / "demo.py"
@@ -1848,8 +1870,7 @@ def test_shadow_core_ignores_excluded(tmp_path, monkeypatch):
     """影子扫描排除 node_modules/steam 等目录。"""
     import shadow_core
     import scan_log_core
-    shadow_core._SCANNED.clear()  # 测试隔离
-    shadow_core._loaded = False
+    shadow_core.reset()  # 测试隔离（2026-08-15：完整重置——env 动态生效）
     monkeypatch.setenv("UNIFIED_RX_SHADOW_SCANNED", str(tmp_path / "shadow-scanned.json"))
     log = tmp_path / "scan-log.jsonl"
     monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(log))

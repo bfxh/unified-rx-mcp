@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -31,10 +32,27 @@ _WATCH_TOOLS = {"bug_scan", "std_check", "locate_edit",
                 "hallucination_guard", "ui_check"}
 # 已扫描文件记录（path -> mtime:size），防重复扫
 _SCANNED: dict[str, str] = {}
-_SCANNED_FILE = os.environ.get("UNIFIED_RX_SHADOW_SCANNED", "") or os.path.join(
-    os.environ.get("USERPROFILE") or os.environ.get("HOME") or ".",
-    ".unified-rx", "shadow-scanned.json")
 _loaded = False
+_LOCK = threading.Lock()  # 2026-08-15：并发竞态根治——后台线程与
+# shadow_scan_once 并发操作 _SCANNED（dict 读写竞态→测试全量偶发）
+
+
+def _scanned_file() -> str:
+    """scanned 文件路径（动态读 env——2026-08-15 修复：原模块级常量
+    import 时求值导致测试 env monkeypatch 无效、测试间共享全局文件——
+    flaky 根因之一）。"""
+    override = os.environ.get("UNIFIED_RX_SHADOW_SCANNED", "")
+    if override.strip():
+        return override
+    home = os.environ.get("USERPROFILE") or os.environ.get("HOME") or "."
+    return os.path.join(home, ".unified-rx", "shadow-scanned.json")
+
+
+def reset() -> None:
+    """重置全部模块状态（测试隔离/运行时重载）。"""
+    global _SCANNED, _loaded
+    _SCANNED = {}
+    _loaded = False
 
 
 def _load_scanned() -> None:
@@ -43,18 +61,19 @@ def _load_scanned() -> None:
         return
     _loaded = True
     try:
-        if os.path.exists(_SCANNED_FILE):
-            _SCANNED = json.loads(open(_SCANNED_FILE, encoding="utf-8").read())
+        if os.path.exists(_scanned_file()):
+            _SCANNED = json.loads(
+                open(_scanned_file(), encoding="utf-8").read())
     except Exception:
         _SCANNED = {}
 
 
 def _save_scanned() -> None:
     try:
-        os.makedirs(os.path.dirname(_SCANNED_FILE), exist_ok=True)
+        os.makedirs(os.path.dirname(_scanned_file()), exist_ok=True)
         # 上限 2000 条 LRU 截断
         items = sorted(_SCANNED.items(), key=lambda kv: kv[1])[-2000:]
-        open(_SCANNED_FILE, "w", encoding="utf-8").write(
+        open(_scanned_file(), "w", encoding="utf-8").write(
             json.dumps(dict(items), ensure_ascii=False))
     except Exception:  # 尽力而为（吞错有注释——可追溯）
         pass
@@ -127,11 +146,13 @@ def shadow_scan_once(scan: callable) -> int:
                 sig = _file_sig(cand)
                 if sig is None:
                     continue
-                if _SCANNED.get(cand) == sig:
-                    continue  # 已扫且未变（缓存命中）
+                with _LOCK:  # 2026-08-15：并发竞态根治（_SCANNED 读写锁）
+                    if _SCANNED.get(cand) == sig:
+                        continue  # 已扫且未变（缓存命中）
                 try:
                     ok, summary = scan(cand)
-                    _SCANNED[cand] = sig
+                    with _LOCK:
+                        _SCANNED[cand] = sig
                     scanned_now += 1
                     scan_log_core.append_scan({
                         "tool": "shadow_scan", "root": cand, "ok": ok,
@@ -139,7 +160,8 @@ def shadow_scan_once(scan: callable) -> int:
                     })
                 except Exception:  # 尽力而为（吞错有注释——可追溯）
                     pass
-        _save_scanned()
+        with _LOCK:
+            _save_scanned()
     except Exception:  # 尽力而为（吞错有注释——可追溯）
         pass
     return scanned_now

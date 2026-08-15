@@ -1899,7 +1899,12 @@ def _scan_file_dispatch(f: str) -> tuple[list, int]:
                 src = fh.read()
         except OSError:
             return [], 0
-        return _multi_lang_scan(f, src), len(src.splitlines())
+        issues = _multi_lang_scan(f, src)
+        # 挖漏洞增强：模板规则 DSL 对多语言文件也生效（Nuclei 概念——
+        # js 原型污染等模板规则命中非 Python 文件）
+        from bug_scan_core import ext_rules_scan
+        ext_rules_scan(src, str(f), src.splitlines(), issues)
+        return issues, len(src.splitlines())
     return _bug_scan_file(f)
 
 
@@ -2361,6 +2366,15 @@ def _tool_geom_example(args: dict) -> "list[types.TextContent]":
     from geometry_tools import geom_example
     kind = str(args.get("kind", "union"))
     return [_TC(json.dumps(geom_example(kind),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_patch_learn(args: dict) -> "list[types.TextContent]":
+    """补丁学规则（KNighter 概念：diff 提取模式 → 检测规则）。"""
+    from patch_learn import patch_learn
+    diff_text = str(args.get("diff", ""))
+    lang = str(args.get("language", ".py"))
+    return [_TC(json.dumps(patch_learn(diff_text, lang),
                            ensure_ascii=False, indent=2))]
 
 
@@ -4408,6 +4422,10 @@ _TOOLS: dict[str, tuple] = {
     "geom_example": (_tool_geom_example, _schema({
         "kind": _S("string", "示例类型（union/clip/graph）"),
     }, []), "可运行几何示例生成（PicoGK Program.cs 概念：VS Code 直接运行——零依赖）"),
+    "patch_learn": (_tool_patch_learn, _schema({
+        "diff": _S("string", "标准统一 diff（- 行=修复前漏洞代码）"),
+        "language": _S("string", "目标语言（.py/.js 等，默认 .py）"),
+    }, ["diff"]), "补丁学规则（KNighter 概念：从修复 diff 提取模式→生成检测规则——可直接加入 vuln_rules.json）"),
     "half_edge_adjacency": (_tool_half_edge_adjacency, _schema({
         "path": _S("string", "网格文件"),
         "vertex": _S("integer", "顶点索引"),
@@ -5037,6 +5055,13 @@ async def run() -> None:
 
 
 _SCAN_LOOPS_STARTED = False  # 防重复启动后台扫描循环（见 _spawn_self_scan）
+_SCAN_LOOPS_STOP = False  # 2026-08-15：停止标志（测试隔离——置位后循环退出）
+
+
+def _stop_scan_loops() -> None:
+    """停止后台扫描循环（测试隔离——防线程跨测试污染 env/日志）。"""
+    global _SCAN_LOOPS_STOP
+    _SCAN_LOOPS_STOP = True
 
 
 _spawn_self_scan_once = None  # 模块级单轮自扫入口（daemon.py 引用）
@@ -5249,13 +5274,14 @@ def _spawn_self_scan() -> None:
             pass
 
     def _loop(name: str, interval_env: str, default: float, fn) -> None:
-        """持续循环线程：首轮立即跑，之后每 interval 秒跑一轮（永不停下）。"""
+        """持续循环线程：首轮立即跑，之后每 interval 秒跑一轮（可停——
+        2026-08-15：_SCAN_LOOPS_STOP 置位后退出——测试隔离用）。"""
         interval = float(os.environ.get(interval_env, default))
         if interval < 10:
             interval = 10  # 防 DoS：间隔下限 10s
 
         def runner() -> None:
-            while True:
+            while not _SCAN_LOOPS_STOP:
                 try:
                     fn()
                 except Exception:  # 尽力而为

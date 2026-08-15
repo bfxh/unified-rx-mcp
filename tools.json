@@ -1,7 +1,7 @@
 {
-  "core_count": 84,
+  "core_count": 85,
   "ext_count": 24,
-  "total": 108,
+  "total": 109,
   "core": [
     "agent_orchestrate",
     "agent_roles",
@@ -63,6 +63,7 @@
     "mesh_union",
     "optimize_code",
     "parallel",
+    "patch_learn",
     "pipeline",
     "predict_impact",
     "prime_list",

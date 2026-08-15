@@ -7,6 +7,8 @@ CC=48/_bug_resource_leak CC=35/_scan_body CC=31）独立成模块——工具行
 """
 import ast
 import builtins
+import json
+import os
 import re
 from pathlib import Path
 
@@ -380,6 +382,14 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
     _bug_resource_leak(tree, str(f), lines, issues)
     # 挖漏洞增强（2026-08-15）：污点分析（Python 数据流——面对复杂漏洞）
     issues.extend(py_taint_scan(src, str(f), lines))
+    # 跨函数 taint（CPG 概念：调用边传播——函数 A 污点传 B 形参→B sink）
+    try:
+        from cross_taint import cross_taint_scan
+        cross_taint_scan(tree, str(f), lines, issues)
+    except ImportError:
+        pass  # 跨函数模块缺失降级（函数内 taint 已覆盖）
+    # 挖漏洞增强：模板规则 DSL（Nuclei 概念——外部 vuln_rules.json）
+    ext_rules_scan(src, str(f), lines, issues)
     for n in ast.walk(tree):
         # 除零：字面量 0 分母（确定性）
         if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)) \
@@ -665,3 +675,71 @@ def py_taint_scan(src: str, path: str, lines: list) -> list:
                                         if st.lineno <= len(lines) else ""),
                         })
     return issues
+
+
+# ── 挖漏洞增强（2026-08-15）：模板规则 DSL（Nuclei 概念——确定性规则
+#    规模化——不改代码加规则）─────────────────────────────
+_RULES_CACHE: dict = {"mtime": 0.0, "rules": []}
+
+
+def _rules_path() -> str:
+    """外部规则文件路径（env 可配——测试隔离/自定义规则集）。"""
+    override = os.environ.get("UNIFIED_RX_VULN_RULES", "")
+    if override.strip():
+        return override
+    base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "vuln_rules.json")
+
+
+def load_ext_rules(force: bool = False) -> list:
+    """加载外部模板规则（vuln_rules.json——{id, pattern, language, severity,
+    msg} 列表——正则模式确定性检测；mtime 缓存防重复读）。"""
+    p = _rules_path()
+    try:
+        mt = os.path.getmtime(p)
+        if not force and mt == _RULES_CACHE["mtime"]:
+            return _RULES_CACHE["rules"]
+        data = json.loads(open(p, encoding="utf-8").read())
+        rules = []
+        for r in data.get("rules", []):
+            if isinstance(r, dict) and r.get("id") and r.get("pattern"):
+                rules.append({
+                    "id": str(r["id"])[:40],
+                    "pattern": str(r["pattern"]),
+                    "language": str(r.get("language", "all")),
+                    "severity": str(r.get("severity", "warning")),
+                    "msg": str(r.get("msg", "外部规则命中"))[:120],
+                })
+        _RULES_CACHE["mtime"] = mt
+        _RULES_CACHE["rules"] = rules
+        return rules
+    except (OSError, ValueError, TypeError):
+        return []
+
+
+def ext_rules_scan(src: str, path: str, lines: list, issues: list) -> None:
+    """模板规则扫描：行级正则匹配（确定性——Nuclei 模板概念）。"""
+    rules = load_ext_rules()
+    if not rules:
+        return
+    ext = os.path.splitext(str(path))[1].lower()
+    for r in rules:
+        lang = r["language"]
+        if lang != "all" and ext != lang:
+            continue
+        try:
+            rx = re.compile(r["pattern"])
+        except re.error:
+            continue
+        for i, line in enumerate(lines, 1):
+            if rx.search(line):
+                issues.append(_bug_issue(
+                    str(path), None, r["id"], r["severity"],
+                    r["msg"], lines))
+                # 模板规则无 AST 节点——行号手动补（_bug_issue 的 node=None
+                # 行号 0——这里直接改 issue 的行号）
+                issues[-1]["line"] = i
+                issues[-1]["snippet"] = line.strip()[:80]
+                break  # 每规则每文件 1 条（防噪音）
+
+
