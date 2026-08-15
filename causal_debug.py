@@ -77,13 +77,41 @@ def causal_trace(root: str, fail_keyword: str = "fail",
 
 # ── ② git 二分定位 ─────────────────────────────────────────
 def bug_bisect(root: str, good_commit: str, bad_commit: str,
-               test_cmd: str, max_steps: int = 15) -> dict:
+               test_cmd: str, max_steps: int = 15,
+               execute: bool = False) -> dict:
     """git bisect 式二分：在 [good, bad] 区间二分查找引入 bug 的提交。
 
-    实现：rev-list 取区间提交 → 二分 mid → 跑 test_cmd → 按结果收缩区间
-    （真实 git checkout 由调用方确认——本函数只算区间不 checkout；
-    返回下一步建议）。全部只读。
+    execute=False（默认）：只读计划（rev-list 计数 + mid 建议——不 checkout）。
+    execute=True：实际执行二分（checkout mid 提交 → 跑 test_cmd → 收缩区间）
+    ——写操作（checkout）受 L4 授权（调用方显式确认）。
+    实现用 git bisect 原生命令（start/bad/good/run——不手写二分循环）。
     """
+    import subprocess as _sp
+    # execute 路径：git bisect 原生（start bad good → run test_cmd）
+    if execute:
+        try:
+            # 重置可能的旧 bisect 状态
+            _sp.run(["git", "-C", root, "bisect", "reset"],
+                    capture_output=True, text=True, timeout=15)
+            r = _sp.run(["git", "-C", root, "bisect", "start",
+                         bad_commit, good_commit],
+                        capture_output=True, text=True, timeout=15)
+            if r.returncode != 0:
+                return {"ok": False, "error": f"bisect start 失败: {r.stderr[:120]}"}
+            r = _sp.run(["git", "-C", root, "bisect", "run", *test_cmd.split()],
+                        capture_output=True, text=True, timeout=600)
+            out = (r.stdout or "") + (r.stderr or "")
+            first_bad = _extract_first_bad(out)
+            _sp.run(["git", "-C", root, "bisect", "reset"],
+                    capture_output=True, text=True, timeout=15)
+            return {"ok": True, "executed": True,
+                    "first_bad_commit": first_bad,
+                    "log_tail": out[-500:],
+                    "advice": f"引入 bug 的提交: {first_bad or '未定位（测试命令退出码语义检查）'}"
+                              "——修复后 causal_trace 溯源行为链"}
+        except (OSError, _sp.TimeoutExpired) as e:
+            return {"ok": False, "error": f"bisect 执行失败: {e}"}
+    # 只读计划路径（原行为）
     try:
         r = subprocess.run(
             ["git", "-C", root, "rev-list", "--count", f"{good_commit}..{bad_commit}"],
@@ -103,7 +131,16 @@ def bug_bisect(root: str, good_commit: str, bad_commit: str,
     return {"ok": True, "total_commits": total, "mid_index": mid,
             "max_steps": min(max_steps, total.bit_length()),
             "next": plan,
-            "advice": "确认定位后：修复提交 + causal_trace 溯源行为链"}
+            "advice": "加 execute=true 实际执行 git bisect（L4 授权——会 checkout）；"
+                      "确认定位后：修复提交 + causal_trace 溯源行为链"}
+
+
+def _extract_first_bad(output: str) -> str | None:
+    """从 git bisect run 输出提取 'first bad commit' 的 hash。"""
+    m = re.search(r"first bad commit:\s*\[?([0-9a-f]{7,40})", output)
+    if m:
+        return m.group(1)
+    return None
 
 
 # ── ③ 因果链记录（scan-log 扩展）──────────────────────────

@@ -2194,13 +2194,15 @@ def _tool_causal_trace(args: dict) -> "list[types.TextContent]":
 
 
 def _tool_bug_bisect(args: dict) -> "list[types.TextContent]":
-    """git bisect 式二分定位（只读计划——不自动 checkout）。"""
+    """git bisect 式二分定位（只读计划——execute=true 实际执行需 L4 授权）。"""
     from causal_debug import bug_bisect
     root = _check_path(str(args.get("root", "")))
     good = str(args.get("good_commit", ""))
     bad = str(args.get("bad_commit", "")) or "HEAD"
     cmd = str(args.get("test_cmd", "cargo test"))
-    return [_TC(json.dumps(bug_bisect(str(root), good, bad, cmd),
+    execute = bool(args.get("execute", False))
+    return [_TC(json.dumps(bug_bisect(str(root), good, bad, cmd,
+                                      execute=execute),
                            ensure_ascii=False, indent=2))]
 
 
@@ -2268,7 +2270,9 @@ def _tool_mesh_check(args: dict) -> "list[types.TextContent]":
     """网格拓扑健康报告（TetSphere 概念：非流形/破面/孤立顶点）。"""
     from geometry_tools import mesh_check
     p = _check_path(str(args.get("path", "")))
-    return [_TC(json.dumps(mesh_check(str(p)), ensure_ascii=False, indent=2))]
+    repair = bool(args.get("repair", False))
+    return [_TC(json.dumps(mesh_check(str(p), repair),
+                           ensure_ascii=False, indent=2))]
 
 
 def _tool_mesh_optimize(args: dict) -> "list[types.TextContent]":
@@ -2303,13 +2307,16 @@ def _brp_query_entities(project_path: str) -> dict | None:
     换行分隔 JSON 消息——发 list_entities 请求查实体列表。
     未运行/协议方法未识别 → 返回 None（调用方诚实降级——不崩溃）。
     超时 1.5s（游戏未启动快速降级）。
+    方法名可配（风险解决 2026-08-15）：UNIFIED_RX_BRP_METHOD env——
+    协议版本差异可适配（默认 list_entities）。
     """
     import socket
+    method = os.environ.get("UNIFIED_RX_BRP_METHOD", "list_entities")
     try:
         s = socket.create_connection(("127.0.0.1", 15702), timeout=1.0)
         s.settimeout(1.5)
         try:
-            req = json.dumps({"method": "list_entities", "params": {}}) + "\n"
+            req = json.dumps({"method": method, "params": {}}) + "\n"
             s.sendall(req.encode("utf-8"))
             data = b""
             try:

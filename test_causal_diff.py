@@ -93,3 +93,39 @@ def test_code_embed_similarity(tmp_path, monkeypatch):
     d2 = json.loads(server._call("code_embed", {"path": str(a)})[0].text)
     assert d2["ok"] is True and d2["count"] == 1, d2
     assert d2["functions"][0]["features"]["name"] == "add", d2
+
+
+def test_bug_bisect_execute_flag(monkeypatch):
+    """execute=True → git bisect 原生路径（非 git 目录诚实报错——不崩溃）。"""
+    from causal_debug import bug_bisect
+    import tempfile
+    repo = tempfile.mkdtemp(prefix="bisect_ex_")  # 系统临时目录（非 git 仓库内）
+    d = bug_bisect(repo, "abc123", "HEAD", "cargo test", execute=True)
+    assert d["ok"] is False, f"非 git 目录 execute 应报错: {d}"
+    assert "bisect" in d.get("error", ""), d
+
+
+def test_bug_bisect_extract_first_bad():
+    """first bad commit 提取（git bisect run 输出解析）。"""
+    from causal_debug import _extract_first_bad
+    out = "Bisecting: 5 revisions left\nfirst bad commit: [a1b2c3d4] 引入 bug 的提交\n"
+    assert _extract_first_bad(out) == "a1b2c3d4", _extract_first_bad(out)
+    assert _extract_first_bad("no bad commit here") is None
+
+
+def test_optimize_code_rewrites(tmp_path, monkeypatch):
+    """optimize_code 附等价重写片段（热点→可直接应用代码）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    f = repo / "hot2.py"
+    f.write_text("def p(items):\n    for a in items:\n"
+                 "        for b in items:\n            print(a)\n"
+                 "    f = open('x')\n", encoding="utf-8")
+    d = json.loads(server._call("optimize_code", {
+        "path": str(f), "perf_goal": "响应时间<10ms"})[0].text)
+    assert d["ok"] is True, d
+    rewrites = d.get("rewrites") or []
+    kinds = {r["kind"] for r in rewrites}
+    assert "complexity" in kinds, f"应有复杂度重写片段: {kinds}"
+    assert "io_in_hot_path" in kinds, f"应有 IO 重写片段: {kinds}"

@@ -11,6 +11,7 @@
 零依赖（OBJ 文本 / STL 二进制 / PLY 文本——std lib 足够）。
 真·GPU 可微渲染（梯度优化三角面片）标注为未来方向——本实现提供数据基础设施。
 """
+import json
 import math
 import os
 import struct
@@ -42,9 +43,11 @@ def load_mesh(path: str) -> dict:
             return _parse_stl(path)
         if ext == ".ply":
             return _parse_ply(path)
+        if ext == ".glb":
+            return _parse_glb(path)
     except (IndexError, ValueError, struct.error, OSError) as e:
         return {"ok": False, "error": f"网格解析失败（畸形文件）: {e}"}
-    return {"ok": False, "error": f"不支持的格式: {ext}（支持 .obj/.stl/.ply）"}
+    return {"ok": False, "error": f"不支持的格式: {ext}（支持 .obj/.stl/.ply/.glb）"}
 
 
 def _parse_obj(path: str) -> dict:
@@ -170,10 +173,106 @@ def _parse_ply(path: str) -> dict:
     return {"ok": True, "format": "ply", "vertices": verts, "faces": faces,
             "normals": [], "uvs": []}
 
+def _parse_glb(path: str) -> dict:
+    """GLB 二进制解析（风险解决 2026-08-15——游戏最常用格式，零依赖）。
+
+    结构：12 字节头（magic/version/length）+ chunk 序列
+      - JSON chunk（type=0x4E4F534A）：glTF 场景图（accessors/bufferViews/meshes）
+      - BIN chunk（type=0x004E4942）：二进制缓冲（顶点/索引数据）
+    仅提取位置/索引（三角形）——材质/动画忽略（诚实标注子集）。
+    """
+    verts, faces = [], []
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        return {"ok": False, "error": str(e)}
+    if len(data) < 12 or data[:4] != b"glTF":
+        return {"ok": False, "error": "非 GLB 文件（magic 校验失败）"}
+    # chunk 遍历
+    off = 12
+    json_data = None
+    bin_data = b""
+    while off + 8 <= len(data):
+        clen, ctype = struct.unpack_from("<II", data, off)
+        off += 8
+        if off + clen > len(data):
+            return {"ok": False, "error": "GLB chunk 长度越界（畸形文件）"}
+        chunk = data[off:off + clen]
+        off += clen
+        if ctype == 0x4E4F534A:  # JSON
+            json_data = chunk.decode("utf-8", errors="replace")
+        elif ctype == 0x004E4942:  # BIN
+            bin_data = chunk
+    if json_data is None:
+        return {"ok": False, "error": "GLB 无 JSON chunk"}
+    try:
+        gltf = json.loads(json_data)
+    except ValueError:
+        return {"ok": False, "error": "GLB JSON chunk 解析失败"}
+    # accessors/bufferViews → 顶点/索引
+    accessors = gltf.get("accessors", [])
+    views = gltf.get("bufferViews", [])
+    meshes = gltf.get("meshes", [])
+    for mesh in meshes[:1]:  # 首 mesh（子集——诚实标注）
+        for prim in mesh.get("primitives", [])[:1]:
+            pos_acc = prim.get("attributes", {}).get("POSITION")
+            idx_acc = prim.get("indices")
+            if pos_acc is None or pos_acc >= len(accessors):
+                continue
+            pa = accessors[pos_acc]
+            if pa.get("type") != "VEC3":
+                continue
+            # 顶点
+            pos_view = views[pa["bufferView"]] if pa.get("bufferView") is not None                 and pa["bufferView"] < len(views) else None
+            if pos_view is None:
+                continue
+            bv = pos_view.get("byteOffset", 0)
+            comp_type = pa.get("componentType", 5126)  # FLOAT
+            if comp_type != 5126:
+                continue
+            cnt = pa.get("count", 0)
+            stride = pos_view.get("byteStride", 12)
+            base = bv
+            for k in range(cnt):
+                if base + 12 > len(bin_data):
+                    break
+                x, y, z = struct.unpack_from("<3f", bin_data, base)
+                verts.append((x, y, z))
+                base += stride
+            # 索引
+            if idx_acc is not None and idx_acc < len(accessors):
+                ia = accessors[idx_acc]
+                iv = views[ia["bufferView"]] if ia.get("bufferView") is not None                     and ia["bufferView"] < len(views) else None
+                if iv is None:
+                    continue
+                ib = iv.get("byteOffset", 0)
+                itype = ia.get("componentType", 5123)  # USHORT
+                fmt = "H" if itype == 5123 else ("I" if itype == 5125 else None)
+                if fmt is None:
+                    continue
+                icnt = ia.get("count", 0)
+                size = struct.calcsize(fmt)
+                for k in range(0, icnt - 2, 3):
+                    if ib + 3 * size > len(bin_data):
+                        break
+                    i0, i1, i2 = struct.unpack_from("<" + fmt * 3, bin_data, ib)
+                    faces.append((i0, i1, i2))
+                    ib += 3 * size
+    if not verts or not faces:
+        return {"ok": False, "error": "GLB 无位置/索引数据（子集提取失败）"}
+    return {"ok": True, "format": "glb", "vertices": verts, "faces": faces,
+            "normals": [], "uvs": [],
+            "note": "GLB 子集提取（位置/三角形索引）——材质/动画忽略"}
+
 
 # ── ① mesh_check：拓扑质量（TetSphere 概念）───────────────
-def mesh_check(path: str) -> dict:
-    """拓扑健康报告：非流形边/破面（边界边）/孤立顶点/法线一致性。"""
+def mesh_check(path: str, repair: bool = False) -> dict:
+    """拓扑健康报告：非流形边/破面（边界边）/孤立顶点/法线一致性。
+
+    repair=True（风险解决 2026-08-15）：自动修复重复顶点（welding）——
+    输出修复后的顶点/面数据（引擎即用——无需后处理）。
+    """
     m = load_mesh(path)
     if not m.get("ok"):
         return m
@@ -215,13 +314,36 @@ def mesh_check(path: str) -> dict:
                        "count": len(dup_verts),
                        "detail": f"{len(dup_verts)} 组重复顶点位置——"
                                  f"welding 可精简（mesh_optimize）"})
-    return {"ok": True, "path": path, "format": m["format"],
-            "vertices": len(verts), "faces": len(faces),
-            "edge_count": len(edge_faces),
-            "manifold": not boundary_edges and not nonmanifold_edges,
-            "issues": issues, "issue_count": len(issues),
-            "advice": ("流形且无破面" if not issues else
-                       "网格有拓扑问题——先用 mesh_optimize 修复再引擎使用")}
+    result = {"ok": True, "path": path, "format": m["format"],
+              "vertices": len(verts), "faces": len(faces),
+              "edge_count": len(edge_faces),
+              "manifold": not boundary_edges and not nonmanifold_edges,
+              "issues": issues, "issue_count": len(issues),
+              "advice": ("流形且无破面" if not issues else
+                         "网格有拓扑问题——先用 mesh_optimize 修复再引擎使用")}
+    # repair：自动 welding 重复顶点（输出修复数据——引擎即用）
+    if repair and dup_verts:
+        remap: dict[int, int] = {}
+        for keep, dupes in dup_verts.items():
+            for d in dupes[1:]:
+                remap[d] = dupes[0]
+        if remap:
+            new_faces = [tuple(remap.get(x, x) for x in f) for f in faces]
+            # 去重后的顶点（保留位置）
+            kept = [i for i in range(len(verts)) if i not in remap]
+            new_verts = [verts[i] for i in kept]
+            remap2 = {old: new for new, old in enumerate(kept)}
+            new_faces2 = [tuple(remap2.get(remap.get(x, x), x) for x in f)
+                          for f in faces]
+            result["repair"] = {
+                "welded_vertices": len(remap),
+                "vertices_after": len(new_verts),
+                "faces_after": len(new_faces2),
+                "vertices": new_verts,
+                "faces": new_faces2,
+                "advice": "重复顶点已合并（welding）——修复后数据可直接引擎使用",
+            }
+    return result
 
 
 # ── ② mesh_optimize：表示效率（NURBS 概念）─────────────────
