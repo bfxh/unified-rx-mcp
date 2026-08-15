@@ -2409,7 +2409,7 @@ def _brp_query_entities(project_path: str) -> dict | None:
         finally:
             try:
                 s.close()
-            except OSError:
+            except OSError:  # 尽力而为（socket 关闭失败不影响结果）
                 pass
     except OSError:
         return None  # 未运行（连接失败）——降级
