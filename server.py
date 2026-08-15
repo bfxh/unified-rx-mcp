@@ -2230,7 +2230,6 @@ def _tool_optimize_code(args: dict) -> "list[types.TextContent]":
 
 
 def _tool_code_embed(args: dict) -> "list[types.TextContent]":
-    """AST 符号嵌入（函数特征向量——相似函数检索）。"""
     from differentiable_code import similar_functions, embed_function
     import ast as _ast
     p = _check_path(str(args.get("path", "")))
@@ -2263,6 +2262,38 @@ def _tool_code_embed(args: dict) -> "list[types.TextContent]":
             fns.append(embed_function(n))
     return [_TC(json.dumps({"ok": True, "file": str(p), "functions": fns,
                             "count": len(fns)}, ensure_ascii=False, indent=2))]
+
+
+def _tool_mesh_check(args: dict) -> "list[types.TextContent]":
+    """网格拓扑健康报告（TetSphere 概念：非流形/破面/孤立顶点）。"""
+    from geometry_tools import mesh_check
+    p = _check_path(str(args.get("path", "")))
+    return [_TC(json.dumps(mesh_check(str(p)), ensure_ascii=False, indent=2))]
+
+
+def _tool_mesh_optimize(args: dict) -> "list[types.TextContent]":
+    """网格精简建议（NURBS 概念：welding+共面合并）。"""
+    from geometry_tools import mesh_optimize
+    p = _check_path(str(args.get("path", "")))
+    ratio = float(args.get("target_ratio", 0.5))
+    return [_TC(json.dumps(mesh_optimize(str(p), ratio),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_mesh_splat(args: dict) -> "list[types.TextContent]":
+    """三角面片→可训练参数表（Triangle Splatting 概念）。"""
+    from geometry_tools import mesh_splat
+    p = _check_path(str(args.get("path", "")))
+    return [_TC(json.dumps(mesh_splat(str(p)), ensure_ascii=False, indent=2))]
+
+
+def _tool_voxelize(args: dict) -> "list[types.TextContent]":
+    """网格体素化（Radiant Foam 概念：体素占用表示）。"""
+    from geometry_tools import voxelize
+    p = _check_path(str(args.get("path", "")))
+    res = int(args.get("resolution", 16))
+    return [_TC(json.dumps(voxelize(str(p), res),
+                           ensure_ascii=False, indent=2))]
 
 
 def _brp_query_entities(project_path: str) -> dict | None:
@@ -4237,6 +4268,20 @@ _TOOLS: dict[str, tuple] = {
         "path": _S("string", "文件路径"),
         "compare": _S("string", "可选：对比文件路径（相似函数检索）"),
     }, ["path"]), "AST 符号嵌入（函数特征向量——相似函数检索；真·语义嵌入可替换 mini_bert）"),
+    "mesh_check": (_tool_mesh_check, _schema({
+        "path": _S("string", "网格文件（.obj/.stl/.ply）"),
+    }, ["path"]), "网格拓扑健康报告（TetSphere 概念：非流形/破面/孤立顶点——引擎即用检测）"),
+    "mesh_optimize": (_tool_mesh_optimize, _schema({
+        "path": _S("string", "网格文件"),
+        "target_ratio": _S("number", "目标精简率（默认 0.5）"),
+    }, ["path"]), "网格精简建议（NURBS 概念：welding+共面合并——表示效率）"),
+    "mesh_splat": (_tool_mesh_splat, _schema({
+        "path": _S("string", "网格文件"),
+    }, ["path"]), "三角面片→可训练参数表（Triangle Splatting 概念：顶点/法线/面索引张量——真梯度优化未来方向）"),
+    "voxelize": (_tool_voxelize, _schema({
+        "path": _S("string", "网格文件"),
+        "resolution": _S("integer", "体素分辨率（4..128，默认 16）"),
+    }, ["path"]), "网格体素化（Radiant Foam 概念：体素占用表示——光线追踪/碰撞基础）"),
     "runtime_state": (_tool_runtime_state, _schema({
         "path": _S("string", "项目路径"),
         "source": _S("string", "状态来源（bevy_brp/file/scan——BRP 不可用时降级）"),

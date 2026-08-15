@@ -1,7 +1,7 @@
 {
-  "core_count": 71,
+  "core_count": 75,
   "ext_count": 24,
-  "total": 95,
+  "total": 99,
   "core": [
     "agent_orchestrate",
     "agent_roles",
@@ -50,6 +50,9 @@
     "local_run",
     "locate_edit",
     "math_ops",
+    "mesh_check",
+    "mesh_optimize",
+    "mesh_splat",
     "optimize_code",
     "parallel",
     "pipeline",
@@ -72,6 +75,7 @@
     "text_ops",
     "tool_card",
     "ui_check",
+    "voxelize",
     "vuln_scan",
     "watch_status"
   ],
