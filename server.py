@@ -2331,6 +2331,39 @@ def _tool_mesh_union(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=2))]
 
 
+def _tool_mesh_clip(args: dict) -> "list[types.TextContent]":
+    """平面裁剪（真·CSG 基础：差集操作）。"""
+    from geometry_tools import mesh_clip
+    p = _check_path(str(args.get("path", "")))
+    plane = [float(x) for x in (args.get("plane") or [0, 0, 1, 0])]
+    keep = str(args.get("keep", "keep_positive"))
+    return [_TC(json.dumps(mesh_clip(str(p), plane, keep),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_geom_graph(args: dict) -> "list[types.TextContent]":
+    """几何节点图执行（Grasshopper 概念：可视化编程 DSL）。"""
+    from geometry_tools import geom_graph
+    import geometry_tools as _gt
+    _orig = _gt._check_path  # security-review LOW：注入后恢复（防全局污染）
+    try:
+        _gt._check_path = _check_path  # 注入沙盒（节点图内部路径校验）
+        nodes = args.get("nodes") or []
+        outputs = args.get("outputs") or []
+        return [_TC(json.dumps(geom_graph(nodes, outputs),
+                               ensure_ascii=False, indent=2))]
+    finally:
+        _gt._check_path = _orig
+
+
+def _tool_geom_example(args: dict) -> "list[types.TextContent]":
+    """可运行几何示例生成（PicoGK Program.cs 概念）。"""
+    from geometry_tools import geom_example
+    kind = str(args.get("kind", "union"))
+    return [_TC(json.dumps(geom_example(kind),
+                           ensure_ascii=False, indent=2))]
+
+
 def _brp_query_entities(project_path: str) -> dict | None:
     """BRP 实体查询（2026-08-15 继续处理——深度接入）。
 
@@ -4331,6 +4364,18 @@ _TOOLS: dict[str, tuple] = {
     "mesh_union": (_tool_mesh_union, _schema({
         "paths": _S("array", "网格文件列表（1..10 个）"),
     }, ["paths"]), "网格并集合并（PicoGK 概念：顶点焊接——紧凑几何操作；真 CSG 标注未来方向）"),
+    "mesh_clip": (_tool_mesh_clip, _schema({
+        "path": _S("string", "网格文件"),
+        "plane": _S("array", "裁剪平面 [a,b,c,d]（ax+by+cz+d=0）"),
+        "keep": _S("string", "保留侧（keep_positive 默认/keep_negative）"),
+    }, ["path", "plane"]), "平面裁剪（真·CSG 基础：差集操作——half-edge 顶点分裂）"),
+    "geom_graph": (_tool_geom_graph, _schema({
+        "nodes": _S("array", "节点图（[{id,type,args}]——load/union/clip/exchange/voxelize）"),
+        "outputs": _S("array", "输出节点 id 列表"),
+    }, ["nodes"]), "几何节点图执行（Grasshopper 概念：节点即操作——可视化编程 DSL 零依赖版）"),
+    "geom_example": (_tool_geom_example, _schema({
+        "kind": _S("string", "示例类型（union/clip/graph）"),
+    }, []), "可运行几何示例生成（PicoGK Program.cs 概念：VS Code 直接运行——零依赖）"),
     "runtime_state": (_tool_runtime_state, _schema({
         "path": _S("string", "项目路径"),
         "source": _S("string", "状态来源（bevy_brp/file/scan——BRP 不可用时降级）"),

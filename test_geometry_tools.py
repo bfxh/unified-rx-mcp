@@ -195,3 +195,56 @@ def test_mesh_union_weld(tmp_path, monkeypatch):
     assert d["vertices"] == 5, f"共享顶点应焊接（3+3-1=5）: {d}"
     assert d["faces"] == 2, d
     assert d["meshes"] == ["a.obj", "b.obj"], d
+
+
+def test_mesh_clip_split(tmp_path, monkeypatch):
+    """真·CSG 基础：四面体平面裁剪——跨平面顶点分裂 + 保留侧。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    p = tmp_path / "tet3.obj"
+    p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"
+                 "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n", encoding="utf-8")
+    d = json.loads(server._call("mesh_clip", {
+        "path": str(p), "plane": [0, 0, 1, -0.3]})[0].text)
+    assert d["ok"] is True, d
+    assert d["split_vertices"] >= 2, f"跨平面应有顶点分裂: {d}"
+    assert d["faces"] >= 3, d
+    # 全部在平面另一侧 → 完全丢弃（差集）
+    d2 = json.loads(server._call("mesh_clip", {
+        "path": str(p), "plane": [0, 0, 1, -2.0]})[0].text)
+    assert d2["ok"] is True and d2["faces"] == 0, d2
+
+
+def test_geom_graph_chain(tmp_path, monkeypatch):
+    """Grasshopper 概念：节点图链（load → union → exchange）执行。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    a = tmp_path / "ga.obj"
+    a.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    d = json.loads(server._call("geom_graph", {
+        "nodes": [
+            {"id": "src", "type": "load", "args": {"path": str(a)}},
+            {"id": "out", "type": "exchange",
+             "args": {"ref": "src", "target_format": "ply"}},
+        ],
+        "outputs": ["src", "out"]})[0].text)
+    assert d["ok"] is True, d
+    assert "src" in d["outputs"] and d["outputs"]["src"]["ok"] is True, d
+    assert "ply" in d["outputs"]["out"]["content"], d
+    # 非法节点类型拒绝
+    d2 = json.loads(server._call("geom_graph", {
+        "nodes": [{"id": "x", "type": "bogus", "args": {}}],
+        "outputs": []})[0].text)
+    assert d2["ok"] is False and "非法类型" in d2["error"], d2
+
+
+def test_geom_example_generates(tmp_path):
+    """PicoGK Program.cs 概念：三种示例代码生成（可直接运行）。"""
+    for kind in ("union", "clip", "graph"):
+        d = json.loads(server._call("geom_example", {"kind": kind})[0].text)
+        assert d["ok"] is True and d["language"] == "python", d
+        assert "import" in d["code"], d
+        # union/clip 调用几何工具；graph 示例为节点 DSL（仅打印声明）
+        if kind in ("union", "clip"):
+            assert "geometry_tools" in d["code"], d
+    # 非法 kind 拒绝
+    d = json.loads(server._call("geom_example", {"kind": "bogus"})[0].text)
+    assert d["ok"] is False, d
