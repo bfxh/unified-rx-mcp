@@ -35,6 +35,41 @@
       "language": ".py",
       "severity": "info",
       "msg": "日志格式化含变量（换行注入伪造日志——建议转义/结构化日志）"
+    },
+    {
+      "id": "sql_injection_js",
+      "pattern": "(execute|query)\\s*\\(\\s*[`\"'].*(SELECT|INSERT|UPDATE|DELETE).*\\$\\{",
+      "language": ".js",
+      "severity": "warning",
+      "msg": "JS SQL 模板串拼接（${} 插值注入——建议参数化查询）"
+    },
+    {
+      "id": "xxe_unsafe",
+      "pattern": "(ElementTree|ET)\\.(parse|fromstring)|etree\\s*\\.\\s*parse|XMLParser\\s*\\(",
+      "language": ".py",
+      "severity": "info",
+      "msg": "XML 解析未禁用外部实体（XXE 风险——建议 defusedxml/禁止 DTD）"
+    },
+    {
+      "id": "command_var_subprocess",
+      "pattern": "(getoutput|popen)\\s*\\(",
+      "language": ".py",
+      "severity": "warning",
+      "msg": "命令执行（getoutput/popen——shell 语义，参数含用户输入即注入，建议 subprocess 列表参数）"
+    },
+    {
+      "id": "php_file_include",
+      "pattern": "(include|require)\\s*\\(?\\s*\\$",
+      "language": ".php",
+      "severity": "warning",
+      "msg": "PHP 文件包含变量（include $var——远程包含/路径穿越，建议白名单）"
+    },
+    {
+      "id": "go_race_shared",
+      "pattern": "go\\s+func[^{]*\\{[^}]*\\[[^]]*\\]\\s*=",
+      "language": ".go",
+      "severity": "info",
+      "msg": "goroutine 内索引赋值（map/slice 共享写——并发竞态，建议加锁/通道）"
     }
   ]
 }

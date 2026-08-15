@@ -10,6 +10,7 @@ import builtins
 import json
 import os
 import re
+import threading
 from pathlib import Path
 
 
@@ -680,6 +681,8 @@ def py_taint_scan(src: str, path: str, lines: list) -> list:
 # ── 挖漏洞增强（2026-08-15）：模板规则 DSL（Nuclei 概念——确定性规则
 #    规模化——不改代码加规则）─────────────────────────────
 _RULES_CACHE: dict = {"mtime": 0.0, "rules": []}
+_RULES_LOCK = threading.Lock()  # 2026-08-15：并发安全——多线程（bug_scan
+# 并行/vuln_scan 三路）同时 load_ext_rules 读改缓存——dict 竞态防损
 
 
 def _rules_path() -> str:
@@ -695,41 +698,42 @@ def load_ext_rules(force: bool = False) -> list:
     """加载外部模板规则（vuln_rules.json——{id, pattern, language, severity,
     msg} 列表——正则模式确定性检测；mtime 缓存防重复读）。"""
     p = _rules_path()
-    try:
-        mt = os.path.getmtime(p)
-        if not force and mt == _RULES_CACHE["mtime"]:
-            return _RULES_CACHE["rules"]
-        data = json.loads(open(p, encoding="utf-8").read())
-        rules = []
-        for r in data.get("rules", []):
-            if isinstance(r, dict) and r.get("id") and r.get("pattern"):
-                # 安全（security-review MEDIUM：嵌套量词 ReDoS 拒绝——
-                # (a+)+/(a|aa)+$/(a{1,3}){2,}$ 类——指数回溯卡死；
-                # 长度上限防超大 pattern）
-                pat = str(r["pattern"])
-                if len(pat) > 200:
-                    continue
-                if re.search(r"\([^)]*[+*][^)]*\)[+*]", pat) \
-                        or re.search(r"\([^)]*\|[^)]*\)\*", pat) \
-                        or re.search(r"\(\s*[^)]*[+*][^)]*\s*\)\s*\{[^}]+\}", pat) \
-                        or re.search(r"\([^)]*\|[^)]*\)\+\$", pat):
-                    continue
-                try:
-                    re.compile(pat)  # 试编译——非法模式跳过（防运行时 re.error）
-                except re.error:
-                    continue
-                rules.append({
-                    "id": str(r["id"])[:40],
-                    "pattern": pat,
-                    "language": str(r.get("language", "all")),
-                    "severity": str(r.get("severity", "warning")),
-                    "msg": str(r.get("msg", "外部规则命中"))[:120],
-                })
-        _RULES_CACHE["mtime"] = mt
-        _RULES_CACHE["rules"] = rules
-        return rules
-    except (OSError, ValueError, TypeError):
-        return []
+    with _RULES_LOCK:  # 2026-08-15：并发安全（多线程 load 竞态防损）
+        try:
+            mt = os.path.getmtime(p)
+            if not force and mt == _RULES_CACHE["mtime"]:
+                return _RULES_CACHE["rules"]
+            data = json.loads(open(p, encoding="utf-8").read())
+            rules = []
+            for r in data.get("rules", []):
+                if isinstance(r, dict) and r.get("id") and r.get("pattern"):
+                    # 安全（security-review MEDIUM：嵌套量词 ReDoS 拒绝——
+                    # (a+)+/(a|aa)+$/(a{1,3}){2,}$ 类——指数回溯卡死；
+                    # 长度上限防超大 pattern）
+                    pat = str(r["pattern"])
+                    if len(pat) > 200:
+                        continue
+                    if re.search(r"\([^)]*[+*][^)]*\)[+*]", pat) \
+                            or re.search(r"\([^)]*\|[^)]*\)\*", pat) \
+                            or re.search(r"\(\s*[^)]*[+*][^)]*\s*\)\s*\{[^}]+\}", pat) \
+                            or re.search(r"\([^)]*\|[^)]*\)\+\$", pat):
+                        continue
+                    try:
+                        re.compile(pat)  # 试编译——非法模式跳过（防运行时 re.error）
+                    except re.error:
+                        continue
+                    rules.append({
+                        "id": str(r["id"])[:40],
+                        "pattern": pat,
+                        "language": str(r.get("language", "all")),
+                        "severity": str(r.get("severity", "warning")),
+                        "msg": str(r.get("msg", "外部规则命中"))[:120],
+                    })
+            _RULES_CACHE["mtime"] = mt
+            _RULES_CACHE["rules"] = rules
+            return rules
+        except (OSError, ValueError, TypeError):
+            return []
 
 
 def ext_rules_scan(src: str, path: str, lines: list, issues: list) -> None:
