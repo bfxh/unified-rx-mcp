@@ -288,7 +288,10 @@ def test_mesh_boolean_empty_mesh_no_crash(tmp_path, monkeypatch):
     import json as _j
     monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
     a = tmp_path / "empty.stl"
-    a.write_bytes(b"solid empty" + bytes([10]) + b"endsolid empty" + bytes([10]))
+    # 真 84 字节二进制空 STL（80 字节头 + 0 三角形）——触发空顶点路径，
+    # 而非过短拒绝分支（27 字节文本 STL 在 parse 提前返回，测试假绿）
+    import struct as _st
+    a.write_bytes(bytes(80) + _st.pack("<I", 0))
     d = _j.loads(server._call("mesh_boolean",
                               {"paths": [str(a), str(a)], "op": "intersect"})[0].text)
     assert d.get("ok") is False, f"空网格应返回错误而非崩溃: {d}"
