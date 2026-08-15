@@ -16,17 +16,34 @@ import os
 import struct
 from collections import defaultdict
 
+# 安全边界（security-review 2026-08-15）：
+# 解析器读前 stat 上限（复用 server _MAX_READ 1MB 理念——防沙盒内大文件 OOM）
+_MAX_MESH_BYTES = 64 * 1024 * 1024  # 64MB（网格比源码大——按格式放宽）
+_MAX_FACES = 500_000  # 面数上限（防 voxelize 计算爆炸 DoS）
+
 
 # ── 解析层（OBJ / STL 二进制 / PLY 文本）───────────────────
 def load_mesh(path: str) -> dict:
-    """加载网格 → {vertices: [(x,y,z)], faces: [(i,j,k)], normals, uvs}。"""
+    """加载网格 → {vertices: [(x,y,z)], faces: [(i,j,k)], normals, uvs}。
+
+    安全边界（security-review）：读前 stat 大小上限（防 OOM）；
+    畸形文件结构化捕获（不裸抛——返回 ok:False + error）。
+    """
+    try:
+        if os.path.getsize(path) > _MAX_MESH_BYTES:
+            return {"ok": False, "error": f"网格文件超过 {_MAX_MESH_BYTES // (1 << 20)}MB 上限"}
+    except OSError as e:
+        return {"ok": False, "error": str(e)}
     ext = os.path.splitext(path)[1].lower()
-    if ext == ".obj":
-        return _parse_obj(path)
-    if ext == ".stl":
-        return _parse_stl(path)
-    if ext == ".ply":
-        return _parse_ply(path)
+    try:
+        if ext == ".obj":
+            return _parse_obj(path)
+        if ext == ".stl":
+            return _parse_stl(path)
+        if ext == ".ply":
+            return _parse_ply(path)
+    except (IndexError, ValueError, struct.error, OSError) as e:
+        return {"ok": False, "error": f"网格解析失败（畸形文件）: {e}"}
     return {"ok": False, "error": f"不支持的格式: {ext}（支持 .obj/.stl/.ply）"}
 
 
@@ -52,10 +69,16 @@ def _parse_obj(path: str) -> dict:
                         i = tok.split("/")[0]
                         if i:
                             idx.append(int(i) - 1)
+                    # 安全（security-review）：负索引回绕拒绝 + 越界拒绝
+                    if any(x < 0 or x >= len(verts) for x in idx):
+                        continue
                     if len(idx) >= 3:
                         # 三角化（fan）
                         for k in range(1, len(idx) - 1):
                             faces.append((idx[0], idx[k], idx[k + 1]))
+                            if len(faces) > _MAX_FACES:
+                                return {"ok": False,
+                                        "error": f"面数超过 {_MAX_FACES} 上限"}
     except OSError as e:
         return {"ok": False, "error": str(e)}
     if not verts or not faces:
@@ -133,9 +156,15 @@ def _parse_ply(path: str) -> dict:
         if parts and parts[0].isdigit():
             k = int(parts[0])
             idx = [int(x) for x in parts[1:1 + k]]
+            # 安全（security-review）：越界/负索引拒绝
+            if any(x < 0 or x >= len(verts) for x in idx):
+                continue
             if len(idx) >= 3:
                 for m in range(1, len(idx) - 1):
                     faces.append((idx[0], idx[m], idx[m + 1]))
+                    if len(faces) > _MAX_FACES:
+                        return {"ok": False,
+                                "error": f"面数超过 {_MAX_FACES} 上限"}
     if not verts or not faces:
         return {"ok": False, "error": "PLY 无顶点/面"}
     return {"ok": True, "format": "ply", "vertices": verts, "faces": faces,
@@ -198,6 +227,13 @@ def mesh_check(path: str) -> dict:
 # ── ② mesh_optimize：表示效率（NURBS 概念）─────────────────
 def mesh_optimize(path: str, target_ratio: float = 0.5) -> dict:
     """精简建议：重复顶点合并 + 共面面片合并候选 + 精简率评估。"""
+    # 安全（security-review LOW）：target_ratio 校验（NaN/越界拒绝）
+    try:
+        target_ratio = float(target_ratio)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": f"target_ratio 非法: {target_ratio}"}
+    if not 0 < target_ratio <= 1:
+        return {"ok": False, "error": "target_ratio 须在 (0, 1]"}
     m = load_mesh(path)
     if not m.get("ok"):
         return m
@@ -303,6 +339,14 @@ def voxelize(path: str, resolution: int = 16) -> dict:
     if not m.get("ok"):
         return m
     verts, faces = m["vertices"], m["faces"]
+    # 安全（security-review MEDIUM）：面数上限——防 O(res³×faces) 计算爆炸 DoS
+    if len(faces) > _MAX_FACES:
+        return {"ok": False,
+                "error": f"面数 {len(faces)} 超过 {_MAX_FACES} 上限（体素化计算爆炸风险）"}
+    if len(faces) * (resolution ** 3) > 200_000_000:
+        return {"ok": False,
+                "error": f"体素化规模过大（{len(faces)} 面 × {resolution}³）——"
+                         f"降低 resolution 或精简网格（mesh_optimize）"}
     # 包围盒
     xs = [v[0] for v in verts]
     ys = [v[1] for v in verts]
@@ -342,13 +386,19 @@ def _point_in_mesh(p, verts, faces) -> bool:
 
 
 def _ray_tri_intersect(origin, v0, v1, v2) -> bool:
-    """Möller–Trumbore 射线-三角形相交（射线：origin 向 +X）。"""
+    """Möller–Trumbore 射线-三角形相交（射线：origin 向 +X）。
+
+    数值稳定（security-review LOW）：相对阈值——det 与三角形尺度比较，
+    小尺度网格（mm/µm）不误拒；边界 t>1e-12（防 t=0 表面抖动误判）。
+    """
     e1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
     e2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
     dir = (1.0, 0.0, 0.0)
     pvec = _cross(dir, e2)
     det = _dot(e1, pvec)
-    if abs(det) < 1e-9:
+    # 相对阈值：与三角形尺度（e1/e2 长度积）比较
+    scale = (math.sqrt(_dot(e1, e1)) * math.sqrt(_dot(e2, e2)) + 1e-30)
+    if abs(det) < 1e-9 * scale:
         return False
     inv = 1.0 / det
     tvec = (origin[0] - v0[0], origin[1] - v0[1], origin[2] - v0[2])
@@ -360,7 +410,7 @@ def _ray_tri_intersect(origin, v0, v1, v2) -> bool:
     if v < 0 or u + v > 1:
         return False
     t = _dot(e2, qvec) * inv
-    return t > 0  # 正向射线命中
+    return t > 1e-12  # 正向射线命中（边界抖动防御）
 
 
 def _cross(a, b):
