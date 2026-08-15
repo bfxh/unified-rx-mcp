@@ -4596,6 +4596,8 @@ def _definitions() -> list:
 import importlib.util as _ilu
 
 _EXT_BASE_CANDIDATES = [
+    # 当前仓库布局：仓库根/server.py + 扩展在 仓库根/vendor/extensions/
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor", "extensions"),
     # 开发布局：mcp-servers/unified-rx/server.py → 扩展在 mcp-servers/pr-oracle 等
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     # CI 布局：仓库根/server.py + 扩展复制到 仓库根/mcp-servers/

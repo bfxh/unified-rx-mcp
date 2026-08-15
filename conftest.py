@@ -6,7 +6,18 @@
 候选。autouse fixture 对所有测试文件生效——测试后置停止标志。
 """
 
+import os
+import tempfile
+
 import pytest
+
+# 测试沙箱适配：server.py 在 import 时读取 UNIFIED_RX_SANDBOX（默认 cwd），
+# 而测试的临时目录在系统 Temp 下——不注入会导致 repo_wiki/bug_scan 等
+# 工具对测试 tmp 路径报"路径越界"。必须在任何 server import 前设置。
+_test_tmp = tempfile.gettempdir()
+_existing_roots = os.environ.get("UNIFIED_RX_SANDBOX", os.getcwd()).split(";")
+if _test_tmp not in _existing_roots:
+    os.environ["UNIFIED_RX_SANDBOX"] = ";".join(_existing_roots + [_test_tmp])
 
 
 @pytest.fixture(autouse=True)

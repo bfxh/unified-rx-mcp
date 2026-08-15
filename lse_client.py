@@ -27,6 +27,9 @@ _ENGINE_CANDIDATES = [
     # 同仓库 lse-engine 子目录 release 构建（unified-rx/lse-engine/target/release/）
     Path(__file__).resolve().parent / "lse-engine" / "target" / "release" / "lse-engine.exe",
     Path(__file__).resolve().parent / "lse-engine" / "target" / "release" / "lse-engine",
+    # cargo 显式指定 build.target 时的布局（target/<三元组>/release/）
+    Path(__file__).resolve().parent / "lse-engine" / "target" / "x86_64-pc-windows-gnu" / "release" / "lse-engine.exe",
+    Path(__file__).resolve().parent / "lse-engine" / "target" / "x86_64-pc-windows-msvc" / "release" / "lse-engine.exe",
     # 仓库根（mcp-servers/ 布局）lse-engine
     Path(__file__).resolve().parent.parent / "unified-rx" / "lse-engine" / "target" / "release" / "lse-engine.exe",
     # 环境变量覆盖
