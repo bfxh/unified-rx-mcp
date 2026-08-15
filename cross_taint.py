@@ -23,7 +23,8 @@ def cross_taint_scan(tree: "ast.AST", path: str, lines: list,
     for n in ast.walk(tree):
         if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        fns[n.name] = [a.arg for a in n.args.args]
+        # setdefault：与原实现（walk 首个同名定义）一致——重复定义取首定义
+        fns.setdefault(n.name, [a.arg for a in n.args.args])
         sinks: list = []
         for s in ast.walk(n):
             if not isinstance(s, ast.Call):
@@ -35,7 +36,7 @@ def cross_taint_scan(tree: "ast.AST", path: str, lines: list,
                 _fn = s.func.id
             if _fn in _SINKS:
                 sinks.append(s)
-        fn_sinks[n.name] = sinks
+        fn_sinks.setdefault(n.name, sinks)
     # 每个函数：污点变量 = 形参 + 函数内 source 赋值（args.get/input）
     for fn in ast.walk(tree):
         if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
