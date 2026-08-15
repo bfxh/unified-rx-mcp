@@ -469,20 +469,34 @@ def detect_dead003_fake_impl(report: FileReport, lines: List[str],
     lang = report.language
     marker_words = ["模拟实现", "内存模拟", "模拟数据", "假数据", "后续替换",
                     "后续实现", "暂时实现", "临时实现", "临时方案", "示例实现"]
-    # 1) 注释中出现假实现标记词（2026-08-15 修复：跳过注释行与
-    # docstring 区间（状态机——内容行不误报）——说明性文字不是假实现）
-    in_doc = False
+    # 1) 注释中出现假实现标记词（2026-08-15 修复：docstring 用 AST 行号
+    # 集合跳过（无状态机——security-review HIGH：单行 docstring 误翻转
+    # 导致 in_doc 错置、后续行全跳过漏报；MEDIUM：三引号字面量误翻转）+
+    # marker_words 定义区间跳过（MEDIUM：续行自指）
+    doc_lines = set()
+    if tree is not None:
+        for _n in ast.walk(tree):
+            _body = getattr(_n, "body", None)
+            if isinstance(_body, list) and _body \
+                    and isinstance(_body[0], ast.Expr) \
+                    and isinstance(_body[0].value, ast.Constant) \
+                    and isinstance(_body[0].value.value, str):
+                _s = _body[0].lineno
+                _e = _body[0].end_lineno or _s
+                doc_lines.update(range(_s, _e + 1))
+    in_marker_def = False
     for i, line in enumerate(lines, 1):
-        if '"""' in line or "'''" in line:
-            in_doc = not in_doc
-            continue
-        if in_doc:
+        if i in doc_lines:
             continue
         stripped = line.lstrip()
-        if stripped.startswith(("#", "//", "/*", "*", "--")):
-            continue
-        if "marker_words" in line:
-            continue  # 2026-08-15 修复：词表定义行自指豁免
+        if stripped.startswith(("#", "//", "/*", "* ", "--")):
+            continue  # * 后需空格（LOW 修复：C 行首解引用 *ptr 不豁免）
+        if line.strip().startswith("marker_words"):
+            in_marker_def = True
+        if in_marker_def:
+            if "]" in line:
+                in_marker_def = False
+            continue  # 词表定义区间（含续行）——MEDIUM 修复
         for w in marker_words:
             if w in line:
                 add(report, "DEAD-003", "Blocker", i,
@@ -504,8 +518,8 @@ def detect_dead003_fake_impl(report: FileReport, lines: List[str],
                     # 是测试正常形态）
                     doc = ast.get_docstring(node) or ""
                     is_stub = any(k in doc for k in
-                                  ("注入", "子类", "接口", "外部实现",
-                                   "embed_fn", "由外部"))
+                                  ("注入实现", "由子类", "外部注入",
+                                   "embed_fn", "外部实现"))
                     base_name = report.path.replace("\\", "/").split("/")[-1]
                     is_test = "test_" in base_name or "_test" in base_name
                     if not is_abstract and not is_stub and not is_test:
