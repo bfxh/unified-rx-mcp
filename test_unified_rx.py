@@ -2841,3 +2841,8 @@ def test_vuln_three_capabilities(tmp_path, monkeypatch):
         {"id": "rd2", "pattern": "(a{2,3})+", "msg": "x"}]}),
         encoding="utf-8")
     assert load_ext_rules(force=True) == [], "(a{2,3})+ 嵌套量词应被拒绝"
+    # 组内 | + 组后量词（(ab|ac){1,} / (ab|ac)+ 类）同样拒绝
+    rules_file.write_text(json.dumps({"rules": [
+        {"id": "rd3", "pattern": "(ab|ac){1,}", "msg": "x"}]}),
+        encoding="utf-8")
+    assert load_ext_rules(force=True) == [], "(ab|ac){1,} 应被拒绝"
