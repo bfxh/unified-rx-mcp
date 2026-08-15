@@ -282,6 +282,18 @@ def test_mesh_boolean_relation(tmp_path, monkeypatch):
     assert d2["ok"] is True and d2["relation"] in ("overlapping", "contained"), d2
 
 
+
+def test_mesh_boolean_empty_mesh_no_crash(tmp_path, monkeypatch):
+    """security-review MEDIUM：空顶点网格（空 STL）不崩溃——返回结构化错误。"""
+    import json as _j
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    a = tmp_path / "empty.stl"
+    a.write_bytes(b"solid empty" + bytes([10]) + b"endsolid empty" + bytes([10]))
+    d = _j.loads(server._call("mesh_boolean",
+                              {"paths": [str(a), str(a)], "op": "intersect"})[0].text)
+    assert d.get("ok") is False, f"空网格应返回错误而非崩溃: {d}"
+    assert "error" in d, d
+
 def test_voxel_surface_extract(tmp_path, monkeypatch):
     """升级：表面体素提取（表面点云——占用的子集）。"""
     monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])

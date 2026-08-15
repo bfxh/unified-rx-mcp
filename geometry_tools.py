@@ -1053,10 +1053,12 @@ def mesh_boolean(paths: list, op: str = "intersect") -> dict:
         mins = [min(v[i] for v in vs) for i in range(3)]
         maxs = [max(v[i] for v in vs) for i in range(3)]
         return mins, maxs
-    a1, b1 = _aabb(ms[0])
-    a2, b2 = _aabb(ms[1])
-    if a1 is None or a2 is None:
+    _a1 = _aabb(ms[0])
+    _a2 = _aabb(ms[1])
+    if _a1 is None or _a2 is None:
         return {"ok": False, "error": "网格无顶点，无法计算 AABB"}
+    a1, b1 = _a1
+    a2, b2 = _a2
     overlap = all(a1[i] <= b2[i] and a2[i] <= b1[i] for i in range(3))
     contains = all(a1[i] <= a2[i] and b2[i] <= b1[i] for i in range(3)) \
         or all(a2[i] <= a1[i] and b1[i] <= b2[i] for i in range(3))
