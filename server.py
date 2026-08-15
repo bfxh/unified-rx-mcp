@@ -2184,6 +2184,87 @@ def _tool_speculate(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=2))]
 
 
+def _tool_causal_trace(args: dict) -> "list[types.TextContent]":
+    """因果建模（为什么错：失败→回溯因果链——git 提交+工具调用）。"""
+    from causal_debug import causal_trace
+    root = _check_path(str(args.get("root", "")))
+    kw = str(args.get("fail_keyword", "fail"))
+    return [_TC(json.dumps(causal_trace(str(root), kw),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_bug_bisect(args: dict) -> "list[types.TextContent]":
+    """git bisect 式二分定位（只读计划——不自动 checkout）。"""
+    from causal_debug import bug_bisect
+    root = _check_path(str(args.get("root", "")))
+    good = str(args.get("good_commit", ""))
+    bad = str(args.get("bad_commit", "")) or "HEAD"
+    cmd = str(args.get("test_cmd", "cargo test"))
+    return [_TC(json.dumps(bug_bisect(str(root), good, bad, cmd),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_causal_link(args: dict) -> "list[types.TextContent]":
+    """记录因果链（cause→effect 入 scan-log——行为链回放溯源）。"""
+    from causal_debug import record_cause
+    root = _check_path(str(args.get("root", "")))
+    return [_TC(json.dumps(record_cause(str(root),
+                                        str(args.get("effect", "")),
+                                        str(args.get("cause", ""))),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_optimize_code(args: dict) -> "list[types.TextContent]":
+    """可微分编程落地（性能目标驱动优化器——规则驱动）。"""
+    from differentiable_code import optimize_code
+    p = _check_path(str(args.get("path", "")))
+    goal = str(args.get("perf_goal", "响应时间<10ms"))
+    try:
+        with open(p, encoding="utf-8", errors="replace") as f:
+            src = f.read()
+    except OSError as e:
+        return [_TC(json.dumps({"ok": False, "error": str(e)},
+                               ensure_ascii=False))]
+    return [_TC(json.dumps(optimize_code(src, str(p), goal),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_code_embed(args: dict) -> "list[types.TextContent]":
+    """AST 符号嵌入（函数特征向量——相似函数检索）。"""
+    from differentiable_code import similar_functions, embed_function
+    import ast as _ast
+    p = _check_path(str(args.get("path", "")))
+    compare = str(args.get("compare", ""))
+    try:
+        with open(p, encoding="utf-8", errors="replace") as f:
+            src = f.read()
+    except OSError as e:
+        return [_TC(json.dumps({"ok": False, "error": str(e)},
+                               ensure_ascii=False))]
+    if compare:
+        try:
+            with open(_check_path(compare), encoding="utf-8",
+                      errors="replace") as f:
+                tgt = f.read()
+        except OSError as e:
+            return [_TC(json.dumps({"ok": False, "error": str(e)},
+                                   ensure_ascii=False))]
+        return [_TC(json.dumps(similar_functions(src, tgt),
+                               ensure_ascii=False, indent=2))]
+    # 单文件：函数嵌入清单
+    try:
+        tree = _ast.parse(src)
+    except SyntaxError as e:
+        return [_TC(json.dumps({"ok": False, "error": str(e)},
+                               ensure_ascii=False))]
+    fns = []
+    for n in _ast.walk(tree):
+        if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            fns.append(embed_function(n))
+    return [_TC(json.dumps({"ok": True, "file": str(p), "functions": fns,
+                            "count": len(fns)}, ensure_ascii=False, indent=2))]
+
+
 def _brp_query_entities(project_path: str) -> dict | None:
     """BRP 实体查询（2026-08-15 继续处理——深度接入）。
 
@@ -4133,6 +4214,29 @@ _TOOLS: dict[str, tuple] = {
         "recent_tools": _S("array", "可选：最近调用工具列表"),
         "recent_paths": _S("array", "可选：最近路径列表"),
     }, []), "推测执行（阶段3：预测下一步→预执行白名单只读→缓存秒回——安全边界：仅幂等只读）"),
+    "causal_trace": (_tool_causal_trace, _schema({
+        "root": _S("string", "项目路径"),
+        "fail_keyword": _S("string", "失败关键词（fail/error/崩溃…）"),
+    }, ["root"]), "因果建模（为什么错：失败事件→回溯因果链——git 提交+工具调用——溯源到行为）"),
+    "bug_bisect": (_tool_bug_bisect, _schema({
+        "root": _S("string", "项目路径"),
+        "good_commit": _S("string", "已知正常提交（hash）"),
+        "bad_commit": _S("string", "已知坏提交（hash——默认 HEAD）"),
+        "test_cmd": _S("string", "判定命令（如 cargo test）"),
+    }, ["root", "good_commit"]), "git bisect 式二分定位（只读计划——不自动 checkout，按结果收缩区间）"),
+    "causal_link": (_tool_causal_link, _schema({
+        "root": _S("string", "项目路径"),
+        "effect": _S("string", "结果（失败/现象）"),
+        "cause": _S("string", "原因（行为/变更）"),
+    }, ["root", "effect", "cause"]), "记录因果链（cause→effect 入 scan-log——行为链回放溯源）"),
+    "optimize_code": (_tool_optimize_code, _schema({
+        "path": _S("string", "文件路径"),
+        "perf_goal": _S("string", "性能目标（响应时间<10ms/内存…）"),
+    }, ["path"]), "可微分编程落地（性能目标驱动优化器：复杂度热点+等价重写建议——规则驱动，真梯度下降为未来方向）"),
+    "code_embed": (_tool_code_embed, _schema({
+        "path": _S("string", "文件路径"),
+        "compare": _S("string", "可选：对比文件路径（相似函数检索）"),
+    }, ["path"]), "AST 符号嵌入（函数特征向量——相似函数检索；真·语义嵌入可替换 mini_bert）"),
     "runtime_state": (_tool_runtime_state, _schema({
         "path": _S("string", "项目路径"),
         "source": _S("string", "状态来源（bevy_brp/file/scan——BRP 不可用时降级）"),
