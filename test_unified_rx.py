@@ -2026,7 +2026,7 @@ def test_sandbox_path_boundaries(monkeypatch):
         pass
     # 盘符切换（沙盒在 C 盘时 D 盘绝对路径）→ 拒绝
     other = os.path.join(os.path.splitdrive(root)[0] + "\\", "Windows", "System32", "notepad.exe")
-    if other.lower() != os.path.join(root, "").lower()[:3] + "Windows/System32\notepad.exe".lower():
+    if other.lower() != os.path.join(root, "").lower()[:3] + r"Windows/System32\notepad.exe".lower():
         try:
             server._check_path(other)
             # 若盘符相同且不在沙盒 → 仍应拒绝（System32 不在沙盒内）
