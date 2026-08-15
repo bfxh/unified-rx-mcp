@@ -233,8 +233,13 @@ def _parse_glb(path: str) -> dict:
                 continue
             cnt = pa.get("count", 0)
             stride = pos_view.get("byteStride", 12)
+            # 安全（security-review LOW）：stride<=0 拒绝——防 base 不前进 +
+            # count 虚报（2^31）CPU 空转；循环上限夹到 bin_data 实际长度
+            if stride <= 0:
+                return {"ok": False, "error": "GLB bufferView.byteStride 非法（≤0）"}
             base = bv
-            for k in range(cnt):
+            max_cnt = min(cnt, (len(bin_data) - bv) // stride) if stride else 0
+            for k in range(max_cnt):
                 if base + 12 > len(bin_data):
                     break
                 x, y, z = struct.unpack_from("<3f", bin_data, base)

@@ -4261,7 +4261,8 @@ _TOOLS: dict[str, tuple] = {
         "good_commit": _S("string", "已知正常提交（hash）"),
         "bad_commit": _S("string", "已知坏提交（hash——默认 HEAD）"),
         "test_cmd": _S("string", "判定命令（如 cargo test）"),
-    }, ["root", "good_commit"]), "git bisect 式二分定位（只读计划——不自动 checkout，按结果收缩区间）"),
+        "execute": _S("boolean", "true=实际执行 git bisect（L4 授权——需 __authorized:true；会 checkout 工作区）"),
+    }, ["root", "good_commit"]), "git bisect 式二分定位（默认只读计划；execute=true 实际执行——L4 授权需显式确认）"),
     "causal_link": (_tool_causal_link, _schema({
         "root": _S("string", "项目路径"),
         "effect": _S("string", "结果（失败/现象）"),

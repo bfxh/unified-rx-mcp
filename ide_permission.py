@@ -57,6 +57,10 @@ TOOL_LEVELS: dict[str, int] = {
     "fs_write": L4,
     "cae_lsp_edit_merge": L4,
     "cae_aether_agent_parse": L4,  # 解析出编辑指令 → 视为写入口
+    # 2026-08-15（security-review HIGH）：bug_bisect execute=true 会
+    # git checkout 改写工作区 + 跑任意 test_cmd——L4 授权（未登记默认
+    # L1 只读——execute 路径将绕过授权模型）
+    "bug_bisect": L4,
 }
 
 # 授权字段名（L4 工具 args 中必须为 true）

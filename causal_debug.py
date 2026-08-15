@@ -98,12 +98,17 @@ def bug_bisect(root: str, good_commit: str, bad_commit: str,
                         capture_output=True, text=True, timeout=15)
             if r.returncode != 0:
                 return {"ok": False, "error": f"bisect start 失败: {r.stderr[:120]}"}
-            r = _sp.run(["git", "-C", root, "bisect", "run", *test_cmd.split()],
-                        capture_output=True, text=True, timeout=600)
-            out = (r.stdout or "") + (r.stderr or "")
-            first_bad = _extract_first_bad(out)
-            _sp.run(["git", "-C", root, "bisect", "reset"],
-                    capture_output=True, text=True, timeout=15)
+            try:
+                r = _sp.run(["git", "-C", root, "bisect", "run",
+                             *test_cmd.split()],
+                            capture_output=True, text=True, timeout=600)
+                out = (r.stdout or "") + (r.stderr or "")
+                first_bad = _extract_first_bad(out)
+            finally:
+                # 安全（security-review MEDIUM）：无论结果/异常都恢复 HEAD
+                # ——防超时/异常后工作区停在 mid 提交 + BISECT 状态残留
+                _sp.run(["git", "-C", root, "bisect", "reset"],
+                        capture_output=True, text=True, timeout=15)
             return {"ok": True, "executed": True,
                     "first_bad_commit": first_bad,
                     "log_tail": out[-500:],
