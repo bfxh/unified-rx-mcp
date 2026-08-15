@@ -2364,6 +2364,38 @@ def _tool_geom_example(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=2))]
 
 
+def _tool_half_edge_adjacency(args: dict) -> "list[types.TextContent]":
+    """半边邻接查询（Manifold3D 概念升级：拓扑操控接口）。"""
+    from geometry_tools import half_edge_adjacency
+    p = _check_path(str(args.get("path", "")))
+    v = int(args.get("vertex", 0))
+    return [_TC(json.dumps(half_edge_adjacency(str(p), v),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_mesh_boolean(args: dict) -> "list[types.TextContent]":
+    """CSG 布尔检测层（AABB 相交判定 + 面心采样）。"""
+    from geometry_tools import mesh_boolean
+    paths = args.get("paths") or []
+    if not isinstance(paths, list) or len(paths) != 2:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "paths 需 2 个网格文件"},
+                               ensure_ascii=False))]
+    checked = [str(_check_path(str(p))) for p in paths]
+    op = str(args.get("op", "intersect"))
+    return [_TC(json.dumps(mesh_boolean(checked, op),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_voxel_surface(args: dict) -> "list[types.TextContent]":
+    """表面体素提取（Radiant Foam 概念升级：表面点云）。"""
+    from geometry_tools import voxel_surface
+    p = _check_path(str(args.get("path", "")))
+    res = int(args.get("resolution", 16))
+    return [_TC(json.dumps(voxel_surface(str(p), res),
+                           ensure_ascii=False, indent=2))]
+
+
 def _brp_query_entities(project_path: str) -> dict | None:
     """BRP 实体查询（2026-08-15 继续处理——深度接入）。
 
@@ -4376,6 +4408,18 @@ _TOOLS: dict[str, tuple] = {
     "geom_example": (_tool_geom_example, _schema({
         "kind": _S("string", "示例类型（union/clip/graph）"),
     }, []), "可运行几何示例生成（PicoGK Program.cs 概念：VS Code 直接运行——零依赖）"),
+    "half_edge_adjacency": (_tool_half_edge_adjacency, _schema({
+        "path": _S("string", "网格文件"),
+        "vertex": _S("integer", "顶点索引"),
+    }, ["path", "vertex"]), "半边邻接查询（Manifold3D 概念升级：1-ring/关联面/边界——拓扑操控接口）"),
+    "mesh_boolean": (_tool_mesh_boolean, _schema({
+        "paths": _S("array", "2 个网格文件"),
+        "op": _S("string", "操作（intersect 默认/union/subtract）"),
+    }, ["paths"]), "CSG 布尔检测层（AABB 相交/包含/分离 + 面心采样标记——真·CSG 前置）"),
+    "voxel_surface": (_tool_voxel_surface, _schema({
+        "path": _S("string", "网格文件"),
+        "resolution": _S("integer", "体素分辨率（4..128，默认 16）"),
+    }, ["path"]), "表面体素提取（Radiant Foam 概念升级：表面点云——碰撞/光线追踪可用）"),
     "runtime_state": (_tool_runtime_state, _schema({
         "path": _S("string", "项目路径"),
         "source": _S("string", "状态来源（bevy_brp/file/scan——BRP 不可用时降级）"),

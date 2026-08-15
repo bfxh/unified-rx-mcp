@@ -999,3 +999,149 @@ def _example_graph() -> str:
         print("节点图声明:", json.dumps(nodes, ensure_ascii=False))
         print("示例通过 OK——节点即操作，连线即引用（拖拽 UI 为未来方向）")
     ''')
+
+
+# ── ⑪ half_edge 邻接查询 API（Manifold3D 概念升级——调用方操控接口）──
+def half_edge_adjacency(path: str, vertex: int) -> dict:
+    """半边邻接查询（2026-08-15 升级——Manifold3D 概念的实际操控接口）。
+
+    给顶点 → 返回 1-ring 邻接顶点 + 关联面 + 边界情况——
+    调用方拿数据做拓扑操控（挤出/细分/缝合）。
+    """
+    m = load_mesh(path)
+    if not m.get("ok"):
+        return m
+    he = HalfEdgeMesh(m["vertices"], m["faces"])
+    v = int(vertex)
+    if v < 0 or v >= len(m["vertices"]):
+        return {"ok": False, "error": f"顶点索引 {v} 越界（0..{len(m['vertices'])-1}）"}
+    nbrs = sorted(he.vertex_neighbors(v))
+    faces = sorted(he.vertex_faces.get(v, []))
+    boundary = [e for e in he.half_edges
+                if e[0] == v and (e[1], e[0]) not in he.half_edges]
+    return {"ok": True, "vertex": v,
+            "position": m["vertices"][v],
+            "neighbors": nbrs, "neighbor_count": len(nbrs),
+            "faces": faces, "face_count": len(faces),
+            "boundary_edges": [list(e) for e in boundary],
+            "valency": len(nbrs),
+            "advice": ("1-ring/关联面/边界已返回——可直接做挤出/细分/缝合"
+                       "（Manifold3D 概念：高级拓扑控制）")}
+
+
+# ── ⑫ mesh_boolean：AABB 相交检测层（CSG 并/交/差基础）────────
+def mesh_boolean(paths: list, op: str = "intersect") -> dict:
+    """CSG 布尔检测层（2026-08-15——真·CSG 的检测基础，诚实标注）。
+
+    AABB 相交检测 + 相交面标记——判定两网格是否相交/包含/分离——
+    为真·CSG（裁剪合并）提供前置判定。裁剪合并层标注未来方向。
+    op: intersect（交集面数报告）/union（并集 AABB 合并）/subtract（差集报告）。
+    """
+    if not isinstance(paths, list) or len(paths) != 2:
+        return {"ok": False, "error": "paths 需 2 个网格（AABB 布尔）"}
+    ms = []
+    for p in paths:
+        m = load_mesh(str(p))
+        if not m.get("ok"):
+            return {"ok": False, "error": f"{p}: {m.get('error')}"}
+        ms.append(m)
+    # AABB
+    def _aabb(m):
+        vs = m["vertices"]
+        mins = [min(v[i] for v in vs) for i in range(3)]
+        maxs = [max(v[i] for v in vs) for i in range(3)]
+        return mins, maxs
+    a1, b1 = _aabb(ms[0])
+    a2, b2 = _aabb(ms[1])
+    overlap = all(a1[i] <= b2[i] and a2[i] <= b1[i] for i in range(3))
+    contains = all(a1[i] <= a2[i] and b2[i] <= b1[i] for i in range(3)) \
+        or all(a2[i] <= a1[i] and b1[i] <= b2[i] for i in range(3))
+    if not overlap:
+        return {"ok": True, "op": op, "relation": "separate",
+                "overlap": False,
+                "advice": "AABB 不相交——CSG 结果：并集=两网格原样，"
+                          "交集=空，差集=原样（无需裁剪）"}
+    if contains:
+        return {"ok": True, "op": op, "relation": "contained",
+                "overlap": True,
+                "advice": "AABB 包含——CSG 结果：交集=内层，"
+                          "差集=外层掏洞（裁剪层为未来方向）"}
+    # 相交——面级相交标记（抽样检测：A 的面心是否在 B 内——射线法）
+    inter_faces_a = 0
+    for f in ms[0]["faces"][:200]:
+        vs = [ms[0]["vertices"][i] for i in f]
+        c = [sum(v[i] for v in vs) / len(vs) for i in range(3)]
+        if _point_in_mesh(c, ms[1]["vertices"], ms[1]["faces"]):
+            inter_faces_a += 1
+    return {"ok": True, "op": op, "relation": "overlapping",
+            "overlap": True, "aabb": {"a1": a1, "b1": b1, "a2": a2, "b2": b2},
+            "faces_a_sampling_in_b": inter_faces_a,
+            "advice": "AABB 相交——面心采样标记相交面（检测层）；"
+                      "真·裁剪合并（并/交/差输出网格）标注未来方向"}
+
+
+def _ray_tri(o, d, a, b, c) -> bool:
+    """Möller-Trumbore 射线-三角形相交（内部工具——网格包含测试）。"""
+    e1 = [b[i] - a[i] for i in range(3)]
+    e2 = [c[i] - a[i] for i in range(3)]
+    q = [d[1] * e2[2] - d[2] * e2[1],
+         d[2] * e2[0] - d[0] * e2[2],
+         d[0] * e2[1] - d[1] * e2[0]]
+    det = e1[0] * q[0] + e1[1] * q[1] + e1[2] * q[2]
+    if abs(det) < 1e-12:
+        return False
+    inv = 1.0 / det
+    s = [o[i] - a[i] for i in range(3)]
+    u = inv * (s[0] * q[0] + s[1] * q[1] + s[2] * q[2])
+    if u < 0 or u > 1:
+        return False
+    t2 = [s[1] * e1[2] - s[2] * e1[1],
+          s[2] * e1[0] - s[0] * e1[2],
+          s[0] * e1[1] - s[1] * e1[0]]
+    v2 = inv * (d[0] * t2[0] + d[1] * t2[1] + d[2] * t2[2])
+    if v2 < 0 or u + v2 > 1:
+        return False
+    t = inv * (e2[0] * t2[0] + e2[1] * t2[1] + e2[2] * t2[2])
+    return t > 1e-9
+
+
+# ── ⑬ voxelize 升级：表面体素提取（Radiant Foam 概念——表面点云）──
+def voxel_surface(path: str, resolution: int = 16) -> dict:
+    """表面体素提取（2026-08-15 升级——Radiant Foam 概念）。
+
+    体素化后提取**表面体素**（相邻空体素的占用体素）——输出表面点云
+    （实际数据——碰撞/光线追踪/渲染可用）。占用=内部（射线法包含）。
+    """
+    # 独立采样（voxelize 只报计数——本函数收集占用坐标做表面提取）
+    m = load_mesh(path)
+    if not m.get("ok"):
+        return m
+    verts, faces = m["vertices"], m["faces"]
+    res = int(resolution)
+    if not 4 <= res <= 128:
+        return {"ok": False, "error": "resolution 需 4..128"}
+    bmin = [min(v[i] for v in verts) for i in range(3)]
+    bmax = [max(v[i] for v in verts) for i in range(3)]
+    span = max(max(bmax[i] - bmin[i] for i in range(3)), 1e-9)
+    cell = span / res
+    occ = []
+    for xi in range(res):
+        cx = bmin[0] + (xi + 0.5) * cell
+        for yi in range(res):
+            cy = bmin[1] + (yi + 0.5) * cell
+            for zi in range(res):
+                cz = bmin[2] + (zi + 0.5) * cell
+                if _point_in_mesh((cx, cy, cz), verts, faces):
+                    occ.append((xi, yi, zi))
+    occ_set = set(occ)
+    surface = []
+    for (x, y, z) in occ:
+        nbrs = [(x + 1, y, z), (x - 1, y, z), (x, y + 1, z),
+                (x, y - 1, z), (x, y, z + 1), (x, y, z - 1)]
+        if any(n not in occ_set for n in nbrs):
+            surface.append([x, y, z])
+    return {"ok": True, "path": path, "resolution": res,
+            "occupied": len(occ), "surface_voxels": len(surface),
+            "surface_points": surface[:100],
+            "advice": f"表面体素 {len(surface)} 个（占用的 {100.0*len(surface)/max(1,len(occ)):.0f}%）"
+                      "——表面点云可直接用于碰撞/光线追踪"}

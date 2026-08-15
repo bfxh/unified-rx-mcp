@@ -248,3 +248,50 @@ def test_geom_example_generates(tmp_path):
     # 非法 kind 拒绝
     d = json.loads(server._call("geom_example", {"kind": "bogus"})[0].text)
     assert d["ok"] is False, d
+
+
+def test_half_edge_adjacency_api(tmp_path, monkeypatch):
+    """升级：半边邻接查询 API（1-ring/关联面/边界——拓扑操控接口）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    p = tmp_path / "tet4.obj"
+    p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"
+                 "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n", encoding="utf-8")
+    d = json.loads(server._call("half_edge_adjacency",
+                                {"path": str(p), "vertex": 0})[0].text)
+    assert d["ok"] is True and d["valency"] == 3, d
+    assert d["neighbor_count"] == 3 and d["face_count"] == 3, d
+    # 越界拒绝
+    d2 = json.loads(server._call("half_edge_adjacency",
+                                 {"path": str(p), "vertex": 99})[0].text)
+    assert d2["ok"] is False and "越界" in d2["error"], d2
+
+
+def test_mesh_boolean_relation(tmp_path, monkeypatch):
+    """升级：CSG 布尔检测层（AABB 分离/相交/包含判定）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    a = tmp_path / "ba.obj"
+    a.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    far = tmp_path / "far.obj"  # AABB 分离（x=10）
+    far.write_text("v 10 0 0\nv 11 0 0\nv 10 1 0\nf 1 2 3\n", encoding="utf-8")
+    d = json.loads(server._call("mesh_boolean",
+                                {"paths": [str(a), str(far)]})[0].text)
+    assert d["ok"] is True and d["relation"] == "separate", d
+    # 相交（同一位置）
+    d2 = json.loads(server._call("mesh_boolean",
+                                 {"paths": [str(a), str(a)]})[0].text)
+    assert d2["ok"] is True and d2["relation"] in ("overlapping", "contained"), d2
+
+
+def test_voxel_surface_extract(tmp_path, monkeypatch):
+    """升级：表面体素提取（表面点云——占用的子集）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    p = tmp_path / "cube.obj"
+    p.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"
+                 "v 0 0 1\nv 1 0 1\nv 1 1 1\nv 0 1 1\n"
+                 "f 1 2 3 4\nf 5 8 7 6\nf 1 5 6 2\nf 3 7 8 4\n"
+                 "f 2 6 7 3\nf 1 4 8 5\n", encoding="utf-8")
+    d = json.loads(server._call("voxel_surface",
+                                {"path": str(p), "resolution": 8})[0].text)
+    assert d["ok"] is True and d["occupied"] > 0, d
+    assert 0 < d["surface_voxels"] <= d["occupied"], d
+    assert d["surface_points"], d
