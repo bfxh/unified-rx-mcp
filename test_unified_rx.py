@@ -296,7 +296,7 @@ def test_fs_sandbox_enforced():
         mod = _reload_root_server()
         # 沙盒外路径（系统目录——conftest 会把测试临时目录注入沙盒根，
         # 因此越界用例必须用沙盒外的真实系统路径）应拒绝
-        outside = os.path.join(os.environ.get("SystemRoot", "C:\Windows"), "no_such_file_xyz.txt")
+        outside = os.path.join(os.environ.get("SystemRoot", "C:/Windows"), "no_such_file_xyz.txt")
         out = mod._call("fs_read", {"path": outside})[0].text
         assert "Error" in out and "越界" in out, f"沙盒未拦截: {out}"
         # 沙盒内路径（cwd 下）应放行（不存在则报文件不存在而非越界）

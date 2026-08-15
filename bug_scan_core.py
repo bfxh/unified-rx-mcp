@@ -738,7 +738,7 @@ def load_ext_rules(force: bool = False) -> list:
             _RULES_CACHE["mtime"] = mt
             _RULES_CACHE["rules"] = rules
             return rules
-        except (OSError, ValueError, TypeError):
+        except (OSError, ValueError, TypeError, re.error):
             return []
 
 
