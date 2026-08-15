@@ -1,7 +1,7 @@
 {
-  "core_count": 62,
+  "core_count": 66,
   "ext_count": 24,
-  "total": 86,
+  "total": 90,
   "core": [
     "agent_orchestrate",
     "agent_roles",
@@ -48,23 +48,27 @@
     "math_ops",
     "parallel",
     "pipeline",
+    "predict_impact",
     "prime_list",
     "project_scan",
     "quality_scan",
     "repo_graph",
     "repo_wiki",
     "rule_feedback",
+    "runtime_state",
     "scan_log",
     "scan_trend",
     "semantic_search",
     "skill_fetch",
     "sort_search",
+    "speculate",
     "stat_geo",
     "std_check",
     "text_ops",
     "tool_card",
     "ui_check",
-    "vuln_scan"
+    "vuln_scan",
+    "watch_status"
   ],
   "ext": [
     "cae_aether_agent_parse",

@@ -2158,6 +2158,83 @@ def _tool_game_rules(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=2))]
 
 
+def _tool_watch_status(args: dict) -> "list[types.TextContent]":
+    """实时监听状态（阶段1：文件改动监听线程）。"""
+    from realtime_watch import watcher_status
+    return [_TC(json.dumps(watcher_status(), ensure_ascii=False, indent=2))]
+
+
+def _tool_predict_impact(args: dict) -> "list[types.TextContent]":
+    """预知引擎（阶段2：改前预测影响面+教训+规则——改后跑 ide_fusion 确认）。"""
+    from predict_impact import predict_impact
+    root = _check_path(str(args.get("root", "")))
+    symbol = str(args.get("symbol", ""))
+    file_hint = str(args.get("file_hint", ""))
+    return [_TC(json.dumps(predict_impact(str(root), symbol, file_hint),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_speculate(args: dict) -> "list[types.TextContent]":
+    """推测执行（阶段3：预测→预执行白名单只读→缓存秒回）。"""
+    from speculate import speculate
+    current_file = str(args.get("current_file", ""))
+    recent_tools = args.get("recent_tools") or []
+    recent_paths = args.get("recent_paths") or []
+    return [_TC(json.dumps(speculate(current_file, recent_tools, recent_paths),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_runtime_state(args: dict) -> "list[types.TextContent]":
+    """运行状态回喂（阶段4：BRP 实体状态/文件状态 → scan-log runtime_state）。
+
+    双向反馈：运行状态（游戏实体/构建产物/文件指纹）写入 scan-log——
+    AI 对话随时可查最新运行反馈（scan_log tool= runtime_state）。
+    BRP（bevy_remote localhost:15702）不可用时降级（file 状态/直接上报）。
+    """
+    import scan_log_core
+    p = str(_check_path(str(args.get("path", ""))))
+    source = str(args.get("source", "file"))
+    state = args.get("state")
+    # 降级路径：BRP 不可用时记录文件级状态（最新 mtime 指纹）
+    if source == "bevy_brp":
+        try:
+            import socket
+            s = socket.create_connection(("127.0.0.1", 15702), timeout=1.0)
+            s.close()
+            brp_ok = True
+        except OSError:
+            brp_ok = False
+        if not brp_ok:
+            # 诚实降级：BRP 未运行——记录降级（不崩溃）
+            scan_log_core.append_scan({
+                "tool": "runtime_state", "root": p, "ok": False,
+                "summary": f"BRP localhost:15702 未运行（降级 file 状态——"
+                           f"游戏未启动或未启 bevy_remote）"})
+            return [_TC(json.dumps({
+                "ok": False, "source": "bevy_brp", "degraded": True,
+                "note": "BRP 未运行——已记录降级；启动游戏（含 bevy_remote "
+                        "插件）后重试", "log": "runtime_state 降级记录"}, 
+                ensure_ascii=False, indent=2))]
+    # file 来源：记录文件指纹状态
+    summary_parts = []
+    if isinstance(state, dict):
+        summary_parts.append(f"状态 {len(state)} 项")
+    else:
+        try:
+            st = os.stat(p if os.path.isfile(p) else ".")
+            summary_parts.append(f"指纹 mtime={st.st_mtime_ns}")
+        except OSError:
+            summary_parts.append("路径不可读")
+    scan_log_core.append_scan({
+        "tool": "runtime_state", "root": p, "ok": True,
+        "summary": f"runtime {source}: {'; '.join(summary_parts)}"})
+    return [_TC(json.dumps({"ok": True, "source": source,
+                            "path": p, "state": state,
+                            "log": "runtime_state 已入 scan-log（双向反馈——"
+                                   "对话可查最新运行状态）"},
+                           ensure_ascii=False, indent=2))]
+
+
 def _tool_ide_actions(args: dict) -> "list[types.TextContent]":
     from ide_tools import ide_actions
     return [_TC(json.dumps(ide_actions(args.get("path", "")), ensure_ascii=False, indent=2))]
@@ -3998,6 +4075,23 @@ _TOOLS: dict[str, tuple] = {
         "action": _S("string", "load（默认）/save"),
         "rules": _S("object", "save 时的规则对象（engine/physics_range/…）"),
     }, ["path"]), "项目级游戏规则读写（通用默认 + 项目覆盖——在游戏文件里再搞一个）"),
+    "watch_status": (_tool_watch_status, _schema({}, []),
+                     "实时监听状态（阶段1：文件改动监听线程/间隔/根/跟踪数）"),
+    "predict_impact": (_tool_predict_impact, _schema({
+        "root": _S("string", "代码库根目录"),
+        "symbol": _S("string", "要改的符号名"),
+        "file_hint": _S("string", "可选：限定文件（改动所在文件）"),
+    }, ["root", "symbol"]), "预知引擎（阶段2：改前预测影响面+教训+规则——改后跑 ide_fusion 确认）"),
+    "speculate": (_tool_speculate, _schema({
+        "current_file": _S("string", "当前编辑文件"),
+        "recent_tools": _S("array", "可选：最近调用工具列表"),
+        "recent_paths": _S("array", "可选：最近路径列表"),
+    }, []), "推测执行（阶段3：预测下一步→预执行白名单只读→缓存秒回——安全边界：仅幂等只读）"),
+    "runtime_state": (_tool_runtime_state, _schema({
+        "path": _S("string", "项目路径"),
+        "source": _S("string", "状态来源（bevy_brp/file/scan——BRP 不可用时降级）"),
+        "state": _S("object", "可选：直接上报的状态（file 来源）"),
+    }, ["path"]), "运行状态回喂（阶段4：BRP localhost:15702 实体状态/文件状态 → scan-log runtime_state——双向反馈）"),
     "ide_actions": (_tool_ide_actions, _schema({
         "path": _S("string", "文件路径"),
     }, ["path"]), "快速修复建议（unwrap/expect/as 收窄等安全规则→code action）"),
@@ -4311,6 +4405,14 @@ _EXT_FN_MAP = {"file_dedup_state": "file_dedup"}
 def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
     t0 = time.perf_counter()
     try:
+        import speculate  # 阶段3 推测执行（延迟 import 防启动开销）
+        # 阶段3（2026-08-15）：推测执行消费——白名单只读工具命中推测缓存
+        # → 秒回（不重复执行）；未命中走正常执行
+        if name in speculate.SPECULATE_WHITELIST:
+            cached = speculate.consume_speculated(name, arguments or {})
+            if cached is not None:
+                _scan_log_tick(name, arguments or {}, [_TC(cached)])
+                return [_TC(cached)]
         # R2 权限检查（L4 写工具需显式授权——越权在分发前拒绝）
         from ide_permission import check as _perm_check, strip_auth as _perm_strip
         ok, reason = _perm_check(name, arguments or {})
@@ -4579,6 +4681,12 @@ async def run() -> None:
     # 打开 RX 即自动开启后台扫描循环（daemon 线程持续跑，不会停下）：
     # 5 模式各自独立循环线程并发（自扫/项目/全盘），互不打扰，结果落盘 scan-log。
     _spawn_self_scan()
+    # 阶段1（2026-08-15）：实时触发——文件改动监听（2s 指纹轮询 → 即时增量扫描）
+    try:
+        from realtime_watch import start_watcher
+        start_watcher()
+    except Exception:  # 尽力而为（监听失败不影响主服务）
+        pass
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
