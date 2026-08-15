@@ -2184,27 +2184,63 @@ def _tool_speculate(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=2))]
 
 
-def _tool_runtime_state(args: dict) -> "list[types.TextContent]":
-    """运行状态回喂（阶段4：BRP 实体状态/文件状态 → scan-log runtime_state）。
+def _brp_query_entities(project_path: str) -> dict | None:
+    """BRP 实体查询（2026-08-15 继续处理——深度接入）。
 
-    双向反馈：运行状态（游戏实体/构建产物/文件指纹）写入 scan-log——
-    AI 对话随时可查最新运行反馈（scan_log tool= runtime_state）。
-    BRP（bevy_remote localhost:15702）不可用时降级（file 状态/直接上报）。
+    bevy_remote（Bevy Remote Protocol，localhost:15702）TCP JSON 协议：
+    换行分隔 JSON 消息——发 list_entities 请求查实体列表。
+    未运行/协议方法未识别 → 返回 None（调用方诚实降级——不崩溃）。
+    超时 1.5s（游戏未启动快速降级）。
     """
+    import socket
+    try:
+        s = socket.create_connection(("127.0.0.1", 15702), timeout=1.0)
+        s.settimeout(1.5)
+        try:
+            req = json.dumps({"method": "list_entities", "params": {}}) + "\n"
+            s.sendall(req.encode("utf-8"))
+            data = b""
+            try:
+                data = s.recv(65536)
+            except socket.timeout:
+                return None  # 协议无响应（游戏忙/协议版本差异——降级）
+            if not data:
+                return None
+            text = data.decode("utf-8", errors="replace").strip()
+            try:
+                parsed = json.loads(text)
+            except ValueError:
+                return {"method": "list_entities", "raw": text[:200],
+                        "count": "parse-error"}
+            if isinstance(parsed, list):
+                return {"method": "list_entities", "count": len(parsed),
+                        "entities": [str(e)[:80] for e in parsed[:10]]}
+            if isinstance(parsed, dict):
+                if "error" in parsed:
+                    return {"method": "list_entities",
+                            "count": "error",
+                            "error": str(parsed["error"])[:100]}
+                return {"method": "list_entities", "count": "?",
+                        "response": str(parsed)[:200]}
+            return {"method": "list_entities", "count": "?", "raw": text[:200]}
+        finally:
+            try:
+                s.close()
+            except OSError:
+                pass
+    except OSError:
+        return None  # 未运行（连接失败）——降级
+
+
+def _tool_runtime_state(args: dict) -> "list[types.TextContent]":
     import scan_log_core
     p = str(_check_path(str(args.get("path", ""))))
     source = str(args.get("source", "file"))
     state = args.get("state")
     # 降级路径：BRP 不可用时记录文件级状态（最新 mtime 指纹）
     if source == "bevy_brp":
-        try:
-            import socket
-            s = socket.create_connection(("127.0.0.1", 15702), timeout=1.0)
-            s.close()
-            brp_ok = True
-        except OSError:
-            brp_ok = False
-        if not brp_ok:
+        brp = _brp_query_entities(p)
+        if brp is None:
             # 诚实降级：BRP 未运行——记录降级（不崩溃）
             scan_log_core.append_scan({
                 "tool": "runtime_state", "root": p, "ok": False,
@@ -2215,6 +2251,16 @@ def _tool_runtime_state(args: dict) -> "list[types.TextContent]":
                 "note": "BRP 未运行——已记录降级；启动游戏（含 bevy_remote "
                         "插件）后重试", "log": "runtime_state 降级记录"}, 
                 ensure_ascii=False, indent=2))]
+        # BRP 深度接入（2026-08-15 继续处理）：实体查询成功——记录实体状态
+        scan_log_core.append_scan({
+            "tool": "runtime_state", "root": p, "ok": True,
+            "summary": f"BRP 实体查询: {brp.get('count', '?')} 个实体"
+                       f"（{str(brp.get('method', ''))[:30]}）"})
+        return [_TC(json.dumps({
+            "ok": True, "source": "bevy_brp", "entities": brp,
+            "log": "runtime_state 已入 scan-log（BRP 实体状态——"
+                   "对话可查最新运行反馈）"},
+            ensure_ascii=False, indent=2))]
     # file 来源：记录文件指纹状态
     summary_parts = []
     if isinstance(state, dict):

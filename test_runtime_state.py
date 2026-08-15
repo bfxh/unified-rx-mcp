@@ -42,3 +42,49 @@ def test_runtime_state_brp_degrade(tmp_path, monkeypatch):
     logs = scan_log_core.query_logs(limit=10)
     rs = [l for l in logs if l.get("tool") == "runtime_state"]
     assert rs and rs[0]["ok"] is False, f"降级应记录: {logs[:2]}"
+
+
+def test_brp_query_entities_not_running():
+    """BRP 未运行 → _brp_query_entities 返回 None（诚实降级）。"""
+    import server
+    r = server._brp_query_entities(".")
+    assert r is None, f"BRP 未运行应 None: {r}"
+
+
+def test_brp_query_entities_protocol_parse(monkeypatch):
+    """协议响应解析（mock socket——list 实体计数 / error 诚实）。"""
+    import server
+    import socket as _s
+
+    class FakeResp:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def sendall(self, data):
+            pass
+
+        def recv(self, n):
+            return self._payload
+
+        def close(self):
+            pass
+
+        def settimeout(self, t):
+            pass
+
+    calls = []
+
+    def fake_conn(addr, timeout=1.0):
+        calls.append(addr)
+        return FakeResp(b'[{"entity": 1}, {"entity": 2}]')
+
+    monkeypatch.setattr(_s, "create_connection", fake_conn)
+    r = server._brp_query_entities(".")
+    assert r is not None and r["count"] == 2, r
+    assert calls == [("127.0.0.1", 15702)], calls
+    # error 响应诚实
+    def fake_conn2(addr, timeout=1.0):
+        return FakeResp(b'{"error": "unknown method"}')
+    monkeypatch.setattr(_s, "create_connection", fake_conn2)
+    r2 = server._brp_query_entities(".")
+    assert r2["count"] == "error" and "unknown" in r2["error"], r2

@@ -36,20 +36,60 @@ _stats = {"predicted": 0, "executed": 0, "hit": 0, "errors": 0}
 
 def _predict_next(current_file: str, recent_tools: list[str],
                   recent_paths: list[str]) -> list[dict]:
-    """基于编辑上下文 + 历史调用模式预测下一步（启发式——可扩展）。"""
+    """基于编辑上下文 + 历史调用模式预测下一步（启发式 + stats 数据驱动）。"""
     preds: list[dict] = []
     path = recent_paths[0] if recent_paths else os.path.dirname(current_file)
-    # 模式 1：编辑文件后最可能扫描它（bug_scan 优先——最常见）
-    preds.append({"tool": "bug_scan", "args": {"path": path}})
-    # 模式 2：编辑后查标准
-    if len(preds) < SPECULATE_MAX:
+    # stats 数据驱动（2026-08-15 继续处理）：调用序列转移概率——
+    # 最近一次调用的工具 → 下一步最可能（二元组转移计数）
+    stats_preds = _predict_from_stats(recent_tools)
+    for tool in stats_preds:
+        if len(preds) >= SPECULATE_MAX:
+            break
+        if tool in SPECULATE_WHITELIST and tool not in [p["tool"] for p in preds]:
+            preds.append({"tool": tool,
+                          "args": {"path": path}})
+    # 启发式补充（stats 未覆盖时）
+    if len(preds) < SPECULATE_MAX and path:
+        preds.append({"tool": "bug_scan", "args": {"path": path}})
+    if len(preds) < SPECULATE_MAX and path:
         preds.append({"tool": "std_check", "args": {"path": path}})
-    # 模式 3：编辑时定位符号
     if len(preds) < SPECULATE_MAX and current_file:
         name = os.path.splitext(os.path.basename(current_file))[0]
         preds.append({"tool": "locate_edit", "args": {"path": path,
                                                       "query": name}})
     return preds[:SPECULATE_MAX]
+
+
+def _predict_from_stats(recent_tools: list[str], limit: int = 3000) -> list[str]:
+    """调用序列转移概率：读 stats.json 最近 limit 条 → 二元组 (A→B) 计数 →
+    最近工具后最可能的下一步（按频次降序）。数据驱动——替代纯启发式。"""
+    import collections
+    try:
+        stats_path = os.path.join(
+            os.environ.get("USERPROFILE") or os.environ.get("HOME") or ".",
+            ".unified-rx", "stats.json")
+        if not os.path.exists(stats_path):
+            return []
+        with open(stats_path, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            return []
+        seq = [str(e.get("tool", "")) for e in data[-limit:]
+               if isinstance(e, dict) and e.get("tool")]
+        if len(seq) < 2:
+            return []
+        # 最近一次工具（优先用调用方传入的 recent_tools——更贴近当前会话）
+        last = recent_tools[-1] if recent_tools else seq[-1]
+        trans: dict[str, int] = collections.Counter()
+        for i in range(len(seq) - 1):
+            if seq[i] == last:
+                trans[seq[i + 1]] += 1
+        if not trans:
+            # 回退：全局最频繁工具
+            return [c[0] for c in collections.Counter(seq).most_common(3)]
+        return [t for t, _ in trans.most_common(3)]
+    except Exception:  # 尽力而为（stats 不可读时回退启发式）
+        return []
 
 
 def _key(tool: str, args: dict) -> str:
