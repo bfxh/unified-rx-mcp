@@ -139,10 +139,22 @@ def query_logs(root: str | None = None, tool: str | None = None,
 
 
 def self_scan_files() -> list[str]:
-    """自扫文件列表：unified-rx 全家（core + scripts + lse-engine）。"""
+    """自扫文件列表：unified-rx 全家（core + scripts + lse-engine）。
+
+    2026-08-15 修复（覆盖缺口）：根目录新模块动态纳入——白名单之外
+    新增的 .py（如 geometry_tools/game_check/speculate）自动进入常驻
+    扫描，防新代码脱离扫描保护。
+    """
     base = os.path.dirname(os.path.abspath(__file__))
-    return [os.path.join(base, f) for f in _SELF_SCAN_FILES
-            if os.path.isfile(os.path.join(base, f))]
+    files = [os.path.join(base, f) for f in _SELF_SCAN_FILES
+             if os.path.isfile(os.path.join(base, f))]
+    for f in sorted(os.listdir(base)):
+        if f.endswith(".py") and not f.startswith("test_") \
+                and not f.startswith("tmp_"):
+            p = os.path.join(base, f)
+            if os.path.isfile(p) and p not in files:
+                files.append(p)
+    return files
 
 
 def self_scan_dirs() -> list[str]:
