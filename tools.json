@@ -1,7 +1,7 @@
 {
-  "core_count": 85,
+  "core_count": 87,
   "ext_count": 24,
-  "total": 109,
+  "total": 111,
   "core": [
     "agent_orchestrate",
     "agent_roles",
@@ -87,7 +87,9 @@
     "voxel_surface",
     "voxelize",
     "vuln_scan",
-    "watch_status"
+    "watch_status",
+    "telemetry_status",
+    "telemetry_query"
   ],
   "ext": [
     "cae_aether_agent_parse",

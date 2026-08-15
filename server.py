@@ -2289,6 +2289,62 @@ def _tool_code_embed(args: dict) -> "list[types.TextContent]":
                             "count": len(fns)}, ensure_ascii=False, indent=2))]
 
 
+def _tool_telemetry_status(args: dict) -> "list[types.TextContent]":
+    """遥测状态快照（AI 可读，SGG PerfMeter 式）：存储状态 + 聚合
+    （工具耗时 TOP/错误率/调用量）+ daemon 心跳表（卡死检测一眼看穿）。"""
+    try:
+        from telemetry_core import agg, status
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "telemetry_core 不可用"},
+                               ensure_ascii=False))]
+    since = args.get("since_ts")
+    a = agg(since)
+    s = status()
+    if a is None or s is None:
+        return [_TC(json.dumps({"ok": False, "error":
+                                "rx-telemetry 不可用（RX_TELEMETRY=0 或 exe 缺失）"},
+                               ensure_ascii=False))]
+    tools = sorted(a.get("tools", {}).items(),
+                   key=lambda kv: kv[1].get("max_ms", 0), reverse=True)
+    slowest = [{"tool": n, **v} for n, v in tools[:10]]
+    out = {
+        "ok": True,
+        "state": s,
+        "summary": {k: a.get(k) for k in (
+            "total_calls", "total_err", "overall_err_rate",
+            "overall_avg_ms", "overall_p95_ms", "overall_max_ms")},
+        "slowest_tools": slowest,
+        "heartbeats": a.get("heartbeats", {}),
+        "hint": "卡死检测：heartbeats 中某循环 last_ts 距今过久即异常；"
+                "错误率骤升/某工具 max_ms 飙升即热点",
+    }
+    return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
+
+
+def _tool_telemetry_query(args: dict) -> "list[types.TextContent]":
+    """遥测记录查询（Rust 端流式读尾部——GB 级日志不整载内存）。"""
+    try:
+        from telemetry_core import tail
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "telemetry_core 不可用"},
+                               ensure_ascii=False))]
+    try:
+        n = min(max(int(args.get("limit", 20)), 1), 200)
+    except (TypeError, ValueError):
+        n = 20
+    tool = str(args.get("tool", "")).strip()
+    status_f = str(args.get("status", "")).strip()
+    recs = tail(n) or []
+    if tool:
+        recs = [r for r in recs if r.get("tool") == tool]
+    if status_f:
+        recs = [r for r in recs if r.get("status") == status_f]
+    out = {"ok": True, "count": len(recs), "records": recs}
+    return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
+
+
 def _tool_mesh_check(args: dict) -> "list[types.TextContent]":
     """网格拓扑健康报告（TetSphere 概念：非流形/破面/孤立顶点）。"""
     from geometry_tools import mesh_check
@@ -4404,6 +4460,14 @@ _TOOLS: dict[str, tuple] = {
         "path": _S("string", "文件路径"),
         "compare": _S("string", "可选：对比文件路径（相似函数检索）"),
     }, ["path"]), "AST 符号嵌入（函数特征向量——相似函数检索；真·语义嵌入可替换 mini_bert）"),
+    "telemetry_status": (_tool_telemetry_status, _schema({
+        "since_ts": _S("number", "可选：只看该时间戳之后的调用"),
+    }, []), "遥测状态快照（AI 可读：工具耗时 TOP/错误率/调用量 + daemon 心跳表——卡死/热点一眼看穿）"),
+    "telemetry_query": (_tool_telemetry_query, _schema({
+        "limit": _S("integer", "最近 N 条（默认 20，上限 200）"),
+        "tool": _S("string", "可选：按工具名过滤"),
+        "status": _S("string", "可选：ok/error 过滤"),
+    }, []), "遥测记录查询（流式读尾部——工具耗时/错误/心跳原始记录）"),
     "mesh_check": (_tool_mesh_check, _schema({
         "path": _S("string", "网格文件（.obj/.stl/.ply）"),
     }, ["path"]), "网格拓扑健康报告（TetSphere 概念：非流形/破面/孤立顶点——引擎即用检测）"),
@@ -4775,6 +4839,8 @@ _EXT_FN_MAP = {"file_dedup_state": "file_dedup"}
 
 def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
     t0 = time.perf_counter()
+    tel_ok = True
+    tel_err = ""
     try:
         import speculate  # 阶段3 推测执行（延迟 import 防启动开销）
         # 阶段3（2026-08-15）：推测执行消费——白名单只读工具命中推测缓存
@@ -4806,11 +4872,21 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
             return _call_ext(name, arguments or {})
         raise ValueError(f"unknown tool: {name}")
     except Exception as exc:
+        tel_ok = False
+        tel_err = str(exc)[:200]
         return [_TC(f"Error: {exc}")]
     finally:
         # 自动打点（工具协作：每个工具调用自动记录到 stats，stats_* 自身除外）
         if not name.startswith("stats_"):
             _stats_tick(name, (time.perf_counter() - t0) * 1000)
+        # 遥测（阶段1）：工具调用耗时/状态/错误 → rx-telemetry（telemetry_* 自身除外防递归）
+        if not name.startswith(("stats_", "telemetry_")):
+            try:
+                from telemetry_core import tick_tool
+                tick_tool(name, arguments, (time.perf_counter() - t0) * 1000,
+                          tel_ok, tel_err)
+            except Exception:  # 监控失败静默（不拖垮工具调用）
+                pass
 
 
 # 日志闯进调用（总线反馈链路）：扫描工具返回时，从 scan-log 读取该 root 的

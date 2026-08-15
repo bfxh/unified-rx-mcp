@@ -19,3 +19,4 @@ __pycache__/
 
 # 调试残留（quest 测试 mkdtemp 目录）
 quest_dbg*/
+rx-telemetry/target/

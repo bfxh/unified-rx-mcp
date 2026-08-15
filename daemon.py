@@ -50,6 +50,16 @@ def _safe_interval(name: str, default: float) -> float:
         return default
     return max(10.0, val)
 
+
+def _hb_tick(loop_name: str, t0: float) -> None:
+    """遥测心跳（阶段1）：本轮循环耗时 → rx-telemetry（失败静默——监控不拖垮被监控者）。"""
+    try:
+        from telemetry_core import tick_hb
+        tick_hb(loop_name, (time.perf_counter() - t0) * 1000)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 # 仓库管理日志路径
 REPO_LOG = os.path.join(os.environ.get("USERPROFILE") or os.environ.get("HOME") or ".",
                         ".unified-rx", "repo-log.jsonl")
@@ -91,10 +101,13 @@ def _loop_self_scan() -> None:
     interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_SELF", 300)
     once = _ensure_self_scan_once()
     while True:
+        _hb0 = time.perf_counter()
         try:
             once()  # 单轮自扫（不启动循环，避免嵌套）
         except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
+        finally:
+            _hb_tick("daemon-self", _hb0)
         time.sleep(max(10, interval))
 
 
@@ -104,6 +117,7 @@ def _loop_self_scan() -> None:
 def _loop_project_scan() -> None:
     interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_PROJECT", 120)
     while True:
+        _hb0 = time.perf_counter()
         try:
             proj = os.environ.get("UNIFIED_RX_PROJECT", "").strip()
             if not proj:
@@ -112,6 +126,8 @@ def _loop_project_scan() -> None:
                 server._call("project_scan", {"path": proj, "max_files": 100})
         except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
+        finally:
+            _hb_tick("daemon-project", _hb0)
         time.sleep(max(10, interval))
 
 
@@ -148,10 +164,13 @@ def _most_active_project() -> str | None:
 def _loop_full_scan() -> None:
     interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_FULL", 600)
     while True:
+        _hb0 = time.perf_counter()
         try:
             server._call("full_scan", {"max_files": 100, "ui": False})
         except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
+        finally:
+            _hb_tick("daemon-full", _hb0)
         time.sleep(max(10, interval))
 
 
@@ -161,10 +180,13 @@ def _loop_full_scan() -> None:
 def _loop_repo_manage() -> None:
     interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_REPO", 300)
     while True:
+        _hb0 = time.perf_counter()
         try:
             _repo_manage_once()
         except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
+        finally:
+            _hb_tick("daemon-repo", _hb0)
         time.sleep(max(10, interval))
 
 
@@ -192,6 +214,7 @@ def _loop_shadow_scan() -> None:
     shadow_core._check_path = server._check_path
     interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_SHADOW", 30)
     while True:
+        _hb0 = time.perf_counter()
         try:
             n = shadow_core.shadow_scan_once(_shadow_scan_callback)
             if n:
@@ -201,6 +224,8 @@ def _loop_shadow_scan() -> None:
                 })
         except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
+        finally:
+            _hb_tick("daemon-shadow", _hb0)
         time.sleep(max(10, interval))
 
 
@@ -212,6 +237,7 @@ def _loop_window_scan() -> None:
     interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_WINDOW", 120)
     last_proj = None
     while True:
+        _hb0 = time.perf_counter()
         try:
             proj = window_core.active_project()
             if proj and proj != last_proj:
@@ -227,6 +253,8 @@ def _loop_window_scan() -> None:
                 })
         except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
+        finally:
+            _hb_tick("daemon-window", _hb0)
         time.sleep(max(10, interval))
 
 
@@ -237,6 +265,7 @@ def _loop_cache_maintain() -> None:
     import scan_cache
     interval = _safe_interval("UNIFIED_RX_SCAN_INTERVAL_CACHE", 600)
     while True:
+        _hb0 = time.perf_counter()
         try:
             st = scan_cache.stats()
             scan_log_core.append_scan({
@@ -245,6 +274,8 @@ def _loop_cache_maintain() -> None:
             })
         except Exception:  # 尽力而为（吞错有注释——可追溯）
             pass
+        finally:
+            _hb_tick("daemon-cache", _hb0)
         time.sleep(max(10, interval))
 
 
