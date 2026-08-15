@@ -53,6 +53,8 @@ def run_auto(args: dict, quest_id: str) -> dict:
     #    扩展懒加载/首扫慢等瞬时失败不拖垮整链）
     def _run_scan() -> dict:
         try:
+
+
             return json.loads(_call("bug_scan", {"path": path})[0].text)
         except (json.JSONDecodeError, IndexError, KeyError):
             return {"ok": False, "issues": []}

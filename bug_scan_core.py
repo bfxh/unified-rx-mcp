@@ -727,7 +727,9 @@ def load_ext_rules(force: bool = False) -> list:
                             or re.search(r"\([^)]*\|[^)]*\)\+\$", pat) \
                             or re.search(r"\([^)]*[+*?{][^)]*\)[+*{]", pat) \
                             or re.search(r"\([^)]*\|[^)]*\)\s*\{", pat) \
-                            or re.search(r"\([^)]*\|[^)]*\)[+*{]", pat):
+                            or re.search(r"\([^)]*\|[^)]*\)[+*{]", pat) \
+                            or re.search(r"\(\([^)]*\)\)[+*{]", pat) \
+                            or re.search(r"[^()]\{[^}]+\}\s*\{[^}]+\}", pat):
                         continue
                     try:
                         re.compile(pat)  # 试编译——非法模式跳过（防运行时 re.error）

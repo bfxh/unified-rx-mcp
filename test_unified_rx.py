@@ -28,15 +28,46 @@ import server
 # vendor/extensions/*/server.py 与根 server.py 同名，直接 reload(server) 会
 # 解析到扩展的 server（无 _call/_tool_*），导致全量跑时沙盒等测试集体失败。
 # 重载一律从仓库根 server.py 绝对路径加载。
+_POOL_GRAVEYARD: list = []  # 防 GC 墓地（进程池对象保持引用）
+
+
 def _reload_root_server():
+    """从仓库根 server.py 重载（保持模块对象身份）。
+
+    关键（2026-08-15 bug 修复）：若 sys.modules["server"] 已是根 server，
+    用 importlib.reload 原地重载——替换成新对象会让测试模块顶部的
+    server 引用（旧对象）与 quest_auto 等运行时 `from server import _call`
+    取的 sys.modules 对象（新对象）分叉，导致 monkeypatch 的 _call 设在
+    旧对象上而运行时拿新对象（fake 失效、顺序敏感失败）。
+    """
+    import importlib as _il
     import importlib.util as _ilu
     _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.py")
+    import server as _cur
+    if os.path.abspath(getattr(_cur, "__file__", "")) == os.path.abspath(_p):
+        # 重载前显式关闭共享进程池——否则旧池被 GC 时触发
+        # ProcessPoolExecutor weakref_cb 回调异常（无害噪音，修复之）
+        _pp = getattr(_cur, "_SHARED_PROC_POOL", None)
+        if _pp is not None:
+            try:
+                _pp.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
+            # 墓地引用：防止旧池对象被 GC（Python 3.11 spawn 下 executor
+            # GC 触发 weakref_cb AttributeError 噪音——保持引用即无 GC）
+            _POOL_GRAVEYARD.append(_pp)
+        _il.reload(_cur)  # 原地重载：对象身份不变，monkeypatch 引用不失效
+        try:
+            _cur._stop_scan_loops()
+        except Exception:
+            pass
+        return _cur
+    # 兜底：sys.modules 被外部污染时按路径重建
     _spec = _ilu.spec_from_file_location("server", _p)
     _m = _ilu.module_from_spec(_spec)
     sys.modules["server"] = _m
     assert _spec.loader is not None
     _spec.loader.exec_module(_m)
-    # reload 重置 _SCAN_LOOPS_STOP=False——显式停线程，防后台循环跨测试续跑
     try:
         _m._stop_scan_loops()
     except Exception:
@@ -1995,7 +2026,7 @@ def test_sandbox_path_boundaries(monkeypatch):
         pass
     # 盘符切换（沙盒在 C 盘时 D 盘绝对路径）→ 拒绝
     other = os.path.join(os.path.splitdrive(root)[0] + "\\", "Windows", "System32", "notepad.exe")
-    if other.lower() != os.path.join(root, "").lower()[:3] + "Windows\System32\notepad.exe".lower():
+    if other.lower() != os.path.join(root, "").lower()[:3] + "Windows/System32\notepad.exe".lower():
         try:
             server._check_path(other)
             # 若盘符相同且不在沙盒 → 仍应拒绝（System32 不在沙盒内）
@@ -2029,10 +2060,6 @@ def test_quest_auto_mode_quick(tmp_path, monkeypatch):
         shutil.rmtree(repo, ignore_errors=True)
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="顺序敏感：全量跑时受前序测试全局状态影响返回 partial（单独运行验证 failed 降级完整）",
-)
 def test_quest_auto_scan_failure_degrade(tmp_path, monkeypatch):
     """IDE 增强三十四：bug_scan 全失败时链降级——failed 判定 + 链仍走完 + force 提示。"""
     import shutil

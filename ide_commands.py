@@ -40,8 +40,8 @@ _CHEATSHEET: dict[str, list[dict]] = {
         {"name": "script", "cmd": "python -X utf8 {script}", "desc": "跑脚本"},
     ],
     "blender": [
-        {"name": "headless_model", "cmd": r'"D:\rj\GJ\Blender 5.2\blender.exe" --background --python {script} -- {args}',
-         "desc": "Blender 无头建模（D:\rj\GJ\Blender 5.2）"},
+        {"name": "headless_model", "cmd": r'"D:/rj/GJ/Blender 5.2\blender.exe" --background --python {script} -- {args}',
+         "desc": "Blender 无头建模（D:/rj/GJ/Blender 5.2）"},
         {"name": "export_glb", "cmd": "Blender 内 io_bevy_export.py（N 面板/Ctrl+Shift+E）",
          "desc": "Bevy 直通导出（assets/models/）"},
     ],
@@ -119,6 +119,16 @@ def local_run(domain: str, name: str, args: dict | None = None,
         return {"ok": False, "error": f"未知命令: {domain}/{name}",
                 "available": [c["name"] for c in cmds]}
     template = entry["cmd"]
+    # 安全（security-review B602）：shell=True 下参数必须白名单校验——
+    # 拒绝 shell 元字符（&|;<>`$(){}[]!^ 与换行），防占位符参数注入命令
+    _SAFE_ARG = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    "abcdefghijklmnopqrstuvwxyz0123456789 _-./:,")
+    for _k, _v in (args or {}).items():
+        if not isinstance(_v, str) or not set(_v) <= _SAFE_ARG:
+            return {"ok": False,
+                    "error": f"参数 {_k} 含不安全字符（仅允许字母/数字/空格/"
+                             f"-_.:,/），拒绝执行"}
+
     try:
         cmd = template.format(**args)
     except KeyError as e:

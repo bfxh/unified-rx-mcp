@@ -735,7 +735,7 @@ def test_lsp_no_process_leak():
 
 
 def test_lsp_query_go_real():
-    """go → gopls 已装（D:\开发\go-toolchain）：真实 LSP 交互应成功。
+    """go → gopls 已装（D:/开发/go-toolchain）：真实 LSP 交互应成功。
 
     IDE 增强 465：gopls 需要 PATH 含 go 命令（内部 go list 建 view——根因修复）。
     依赖 gopls 与 go 工具链，缺失则跳过。
