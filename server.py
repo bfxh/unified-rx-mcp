@@ -2492,6 +2492,34 @@ def _tool_sage_scan(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=1))]
 
 
+def _tool_code_search(args: dict) -> "list[types.TextContent]":
+    """本地语义代码检索（Rust rx-search，CocoIndex/codesearch 式）：自然语言/
+    中文/符号查询 → 文件:行——零依赖快速版；explore_code 关键词失败自动兜底。"""
+    try:
+        from search_core import search
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "search_core 不可用"},
+                               ensure_ascii=False))]
+    q = str(args.get("query", "")).strip()
+    if not q:
+        return [_TC(json.dumps({"ok": False, "error": "query 必填"},
+                               ensure_ascii=False))]
+    root = str(args.get("root", "")).strip()
+    if root:
+        root = str(_check_path(root))
+    try:
+        k = min(max(int(args.get("k", 20)), 1), 50)
+    except (TypeError, ValueError):
+        k = 20
+    out = search(q, root, k)
+    if out is None:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "rx-search 不可用（RX_SEARCH=0 或 exe 缺失）"},
+                               ensure_ascii=False))]
+    return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
+
+
 def _tool_telemetry_query(args: dict) -> "list[types.TextContent]":
     """遥测记录查询（Rust 端流式读尾部——GB 级日志不整载内存）。"""
     try:
@@ -3133,6 +3161,22 @@ def _tool_explore_code(args: dict) -> "list[types.TextContent]":
         if len(candidates) >= 30:
             break
     if not candidates:
+        # 语义检索兜底（阶段4）：关键词未命中 → rx-search BM25 语义补充
+        try:
+            from search_core import search as _sem_search
+            sr = _sem_search(goal, str(root), 10)
+            if sr and sr.get("hits"):
+                return [_TC(json.dumps({
+                    "ok": True, "query": goal, "mode": "semantic_fallback",
+                    "hits": [{"path": h.get("path", ""),
+                              "line": h.get("line", 0),
+                              "score": h.get("score", 0),
+                              "symbol": h.get("symbol")}
+                             for h in sr["hits"][:10]],
+                    "hint": "关键词未命中——已用语义检索兜底（BM25+符号加权）",
+                }, ensure_ascii=False, indent=2))]
+        except Exception:  # noqa: BLE001 —— 语义兜底失败维持原错误
+            pass
         return [_TC(json.dumps({"ok": False, "error": f"未找到含目标词的文件: {goal}",
                                 "hint": "换更短的关键词或检查 root"}, ensure_ascii=False, indent=2))]
 
@@ -4667,6 +4711,11 @@ _TOOLS: dict[str, tuple] = {
         "commits": _S("integer", "可选：最近 N 个提交（默认 1）"),
         "since": _S("string", "可选：--since 时间范围（优先于 commits）"),
     }, ["root"]), "SAGE 式语义回归优先级（commit 变更+语义标签→优先测试清单——海量内容锁定风险区）"),
+    "code_search": (_tool_code_search, _schema({
+        "query": _S("string", "自然语言/中文/符号查询（如：放置模块时命中盒计算的函数）"),
+        "root": _S("string", "可选：项目根（缺省用当前索引）"),
+        "k": _S("integer", "可选：返回条数（默认 20，上限 50）"),
+    }, ["query"]), "本地语义代码检索（Rust BM25+符号加权：中文/英文/标识符 → 文件:行）——explore_code 关键词失败自动兜底"),
     "telemetry_query": (_tool_telemetry_query, _schema({
         "limit": _S("integer", "最近 N 条（默认 20，上限 200）"),
         "tool": _S("string", "可选：按工具名过滤"),

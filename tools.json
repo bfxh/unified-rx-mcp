@@ -1,7 +1,7 @@
 {
-  "core_count": 95,
+  "core_count": 96,
   "ext_count": 24,
-  "total": 119,
+  "total": 120,
   "core": [
     "agent_orchestrate",
     "agent_roles",
@@ -97,7 +97,8 @@
     "stress_scan",
     "replay_record",
     "replay_run",
-    "sage_scan"
+    "sage_scan",
+    "code_search"
   ],
   "ext": [
     "cae_aether_agent_parse",

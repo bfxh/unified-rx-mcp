@@ -146,7 +146,8 @@ def test_tools_count_and_schema():
     # 2026-08-16 遥测阶段1：+telemetry_status/telemetry_query → 87
     # 2026-08-16 遥测阶段2：+telemetry_snapshot/alarm_check/failure_analyze → 90
     # 2026-08-16 测试增强：+cov_scan/stress_scan/replay_record/replay_run/sage_scan → 95
-    assert len(server._TOOLS) == 95, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-16 语义检索：+code_search（Rust rx-search）→ 96
+    assert len(server._TOOLS) == 96, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
