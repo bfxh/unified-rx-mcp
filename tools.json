@@ -1,7 +1,7 @@
 {
-  "core_count": 75,
+  "core_count": 78,
   "ext_count": 24,
-  "total": 99,
+  "total": 102,
   "core": [
     "agent_orchestrate",
     "agent_roles",
@@ -33,6 +33,8 @@
     "game_feel",
     "game_rules",
     "game_verify",
+    "geometry_exchange",
+    "half_edge",
     "hallucination_guard",
     "ide_actions",
     "ide_complete",
@@ -53,6 +55,7 @@
     "mesh_check",
     "mesh_optimize",
     "mesh_splat",
+    "mesh_union",
     "optimize_code",
     "parallel",
     "pipeline",

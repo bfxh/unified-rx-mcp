@@ -140,3 +140,58 @@ def test_glb_parse(tmp_path, monkeypatch):
     d = json.loads(server._call("mesh_check", {"path": str(p)})[0].text)
     assert d["ok"] is True, d
     assert d["vertices"] == 3 and d["faces"] == 1, d
+
+
+def test_geometry_exchange_obj_to_ply(tmp_path, monkeypatch):
+    """Rhino.Inside 概念：OBJ → PLY 直接交换（无中间文件——内容输出）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    p = tmp_path / "src.obj"
+    p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    d = json.loads(server._call("geometry_exchange", {
+        "path": str(p), "target_format": "ply"})[0].text)
+    assert d["ok"] is True, d
+    assert "ply" in d["content"] and "element vertex 3" in d["content"], d
+    assert d["vertices"] == 3 and d["faces"] == 1, d
+    # OBJ → STL（base64 内容）
+    d2 = json.loads(server._call("geometry_exchange", {
+        "path": str(p), "target_format": "stl"})[0].text)
+    assert d2["ok"] is True and d2["bytes"] > 80, d2
+
+
+def test_half_edge_manifold(tmp_path, monkeypatch):
+    """Manifold3D 概念：四面体半边结构（流形 + 无边界 + 1-ring）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    p = tmp_path / "tet2.obj"
+    p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"
+                 "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n", encoding="utf-8")
+    d = json.loads(server._call("half_edge", {"path": str(p)})[0].text)
+    assert d["ok"] is True and d["manifold"] is True, d
+    assert d["boundary_edges"] == 0, d
+    assert d["half_edges"] == 12, d  # 4 面 × 3 半边
+    assert d["sample_1_rings"], d
+
+
+def test_half_edge_boundary(tmp_path, monkeypatch):
+    """单面片 → 边界边检出（破面——边界 3 条）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    p = tmp_path / "open2.obj"
+    p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    d = json.loads(server._call("half_edge", {"path": str(p)})[0].text)
+    assert d["ok"] is True and d["manifold"] is False, d
+    assert d["boundary_edges"] == 3, d
+
+
+def test_mesh_union_weld(tmp_path, monkeypatch):
+    """PicoGK 概念：两网格并集合并（跨网格顶点焊接）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    a = tmp_path / "a.obj"
+    a.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    b = tmp_path / "b.obj"
+    # 与 a 共享顶点 0（位置 0,0,0）——焊接后总顶点 = 3 + 2 = 5
+    b.write_text("v 0 0 0\nv 0 0 1\nv 1 0 1\nf 1 2 3\n", encoding="utf-8")
+    d = json.loads(server._call("mesh_union", {
+        "paths": [str(a), str(b)]})[0].text)
+    assert d["ok"] is True, d
+    assert d["vertices"] == 5, f"共享顶点应焊接（3+3-1=5）: {d}"
+    assert d["faces"] == 2, d
+    assert d["meshes"] == ["a.obj", "b.obj"], d

@@ -2300,6 +2300,37 @@ def _tool_voxelize(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=2))]
 
 
+def _tool_geometry_exchange(args: dict) -> "list[types.TextContent]":
+    """格式间直接几何交换（Rhino.Inside 概念：无中间文件）。"""
+    from geometry_tools import geometry_exchange
+    p = _check_path(str(args.get("path", "")))
+    fmt = str(args.get("target_format", "obj"))
+    return [_TC(json.dumps(geometry_exchange(str(p), fmt),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_half_edge(args: dict) -> "list[types.TextContent]":
+    """半边数据结构分析（Manifold3D 概念）。"""
+    from geometry_tools import half_edge_analyze
+    p = _check_path(str(args.get("path", "")))
+    return [_TC(json.dumps(half_edge_analyze(str(p)),
+                           ensure_ascii=False, indent=2))]
+
+
+def _tool_mesh_union(args: dict) -> "list[types.TextContent]":
+    """网格并集合并（PicoGK 概念：顶点焊接）。"""
+    from geometry_tools import mesh_union
+    paths = args.get("paths") or []
+    # 安全（security-review LOW）：先限数量再 _check_path（防数万路径先展开）
+    if not isinstance(paths, list) or not 1 <= len(paths) <= 10:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "paths 需 1..10 个网格文件"},
+                               ensure_ascii=False))]
+    checked = [str(_check_path(str(p))) for p in paths]
+    return [_TC(json.dumps(mesh_union(checked),
+                           ensure_ascii=False, indent=2))]
+
+
 def _brp_query_entities(project_path: str) -> dict | None:
     """BRP 实体查询（2026-08-15 继续处理——深度接入）。
 
@@ -4290,6 +4321,16 @@ _TOOLS: dict[str, tuple] = {
         "path": _S("string", "网格文件"),
         "resolution": _S("integer", "体素分辨率（4..128，默认 16）"),
     }, ["path"]), "网格体素化（Radiant Foam 概念：体素占用表示——光线追踪/碰撞基础）"),
+    "geometry_exchange": (_tool_geometry_exchange, _schema({
+        "path": _S("string", "源网格文件"),
+        "target_format": _S("string", "目标格式（obj/stl/ply）"),
+    }, ["path", "target_format"]), "格式间直接几何交换（Rhino.Inside 概念：无中间文件——内容直接输出可写文件）"),
+    "half_edge": (_tool_half_edge, _schema({
+        "path": _S("string", "网格文件"),
+    }, ["path"]), "半边数据结构分析（Manifold3D 概念：邻接/边界/流形/1-ring——高速拓扑操控）"),
+    "mesh_union": (_tool_mesh_union, _schema({
+        "paths": _S("array", "网格文件列表（1..10 个）"),
+    }, ["paths"]), "网格并集合并（PicoGK 概念：顶点焊接——紧凑几何操作；真 CSG 标注未来方向）"),
     "runtime_state": (_tool_runtime_state, _schema({
         "path": _S("string", "项目路径"),
         "source": _S("string", "状态来源（bevy_brp/file/scan——BRP 不可用时降级）"),
