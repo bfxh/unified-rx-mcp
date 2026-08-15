@@ -2391,6 +2391,107 @@ def _tool_failure_analyze(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
 
 
+def _tool_cov_scan(args: dict) -> "list[types.TextContent]":
+    """覆盖率/死代码扫描：static（AST 未引用符号=隐形炸弹）或
+    dynamic（coverage.py 实测，失败自动降级）。"""
+    try:
+        from cov_scan import cov_scan
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "cov_scan 不可用"},
+                               ensure_ascii=False))]
+    p = _check_path(str(args.get("path", "")))
+    mode = str(args.get("mode", "static"))
+    if mode not in ("static", "dynamic", "auto"):
+        mode = "static"
+    try:
+        limit = min(max(int(args.get("limit", 2000)), 10), 10000)
+    except (TypeError, ValueError):
+        limit = 2000
+    return [_TC(json.dumps(cov_scan(str(p), mode, limit),
+                           ensure_ascii=False, indent=1))]
+
+
+def _tool_stress_scan(args: dict) -> "list[types.TextContent]":
+    """压力测试：扫描日志/遥测高并发 append（丢数据检测）+ 大仓库遍历/
+    大文件读取计时——工具集自身不崩不卡才敢说"强"。"""
+    try:
+        from stress_scan import stress_scan
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "stress_scan 不可用"},
+                               ensure_ascii=False))]
+    path = str(args.get("path", ""))
+    if path:
+        path = str(_check_path(path))
+    mode = str(args.get("mode", "auto"))
+    if mode not in ("auto", "log", "telemetry", "index", "file"):
+        mode = "auto"
+    try:
+        scale = min(max(int(args.get("scale", 100000)), 100), 1000000)
+    except (TypeError, ValueError):
+        scale = 100000
+    try:
+        timeout = min(max(int(args.get("timeout", 300)), 30), 600)
+    except (TypeError, ValueError):
+        timeout = 300
+    return [_TC(json.dumps(stress_scan(path, mode, scale, timeout),
+                           ensure_ascii=False, indent=1))]
+
+
+def _tool_replay_record(args: dict) -> "list[types.TextContent]":
+    """录制一步操作（工具调用/命令）到 replay 序列——崩溃复现的第一步。"""
+    try:
+        from replay_core import replay_record
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "replay_core 不可用"},
+                               ensure_ascii=False))]
+    name = str(args.get("name", ""))
+    step = args.get("step")
+    if not isinstance(step, dict):
+        return [_TC(json.dumps({"ok": False,
+                                "error": "step 必须是对象 {type, tool/tool, args…}"},
+                               ensure_ascii=False))]
+    return [_TC(json.dumps(replay_record(name, step),
+                           ensure_ascii=False, indent=1))]
+
+
+def _tool_replay_run(args: dict) -> "list[types.TextContent]":
+    """重放录制的操作序列——偶现变必现，定位崩溃第一步。"""
+    try:
+        from replay_core import replay_run, replay_list
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "replay_core 不可用"},
+                               ensure_ascii=False))]
+    name = str(args.get("name", ""))
+    if not name:
+        return [_TC(json.dumps(replay_list(), ensure_ascii=False, indent=1))]
+    stop = bool(args.get("stop_on_fail", True))
+    return [_TC(json.dumps(replay_run(name, stop),
+                           ensure_ascii=False, indent=1))]
+
+
+def _tool_sage_scan(args: dict) -> "list[types.TextContent]":
+    """SAGE 式语义回归优先级：commit 变更 + 语义标签 → 优先测试清单
+    （复用 pr_oracle TestMapper，扩展不可用降级启发式）。"""
+    try:
+        from sage_scan import sage_scan
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "sage_scan 不可用"},
+                               ensure_ascii=False))]
+    root = str(_check_path(str(args.get("root", ""))))
+    try:
+        commits = min(max(int(args.get("commits", 1)), 1), 20)
+    except (TypeError, ValueError):
+        commits = 1
+    since = str(args.get("since", ""))
+    return [_TC(json.dumps(sage_scan(str(root), commits, since),
+                           ensure_ascii=False, indent=1))]
+
+
 def _tool_telemetry_query(args: dict) -> "list[types.TextContent]":
     """遥测记录查询（Rust 端流式读尾部——GB 级日志不整载内存）。"""
     try:
@@ -4542,6 +4643,30 @@ _TOOLS: dict[str, tuple] = {
         "root": _S("string", "可选：项目路径（关联 git 提交/scan-log）"),
         "limit": _S("integer", "可选：关联条数上限（默认 200）"),
     }, ["text"]), "根因分析（RCA：traceback→根因链报告——关联遥测/scan-log/git/告警，候选按证据强度排序）"),
+    "cov_scan": (_tool_cov_scan, _schema({
+        "path": _S("string", "项目路径"),
+        "mode": _S("string", "static（AST 死代码，默认）/ dynamic（coverage.py 实测）/ auto"),
+        "limit": _S("integer", "可选：文件数上限（默认 2000）"),
+    }, ["path"]), "代码覆盖率/死代码分析（定位从未执行的代码=隐形炸弹：未引用符号清单 + 未用 import；dynamic 实测未覆盖 TOP）"),
+    "stress_scan": (_tool_stress_scan, _schema({
+        "path": _S("string", "可选：项目路径（index/file 场景用）"),
+        "mode": _S("string", "auto（默认）/ log / telemetry / index / file"),
+        "scale": _S("integer", "可选：条数规模（默认 10 万，上限 100 万）"),
+        "timeout": _S("integer", "可选：总时限秒（默认 300）"),
+    }, []), "压力测试（工具集自身：scan-log/遥测 8 线程并发 append 丢数据检测 + 大仓库遍历/大文件读取计时）"),
+    "replay_record": (_tool_replay_record, _schema({
+        "name": _S("string", "录制名（字母数字-_，≤64）"),
+        "step": _S("object", "步骤：{type: tool, tool, args} 或 {type: cmd, cmd, cwd}"),
+    }, ["name", "step"]), "录制一步操作（BugCraft 式：崩溃复现序列第一步）"),
+    "replay_run": (_tool_replay_run, _schema({
+        "name": _S("string", "录制名（空=列出所有录制）"),
+        "stop_on_fail": _S("boolean", "可选：失败即停（默认 true）"),
+    }, ["name"]), "重放录制序列（偶现变必现——failed_at 即复现点；cmd 步骤需 __authorized）"),
+    "sage_scan": (_tool_sage_scan, _schema({
+        "root": _S("string", "仓库路径"),
+        "commits": _S("integer", "可选：最近 N 个提交（默认 1）"),
+        "since": _S("string", "可选：--since 时间范围（优先于 commits）"),
+    }, ["root"]), "SAGE 式语义回归优先级（commit 变更+语义标签→优先测试清单——海量内容锁定风险区）"),
     "telemetry_query": (_tool_telemetry_query, _schema({
         "limit": _S("integer", "最近 N 条（默认 20，上限 200）"),
         "tool": _S("string", "可选：按工具名过滤"),

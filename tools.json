@@ -1,7 +1,7 @@
 {
-  "core_count": 90,
+  "core_count": 95,
   "ext_count": 24,
-  "total": 114,
+  "total": 119,
   "core": [
     "agent_orchestrate",
     "agent_roles",
@@ -92,7 +92,12 @@
     "telemetry_query",
     "telemetry_snapshot",
     "alarm_check",
-    "failure_analyze"
+    "failure_analyze",
+    "cov_scan",
+    "stress_scan",
+    "replay_record",
+    "replay_run",
+    "sage_scan"
   ],
   "ext": [
     "cae_aether_agent_parse",
