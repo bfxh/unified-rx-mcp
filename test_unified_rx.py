@@ -15,9 +15,10 @@ def _stop_scan_loops_after():
     yield
     try:
         server._stop_scan_loops()
+        # 2026-08-15：不复位 STOP（secure-code-guardian LOW：与 conftest
+        # 矛盾——置位后复位线程醒来继续跑）——spawn 测试显式复位
     except Exception:
         pass
-    server._SCAN_LOOPS_STOP = False
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -2767,3 +2768,39 @@ def test_vuln_new_rules_and_taint(tmp_path, monkeypatch):
                   encoding="utf-8")
     d = json.loads(server._call("bug_scan", {"path": str(p5)})[0].text)
     assert any(i.get("rule") == "unsafe_mem" for i in d["issues"])
+
+
+def test_vuln_three_capabilities(tmp_path, monkeypatch):
+    """三能力正式测试（secure-code-guardian 建议：补单元测试防回归）。"""
+    monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
+    # 1. patch_learn：diff → 规则（漏洞命中/修复不命中）
+    diff = ("--- a/db.py\n+++ b/db.py\n@@ -1 +1 @@\n"
+            "-    cursor.execute('SELECT * FROM t WHERE id=' + user_input)\n"
+            "+    cursor.execute('SELECT * FROM t WHERE id=%s', (user_input,))\n")
+    d = json.loads(server._call("patch_learn", {"diff": diff})[0].text)
+    assert d["ok"] and d["rules"], d
+    rx = d["rules"][0]["pattern"]
+    import re
+    assert re.search(rx, "cursor.execute('SELECT * FROM t WHERE id=' + x)")
+    assert not re.search(rx, "cursor.execute('SELECT * FROM t WHERE id=%s', (x,))")
+    # 2. 模板规则（vuln_rules.json——sql_injection）
+    p = tmp_path / "db.py"
+    p.write_text("def f(u):\n    return cursor.execute('SELECT * FROM t WHERE id=' + u)\n",
+                 encoding="utf-8")
+    d = json.loads(server._call("bug_scan", {"path": str(p)})[0].text)
+    assert any(i.get("rule") == "sql_injection" for i in d["issues"])
+    # 3. 跨函数 taint
+    p2 = tmp_path / "x.py"
+    p2.write_text("def sink(p):\n    return open(p).read()\n"
+                  "def handler(args):\n    path = args.get('file')\n"
+                  "    return sink(path)\n", encoding="utf-8")
+    d = json.loads(server._call("bug_scan", {"path": str(p2)})[0].text)
+    assert any("跨函数" in i.get("msg", "") for i in d["issues"])
+    # 4. 模板规则 ReDoS 拒绝（(a|aa)+$ 类不入规则集）
+    rules_file = tmp_path / "bad_rules.json"
+    rules_file.write_text(json.dumps({"rules": [
+        {"id": "rd", "pattern": "(a|aa)+$", "msg": "x"}]}),
+        encoding="utf-8")
+    monkeypatch.setenv("UNIFIED_RX_VULN_RULES", str(rules_file))
+    from bug_scan_core import load_ext_rules
+    assert load_ext_rules(force=True) == [], "ReDoS 模式应被拒绝"

@@ -51,12 +51,14 @@ def _regularize(body: str) -> str:
     不命中（sink 调用结构保留 + 字面量占位）。
     """
     rx = re.sub(r"'[^']*'|\"[^\"]*\"", "@@STR@@", body)
-    rx = re.sub(r"\b\d+\b", r"\\d+", rx)
+    # 数字直接占位（security-review MEDIUM：先替换为 @@D@@——避免
+    # 中间态 \d+ 的 d 被后续标识符替换破坏）
+    rx = re.sub(r"\b\d+\b", "@@D@@", rx)
     keep = "|".join(_SINKS)
     rx = re.sub(r"\b(?!(?:" + keep + r")\b)[a-z_]\w*\b", r"\\w+", rx)
-    # 占位保护量词（\w+/\d+ 整体——防 + 被误转义为字面）
-    rx = rx.replace(r"\w+", "@@W@@").replace(r"\d+", "@@D@@")
-    # 特殊字符转义（先保护占位符反斜杠；@@STR@@ 无特殊字符）
+    # 占位保护量词（\w+ 整体——防 + 被误转义为字面）
+    rx = rx.replace(r"\w+", "@@W@@")
+    # 特殊字符转义（先保护占位符反斜杠；@@STR@@/@@D@@ 无特殊字符）
     rx = rx.replace("\\", "@@BS@@")
     for ch in "().+*?[]{}|^$":
         rx = rx.replace(ch, "\\" + ch)

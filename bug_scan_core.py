@@ -703,9 +703,24 @@ def load_ext_rules(force: bool = False) -> list:
         rules = []
         for r in data.get("rules", []):
             if isinstance(r, dict) and r.get("id") and r.get("pattern"):
+                # 安全（security-review MEDIUM：嵌套量词 ReDoS 拒绝——
+                # (a+)+/(a|aa)+$/(a{1,3}){2,}$ 类——指数回溯卡死；
+                # 长度上限防超大 pattern）
+                pat = str(r["pattern"])
+                if len(pat) > 200:
+                    continue
+                if re.search(r"\([^)]*[+*][^)]*\)[+*]", pat) \
+                        or re.search(r"\([^)]*\|[^)]*\)\*", pat) \
+                        or re.search(r"\(\s*[^)]*[+*][^)]*\s*\)\s*\{[^}]+\}", pat) \
+                        or re.search(r"\([^)]*\|[^)]*\)\+\$", pat):
+                    continue
+                try:
+                    re.compile(pat)  # 试编译——非法模式跳过（防运行时 re.error）
+                except re.error:
+                    continue
                 rules.append({
                     "id": str(r["id"])[:40],
-                    "pattern": str(r["pattern"]),
+                    "pattern": pat,
                     "language": str(r.get("language", "all")),
                     "severity": str(r.get("severity", "warning")),
                     "msg": str(r.get("msg", "外部规则命中"))[:120],

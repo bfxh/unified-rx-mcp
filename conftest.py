@@ -15,6 +15,7 @@ def _stop_scan_loops_global():
     try:
         import server
         server._stop_scan_loops()
-        server._SCAN_LOOPS_STOP = False
+        # 2026-08-15：不复位 STOP（security-review LOW：复位后后台循环
+        # sleep 结束看到 False 继续跑）——spawn 测试显式复位（start 前）
     except Exception:
         pass
