@@ -144,7 +144,8 @@ def test_tools_count_and_schema():
     # 2026-08-13 M6 趋势分析：+scan_trend → 56
     # 2026-08-14 游戏方向：+game_check/game_feel（引擎中立检查）→ 59
     # 2026-08-16 遥测阶段1：+telemetry_status/telemetry_query → 87
-    assert len(server._TOOLS) == 87, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-16 遥测阶段2：+telemetry_snapshot/alarm_check/failure_analyze → 90
+    assert len(server._TOOLS) == 90, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"

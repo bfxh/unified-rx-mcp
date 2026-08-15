@@ -58,3 +58,74 @@ def test_telemetry_tools_registered():
     """两个工具在注册表（AI 可见可调用）。"""
     assert "telemetry_status" in server._TOOLS
     assert "telemetry_query" in server._TOOLS
+    assert "telemetry_snapshot" in server._TOOLS
+
+
+def test_alarm_check_rules(monkeypatch, tmp_path):
+    """告警规则：tool_err_rate 触发 + 30 分钟去重 + alarms.jsonl 落盘。"""
+    d = str(tmp_path / "state")
+    os.makedirs(d, exist_ok=True)
+    monkeypatch.setenv("UNIFIED_RX_STATE_DIR", d)
+    monkeypatch.setenv("RX_TELEMETRY", "1")
+    telemetry_core._ENABLED = None
+    telemetry_core.shutdown()
+    # 4 次调用 3 次 error（错误率 75% > 50% 阈值）
+    for i in range(4):
+        telemetry_core.tick_tool("flaky_tool", None, 2.0, i >= 3, "boom")
+    telemetry_core.flush()
+    r1 = json.loads(server._call("alarm_check", {})[0].text)
+    assert r1["ok"] is True
+    rules = [(a["rule"], a["target"]) for a in r1["new"]]
+    assert ("tool_err_rate", "flaky_tool") in rules
+    # 去重：第二轮无新告警
+    r2 = json.loads(server._call("alarm_check", {})[0].text)
+    assert len(r2["new"]) == 0
+    # alarms.jsonl 落盘
+    path = os.path.join(d, "alarms.jsonl")
+    assert os.path.exists(path)
+    alarms = telemetry_core.read_alarms(10)
+    assert any(a["rule"] == "tool_err_rate" for a in alarms)
+
+
+def test_alarm_check_stale_loop(monkeypatch, tmp_path):
+    """卡死循环 → CRITICAL 告警。"""
+    d = str(tmp_path / "state")
+    os.makedirs(d, exist_ok=True)
+    monkeypatch.setenv("UNIFIED_RX_STATE_DIR", d)
+    monkeypatch.setenv("RX_TELEMETRY", "1")
+    telemetry_core._ENABLED = None
+    telemetry_core.shutdown()
+    import time as _t
+    telemetry_core._send({"cmd": "record", "rec": {
+        "kind": "hb", "ts": _t.time() - 3600,
+        "loop": "daemon-repo", "cycle_ms": 100.0}})
+    telemetry_core.flush()
+    r = json.loads(server._call("alarm_check", {})[0].text)
+    new = [(a["rule"], a["target"], a["level"]) for a in r["new"]]
+    assert ("daemon_stale", "daemon-repo", "CRITICAL") in new
+
+
+def test_telemetry_snapshot_health(monkeypatch, tmp_path):
+    """一键体检包：卡死检测 + 最近错误 + verdict。"""
+    d = str(tmp_path / "state")
+    os.makedirs(d, exist_ok=True)
+    monkeypatch.setenv("UNIFIED_RX_STATE_DIR", d)
+    monkeypatch.setenv("RX_TELEMETRY", "1")
+    telemetry_core._ENABLED = None
+    telemetry_core.shutdown()
+    import time as _t
+    # 正常心跳 + 一小时前的"卡死"心跳 + 错误调用
+    telemetry_core.tick_hb("daemon-self", 300000.0)
+    telemetry_core._send({"cmd": "record", "rec": {
+        "kind": "hb", "ts": _t.time() - 3600,
+        "loop": "daemon-repo", "cycle_ms": 100.0}})
+    server._call("no_such_tool_abc", {})
+    telemetry_core.flush()
+    r = server._call("telemetry_snapshot", {})
+    d2 = json.loads(r[0].text)
+    assert d2["ok"] is True
+    loops = d2["health"]["loops"]
+    assert loops["daemon-self"]["stale"] is False
+    assert loops["daemon-repo"]["stale"] is True
+    assert "daemon-repo" in d2["verdict"]
+    assert d2["recent_errors"][0]["tool"] == "no_such_tool_abc"

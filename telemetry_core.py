@@ -216,6 +216,138 @@ def tail(n: int = 20) -> list | None:
     return _send({"cmd": "tail", "n": n})
 
 
+# ── 健康检查（卡死检测——阶段2） ─────────────────────────────────
+# daemon 循环最大间隔 600s（daemon-full），允许 1.5× 余量：
+# 心跳 age 超过 STALE_AFTER_SEC 即判定循环异常（卡死/挂了）。
+STALE_AFTER_SEC = 900.0
+
+
+def health_check() -> dict:
+    """卡死检测：每个 daemon 循环最近心跳的 age（秒）+ stale 判定。
+    输出供 telemetry_snapshot 使用（AI 一键体检）。"""
+    a = agg()
+    if not a:
+        return {"ok": False, "loops": {}}
+    now = time.time()
+    loops = {}
+    for name, hb in (a.get("heartbeats") or {}).items():
+        age = max(0.0, now - hb.get("last_ts", 0.0))
+        loops[name] = {
+            "count": hb.get("count", 0),
+            "age_sec": round(age, 1),
+            "last_cycle_ms": round(hb.get("last_cycle_ms", 0.0), 1),
+            "stale": age > STALE_AFTER_SEC,
+        }
+    return {"ok": True, "loops": loops}
+
+
+def recent_errors(n: int = 5) -> list:
+    """最近 n 条错误记录（供 snapshot/RCA 关联）。"""
+    recs = tail(max(n * 4, 20)) or []
+    errs = [r for r in recs if r.get("kind") == "tool" and r.get("status") == "error"]
+    return errs[-n:]
+
+
+def alarms_path() -> str:
+    """告警文件路径（~/.unified-rx/alarms.jsonl）。"""
+    d = os.environ.get("UNIFIED_RX_STATE_DIR", "").strip()
+    if not d:
+        d = os.path.join(os.environ.get("USERPROFILE") or
+                         os.environ.get("HOME") or ".", ".unified-rx")
+    return os.path.join(d, "alarms.jsonl")
+
+
+def read_alarms(n: int = 10) -> list:
+    """读最近 n 条告警（alarms.jsonl 尾部，流式不整载）。"""
+    path = alarms_path()
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as f:
+            lines = f.readlines()
+        out = []
+        for line in lines[-n:]:
+            line = line.strip()
+            if line:
+                try:
+                    out.append(json.loads(line))
+                except ValueError:
+                    pass
+        return out
+    except OSError:
+        return []
+
+
+# ── 告警规则引擎（阶段2：自动监控告警） ───────────────────────────
+# 规则（AI 可读结构化告警 → alarms.jsonl，供 snapshot/RCA 消费）：
+#   1. tool_p95_slow   某工具 P95 耗时超阈值（默认 5000ms）      → WARN
+#   2. tool_err_rate   某工具错误率超阈值（默认 50%，需 ≥3 次）   → WARN
+#   3. daemon_stale    某 daemon 循环心跳过期（卡死）            → CRITICAL
+#   4. overall_err_rate 总错误率超阈值（需 ≥10 次调用）           → WARN
+# 去重：同 (rule, target) 30 分钟内不重复追加（防刷屏）。
+_ALARM_LOCK = threading.Lock()
+
+
+def _append_alarm(alarm: dict) -> None:
+    """追加一条告警（alarms.jsonl，线程安全追加）。"""
+    try:
+        path = alarms_path()
+        d = os.path.dirname(path)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        with _ALARM_LOCK:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(alarm, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def check_alarms(thresholds: dict | None = None) -> dict:
+    """规则引擎一轮：读遥测聚合 + 健康 → 新告警落盘（去重）。
+    返回 {checked_at, active_rules, new, total_alarms}。"""
+    t = thresholds or {}
+    p95_slow_ms = float(t.get("p95_slow_ms", 5000))
+    err_rate_high = float(t.get("err_rate_high", 0.5))
+    a = agg()
+    health = health_check()
+    now = time.time()
+    alarms: list[dict] = []
+    tools = (a or {}).get("tools", {})
+    for name, ta in tools.items():
+        if ta.get("p95_ms", 0) > p95_slow_ms:
+            alarms.append({"rule": "tool_p95_slow", "target": name,
+                           "level": "WARN",
+                           "msg": f"{name} P95={ta['p95_ms']:.0f}ms 超阈值 {p95_slow_ms:.0f}ms"})
+        if ta.get("count", 0) >= 3 and ta.get("count", 1) > 0 and \
+                ta.get("err_count", 0) / ta["count"] > err_rate_high:
+            alarms.append({"rule": "tool_err_rate", "target": name,
+                           "level": "WARN",
+                           "msg": f"{name} 错误率 {ta['err_count']}/{ta['count']} 超阈值 {err_rate_high:.0%}"})
+    for name, h in health.get("loops", {}).items():
+        if h.get("stale"):
+            alarms.append({"rule": "daemon_stale", "target": name,
+                           "level": "CRITICAL",
+                           "msg": f"循环 {name} 心跳过期 {h.get('age_sec', 0):.0f}s（可能卡死）"})
+    if a and a.get("total_calls", 0) >= 10 and \
+            a.get("overall_err_rate", 0) > err_rate_high:
+        alarms.append({"rule": "overall_err_rate", "target": "*",
+                       "level": "WARN",
+                       "msg": f"总错误率 {a['overall_err_rate']:.0%} 超阈值 {err_rate_high:.0%}"})
+    # 去重落盘（同 rule+target 30 分钟内已告警 → 跳过）
+    existing = read_alarms(300)
+    new = []
+    for al in alarms:
+        dup = any(e.get("rule") == al["rule"] and e.get("target") == al["target"]
+                  and now - e.get("ts", 0) < 1800 for e in existing)
+        if dup:
+            continue
+        al["ts"] = now
+        new.append(al)
+        _append_alarm(al)
+    return {"checked_at": now, "active_rules": len(alarms),
+            "new": new, "total_alarms": len(read_alarms(1000))}
+
+
 def shutdown() -> None:
     """优雅退出（drain 队列 + flush + quit）。"""
     global _proc

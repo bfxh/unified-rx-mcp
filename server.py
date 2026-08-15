@@ -2322,6 +2322,75 @@ def _tool_telemetry_status(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
 
 
+def _tool_telemetry_snapshot(args: dict) -> "list[types.TextContent]":
+    """SGG PerfMeter 式一键体检包：健康（卡死检测）+ 聚合 + 慢工具 +
+    最近错误 + 告警 + 资源——AI 读一份就知系统全貌。"""
+    try:
+        from telemetry_core import (agg, health_check, read_alarms,
+                                    recent_errors, status)
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "telemetry_core 不可用"},
+                               ensure_ascii=False))]
+    a = agg()
+    s = status()
+    if a is None or s is None:
+        return [_TC(json.dumps({"ok": False, "error":
+                                "rx-telemetry 不可用（RX_TELEMETRY=0 或 exe 缺失）"},
+                               ensure_ascii=False))]
+    health = health_check()
+    tools = sorted(a.get("tools", {}).items(),
+                   key=lambda kv: kv[1].get("max_ms", 0), reverse=True)
+    slowest = [{"tool": n, **v} for n, v in tools[:10]]
+    stale_loops = [n for n, h in health.get("loops", {}).items() if h.get("stale")]
+    out = {
+        "ok": True,
+        "ts": time.time(),
+        "state": s,
+        "summary": {k: a.get(k) for k in (
+            "total_calls", "total_err", "overall_err_rate",
+            "overall_avg_ms", "overall_p95_ms", "overall_max_ms")},
+        "health": health,
+        "verdict": ("[WARN] 检测到卡死循环: " + ", ".join(stale_loops)
+                    if stale_loops else "[OK] 全部 daemon 循环心跳正常"),
+        "slowest_tools": slowest,
+        "recent_errors": recent_errors(5),
+        "alarms": read_alarms(10),
+    }
+    return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
+
+
+def _tool_alarm_check(args: dict) -> "list[types.TextContent]":
+    """告警规则引擎一轮：工具 P95 慢/错误率超限/daemon 卡死/总错误率
+    → 新告警落盘 alarms.jsonl（30 分钟去重）——自动监控告警不靠人盯。"""
+    try:
+        from telemetry_core import check_alarms
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "telemetry_core 不可用"},
+                               ensure_ascii=False))]
+    th = args.get("thresholds")
+    out = check_alarms(th if isinstance(th, dict) else None)
+    out["ok"] = True
+    return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
+
+
+def _tool_failure_analyze(args: dict) -> "list[types.TextContent]":
+    """根因分析（RCA）：traceback/失败文本 → 根因链报告（关联遥测/
+    scan-log/git/告警，候选按证据强度排序）——定位问题不再靠猜。"""
+    try:
+        from failure_analyze import failure_analyze
+    except ImportError:
+        return [_TC(json.dumps({"ok": False,
+                                "error": "failure_analyze 不可用"},
+                               ensure_ascii=False))]
+    text = str(args.get("text", ""))
+    root = str(args.get("root", ""))
+    limit = args.get("limit", 200)
+    out = failure_analyze(text, root, limit)
+    return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
+
+
 def _tool_telemetry_query(args: dict) -> "list[types.TextContent]":
     """遥测记录查询（Rust 端流式读尾部——GB 级日志不整载内存）。"""
     try:
@@ -4463,6 +4532,16 @@ _TOOLS: dict[str, tuple] = {
     "telemetry_status": (_tool_telemetry_status, _schema({
         "since_ts": _S("number", "可选：只看该时间戳之后的调用"),
     }, []), "遥测状态快照（AI 可读：工具耗时 TOP/错误率/调用量 + daemon 心跳表——卡死/热点一眼看穿）"),
+    "telemetry_snapshot": (_tool_telemetry_snapshot, _schema({}, []),
+                           "SGG PerfMeter 式一键体检包：卡死检测 + 聚合 + 慢工具 + 最近错误 + 告警——AI 读一份知系统全貌"),
+    "alarm_check": (_tool_alarm_check, _schema({
+        "thresholds": _S("object", "可选阈值覆盖：p95_slow_ms/err_rate_high/stale_sec"),
+    }, []), "告警规则引擎（自动监控：P95 慢/错误率超限/daemon 卡死/总错误率→alarms.jsonl，30 分钟去重）"),
+    "failure_analyze": (_tool_failure_analyze, _schema({
+        "text": _S("string", "traceback/失败文本"),
+        "root": _S("string", "可选：项目路径（关联 git 提交/scan-log）"),
+        "limit": _S("integer", "可选：关联条数上限（默认 200）"),
+    }, ["text"]), "根因分析（RCA：traceback→根因链报告——关联遥测/scan-log/git/告警，候选按证据强度排序）"),
     "telemetry_query": (_tool_telemetry_query, _schema({
         "limit": _S("integer", "最近 N 条（默认 20，上限 200）"),
         "tool": _S("string", "可选：按工具名过滤"),
