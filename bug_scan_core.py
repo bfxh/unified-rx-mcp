@@ -571,7 +571,9 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
             _p = n.value
             if re.search(r"\([^)]*[+*][^)]*\)[+*]", _p) \
                     or re.search(r"\([^)]*\|[^)]*\)\*", _p) \
-                    or re.search(r"\([^)]*[+*{][^)]*\)[+*{]", _p):
+                    or re.search(r"\([^)]*[+*?{][^)]*\)[+*{]", _p) \
+                    or re.search(r"\([^)]*\|[^)]*\)\s*\{", _p) \
+                    or re.search(r"\([^)]*\|[^)]*\)[+*{]", _p):
                 _parent = lines[n.lineno - 1] if n.lineno <= len(lines) else ""
                 if "re." in _parent or "compile" in _parent or "match" in _parent \
                         or "search" in _parent or "findall" in _parent:
@@ -714,7 +716,7 @@ def load_ext_rules(force: bool = False) -> list:
                     pat = str(r["pattern"])
                     if len(pat) > 200:
                         continue
-                    if re.search(r"\([^)]*[+*][^)]*\)[+*]", pat)                             or re.search(r"\([^)]*\|[^)]*\)\*", pat)                             or re.search(r"\(\s*[^)]*[+*][^)]*\s*\)\s*\{[^}]+\}", pat)                             or re.search(r"\([^)]*\|[^)]*\)\+\$", pat)                             or re.search(r"\([^)]*[+*{][^)]*\)[+*{]", pat) or re.search(r"\([^)]*\|[^)]*\)\s*\{", pat) or re.search(r"\([^)]*\|[^)]*\)[+*{]", pat):
+                    if re.search(r"\([^)]*[+*][^)]*\)[+*]", pat)                             or re.search(r"\([^)]*\|[^)]*\)\*", pat)                             or re.search(r"\(\s*[^)]*[+*][^)]*\s*\)\s*\{[^}]+\}", pat)                             or re.search(r"\([^)]*\|[^)]*\)\+\$", pat)                             or re.search(r"\([^)]*[+*?{][^)]*\)[+*{]", pat) or re.search(r"\([^)]*\|[^)]*\)\s*\{", pat) or re.search(r"\([^)]*\|[^)]*\)[+*{]", pat):
                         continue
                     try:
                         re.compile(pat)  # 试编译——非法模式跳过（防运行时 re.error）
