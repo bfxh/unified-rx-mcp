@@ -70,6 +70,34 @@
       "language": ".go",
       "severity": "info",
       "msg": "goroutine 内索引赋值（map/slice 共享写——并发竞态，建议加锁/通道）"
+    },
+    {
+      "id": "js_dynamic_eval",
+      "pattern": "\\beval\\s*\\(\\s*(?!['\\\"`])",
+      "language": ".js",
+      "severity": "error",
+      "msg": "动态 eval 执行不可信输入——代码注入面（建议替代方案）"
+    },
+    {
+      "id": "py_pickle_untrusted",
+      "pattern": "pickle\\.loads\\s*\\(\\s*(?!b?['\\\"])",
+      "language": ".py",
+      "severity": "error",
+      "msg": "pickle.loads 反序列化不可信数据——任意代码执行（建议 json/safe 格式）"
+    },
+    {
+      "id": "go_http_var_url",
+      "pattern": "http\\.(Get|Post|Do)\\s*\\(\\s*[a-zA-Z_]",
+      "language": ".go",
+      "severity": "warning",
+      "msg": "HTTP 请求 URL 为变量——确认无用户可控注入（SSRF 面）"
+    },
+    {
+      "id": "js_innerhtml_untrusted",
+      "pattern": "\\.innerHTML\\s*=\\s*[a-zA-Z_]",
+      "language": ".js",
+      "severity": "warning",
+      "msg": "innerHTML 赋值变量——XSS 注入面（建议 textContent 或转义）"
     }
   ]
 }

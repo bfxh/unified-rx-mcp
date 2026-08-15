@@ -381,14 +381,15 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                 len(lines))
     _bug_scope_scan(tree.body, set(), str(f), lines, issues)
     _bug_resource_leak(tree, str(f), lines, issues)
-    # 挖漏洞增强（2026-08-15）：污点分析（Python 数据流——面对复杂漏洞）
-    issues.extend(py_taint_scan(src, str(f), lines))
-    # 跨函数 taint（CPG 概念：调用边传播——函数 A 污点传 B 形参→B sink）
+    # 挖漏洞增强（2026-08-15）：污点分析（Python 数据流——面对复杂漏洞；
+    # 复用主解析的 tree，不再重复 ast.parse——纯收益无行为变化）
+    issues.extend(py_taint_scan(src, str(f), lines, tree))
     try:
         from cross_taint import cross_taint_scan
         cross_taint_scan(tree, str(f), lines, issues)
     except ImportError:
         pass  # 跨函数模块缺失降级（函数内 taint 已覆盖）
+
     # 挖漏洞增强：模板规则 DSL（Nuclei 概念——外部 vuln_rules.json）
     ext_rules_scan(src, str(f), lines, issues)
     for n in ast.walk(tree):
@@ -601,18 +602,22 @@ _SOURCE_FUNCS = {
 }
 
 
-def py_taint_scan(src: str, path: str, lines: list) -> list:
+def py_taint_scan(src: str, path: str, lines: list,
+                  tree: "ast.AST | None" = None) -> list:
     """Python 函数级污点分析（面对日益复杂的漏洞——数据流而非单点规则）。
 
     函数内：外部源（args.get/input/getenv/request 参数）→ 危险 sink
     （open/eval/subprocess/反序列化/网络）——变量级跟踪 + 函数参数
     传播（跨函数 1 层）。确定性（AST 数据流——非启发）。
+
+    tree: 复用调用方已解析的 AST（2026-08-15 速度优化——消除重复 parse）。
     """
     issues = []
-    try:
-        tree = ast.parse(src, filename=str(path))
-    except SyntaxError:
-        return issues
+    if tree is None:
+        try:
+            tree = ast.parse(src, filename=str(path))
+        except SyntaxError:
+            return issues
 
     # 函数参数收集（跨函数传播：main(args) → 函数内 args.get 使用）
     fn_params: dict[str, set] = {}
@@ -734,6 +739,9 @@ def load_ext_rules(force: bool = False) -> list:
                         "language": str(r.get("language", "all")),
                         "severity": str(r.get("severity", "warning")),
                         "msg": str(r.get("msg", "外部规则命中"))[:120],
+                        # 预编译（2026-08-15 速度优化）：行级扫描不再每次
+                        # re.compile——rules 缓存按 mtime 失效，编译一次复用
+                        "compiled": re.compile(pat),
                     })
             _RULES_CACHE["mtime"] = mt
             _RULES_CACHE["rules"] = rules
@@ -752,10 +760,7 @@ def ext_rules_scan(src: str, path: str, lines: list, issues: list) -> None:
         lang = r["language"]
         if lang != "all" and ext != lang:
             continue
-        try:
-            rx = re.compile(r["pattern"])
-        except re.error:
-            continue
+        rx = r.get("compiled") or re.compile(r["pattern"])
         for i, line in enumerate(lines, 1):
             if rx.search(line):
                 issues.append(_bug_issue(

@@ -788,6 +788,24 @@ def _pool() -> "object":
     return _SHARED_POOL
 
 
+_SHARED_PROC_POOL: "object | None" = None  # 共享进程池（惰性创建）
+_PROC_POOL_LOCK = threading.Lock()
+
+
+def _proc_pool() -> "object":
+    """共享进程池（全局单例——并发 bug_scan 复用同一池，避免每次调用
+    新建 8×N 子进程的 spawn 风暴；Windows spawn 下 import server 开销大，
+    复用后首次创建只付一次成本）。"""
+    global _SHARED_PROC_POOL
+    if _SHARED_PROC_POOL is None:
+        with _PROC_POOL_LOCK:
+            if _SHARED_PROC_POOL is None:
+                from concurrent.futures import ProcessPoolExecutor
+                _SHARED_PROC_POOL = ProcessPoolExecutor(
+                    max_workers=min(8, os.cpu_count() or 2))
+    return _SHARED_PROC_POOL
+
+
 def _tool_parallel(args: dict) -> str:
     """并发组：多工具同时执行（共享池 ≤16 并发——嵌套不再新建池），全部完成后汇总。"""
     tasks = args.get("tasks") or []
@@ -1960,16 +1978,16 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
         if _sfx:
             lang_counts[_sfx] = lang_counts.get(_sfx, 0) + 1
     languages = dict(sorted(lang_counts.items(), key=lambda kv: -kv[1]))
-    # 单文件直接扫；多文件并行（≥16 文件才值得起进程池——spawn 开销 vs AST 并行收益）
-    if len(files) >= 16:
+    # 单文件直接扫；多文件并行（≥8 文件起进程池——AST 为 CPU 密集；
+    # 共享全局池：并发调用复用同一池，不再每次新建 8×N 子进程）
+    if len(files) >= 8:
         try:
-            import concurrent.futures as _cf
-            with _cf.ProcessPoolExecutor(max_workers=min(4, os.cpu_count() or 2)) as ex:
-                for fi, ln in ex.map(_scan_file_dispatch, [str(f) for f in files]):
-                    issues.extend(fi)
-                    total_lines += ln
+            ex = _proc_pool()
+            for fi, ln in ex.map(_scan_file_dispatch, [str(f) for f in files]):
+                issues.extend(fi)
+                total_lines += ln
         except Exception:
-            # 进程池不可用（受限环境）→ 串行 fallback
+            # 进程池不可用（受限环境/spawn 失败）→ 串行 fallback
             issues, total_lines = [], 0
             for f in files:
                 fi, ln = _scan_file_dispatch(str(f))
