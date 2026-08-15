@@ -16,3 +16,6 @@ server_risk.json
 *_baseline.json
 __pycache__/
 .regression-baseline.json
+
+# 调试残留（quest 测试 mkdtemp 目录）
+quest_dbg*/
