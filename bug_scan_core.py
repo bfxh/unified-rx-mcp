@@ -570,7 +570,8 @@ def _bug_scan_file(path: str) -> tuple[list, int]:
                 and len(n.value) < 200:
             _p = n.value
             if re.search(r"\([^)]*[+*][^)]*\)[+*]", _p) \
-                    or re.search(r"\([^)]*\|[^)]*\)\*", _p):
+                    or re.search(r"\([^)]*\|[^)]*\)\*", _p) \
+                    or re.search(r"\([^)]*[+*{][^)]*\)[+*{]", _p):
                 _parent = lines[n.lineno - 1] if n.lineno <= len(lines) else ""
                 if "re." in _parent or "compile" in _parent or "match" in _parent \
                         or "search" in _parent or "findall" in _parent:
