@@ -80,6 +80,10 @@ class MiniBertTokenizer:
     # ── encode ──
     def encode(self, text: str, max_len: int | None = None) -> dict[str, list[int]]:
         """text → {input_ids, attention_mask}。bge 有 max_len 截断。"""
+        # DoS 防护（security-review MEDIUM）：_wordpiece 对超长 word 逐字符
+        # 回退为 O(n²)——输入截断 4096 字符，防 MCP 超长无分隔文本卡死本地服务
+        if len(text) > 4096:
+            text = text[:4096]
         max_len = max_len or self.max_len
         ids: list[int] = [self.cls_id]
         for word in self._pretokenize(self._normalize(text)):
