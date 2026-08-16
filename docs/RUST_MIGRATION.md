@@ -14,7 +14,7 @@
 | core 文件（guard/std/locate/cb/ds/ui/scan_log/lse_client/…） | Python | ~4000 | 各工具实现 |
 | scripts/ | Python | ~1100 | 冒烟/棘轮/预检工具 |
 | lse-engine | **Rust** | 1041 | 教训引擎（已是 Rust，lib.rs 主实现） |
-| **rx-core** | **Rust** | 一期纯函数 | 已建 crate，未接线 server.py（待二期） |
+| **rx-core** | **Rust** | 一期纯函数 | **已接线**（R1 2026-08-12：25 动作白名单 + 常驻子进程 + Python 回退）；2026-08-16 补编译（.cargo/config.toml + exe 拷回），parity 2310 例 0 mismatch |
 | **rx-search** | **Rust** | 493 | 语义检索（BM25+符号加权+中文 bigram）→ `code_search` 已接线 |
 | **rx-telemetry** | **Rust** | — | 遥测流式 tail/JSONL → `telemetry_*` 已接线 |
 | **rx-net** | **Rust** | 397 | 弱网模拟混沌代理（纯 std TCP）→ `net_chaos` 已接线 |
@@ -44,10 +44,11 @@ lse-engine 已是纯 Rust 零依赖——可行性仍高，但四期协议层工
 
 ## 分期方案（每期独立 PR，保持可运行）
 
-### 一期：纯函数层（低风险，收益快）✅ crate 已建（rx-core），**待接线**
+### 一期：纯函数层（低风险，收益快）✅ **完成**（接线 + 验收）
 - 迁移：math_ops/text_ops/sort_search/stat_geo/json_email/prime_list/fib（约 300 行）
 - 交付：`rx-core` Rust crate + cargo test 等价覆盖 —— 已建
-- 验收：Python 版与 Rust 版 1000 次输出一致（对比测试）—— 待做
+- 验收：Python 版与 Rust 版 1000 次输出一致 —— **2026-08-16 实测 2310 例 0 mismatch**（test_rxcore_parity.py 固化）
+- 注意：中文路径仓库必须 .cargo/config.toml 固定 target-dir + exe 拷回仓库内 target/（server.py 探测）
 
 ### 二期：文件/路径安全层
 - 迁移：fs_*（read/write/stat/list）+ 沙盒校验（_check_path）
@@ -78,7 +79,7 @@ lse-engine 已是纯 Rust 零依赖——可行性仍高，但四期协议层工
 ## 验收标准（每期）
 
 - [x] 已落地 crate（rx-core/rx-search/rx-telemetry/rx-net/lse-engine）`cargo test` 全绿
-- [ ] rx-core 接线 server.py 纯函数（一期收尾）
+- [x] rx-core 接线 server.py 纯函数（一期完成：parity 2310 例 0 mismatch）
 - [ ] 二期 fs 层 / 三期扫描引擎（rx-scan）
 - [ ] 迁移工具输出契约与 Python 版一致（ratchet + 对比测试）
 - [ ] CONTRIBUTING 流程 ④验证 ⑤审查 ⑥漏洞扫描 全过

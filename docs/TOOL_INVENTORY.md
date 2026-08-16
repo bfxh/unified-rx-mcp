@@ -49,7 +49,7 @@
 | 语义检索（BM25+符号加权） | **rx-search**（Rust，零依赖） | 在用（code_search） |
 | 弱网模拟（混沌代理） | **rx-net**（Rust，纯 std TCP 代理） | 在用（net_chaos） |
 | 遥测（流式 tail/JSONL） | **rx-telemetry**（Rust） | 在用（telemetry_*） |
-| 纯函数 Rust 层 | rx-core（迁移一期） | 落地（未接线 server.py，见 RUST_MIGRATION） |
+| 纯函数 Rust 层 | **rx-core**（R1 已接线：25 动作白名单 + 常驻子进程 + Python 回退） | **在用**（2026-08-16 首次编译生效，parity 2310 例 0 mismatch） |
 | LSP 语义 | cae_lsp_query（pylsp/rust-analyzer/clangd） | 0 调用（能力已验证） |
 | 素数筛/排序/统计/几何 | prime_list/sort_search/stat_geo | 在用 |
 | 正则引擎 | std_core/guard_core | 在用 |
@@ -61,7 +61,7 @@
 
 实测 0 调用核心工具 18 个：`agent_orchestrate`、`agent_roles`、`bug_bisect`、`cov_scan`、`failure_analyze`、`fs_list`、`fs_stat`、`ide_references`、`ide_rename`、`lesson_extract`、`local_intel`、`net_chaos`、`quality_scan`、`replay_record`、`replay_run`、`repo_graph`、`stress_scan`、`watch_status`
 
-1. **cae_lsp_query / cae_code_context / cae_change_impact**：改代码前后语义验证——REASONIX.md 已立规则，收尾抽查执行
+1. **cae_lsp_query / cae_code_context / cae_change_impact / cae_lesson_recall**：改代码前后语义验证——**2026-08-16 已实跑补用**（rx-core 接线/探针任务中全部调用成功）
 2. **pr_oracle_map_pr / pr_oracle_map_local**：PR 合并前跑测试影响分析
 3. **tautest_run / tautest_doctor**：大改动后跑变异测试
 4. **bug_bisect / replay_* / cov_scan / stress_scan**：新族（阶段 3 测试增强）——遇到偶现 bug/回归场景时用

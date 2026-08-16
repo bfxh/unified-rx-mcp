@@ -2548,8 +2548,11 @@ def _tool_net_chaos(args: dict) -> "list[types.TextContent]":
                 reorder=float(args.get("reorder", 0) or 0),
                 bandwidth=int(args.get("bandwidth", 0) or 0),
             )
-        else:
+        elif action == "status":
             out = net_core.status()
+        else:
+            # spec/07.2：其他值 MUST 报参数非法（不得静默回退 status）
+            out = {"ok": False, "error": f"参数非法: action={action}（start/stop/status/sanity）"}
     except (TypeError, ValueError) as e:
         out = {"ok": False, "error": f"参数非法: {e}"}
     if out is None:
