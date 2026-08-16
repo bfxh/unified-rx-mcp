@@ -21,3 +21,4 @@ __pycache__/
 quest_dbg*/
 rx-telemetry/target/
 rx-search/target/
+rx-net/target/

@@ -1,0 +1,18 @@
+[package]
+name = "rx-net"
+version = "0.1.0"
+edition = "2021"
+description = "unified-rx 弱网模拟（Clumsy 式）：本地 TCP 代理注入延迟/丢包/乱序/带宽限制——纯标准库零依赖零驱动，无需管理员"
+license = "MIT"
+
+[[bin]]
+name = "rx-net"
+path = "src/main.rs"
+
+[lib]
+name = "rx_net"
+path = "src/lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true

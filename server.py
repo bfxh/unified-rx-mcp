@@ -2520,6 +2520,44 @@ def _tool_code_search(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
 
 
+def _tool_net_chaos(args: dict) -> "list[types.TextContent]":
+    """弱网模拟（rx-net Clumsy 式本地 TCP 代理）：start/stop/status/sanity——
+    延迟/丢包/乱序/限速注入——测试网络鲁棒性；subprocess 启停管理。"""
+    try:
+        import net_core
+    except ImportError:
+        return [_TC(json.dumps({"ok": False, "error": "net_core 不可用"},
+                               ensure_ascii=False))]
+    action = str(args.get("action", "status")).strip()
+    try:
+        if action == "start":
+            out = net_core.start(
+                listen=str(args.get("listen", "")).strip(),
+                target=str(args.get("target", "127.0.0.1:80")).strip(),
+                delay=float(args.get("delay", 0) or 0),
+                loss=float(args.get("loss", 0) or 0),
+                reorder=float(args.get("reorder", 0) or 0),
+                bandwidth=int(args.get("bandwidth", 0) or 0),
+            )
+        elif action == "stop":
+            out = net_core.stop(str(args.get("listen", "")).strip())
+        elif action == "sanity":
+            out = net_core.sanity(
+                delay=float(args.get("delay", 0) or 0),
+                loss=float(args.get("loss", 0) or 0),
+                reorder=float(args.get("reorder", 0) or 0),
+                bandwidth=int(args.get("bandwidth", 0) or 0),
+            )
+        else:
+            out = net_core.status()
+    except (TypeError, ValueError) as e:
+        out = {"ok": False, "error": f"参数非法: {e}"}
+    if out is None:
+        out = {"ok": False,
+               "error": "rx-net 不可用（未编译或 RX_NET=0）"}
+    return [_TC(json.dumps(out, ensure_ascii=False, indent=1))]
+
+
 def _tool_telemetry_query(args: dict) -> "list[types.TextContent]":
     """遥测记录查询（Rust 端流式读尾部——GB 级日志不整载内存）。"""
     try:
@@ -4899,8 +4937,16 @@ _TOOLS: dict[str, tuple] = {
         "node": _S("string", "候选节点 ID（bug_locate 返回的 file:line）"),
         "hit": _S("boolean", "命中=true 奖励 / 未命中=false 惩罚"),
     }, ["node", "hit"]), "P2 UCB 反馈：bug 定位候选命中/未命中 → 树奖励回流"),
+    "net_chaos": (_tool_net_chaos, _schema({
+        "action": _S("string", "start（默认自动分配端口）/stop/status（默认）/sanity"),
+        "listen": _S("string", "start/stop 时：代理监听地址（start 留空=自动分配空闲端口）"),
+        "target": _S("string", "start 时：目标地址 host:port（默认 127.0.0.1:80）"),
+        "delay": _S("number", "start/sanity 时：每块延迟毫秒（默认 0）"),
+        "loss": _S("number", "丢包概率 0-100（默认 0）"),
+        "reorder": _S("number", "乱序概率 0-100（默认 0）"),
+        "bandwidth": _S("integer", "带宽上限 KB/s（默认 0=不限）"),
+    }, []), "弱网模拟（rx-net Clumsy 式本地 TCP 代理：延迟/丢包/乱序/限速注入——测网络鲁棒性；进程启停管理）"),
 }
-
 
 _DEFS_CACHE: list | None = None
 
