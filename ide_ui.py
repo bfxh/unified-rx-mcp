@@ -250,7 +250,7 @@ class FileTree(tk.Frame):
         if not parts:
             return None
         parts.reverse()
-        head = parts[0] if parts else ""
+        head = next(iter(parts), "")
         if self.root_path and os.path.basename(self.root_path) == head:
             return os.path.join(self.root_path, *parts[1:])
         return os.path.join(*parts) if len(parts) > 1 else head
