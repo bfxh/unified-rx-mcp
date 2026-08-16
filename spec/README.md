@@ -16,6 +16,7 @@
 | [04_locate_edit](04_locate_edit.md) | `locate_edit` / `code_complete` | 定位与补全契约 |
 | [05_guard](05_guard.md) | `hallucination_guard` / `capability_manifest` | 防幻觉契约 |
 | [06_pure](06_pure.md) | `math_ops` / `text_ops` / 纯函数族 | 纯函数一致性契约（Python/Rust 双实现 parity） |
+| [07_net_chaos](07_net_chaos.md) | `net_chaos`（rx-net 混沌代理） | 弱网模拟契约（参数边界/生命周期/数据一致性） |
 
 ## 规范性词（RFC 2119）
 

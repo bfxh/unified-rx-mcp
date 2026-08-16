@@ -2,18 +2,23 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Python → Rust 迁移方案（unified-rx-mcp）
 
-> 状态：规划中（按 CONTRIBUTING 迁移专项流程：先方案 → 评审 → 分期实施）
+> 状态：**实施中**（2026-08-16 更新）——按需 Rust crate 已落地 4 个并接线，
+> 纯函数层 rx-core 已建未接线；剩余期次见下方勾选清单。
 > 用户问题："怎么大部分都是 PY，你看看怎么改成 RUST"
 
-## 现状（实测）
+## 现状（实测，2026-08-16）
 
 | 部分 | 语言 | 行数 | 说明 |
 |---|---|---|---|
-| server.py | Python | 2594 | MCP 主服务：35 核心工具 + 扩展分发 |
-| core 文件（guard/std/locate/cb/ds/ui/scan_log/lse_client） | Python | 1697 | 各工具实现 |
+| server.py | Python | ~8000 | MCP 主服务：97 核心工具 + 扩展分发 |
+| core 文件（guard/std/locate/cb/ds/ui/scan_log/lse_client/…） | Python | ~4000 | 各工具实现 |
 | scripts/ | Python | ~1100 | 冒烟/棘轮/预检工具 |
 | lse-engine | **Rust** | 1041 | 教训引擎（已是 Rust，lib.rs 主实现） |
-| test_unified_rx.py | Python | ~2000 | 108 个 pytest |
+| **rx-core** | **Rust** | 一期纯函数 | 已建 crate，未接线 server.py（待二期） |
+| **rx-search** | **Rust** | 493 | 语义检索（BM25+符号加权+中文 bigram）→ `code_search` 已接线 |
+| **rx-telemetry** | **Rust** | — | 遥测流式 tail/JSONL → `telemetry_*` 已接线 |
+| **rx-net** | **Rust** | 397 | 弱网模拟混沌代理（纯 std TCP）→ `net_chaos` 已接线 |
+| test_unified_rx.py 等 | Python | ~6000 | 456 个 pytest（+ 4 skipped） |
 
 **依赖**：server.py 运行时依赖仅 `mcp` SDK（PyPI，`server.py:2357` 协议层 import）+ 标准库；
 core 文件（guard/std/locate/cb/ds/ui/scan_log）零第三方依赖。Rust 迁移需：
@@ -39,10 +44,10 @@ lse-engine 已是纯 Rust 零依赖——可行性仍高，但四期协议层工
 
 ## 分期方案（每期独立 PR，保持可运行）
 
-### 一期：纯函数层（低风险，收益快）
+### 一期：纯函数层（低风险，收益快）✅ crate 已建（rx-core），**待接线**
 - 迁移：math_ops/text_ops/sort_search/stat_geo/json_email/prime_list/fib（约 300 行）
-- 交付：`rx-core` Rust crate + cargo test 等价覆盖
-- 验收：Python 版与 Rust 版 1000 次输出一致（对比测试）
+- 交付：`rx-core` Rust crate + cargo test 等价覆盖 —— 已建
+- 验收：Python 版与 Rust 版 1000 次输出一致（对比测试）—— 待做
 
 ### 二期：文件/路径安全层
 - 迁移：fs_*（read/write/stat/list）+ 沙盒校验（_check_path）
@@ -54,10 +59,10 @@ lse-engine 已是纯 Rust 零依赖——可行性仍高，但四期协议层工
 - 交付：`rx-scan` crate（tree-sitter-python 或自研子集解析器）
 - 验收：对真实项目（VoxelForge-Nexus）扫描结果与 Python 版 diff 为零
 
-### 四期：MCP 协议层 + 守护
-- 迁移：server.py 主循环（stdio JSON-RPC）+ daemon.py（常驻守护）
-- 交付：`unified-rx` 单二进制（`unified-rx serve` / `unified-rx daemon`）
-- 验收：mcp_smoke 协议测试 + 守护常驻测试
+### 四期：MCP 协议层 + 守护（**模式已验证**：按需 Rust 子进程桥）
+- 已落地子模式：rx-search/rx-telemetry/rx-net 走 **Popen 常驻行协议 / subprocess 启停**
+  + Python 桥接（search_core.py / telemetry_core.py / net_core.py）——server.py 零改动接入
+- 未做：server.py 主循环全量 Rust（stdio JSON-RPC）+ `unified-rx` 单二进制
 
 ### 五期：扩展与收尾
 - cae/pr-oracle/tautest 扩展适配（dlopen 或保留 Python 子进程桥）
@@ -72,7 +77,9 @@ lse-engine 已是纯 Rust 零依赖——可行性仍高，但四期协议层工
 
 ## 验收标准（每期）
 
-- [ ] `cargo test` 全绿（新 Rust 测试等价覆盖旧 pytest 场景）
+- [x] 已落地 crate（rx-core/rx-search/rx-telemetry/rx-net/lse-engine）`cargo test` 全绿
+- [ ] rx-core 接线 server.py 纯函数（一期收尾）
+- [ ] 二期 fs 层 / 三期扫描引擎（rx-scan）
 - [ ] 迁移工具输出契约与 Python 版一致（ratchet + 对比测试）
 - [ ] CONTRIBUTING 流程 ④验证 ⑤审查 ⑥漏洞扫描 全过
 - [ ] 独立 PR，review 无 blocking

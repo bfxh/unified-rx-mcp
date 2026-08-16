@@ -1,6 +1,7 @@
 # unified-rx 架构分析报告 + 重构方案
 
 > 2026-08-12 · 基于 Archscribe 生成的当前架构图（docs/diagrams/current-arch.png）
+> **历史快照**：当时 35 工具/2680 行；2026-08-16 已演进至 97 核心工具/~8000 行，工具面见 TOOL_INVENTORY.md
 > **R1 已于 2026-08-12 完成**（rx-core 接线：server.py 纯函数走 Rust 常驻子进程，pytest 113 全过）
 
 ---

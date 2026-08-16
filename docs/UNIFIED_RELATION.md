@@ -1,7 +1,7 @@
 # unified-rx 与 unified（72 工具网关）的关系
 
 > 2026-08-13 · 对齐核查结论：**两个入口并存、分工明确，不合并**。
-> unified-rx 保持主入口（57 核心 + 懒加载扩展）；unified 网关保留给"全量聚合"场景。
+> unified-rx 保持主入口（97 核心 + 懒加载扩展）；unified 网关保留给"全量聚合"场景。
 
 ---
 
@@ -10,7 +10,7 @@
 | | **unified-rx**（本仓库，主入口） | **unified**（聚合网关） |
 |---|---|---|
 | 位置 | `mcp-servers/unified-rx/` | `mcp-servers/unified/` |
-| 工具面 | **57 核心** + 懒加载扩展（code-analysis-enhance 13 / pr-oracle 3 / stats / tautest 4） | **72 全量** = code-analysis-enhance 13 + pr-oracle 3 + ci-optimization 52 + tautest 4 |
+| 工具面 | **97 核心** + 懒加载扩展（code-analysis-enhance 13 / pr-oracle 3 / stats / tautest 4） | **72 全量** = code-analysis-enhance 13 + pr-oracle 3 + ci-optimization 52 + tautest 4 |
 | 特性 | 防幻觉闭环 / LSE 教训引擎 / 扫描日志 / 多智能体兼容 / IDE 全家桶 / 权限 L1-L4 | 纯聚合网关：4 子模块 importlib 加载，fail-fast 防工具名冲突 |
 | 启动 | `auto_start: true`（打开 RX 即启动） | 按需手动接入 |
 | 优先适配 | **RX（第一优先）** | AetherStudio 等全量场景 |

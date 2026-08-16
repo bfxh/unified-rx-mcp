@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**81 工具的统一 MCP（57 核心 + 24 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**121 工具的统一 MCP（97 核心 + 24 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
 > **定位：工具集，不是智能体** —— 本 MCP 产出证据与事实，不替代 LLM 推理。
 > 工具行为契约见 [`spec/`](spec/README.md)，契约验证探针见 [`probes/`](probes/run_all.py)，
@@ -25,6 +25,9 @@
 | 📏 **工程标准**（std_check） | `std_check` | 占位文字/命名冲突/UI硬编码/魔法数字——本地直接扫，兼容游戏/UI/前端/软件 |
 | 🃏 **Tool 角色回喂** | `tool_card` | 调用任意工具 → 结构化卡片 `{role,ok,summary,detail}`（Aether AiRole::Tool 启发） |
 | ⚙️ **纯函数**（math/str/json/sort/prime/stat/geo/conv/valid/list/fib） | 33 个 | 零依赖高性能计算 |
+| 🦀 **Rust 加速族** | `code_search` / `net_chaos` / `telemetry_query` / `telemetry_snapshot` / `telemetry_status` | 语义检索（BM25）/ 弱网模拟混沌代理 / 遥测（rx-search / rx-net / rx-telemetry Rust crate） |
+| 🧪 **测试增强** | `cov_scan` / `stress_scan` / `replay_record` / `replay_run` / `sage_scan` / `failure_analyze` / `alarm_check` | 覆盖率/压力/崩溃复现/语义回归/根因分析 |
+| 📐 **几何引擎** | `mesh_*` / `voxelize` / `voxel_surface` / `geometry_exchange` / `half_edge*` / `geom_*` / `mesh_boolean` | 网格拓扑/体素化/CSB 布尔/节点图（游戏引擎方向） |
 | 🔌 **扩展**（lazy-loaded） | `pr_oracle_*` (3) / `tautest_*` (4) / `cae_*` (13) | PR→测试影响 / 变异测试 / 代码分析增强 |
 
 ## 防幻觉机制（AI 事实核查，必须使用）
@@ -182,15 +185,15 @@ UI 渲染为**简洁工具卡片**（无角色标签）。unified-rx 在 MCP 侧
 
 | 指标 | 值 |
 |---|---|
-| import 耗时 | **222ms**（懒加载 mcp 库后；重构前 2529ms，**11.4×**） |
-| import 内存 | **7MB**（重构前 33MB，**4.7× 更小**） |
-| 工具调用 | **3.5µs/次**（1000 次 3.5ms） |
+| import 耗时 | **72ms**（2026-08-16 实测 97 工具；08-10 重构前 2529ms，**35×**） |
+| import 内存 | **7MB**（08-10 重构时实测；重构前 33MB，**4.7× 更小**） |
+| 工具调用 | **11.8µs/次**（2026-08-16 实测，含 _call 分发 + 日志打点） |
 | 工具定义 | 缓存命中 **0ms**（重构前 75ms/次） |
 | 扩展加载 | 按需（调用扩展工具时才加载，保持基线最小） |
 
 ## 架构（极简）
 
-- **单文件** `server.py`（54KB）：静态注册表 O(1) 分发，零反射
+- **单文件** `server.py`（295KB）：静态注册表 O(1) 分发，零反射
 - **懒加载**：`mcp` 库只在 `run()` 协议层 import（纯工具/自检路径零依赖）
 - **轻量类** `_TC` / `_ToolDef`：协议层解耦，运行时不依赖 mcp 类型
 - **常驻**：`auto_start=true` —— RX 一打开自动启动，进程常驻面对大型仓库，工具调用后不消失
@@ -236,8 +239,8 @@ python scripts/install_agents.py --list           # 支持的智能体与配置�
 ## 验证
 
 ```bash
-python server.py --selftest    # 81 工具自检（含防幻觉守卫抽样）
-python -m pytest test_unified_rx.py -q   # 116 tests（全量 242）
+python server.py --selftest    # 97 工具自检（含防幻觉守卫抽样）
+python -m pytest -q            # 全量 456 tests + 4 skipped（含 net_chaos 实机代理往返）
 ```
 
 ## 安全（已审查）
@@ -249,6 +252,11 @@ python -m pytest test_unified_rx.py -q   # 116 tests（全量 242）
 
 ## 更新日志
 
+- **2026-08-16（阶段 5：弱网模拟）** Rust rx-net 混沌代理（Clumsy 式本地 TCP：延迟/丢包/乱序/带宽限速，纯 std 零依赖零驱动）→ `net_chaos` 工具（start/stop/status/sanity 四动作，subprocess 启停）；修 3 个真 bug（sanity_check 端口未释放→AddrInUse 挂起、stop 语义 exit(0)、带宽断言按比特）；工具 96→97；5 Rust 单测 + 9 pytest（实机 402ms 延迟注入验证）
+- **2026-08-16（阶段 4：本地语义检索）** Rust rx-search crate（零依赖 BM25 + 符号加权 + 中文 bigram + 标识符拆词）→ `code_search` 工具（常驻子进程行协议 + 索引缓存）；explore_code 未命中自动 semantic_fallback；VoxelForge 真实语料 6/6 top3 命中固化为 pytest；工具 95→96
+- **2026-08-16（阶段 3：测试增强）** `cov_scan`（覆盖率/死代码）/ `stress_scan`（压力）/ `replay_record`/`replay_run`（崩溃复现）/ `sage_scan`（语义回归优先级）；工具 90→95
+- **2026-08-16（阶段 2：AI 可读遥测）** `telemetry_snapshot`/`alarm_check`/`failure_analyze`（告警 + 根因分析）；`daemon.py` 心跳/资源监控；工具 87→90
+- **2026-08-16（阶段 1：遥测核心）** `telemetry_status`/`telemetry_query`（工具耗时/daemon 心跳/资源监控，GB 级日志流式读尾）；工具 84→87；rx-telemetry Rust crate（流式 tail + JSONL 写入）
 - **2026-08-14（编程语言收官）** 三大编程语言任务全闭环：std_check 各规则对齐 25 语言（name_conflict 补 php/sh/bash 重复声明、dead_code 补 cs/dart/php 未使用 import、占位词注释前缀全语言映射）；契约探针 36 个（p35 抓出 bug_scan 别名缺口 `.cc/.cxx/.hh/.hxx/.zsh`——分发归一修复）；LSP 扩展 Go（gopls v0.23.0，PATH 根因修复 no views + 最小 capabilities + 重试）、json/css/html（vscode-langservers）、typescript 回退 5.9.2；五轮 security-review 闭环（cs/dart 前缀误报→阈值==0+行后搜索、php 方法重名→裸 function、别名归一 file 污染→_branch、php use 回归/边界、m.group(2) 越界）；全量 283 测试 + 探针 36/36 + cae 55（gopls 实机）
 - **2026-08-14** IDE 增强 ×87 + 修复（全工具面验证完毕）：quest 状态机完整闭环（auto 六步链 diagnose→locate→impact→fix→verify→lesson，std_check 联动、verify_fix 双引擎基线、force/quick/abort 语义、result 全量步摘要、step 名校验）；IDE 工具族（complete 键名兼容+热度、references 定义区分、rename 代码面、actions 合并+截断标志、fusion 聚合+键格式、cache 温层 SQLite 恢复）；扫描族修复（dead_code 补实现+__all__ 再导出+severity 大小写、ui_hardcode Val::Px/多语言、focus_pass 等号+节点内检查、占位词表补齐、magic_number 双报去重、cb_index 截断 removed 防误报+符号去重、kb_query 懒建索引、scan_trend ts 兼容+未定义变量、ui_check TextBundle 识别）；安全族（L1-L4 权限矩阵、fs_write/fs_stat 沙盒、local_run 白名单、tool_card 递归拒绝、guard 保守三分级）；修复（skill_fetch 子词匹配、abort 语义、quest_id 自动生成、_t 遮蔽回归）；全量 280 测试
 - **2026-08-13** 扫描质量修复 + IDE 增强 + 多智能体：`as` 规则三级分类（窄化 warn/精度损失 info/常规跳过——VoxelForge 实测 as warn 232→6）；bug_scan 结果加 severity_counts/noise_ratio + scan-log 回读 TTL 缓存；ide_complete 注释过滤+声明优先 / ide_rename 代码面引用 / ide_actions TODO+吞错 / PieceTable undo-redo；scripts/install_agents.py 一键接入 7 智能体 + docs/AGENT_COMPAT.md（优先适配 RX）
