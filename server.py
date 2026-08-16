@@ -5070,6 +5070,14 @@ async def _build_ext_defs() -> None:
     except Exception as exc:
         print(f"[unified-rx] WARNING: tautest 扩展定义构建失败: {exc}", file=sys.stderr)
     try:
+        cio = _load_ext("ci-optimization")
+        if cio is not None and hasattr(cio, "_tool_definitions"):
+            for t in cio._tool_definitions():
+                # ciopt_ 前缀（合并 2026-08-16：vendored 独立化，跨机可移植）
+                _EXT_DEFS[t.name] = ("ci-optimization", "pure", t)
+    except Exception as exc:
+        print(f"[unified-rx] WARNING: ci-optimization 扩展定义构建失败: {exc}", file=sys.stderr)
+    try:
         stats = _load_ext("stats")
         if stats is not None and hasattr(stats, "_TOOLS"):
             for tname, (_, sc, desc) in stats._TOOLS.items():

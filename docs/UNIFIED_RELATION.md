@@ -17,9 +17,10 @@
 
 ## 二、差异与决策（2026-08-13 核查）
 
-### 1. `ciopt_*`（52 个）未并入 unified-rx——**标注不并入**
-- **环境耦合**：ci-optimization 动态发现 `E:\共享\51\10\CI-Optimization\src/*.py`
-  的全部顶层函数（实测 52）——依赖外部目录，跨机/跨智能体不可移植
+### 1. `ciopt_*`（52 个）——**2026-08-16 已并入**（决策反转，见下）
+- **环境耦合已消除**：`vendor/extensions/ci-optimization/` 独立化（src 拷入仓库内，
+  `SRC_DIR` 探测：仓库内 src → `CIOPT_SRC` 环境变量 → 原 `E:\共享)` 路径）——
+  跨机可移植；config.toml 不再独立注册，52 工具由 unified-rx 进程内懒加载
 - **功能重叠**：与 unified-rx 内建纯函数高度重叠——`math_ops`/`fib_fibonacci`/
   `prime_list`/`sort_search`/`stat_geo`/`json_email` 6 个组合工具覆盖了数学/斐波那契/
   素数/排序/搜索/统计/几何/JSON 域（ciopt 的 30 个模块大半同域）
@@ -44,7 +45,7 @@
 
 ## 四、维护约定
 
-- **不把 ciopt 并入 unified-rx 核心/扩展**（环境耦合 + 重叠，见第二节决策）
+- **2026-08-16 决策反转：ciopt 已并入 unified-rx 扩展**（环境耦合消除 + vendor 独立化；功能重叠面维持现状——unified-rx 内建组合工具与 ciopt 单函数并存，工具名前缀不同不冲突）
 - 子模块（code-analysis-enhance/pr-oracle/tautest）改动需**双入口回归**：
   unified 网关（`unified/` 目录测试）与 unified-rx 扩展（`vendor/extensions/`）都要跑绿
 - 新工具命名：核心走 unified-rx 前缀体系；纯函数建议组合式（6 个组合已覆盖常用域），

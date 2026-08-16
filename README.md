@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**121 工具的统一 MCP（97 核心 + 24 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**173 工具的统一 MCP（97 核心 + 76 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
 > **定位：工具集，不是智能体** —— 本 MCP 产出证据与事实，不替代 LLM 推理。
 > 工具行为契约见 [`spec/`](spec/README.md)，契约验证探针见 [`probes/`](probes/run_all.py)，
@@ -28,7 +28,7 @@
 | 🦀 **Rust 加速族** | `code_search` / `net_chaos` / `telemetry_query` / `telemetry_snapshot` / `telemetry_status` | 语义检索（BM25）/ 弱网模拟混沌代理 / 遥测（rx-search / rx-net / rx-telemetry Rust crate） |
 | 🧪 **测试增强** | `cov_scan` / `stress_scan` / `replay_record` / `replay_run` / `sage_scan` / `failure_analyze` / `alarm_check` | 覆盖率/压力/崩溃复现/语义回归/根因分析 |
 | 📐 **几何引擎** | `mesh_*` / `voxelize` / `voxel_surface` / `geometry_exchange` / `half_edge*` / `geom_*` / `mesh_boolean` | 网格拓扑/体素化/CSB 布尔/节点图（游戏引擎方向） |
-| 🔌 **扩展**（lazy-loaded） | `pr_oracle_*` (3) / `tautest_*` (4) / `cae_*` (13) | PR→测试影响 / 变异测试 / 代码分析增强 |
+| 🔌 **扩展**（lazy-loaded，已合并） | `cae_*` (13) / `pr_oracle_*` (3) / `tautest_*` (4) / `stats_*` (4) / `ciopt_*` (52) | 代码分析增强 / PR→测试影响 / 变异测试 / 统计 / 纯函数库——2026-08-16 起全部 vendor 合并，不再独立注册 |
 
 ## 防幻觉机制（AI 事实核查，必须使用）
 
@@ -252,6 +252,10 @@ python -m pytest -q            # 全量 456 tests + 4 skipped（含 net_chaos �
 
 ## 更新日志
 
+- **2026-08-16（扩展合并）** cae/pr-oracle/tautest/stats/ci-optimization 5 个独立 MCP 全部
+  vendored 合并进 unified-rx（vendor/extensions/，ci-optimization src 独立化 + SRC_DIR 三级探测）；
+  扩展 24→76（+52 ciopt_*），总工具 121→173；config.toml 插件 11→6（进程去重）；
+  scripts/sync_deploy.py 部署同步（含 4 个 Rust exe）
 - **2026-08-16（阶段 5：弱网模拟）** Rust rx-net 混沌代理（Clumsy 式本地 TCP：延迟/丢包/乱序/带宽限速，纯 std 零依赖零驱动）→ `net_chaos` 工具（start/stop/status/sanity 四动作，subprocess 启停）；修 3 个真 bug（sanity_check 端口未释放→AddrInUse 挂起、stop 语义 exit(0)、带宽断言按比特）；工具 96→97；5 Rust 单测 + 9 pytest（实机 402ms 延迟注入验证）
 - **2026-08-16（阶段 4：本地语义检索）** Rust rx-search crate（零依赖 BM25 + 符号加权 + 中文 bigram + 标识符拆词）→ `code_search` 工具（常驻子进程行协议 + 索引缓存）；explore_code 未命中自动 semantic_fallback；VoxelForge 真实语料 6/6 top3 命中固化为 pytest；工具 95→96
 - **2026-08-16（阶段 3：测试增强）** `cov_scan`（覆盖率/死代码）/ `stress_scan`（压力）/ `replay_record`/`replay_run`（崩溃复现）/ `sage_scan`（语义回归优先级）；工具 90→95
