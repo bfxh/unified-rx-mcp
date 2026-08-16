@@ -2169,7 +2169,8 @@ def _tool_game_rules(args: dict) -> "list[types.TextContent]":
     """项目级游戏规则读写（通用默认 + 项目覆盖——在游戏文件里再搞一个）。"""
     from game_check import load_game_rules, save_game_rules
     p = _check_path(str(args.get("path", "")))
-    action = str(args.get("action", "load"))
+    # 核心合并：组合工具剥离外层 action 后，子动作经 sub_action 透传
+    action = args.get("action") or args.get("sub_action", "load")
     if action == "save":
         rules = args.get("rules")
         if not isinstance(rules, dict):
@@ -3482,7 +3483,8 @@ def _tool_lesson_learn(args: dict) -> "list[types.TextContent]":
       state      — LSE 引擎状态
     """
     import lse_client as _lse
-    action = args.get("action", "state")
+    # 核心合并：组合工具剥离外层 action 后，内层子动作经 sub_action 透传
+    action = args.get("action") or args.get("sub_action", "state")
     try:
         if action == "store":
             r = _lse.lesson_store_tiered(
@@ -4291,7 +4293,24 @@ def _tool_locate_edit(args: dict) -> "list[types.TextContent]":
 
 
 def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
-    """报错文本 → file:line 精准定位（含上下文片段，走沙盒校验）。"""
+    """报错文本 → file:line 精准定位（含上下文片段，走沙盒校验）。
+
+    核心合并（2026-08-16）：action=bisect 时走 git bisect 式二分定位
+    （原独立工具 bug_bisect 并入——只读计划，execute=true 需 L4 授权）。
+    """
+    action = str(args.get("action", "locate")).strip()
+    if action == "bisect":
+        from causal_debug import bug_bisect
+        root = _check_path(str(args.get("root", "")))
+        good = str(args.get("good_commit", ""))
+        bad = str(args.get("bad_commit", "")) or "HEAD"
+        cmd = str(args.get("test_cmd", "cargo test"))
+        execute = bool(args.get("execute", False))
+        return [_TC(json.dumps(bug_bisect(str(root), good, bad, cmd,
+                                  execute=execute),
+                               ensure_ascii=False, indent=2))]
+    if action != "locate":
+        raise ValueError("未知 action: %s（可选 locate/bisect）" % action)
     text = str(args["error_text"])
     _t0 = time.perf_counter()
     # IDE 增强 160：上下文行数可调（默认 3——大报错上下文按需放宽）
@@ -4951,6 +4970,76 @@ _TOOLS: dict[str, tuple] = {
     }, []), "弱网模拟（rx-net Clumsy 式本地 TCP 代理：延迟/丢包/乱序/限速注入——测网络鲁棒性；进程启停管理）"),
 }
 
+# ─────────────────────────────────────────────────────────────
+# 核心合并（2026-08-16，用户要求"把核心合并，unified-rx 一堆杂物"）：
+# 保守方案——13 组同域族 → 组合工具（97→73，能力零丢失，action 分发）。
+# 旧工具函数保留为内部实现（_tool_* 未改名），仅注册表层合并；
+# 旧工具名不再暴露（先例：2026-08-11 去重 29 单工具 → 6 组合）。
+# 注册表文本中的旧条目（mesh_check 等）在 _MERGED 循环中被 del，不参与定义。
+# ─────────────────────────────────────────────────────────────
+
+def _combo_tool(action_map: dict):
+    """组合工具工厂：action 分发 → 旧函数（参数透传，action 字段剥离）。"""
+    def _dispatch(args: dict):
+        action = str(args.get("action", "")).strip()
+        fn = action_map.get(action)
+        if fn is None:
+            raise ValueError("未知 action: %s（可选 %s）" % (action, sorted(action_map)))
+        sub = dict(args)
+        sub.pop("action", None)
+        return fn(sub)
+    _dispatch.__name__ = "combo"
+    return _dispatch
+
+
+_MERGED = {
+    "mesh": {"boolean": _tool_mesh_boolean, "check": _tool_mesh_check,
+             "clip": _tool_mesh_clip, "optimize": _tool_mesh_optimize,
+             "splat": _tool_mesh_splat, "union": _tool_mesh_union},
+    "telemetry": {"query": _tool_telemetry_query, "snapshot": _tool_telemetry_snapshot,
+                  "status": _tool_telemetry_status},
+    "replay": {"record": _tool_replay_record, "run": _tool_replay_run},
+    "causal": {"link": _tool_causal_link, "trace": _tool_causal_trace},
+    "half_edge": {"analyze": _tool_half_edge, "adjacency": _tool_half_edge_adjacency},
+    "repo": {"graph": _tool_repo_graph, "wiki": _tool_repo_wiki},
+    "agent": {"orchestrate": _tool_agent_orchestrate, "roles": _tool_agent_roles},
+    "geom": {"example": _tool_geom_example, "graph": _tool_geom_graph},
+    "voxel": {"surface": _tool_voxel_surface, "voxelize": _tool_voxelize},
+    "scan": {"log": _tool_scan_log, "trend": _tool_scan_trend},
+    "game": {"api": _tool_game_api, "check": _tool_game_check, "feel": _tool_game_feel,
+             "rules": _tool_game_rules, "verify": _tool_game_verify},
+    "lesson": {"extract": _tool_lesson_extract, "feedback": _tool_lesson_feedback,
+               "learn": _tool_lesson_learn, "recall": _tool_lesson_recall_lse,
+               "rule_feedback": _tool_rule_feedback},
+}
+
+# 新工具 schema/描述（action 枚举 + 透传参数提示）
+_MERGED_SCHEMAS = {
+    "mesh": ({"action": _S("string", "boolean/check/clip/optimize/splat/union"), "path": _S("string", "网格文件"), "paths": _S("array", "boolean/union：网格文件列表"), "plane": _S("array", "clip：裁剪平面 [a,b,c,d]"), "keep": _S("string", "clip：保留侧"), "resolution": _S("integer", "可选 4..128"), "target_ratio": _S("number", "optimize：目标精简率")}, ["action"]),
+    "telemetry": ({"action": _S("string", "query/snapshot/status"), "limit": _S("integer", "query：条数"), "tool": _S("string", "query：按工具过滤"), "status": _S("string", "query：ok/error 过滤")}, ["action"]),
+    "replay": ({"action": _S("string", "record/run"), "name": _S("string", "录制名"), "step": _S("object", "record：步骤"), "stop_on_fail": _S("boolean", "run：失败即停")}, ["action", "name"]),
+    "causal": ({"action": _S("string", "link/trace"), "path": _S("string", "项目路径"), "error_text": _S("string", "trace：报错文本")}, ["action"]),
+    "half_edge": ({"action": _S("string", "analyze/adjacency"), "path": _S("string", "网格文件"), "vertex": _S("integer", "adjacency：顶点索引")}, ["action", "path"]),
+    "repo": ({"action": _S("string", "graph/wiki"), "root": _S("string", "仓库路径"), "depth": _S("integer", "graph：深度")}, ["action", "root"]),
+    "agent": ({"action": _S("string", "orchestrate/roles"), "task": _S("string", "orchestrate：任务"), "repo": _S("string", "orchestrate：仓库")}, ["action"]),
+    "geom": ({"action": _S("string", "example/graph"), "kind": _S("string", "example：union/clip/graph"), "nodes": _S("array", "graph：节点图"), "outputs": _S("array", "graph：输出节点")}, ["action"]),
+    "voxel": ({"action": _S("string", "surface/voxelize"), "path": _S("string", "网格文件"), "resolution": _S("integer", "可选 4..128")}, ["action", "path"]),
+    "scan": ({"action": _S("string", "log/trend"), "root": _S("string", "log：按项目过滤"), "limit": _S("integer", "log：条数"), "window_days": _S("integer", "trend：窗口天数")}, ["action"]),
+    "game": ({"action": _S("string", "api/check/feel/rules/verify"), "path": _S("string", "游戏文件/目录")}, ["action"]),
+    "lesson": ({"action": _S("string", "recall/feedback/learn/extract/rule_feedback"), "task_description": _S("string", "recall：任务描述"), "lesson_id": _S("string", "feedback：教训 ID"), "delta": _S("number", "feedback：效用增量"), "text": _S("string", "extract：源文本"), "tier": _S("string", "extract：core/work/archive"), "rule": _S("string", "rule_feedback：规则名"), "adopted": _S("boolean", "rule_feedback：采纳")}, ["action"]),
+}
+
+for _name, _actions in _MERGED.items():
+    _sc, _desc = _MERGED_SCHEMAS[_name]
+    _TOOLS[_name] = (_combo_tool(_actions), _schema(_sc, _sc.get("required", [])), _desc)
+    for _old_fn in _actions.values():
+        for _k in [k for k, v in _TOOLS.items() if v[0] is _old_fn]:
+            del _TOOLS[_k]
+# bug_bisect 并入 bug_locate（action=bisect）
+for _k in [k for k, v in _TOOLS.items() if v[0] is _tool_bug_bisect]:
+    del _TOOLS[_k]
+
+
 _DEFS_CACHE: list | None = None
 
 
@@ -5190,7 +5279,7 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
         if not name.startswith("stats_"):
             _stats_tick(name, (time.perf_counter() - t0) * 1000)
         # 遥测（阶段1）：工具调用耗时/状态/错误 → rx-telemetry（telemetry_* 自身除外防递归）
-        if not name.startswith(("stats_", "telemetry_")):
+        if not name.startswith(("stats_", "telemetry_", "telemetry")):
             try:
                 from telemetry_core import tick_tool
                 tick_tool(name, arguments, (time.perf_counter() - t0) * 1000,

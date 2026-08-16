@@ -48,7 +48,7 @@ def test_repo_wiki_via_tool():
     d = _tmp("wiki2")
     with open(os.path.join(d, "a.py"), "w", encoding="utf-8") as fh:
         fh.write("def f1():\n    return 1\n")
-    r = server._call("repo_wiki", {"root": d})
+    r = server._call("repo", {"action": "wiki", "root": d})
     parsed = json.loads(r[0].text)
     assert parsed["ok"] is True
     assert os.path.exists(parsed["wiki"])
@@ -124,5 +124,5 @@ def test_codeql_angr_detection():
 # ── 新工具注册 ────────────────────────────────────────────
 def test_new_tools_registered_v2():
     import server
-    for t in ("repo_wiki", "agent_orchestrate", "agent_roles"):
+    for t in ("repo", "agent", "geom", "replay"):
         assert t in server._TOOLS, f"{t} 未注册"

@@ -26,7 +26,7 @@ def _seed(monkeypatch, tmp_path):
 def test_telemetry_status_snapshot(monkeypatch, tmp_path):
     """快照：聚合 + 慢工具 TOP + 心跳表，且自身不产生遥测（防递归）。"""
     _seed(monkeypatch, tmp_path)
-    r = server._call("telemetry_status", {})
+    r = server._call("telemetry", {"action": "status", })
     d = json.loads(r[0].text)
     assert d["ok"] is True
     assert d["summary"]["total_calls"] == 2
@@ -35,7 +35,7 @@ def test_telemetry_status_snapshot(monkeypatch, tmp_path):
     assert "math_ops" in tools and "no_such_tool_xyz" in tools
     assert "daemon-self" in d["heartbeats"]
     # 防递归：status 调用未产生新 tool 记录
-    r2 = server._call("telemetry_status", {})
+    r2 = server._call("telemetry", {"action": "status", })
     d2 = json.loads(r2[0].text)
     assert d2["summary"]["total_calls"] == 2
 
@@ -43,22 +43,23 @@ def test_telemetry_status_snapshot(monkeypatch, tmp_path):
 def test_telemetry_query_filters(monkeypatch, tmp_path):
     """查询：limit + error 状态过滤。"""
     _seed(monkeypatch, tmp_path)
-    r = server._call("telemetry_query", {"limit": 10})
+    r = server._call("telemetry", {"action": "query", "limit": 10})
     q = json.loads(r[0].text)
     assert q["ok"] is True
     kinds = {x.get("kind") for x in q["records"]}
     assert kinds == {"tool", "hb"}
-    r2 = server._call("telemetry_query", {"status": "error"})
+    r2 = server._call("telemetry", {"action": "query", "status": "error"})
     q2 = json.loads(r2[0].text)
     assert q2["count"] == 1
     assert q2["records"][0]["tool"] == "no_such_tool_xyz"
 
 
 def test_telemetry_tools_registered():
-    """两个工具在注册表（AI 可见可调用）。"""
-    assert "telemetry_status" in server._TOOLS
-    assert "telemetry_query" in server._TOOLS
-    assert "telemetry_snapshot" in server._TOOLS
+    """合并后组合工具在注册表（AI 可见可调用）。"""
+    assert "telemetry" in server._TOOLS
+    assert "mesh" in server._TOOLS
+    assert "game" in server._TOOLS
+    assert "lesson" in server._TOOLS
 
 
 def test_alarm_check_rules(monkeypatch, tmp_path):
@@ -121,7 +122,7 @@ def test_telemetry_snapshot_health(monkeypatch, tmp_path):
         "loop": "daemon-repo", "cycle_ms": 100.0}})
     server._call("no_such_tool_abc", {})
     telemetry_core.flush()
-    r = server._call("telemetry_snapshot", {})
+    r = server._call("telemetry", {"action": "snapshot", })
     d2 = json.loads(r[0].text)
     assert d2["ok"] is True
     loops = d2["health"]["loops"]

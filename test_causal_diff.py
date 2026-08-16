@@ -16,7 +16,7 @@ def test_causal_link_record(tmp_path, monkeypatch):
     monkeypatch.setenv("UNIFIED_RX_SCAN_LOG", str(logf))
     repo = tmp_path / "repo"
     repo.mkdir()
-    d = json.loads(server._call("causal_link", {
+    d = json.loads(server._call("causal", {"action": "link",
         "root": str(repo), "effect": "构建失败",
         "cause": "Agent A 改了 placement.rs 的 scale"})[0].text)
     assert d["ok"] is True, d
@@ -36,7 +36,7 @@ def test_causal_trace_chain(tmp_path, monkeypatch):
     import scan_log_core
     scan_log_core.append_scan({"tool": "bug_scan", "root": str(repo),
                                "ok": False, "summary": "检测到 3 个 fail 问题"})
-    d = json.loads(server._call("causal_trace", {
+    d = json.loads(server._call("causal", {"action": "trace",
         "root": str(repo), "fail_keyword": "fail"})[0].text)
     assert d["ok"] is True, d
     assert d["fail_events"], f"应定位失败事件: {d}"

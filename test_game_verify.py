@@ -14,7 +14,7 @@ def test_game_verify_godot(tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "project.godot").write_text("[application]\n", encoding="utf-8")
-    d = json.loads(server._call("game_verify", {"path": str(repo)})[0].text)
+    d = json.loads(server._call("game", {"action": "verify", "path": str(repo)})[0].text)
     assert d["ok"] is False, d
     assert any("smoke" in c["msg"] for c in d["checks"]), d
     # 补齐 smoke 后通过
@@ -22,7 +22,7 @@ def test_game_verify_godot(tmp_path, monkeypatch):
     tools.mkdir()
     (tools / "smoke.sh").write_text("#!/bin/bash\n", encoding="utf-8")
     (repo / "logs").mkdir()
-    d = json.loads(server._call("game_verify", {"path": str(repo)})[0].text)
+    d = json.loads(server._call("game", {"action": "verify", "path": str(repo)})[0].text)
     assert d["ok"] is True, d
 
 
@@ -34,15 +34,15 @@ def test_game_rules_save_load(tmp_path, monkeypatch):
     rules = {"engine": "bevy",
              "physics_range": {"min": 0.01, "max": 100.0},
              "interaction_rules": ["esc_main_menu", "pickup_preview"]}
-    d = json.loads(server._call("game_rules", {"path": str(repo), "action": "save",
+    d = json.loads(server._call("game", {"action": "rules", "path": str(repo), "sub_action": "save",
                                                "rules": rules})[0].text)
     assert d["ok"] is True and d["path"].endswith("game_rules.json"), d
-    d = json.loads(server._call("game_rules", {"path": str(repo)})[0].text)
+    d = json.loads(server._call("game", {"action": "rules", "path": str(repo)})[0].text)
     assert d["ok"] is True and d["rules"]["engine"] == "bevy", d
     # 未创建 → load 诚实报缺
     repo2 = tmp_path / "empty"
     repo2.mkdir()
-    d = json.loads(server._call("game_rules", {"path": str(repo2)})[0].text)
+    d = json.loads(server._call("game", {"action": "rules", "path": str(repo2)})[0].text)
     assert d["ok"] is False and "无 game_rules.json" in d["error"], d
 
 
@@ -54,12 +54,12 @@ def test_game_rules_physics_override(tmp_path, monkeypatch):
     (repo / "phys.rs").write_text(
         "fn setup() {\n    let wheel_radius: f32 = 50.0;\n}\n", encoding="utf-8")
     # 默认范围（1e-3..1e4）：50 不报
-    d = json.loads(server._call("game_check", {"path": str(repo)})[0].text)
+    d = json.loads(server._call("game", {"action": "check", "path": str(repo)})[0].text)
     assert not any(i["rule"] == "physics_scale" for i in d["issues"]), d
     # 项目范围（0.01..1.0）：50 超限报
-    server._call("game_rules", {"path": str(repo), "action": "save",
-                                "rules": {"physics_range": {"min": 0.01,
-                                                            "max": 1.0}}})
-    d = json.loads(server._call("game_check", {"path": str(repo)})[0].text)
+    server._call("game", {"action": "rules", "path": str(repo), "sub_action": "save",
+                           "rules": {"physics_range": {"min": 0.01,
+                                                       "max": 1.0}}})
+    d = json.loads(server._call("game", {"action": "check", "path": str(repo)})[0].text)
     assert any(i["rule"] == "physics_scale" for i in d["issues"]), d
     assert d.get("game_rules"), "应附 game_rules 信息"

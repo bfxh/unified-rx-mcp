@@ -11,24 +11,20 @@ import server  # noqa: E402
 
 def test_game_api_hit():
     """已收录符号返回语义（kind+description）。"""
-    d = json.loads(server._call("game_api",
-                                {"engine": "bevy", "symbol": "Transform"})[0].text)
+    d = json.loads(server._call("game", {"action": "api", "engine": "bevy", "symbol": "Transform"})[0].text)
     assert d["ok"] is True and d["kind"] == "组件", d
     assert "translation" in d["description"], d
-    d = json.loads(server._call("game_api",
-                                {"engine": "godot", "symbol": "_process"})[0].text)
+    d = json.loads(server._call("game", {"action": "api", "engine": "godot", "symbol": "_process"})[0].text)
     assert d["ok"] is True and "delta" in d["description"], d
 
 
 def test_game_api_unknown_honest():
     """未收录诚实拒绝（防幻觉——绝不臆造签名）。"""
-    d = json.loads(server._call("game_api",
-                                {"engine": "bevy", "symbol": "SomeMadeUpApi"})[0].text)
+    d = json.loads(server._call("game", {"action": "api", "engine": "bevy", "symbol": "SomeMadeUpApi"})[0].text)
     assert d["ok"] is False and "未收录" in d["error"], d
     assert d.get("fuzzy") == [], d
     # 未知引擎也拒绝
-    d = json.loads(server._call("game_api",
-                                {"engine": "unity", "symbol": "Transform"})[0].text)
+    d = json.loads(server._call("game", {"action": "api", "engine": "unity", "symbol": "Transform"})[0].text)
     assert d["ok"] is False and "未知引擎" in d["error"], d
 
 

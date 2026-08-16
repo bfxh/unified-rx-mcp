@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**173 工具的统一 MCP（97 核心 + 76 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**149 工具的统一 MCP（73 核心 + 76 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
 
 > **定位：工具集，不是智能体** —— 本 MCP 产出证据与事实，不替代 LLM 推理。
 > 工具行为契约见 [`spec/`](spec/README.md)，契约验证探针见 [`probes/`](probes/run_all.py)，
@@ -252,6 +252,7 @@ python -m pytest -q            # 全量 456 tests + 4 skipped（含 net_chaos �
 
 ## 更新日志
 
+- **2026-08-16（核心合并）** 用户要求"把核心合并，unified-rx 一堆杂物"——13 组同域族 → 组合工具（action 分发，能力零丢失）：mesh 6→1 / telemetry 3→1 / game 5→1 / lesson 5→1（lesson_learn/game_rules 内层 action 经 sub_action 透传）/ replay、causal、half_edge、repo、agent、geom、voxel、scan 各 2→1 / bug_bisect 并入 bug_locate(action=bisect)；核心 97→73（149 总）；旧工具名不再暴露（先例 2026-08-11 去重）；45 个测试迁移
 - **2026-08-16（扩展合并）** cae/pr-oracle/tautest/stats/ci-optimization 5 个独立 MCP 全部
   vendored 合并进 unified-rx（vendor/extensions/，ci-optimization src 独立化 + SRC_DIR 三级探测）；
   扩展 24→76（+52 ciopt_*），总工具 121→173；config.toml 插件 11→6（进程去重）；

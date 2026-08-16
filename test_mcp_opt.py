@@ -125,7 +125,7 @@ def test_design_note(tmp_path):
 
 # ── M6: scan_trend ──
 def test_scan_trend():
-    r = server._call("scan_trend", {"window_days": 7})
+    r = server._call("scan", {"action": "trend", "window_days": 7})
     d = json.loads(r[0].text)
     assert d["ok"] is True
     assert "tool_frequency" in d and "rule_hits" in d

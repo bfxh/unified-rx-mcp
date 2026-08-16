@@ -21,7 +21,7 @@ def test_mesh_check_manifold(tmp_path, monkeypatch):
     p = _write_obj(tmp_path, "tet.obj",
                    "v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"
                    "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n")
-    d = json.loads(server._call("mesh_check", {"path": str(p)})[0].text)
+    d = json.loads(server._call("mesh", {"action": "check", "path": str(p)})[0].text)
     assert d["ok"] is True and d["manifold"] is True, d
     assert d["vertices"] == 4 and d["faces"] == 4, d
 
@@ -33,7 +33,7 @@ def test_mesh_check_hole_and_nonmanifold(tmp_path, monkeypatch):
     p = _write_obj(tmp_path, "open.obj",
                    "v 0 0 0\nv 1 0 0\nv 0 1 0\n"
                    "f 1 2 3\n")
-    d = json.loads(server._call("mesh_check", {"path": str(p)})[0].text)
+    d = json.loads(server._call("mesh", {"action": "check", "path": str(p)})[0].text)
     assert d["ok"] is True and d["manifold"] is False, d
     kinds = {i["kind"] for i in d["issues"]}
     assert "boundary_hole" in kinds, f"单面片应有边界边: {kinds}"
@@ -47,7 +47,7 @@ def test_mesh_optimize_weld(tmp_path, monkeypatch):
     p = _write_obj(tmp_path, "dup.obj",
                    "v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\nv 1 0 0\n"
                    "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n")
-    d = json.loads(server._call("mesh_optimize", {"path": str(p)})[0].text)
+    d = json.loads(server._call("mesh", {"action": "optimize", "path": str(p)})[0].text)
     assert d["ok"] is True, d
     assert d["welded_vertices"] == 1, f"重复顶点应检出: {d}"
     assert d["vertices_after_weld"] == 4, d
@@ -59,7 +59,7 @@ def test_mesh_splat_params(tmp_path, monkeypatch):
     p = _write_obj(tmp_path, "splat.obj",
                    "v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"
                    "f 1 2 3\nf 1 4 2\n")
-    d = json.loads(server._call("mesh_splat", {"path": str(p)})[0].text)
+    d = json.loads(server._call("mesh", {"action": "splat", "path": str(p)})[0].text)
     assert d["ok"] is True, d
     params = d["params"]
     assert params["vertex_tensor"]["shape"] == [4, 3], d
@@ -81,7 +81,7 @@ def test_voxelize_cube(tmp_path, monkeypatch):
     for q in quads:
         body += f"f {q[0]+1} {q[1]+1} {q[2]+1}\nf {q[0]+1} {q[2]+1} {q[3]+1}\n"
     p = _write_obj(tmp_path, "cube.obj", body)
-    d = json.loads(server._call("voxelize", {"path": str(p),
+    d = json.loads(server._call("voxel", {"action": "voxelize", "path": str(p),
                                              "resolution": "8"})[0].text)
     assert d["ok"] is True, d
     assert d["resolution"] == 8, d
@@ -95,7 +95,7 @@ def test_mesh_check_repair(tmp_path, monkeypatch):
     p = tmp_path / "dup2.obj"
     p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\nv 1 0 0\n"
                  "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n", encoding="utf-8")
-    d = json.loads(server._call("mesh_check", {"path": str(p),
+    d = json.loads(server._call("mesh", {"action": "check", "path": str(p),
                                                "repair": "true"})[0].text)
     assert d["ok"] is True, d
     assert d["repair"]["welded_vertices"] == 1, d
@@ -137,7 +137,7 @@ def test_glb_parse(tmp_path, monkeypatch):
           _st.pack("<II", len(bin_data), 0x004E4942) + bin_data
     p = tmp_path / "mini.glb"
     p.write_bytes(glb)
-    d = json.loads(server._call("mesh_check", {"path": str(p)})[0].text)
+    d = json.loads(server._call("mesh", {"action": "check", "path": str(p)})[0].text)
     assert d["ok"] is True, d
     assert d["vertices"] == 3 and d["faces"] == 1, d
 
@@ -164,7 +164,7 @@ def test_half_edge_manifold(tmp_path, monkeypatch):
     p = tmp_path / "tet2.obj"
     p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"
                  "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n", encoding="utf-8")
-    d = json.loads(server._call("half_edge", {"path": str(p)})[0].text)
+    d = json.loads(server._call("half_edge", {"action": "analyze", "path": str(p)})[0].text)
     assert d["ok"] is True and d["manifold"] is True, d
     assert d["boundary_edges"] == 0, d
     assert d["half_edges"] == 12, d  # 4 面 × 3 半边
@@ -176,7 +176,7 @@ def test_half_edge_boundary(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
     p = tmp_path / "open2.obj"
     p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
-    d = json.loads(server._call("half_edge", {"path": str(p)})[0].text)
+    d = json.loads(server._call("half_edge", {"action": "analyze", "path": str(p)})[0].text)
     assert d["ok"] is True and d["manifold"] is False, d
     assert d["boundary_edges"] == 3, d
 
@@ -189,7 +189,7 @@ def test_mesh_union_weld(tmp_path, monkeypatch):
     b = tmp_path / "b.obj"
     # 与 a 共享顶点 0（位置 0,0,0）——焊接后总顶点 = 3 + 2 = 5
     b.write_text("v 0 0 0\nv 0 0 1\nv 1 0 1\nf 1 2 3\n", encoding="utf-8")
-    d = json.loads(server._call("mesh_union", {
+    d = json.loads(server._call("mesh", {"action": "union",
         "paths": [str(a), str(b)]})[0].text)
     assert d["ok"] is True, d
     assert d["vertices"] == 5, f"共享顶点应焊接（3+3-1=5）: {d}"
@@ -203,13 +203,13 @@ def test_mesh_clip_split(tmp_path, monkeypatch):
     p = tmp_path / "tet3.obj"
     p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"
                  "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n", encoding="utf-8")
-    d = json.loads(server._call("mesh_clip", {
+    d = json.loads(server._call("mesh", {"action": "clip",
         "path": str(p), "plane": [0, 0, 1, -0.3]})[0].text)
     assert d["ok"] is True, d
     assert d["split_vertices"] >= 2, f"跨平面应有顶点分裂: {d}"
     assert d["faces"] >= 3, d
     # 全部在平面另一侧 → 完全丢弃（差集）
-    d2 = json.loads(server._call("mesh_clip", {
+    d2 = json.loads(server._call("mesh", {"action": "clip",
         "path": str(p), "plane": [0, 0, 1, -2.0]})[0].text)
     assert d2["ok"] is True and d2["faces"] == 0, d2
 
@@ -219,7 +219,7 @@ def test_geom_graph_chain(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "_SANDBOX_ROOTS", [str(tmp_path)])
     a = tmp_path / "ga.obj"
     a.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
-    d = json.loads(server._call("geom_graph", {
+    d = json.loads(server._call("geom", {"action": "graph",
         "nodes": [
             {"id": "src", "type": "load", "args": {"path": str(a)}},
             {"id": "out", "type": "exchange",
@@ -230,7 +230,7 @@ def test_geom_graph_chain(tmp_path, monkeypatch):
     assert "src" in d["outputs"] and d["outputs"]["src"]["ok"] is True, d
     assert "ply" in d["outputs"]["out"]["content"], d
     # 非法节点类型拒绝
-    d2 = json.loads(server._call("geom_graph", {
+    d2 = json.loads(server._call("geom", {"action": "graph",
         "nodes": [{"id": "x", "type": "bogus", "args": {}}],
         "outputs": []})[0].text)
     assert d2["ok"] is False and "非法类型" in d2["error"], d2
@@ -239,14 +239,14 @@ def test_geom_graph_chain(tmp_path, monkeypatch):
 def test_geom_example_generates(tmp_path):
     """PicoGK Program.cs 概念：三种示例代码生成（可直接运行）。"""
     for kind in ("union", "clip", "graph"):
-        d = json.loads(server._call("geom_example", {"kind": kind})[0].text)
+        d = json.loads(server._call("geom", {"action": "example", "kind": kind})[0].text)
         assert d["ok"] is True and d["language"] == "python", d
         assert "import" in d["code"], d
         # union/clip 调用几何工具；graph 示例为节点 DSL（仅打印声明）
         if kind in ("union", "clip"):
             assert "geometry_tools" in d["code"], d
     # 非法 kind 拒绝
-    d = json.loads(server._call("geom_example", {"kind": "bogus"})[0].text)
+    d = json.loads(server._call("geom", {"action": "example", "kind": "bogus"})[0].text)
     assert d["ok"] is False, d
 
 
@@ -256,13 +256,11 @@ def test_half_edge_adjacency_api(tmp_path, monkeypatch):
     p = tmp_path / "tet4.obj"
     p.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"
                  "f 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n", encoding="utf-8")
-    d = json.loads(server._call("half_edge_adjacency",
-                                {"path": str(p), "vertex": 0})[0].text)
+    d = json.loads(server._call("half_edge", {"action": "analyze", "action": "adjacency", "path": str(p), "vertex": 0})[0].text)
     assert d["ok"] is True and d["valency"] == 3, d
     assert d["neighbor_count"] == 3 and d["face_count"] == 3, d
     # 越界拒绝
-    d2 = json.loads(server._call("half_edge_adjacency",
-                                 {"path": str(p), "vertex": 99})[0].text)
+    d2 = json.loads(server._call("half_edge", {"action": "analyze", "action": "adjacency", "path": str(p), "vertex": 99})[0].text)
     assert d2["ok"] is False and "越界" in d2["error"], d2
 
 
@@ -273,12 +271,10 @@ def test_mesh_boolean_relation(tmp_path, monkeypatch):
     a.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
     far = tmp_path / "far.obj"  # AABB 分离（x=10）
     far.write_text("v 10 0 0\nv 11 0 0\nv 10 1 0\nf 1 2 3\n", encoding="utf-8")
-    d = json.loads(server._call("mesh_boolean",
-                                {"paths": [str(a), str(far)]})[0].text)
+    d = json.loads(server._call("mesh", {"action": "boolean", "paths": [str(a), str(far)]})[0].text)
     assert d["ok"] is True and d["relation"] == "separate", d
     # 相交（同一位置）
-    d2 = json.loads(server._call("mesh_boolean",
-                                 {"paths": [str(a), str(a)]})[0].text)
+    d2 = json.loads(server._call("mesh", {"action": "boolean", "paths": [str(a), str(a)]})[0].text)
     assert d2["ok"] is True and d2["relation"] in ("overlapping", "contained"), d2
 
 
@@ -292,8 +288,7 @@ def test_mesh_boolean_empty_mesh_no_crash(tmp_path, monkeypatch):
     # 而非过短拒绝分支（27 字节文本 STL 在 parse 提前返回，测试假绿）
     import struct as _st
     a.write_bytes(bytes(80) + _st.pack("<I", 0))
-    d = _j.loads(server._call("mesh_boolean",
-                              {"paths": [str(a), str(a)], "op": "intersect"})[0].text)
+    d = _j.loads(server._call("mesh", {"action": "boolean", "paths": [str(a), str(a)], "op": "intersect"})[0].text)
     assert d.get("ok") is False, f"空网格应返回错误而非崩溃: {d}"
     assert "error" in d, d
 
@@ -305,8 +300,7 @@ def test_voxel_surface_extract(tmp_path, monkeypatch):
                  "v 0 0 1\nv 1 0 1\nv 1 1 1\nv 0 1 1\n"
                  "f 1 2 3 4\nf 5 8 7 6\nf 1 5 6 2\nf 3 7 8 4\n"
                  "f 2 6 7 3\nf 1 4 8 5\n", encoding="utf-8")
-    d = json.loads(server._call("voxel_surface",
-                                {"path": str(p), "resolution": 8})[0].text)
+    d = json.loads(server._call("voxel", {"action": "surface", "path": str(p), "resolution": 8})[0].text)
     assert d["ok"] is True and d["occupied"] > 0, d
     assert 0 < d["surface_voxels"] <= d["occupied"], d
     assert d["surface_points"], d

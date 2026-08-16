@@ -148,7 +148,8 @@ def test_tools_count_and_schema():
     # 2026-08-16 测试增强：+cov_scan/stress_scan/replay_record/replay_run/sage_scan → 95
     # 2026-08-16 语义检索：+code_search（Rust rx-search）→ 96
     # 2026-08-16 弱网模拟：+net_chaos（Rust rx-net 混沌代理）→ 97
-    assert len(server._TOOLS) == 97, f"核心工具数变化: {len(server._TOOLS)}"
+    # 2026-08-16 核心合并：13 组同域族 → 组合工具（97→73，能力零丢失）
+    assert len(server._TOOLS) == 73, f"核心工具数变化: {len(server._TOOLS)}"
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"
@@ -981,15 +982,15 @@ def test_lesson_feedback_delta():
     """lesson_feedback：采纳加分、无效减分归档（Delta 奖励）。"""
     import time
     lid = f"ut-lesson-{int(time.time()*1000)}"  # 唯一 ID，避免跨测试持久化污染
-    r = server._call("lesson_feedback", {"lesson_id": lid, "delta": 0.4})[0]
+    r = server._call("lesson", {"action": "feedback", "lesson_id": lid, "delta": 0.4})[0]
     d = json.loads(r.text)
     assert d["ok"] is True
     assert d["result"]["utility"] > 0.5, f"采纳应加分: {d}"
-    r2 = server._call("lesson_feedback", {"lesson_id": lid, "delta": -0.9})[0]
+    r2 = server._call("lesson", {"action": "feedback", "lesson_id": lid, "delta": -0.9})[0]
     d2 = json.loads(r2.text)
     assert d2["result"]["archived"] is True, f"低分应归档: {d2}"
     # 非法 delta
-    r3 = server._call("lesson_feedback", {"lesson_id": lid, "delta": 5})[0]
+    r3 = server._call("lesson", {"action": "feedback", "lesson_id": lid, "delta": 5})[0]
     assert "Error" in r3.text or "delta" in r3.text, "delta 超范围应报错"
 
 
@@ -998,14 +999,14 @@ def test_rule_feedback_weight():
     """rule_feedback：采纳加分、忽略减分（自适应权重）。"""
     import time
     rule = f"ut_magic_{int(time.time()*1000)}"  # 唯一 ID，避免跨测试持久化污染
-    r = server._call("rule_feedback", {"rule": rule, "adopted": True, "delta": 0.3})[0]
+    r = server._call("lesson", {"action": "rule_feedback", "rule": rule, "adopted": True, "delta": 0.3})[0]
     d = json.loads(r.text)
     assert d["ok"] is True and d["result"]["weight"] >= 1.3, f"采纳应加分: {d}"
-    r2 = server._call("rule_feedback", {"rule": rule, "adopted": False, "delta": 0.9})[0]
+    r2 = server._call("lesson", {"action": "rule_feedback", "rule": rule, "adopted": False, "delta": 0.9})[0]
     d2 = json.loads(r2.text)
     assert d2["result"]["weight"] < 0.5, f"忽略应减分: {d2}"
     # 非法 delta
-    r3 = server._call("rule_feedback", {"rule": rule, "adopted": True, "delta": 5})[0]
+    r3 = server._call("lesson", {"action": "rule_feedback", "rule": rule, "adopted": True, "delta": 5})[0]
     assert "Error" in r3.text or "delta" in r3.text, "delta 超范围应报错"
 
 
@@ -1425,7 +1426,7 @@ def test_lesson_recall_hub_priority(monkeypatch):
     state[lid_norm] = {"id": lid_norm, "utility": 0.5, "recall": 2, "archived": False}
     state[lid_cold] = {"id": lid_cold, "utility": 0.5, "recall": 0, "archived": False}
 
-    r = server._call("lesson_recall_lse", {"task_description": "测试枢纽优先"})[0]
+    r = server._call("lesson", {"action": "recall", "task_description": "测试枢纽优先"})[0]
     d = json.loads(r.text)
     assert d["ok"] is True
     # 同 utility 时枢纽（recall 高）优先
@@ -1525,13 +1526,13 @@ def test_scan_log_tool_query(tmp_path, monkeypatch):
 
     server._call("bug_scan", {"path": str(src)})
 
-    r = server._call("scan_log", {"root": str(src), "tool": "bug_scan", "limit": 5})[0]
+    r = server._call("scan", {"action": "log", "root": str(src), "tool": "bug_scan", "limit": 5})[0]
     d = json.loads(r.text)
     assert d["ok"] is True
     assert d["count"] == 1 and d["logs"][0]["tool"] == "bug_scan"
     assert d["log_path"] == str(log)
 
-    r2 = server._call("scan_log", {"limit": 0})[0]
+    r2 = server._call("scan", {"action": "log", "limit": 0})[0]
     assert "Error" in r2.text and "limit" in r2.text, "limit 越界报错"
 
 
@@ -2684,7 +2685,7 @@ def test_scan_trend_multi_logs(tmp_path, monkeypatch):
     for n in (10, 8, 5):
         _slc.append_scan({"tool": "bug_scan", "root": r"D:\proj\A",
                           "ok": True, "summary": f"{n} 问题"})
-    txt = server._call("scan_trend", {})[0].text
+    txt = server._call("scan", {"action": "trend", })[0].text
     assert '"total_logs": 3' in txt and '"recent_logs": 3' in txt, \
         f"≥3 条日志不应炸（原 NameError）: {txt[:150]}"
 

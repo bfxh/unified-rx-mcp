@@ -21,31 +21,31 @@ import server  # noqa: E402
 
 
 def test_lesson_store_and_state():
-    r = server._call("lesson_learn", {"action": "store", "tier": "work",
+    r = server._call("lesson", {"action": "learn", "sub_action": "store", "tier": "work",
                                       "content": "测试教训：RRF 融合优于单路检索"})
     d = json.loads(r[0].text)
     assert d.get("ok") is True, d.get("error", "")
     lid = d.get("result", {}).get("id", "")
     assert lid.startswith("work_")
-    r2 = server._call("lesson_learn", {"action": "state"})
+    r2 = server._call("lesson", {"action": "learn", "sub_action": "state"})
     d2 = json.loads(r2[0].text)
     assert d2.get("ok") is True
     assert lid in d2.get("result", {}).get("lessons", {})
 
 
 def test_lesson_recall():
-    r = server._call("lesson_learn", {"action": "store", "tier": "work",
+    r = server._call("lesson", {"action": "learn", "sub_action": "store", "tier": "work",
                                       "content": "可召回教训：AABB 碰撞用中心距离"})
     d = json.loads(r[0].text)
     lid = d.get("result", {}).get("id", "")
-    r2 = server._call("lesson_learn", {"action": "recall", "lesson_id": lid})
+    r2 = server._call("lesson", {"action": "learn", "sub_action": "recall", "lesson_id": lid})
     d2 = json.loads(r2[0].text)
     assert d2.get("ok") is True
 
 
 def test_ucb_select_fixed():
     """lse-engine 空格解析修复回归：ucb_select 不再报 no children。"""
-    r = server._call("lesson_learn", {"action": "ucb_select",
+    r = server._call("lesson", {"action": "learn", "sub_action": "ucb_select",
                                       "parent": "root", "children": ["a", "b", "c"]})
     d = json.loads(r[0].text)
     assert d.get("ok") is True, f"引擎空格解析未修复: {d.get('error')}"
@@ -53,16 +53,16 @@ def test_ucb_select_fixed():
 
 
 def test_ucb_backprop():
-    r = server._call("lesson_learn", {"action": "ucb_backprop", "node_id": "a", "reward": 1.0})
+    r = server._call("lesson", {"action": "learn", "sub_action": "ucb_backprop", "node_id": "a", "reward": 1.0})
     d = json.loads(r[0].text)
     assert d.get("ok") is True
 
 
 def test_lesson_delta():
-    r = server._call("lesson_learn", {"action": "store", "tier": "learn",
+    r = server._call("lesson", {"action": "learn", "sub_action": "store", "tier": "learn",
                                       "content": "delta 测试教训"})
     d = json.loads(r[0].text)
     lid = d.get("result", {}).get("id", "")
-    r2 = server._call("lesson_learn", {"action": "delta", "id": lid, "delta": 0.3})
+    r2 = server._call("lesson", {"action": "learn", "sub_action": "delta", "id": lid, "delta": 0.3})
     d2 = json.loads(r2[0].text)
     assert d2.get("ok") is True

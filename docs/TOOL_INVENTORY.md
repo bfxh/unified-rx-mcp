@@ -4,9 +4,15 @@
 
 > 目标：理清"有什么工具、干什么用、哪些被调用、哪些 0 调用"——
 > 用户要求工具梳理清楚（含 IDE/Qoder/树搜索/算法/缓存/知识共享）。
-> 数据来源：`server.py` 注册表（97 核心）+ `~/.unified-rx/stats.json`（94,149 次调用实测，2026-08-16）。
+> 数据来源：`server.py` 注册表（73 核心，2026-08-16 核心合并 97→73）+ `~/.unified-rx/stats.json`（实测）。
 
-## 一、核心工具（97 个，server.py 注册表）
+## 一、核心工具（73 个，server.py 注册表；2026-08-16 核心合并）
+
+**组合化（同域族→1 个，action 分发，能力零丢失）**：`mesh`（boolean/check/clip/optimize/splat/union）、
+`telemetry`（query/snapshot/status）、`game`（api/check/feel/rules/verify）、
+`lesson`（recall/feedback/learn/extract/rule_feedback）、`replay`、`causal`、`half_edge`、
+`repo`、`agent`、`geom`、`voxel`、`scan` 各 2→1；`bug_bisect` 并入 `bug_locate`（action=bisect）。
+旧工具名不再暴露；lesson_learn/game_rules 内层子动作经 `sub_action` 透传。
 
 调用次数 = stats.json 累计实测（2026-08-16）；`0` = 从未被调过（见第四节补用计划）。
 

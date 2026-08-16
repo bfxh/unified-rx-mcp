@@ -117,5 +117,5 @@ def test_storage_tiers():
 # ── 全工具注册数 ──────────────────────────────────────────
 def test_new_tools_registered():
     import server
-    for t in ("kb_query", "repo_graph", "lesson_extract", "quality_scan"):
+    for t in ("kb_query", "repo", "lesson", "quality_scan"):
         assert t in server._TOOLS, f"{t} 未注册"

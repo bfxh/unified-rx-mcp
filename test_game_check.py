@@ -58,9 +58,9 @@ def _run_case(tmp_path, fn, src, want):
     p = repo / fn
     p.write_text(src, encoding="utf-8")
     if want in ("character", "abstract", "serious"):
-        d = json.loads(server._call("game_feel", {"path": str(p)})[0].text)
+        d = json.loads(server._call("game", {"action": "feel", "path": str(p)})[0].text)
         return d.get("register") == want, d
-    d = json.loads(server._call("game_check", {"path": str(repo)})[0].text)
+    d = json.loads(server._call("game", {"action": "check", "path": str(repo)})[0].text)
     got = {i.get("rule") for i in d.get("issues", [])}
     return want in got, d
 
