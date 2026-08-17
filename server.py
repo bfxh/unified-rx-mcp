@@ -5572,8 +5572,9 @@ _MERGED_SCHEMAS = {
 }
 
 for _name, _actions in _MERGED.items():
-    _sc, _desc = _MERGED_SCHEMAS[_name]
-    _TOOLS[_name] = (_combo_tool(_actions), _schema(_sc, _sc.get("required", [])), _desc)
+    _sc, _required = _MERGED_SCHEMAS[_name]
+    _desc = f"组合工具：{' / '.join(sorted(_actions))}（action 分发）"
+    _TOOLS[_name] = (_combo_tool(_actions), _schema(_sc, _required), _desc)
     for _old_fn in _actions.values():
         for _k in [k for k, v in _TOOLS.items() if v[0] is _old_fn]:
             del _TOOLS[_k]
