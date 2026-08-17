@@ -16,19 +16,8 @@
               "icon": "lucide-git-fork",
               "title": "关系图谱"
             }
-          },
-          {
-            "id": "df7d1a36266d7760",
-            "type": "leaf",
-            "state": {
-              "type": "empty",
-              "state": {},
-              "icon": "lucide-file",
-              "title": "新标签页"
-            }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "vertical"
@@ -193,21 +182,21 @@
       "bases:新建数据库": false
     }
   },
-  "active": "df7d1a36266d7760",
+  "active": "d77d9bf099771823",
   "lastOpenFiles": [
-    "quest_fail_e3p2w0nb/bug.rs",
-    "quest_fail_e3p2w0nb",
-    "quest_quick_lus_770_/bug.rs",
-    "quest_quick_lus_770_",
-    "未命名 1.md",
+    "quest_fail_svs_q1jp/bug.rs",
+    "quest_fail_svs_q1jp",
+    "quest_quick_5bom85pe/bug.rs",
+    "quest_quick_5bom85pe",
+    "engine/__pycache__/infra_engine.cpython-311.pyc",
+    "engine/__pycache__/index_engine.cpython-311.pyc",
+    "engine/infra_engine.py",
+    "engine/index_engine.py",
+    "engine/__pycache__/locate_engine.cpython-311.pyc",
+    "engine/locate_engine.py",
     "未命名.md",
-    "docs/ARCHITECTURE.md",
-    "未命名",
-    "quest_fail_fbq9a1ru/bug.rs",
-    "quest_fail_fbq9a1ru",
-    "quest_quick_7w8xjw4a/bug.rs",
-    "quest_quick_7w8xjw4a",
-    "quest_fail__ets3ygt/bug.rs",
-    "quest_fail__ets3ygt"
+    "quest_fail_e3p2w0nb/bug.rs",
+    "未命名 1.md",
+    "docs/ARCHITECTURE.md"
   ]
 }

@@ -14,7 +14,10 @@ unified-rx-mcp/
 │   │                    #   cache/fusion/rx_ide）
 │   ├── learn_engine.py  # 学习引擎（合并 8 个：patch_learn/differentiable/
 │   │                    #   explore/distill/quality/failure/tokenizer/replay）
-│   └── __init__.py      # 兼容层（旧模块名 → 引擎 re-export）
+│   ├── locate_engine.py # 定位引擎（合并 3 个：locate_core/causal_debug/lse_client）
+│   ├── index_engine.py  # 索引引擎（合并 4 个：cb_index/graph_index/search_core/search_index）
+│   ├── infra_engine.py  # 基础设施引擎（合并 5 个：daemon/dashboard/telemetry/storage/backup）
+│   └── __init__.py      # 兼容层（旧模块名 → 引擎 re-export；加载顺序 scan→infra→ide→learn）
 ├── vuln_rules.json      # 模板规则（bug_scan 加载）
 ├── train_data/          # 训练数据（samples/feedback/learned_rules——gitignore）
 ├── docs/                # 设计文档
@@ -46,5 +49,6 @@ unified-rx-mcp/
 
 ## 文件数统计
 
-- 合并前：115 个 .py（22 个散乱小模块）
-- 合并后：93 个 .py（22 个并入 3 个引擎 + 兼容层）——**后续每新技术只 +1 个引擎内函数**
+- 合并前：115 个 .py（34 个散乱小模块）
+- 合并后：81 个 .py（34 个并入 6 个引擎 + 兼容层）——**后续每新技术只 +1 个引擎内函数**
+- 引擎加载顺序：scan → infra → ide → learn（跨引擎依赖方向——infra 提供 dashboard 符号给 ide）

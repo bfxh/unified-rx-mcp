@@ -8,6 +8,8 @@ for _m in ['ide_tools', 'ide_ui', 'ide_session', 'ide_commands', 'ide_cache', 'i
 新技术 = 往本模块增量加函数（不新建零散文件）。
 """
 
+from dashboard import _read_jsonl, _read_stats, _scanlog, _telemetry, _tools  # noqa: E402（infra 引擎先加载）
+
 # ══════════════ ide_tools（合并） ══════════════
 # SPDX-FileCopyrightText: 2026 bfxh
 # SPDX-License-Identifier: MIT
@@ -536,7 +538,6 @@ from tkinter import filedialog, messagebox, ttk
 
 HERE = _ENGINE_ROOT
 sys.path.insert(0, HERE)
-from dashboard import _read_jsonl, _read_stats, _scanlog, _telemetry, _tools  # noqa: E402
 
 DATA_DIR = os.path.expanduser("~/.unified-rx")
 START_TS = time.time()
