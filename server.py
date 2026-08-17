@@ -3905,8 +3905,12 @@ def _tool_git_bisect_find(args: dict) -> "list[types.TextContent]":
                          (k == "cargo test" and test_cmd.startswith("cargo test "))
                          or (k == "python -m pytest" and test_cmd.startswith("python -m pytest "))
                          or (k == "pytest" and test_cmd.startswith("pytest "))), None)
-    # 终审 MEDIUM：参数 token 仅允许标识符/路径字符（防 --manifest-path 等选项注入）
-    _params_ok = all(_TOKEN_RE.match(t) for t in _tokens[1:])
+    # 终审 MEDIUM：参数 token 仅允许标识符/路径字符（防 --manifest-path 等选项注入）；
+    # 白名单自带固定参数（python -m pytest 的 -m / node --test 的 --test）豁免
+    _FIXED = {k: set(v.split()) for k, v in {
+        "python -m pytest": "-m", "node --test": "--test"}.items()}
+    _user_params = [t for t in _tokens[1:] if t not in _FIXED.get(_allowed_cmd or "", set())]
+    _params_ok = all(_TOKEN_RE.match(t) for t in _user_params)
     if _allowed_cmd is None or not _cmd_head or not _params_ok:
         return [types.TextContent(type="text", text=json.dumps(
             {"ok": False, "error": f"test_cmd 不在白名单: {test_cmd!r}"}, ensure_ascii=False))]

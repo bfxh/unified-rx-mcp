@@ -99,8 +99,14 @@ def bug_bisect(root: str, good_commit: str, bad_commit: str,
                    or (k == "pytest" and test_cmd.startswith("pytest "))
                    for k in _ALLOWED):
             return {"ok": False, "error": f"test_cmd 不在白名单: {test_cmd!r}"}
-        # 终审 MEDIUM：参数 token 仅允许标识符/路径字符
-        if not all(_re.match(r"^(?!-)[A-Za-z0-9_\-./]+$", t) for t in test_cmd.split()[1:]):
+        # 终审 MEDIUM：参数 token 仅允许标识符/路径字符（白名单自带 -m/--test 豁免）
+        _fixed = set()
+        if test_cmd.startswith("python -m pytest"):
+            _fixed = {"-m"}
+        elif test_cmd.startswith("node --test"):
+            _fixed = {"--test"}
+        if not all(_re.match(r"^(?!-)[A-Za-z0-9_\-./]+$", t)
+                   for t in test_cmd.split()[1:] if t not in _fixed):
             return {"ok": False, "error": f"test_cmd 参数含非法字符: {test_cmd!r}"}
         try:
             # 重置可能的旧 bisect 状态
