@@ -1,0 +1,105 @@
+/* App 布局（任务 #16 重做）：flex 纵列 = 标签栏 / 主体 / 命令栏 40px / StatusBar 22px。
+   主体横排 = 中央区（内容+底部面板）| 4px 竖分隔 | 右侧栏（--side-w，160–480 拖拽）。
+   铁律：命令栏永远置底（StatusBar 之上）；无聊天框/对话列表/头像。 */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+.app-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-container {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---------- 拖拽分隔条 ---------- */
+.v-resizer {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 0.15s;
+}
+.v-resizer:hover {
+  background: var(--accent);
+}
+.h-resizer {
+  height: 4px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: var(--border);
+  transition: background 0.15s;
+}
+.h-resizer:hover {
+  background: var(--accent);
+}
+/* 拖拽中：全局光标与禁选 */
+body.rx-dragging-v, body.rx-dragging-v * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+body.rx-dragging-h, body.rx-dragging-h * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+/* 命令栏永远置底（在 StatusBar 之上），40px 由自身高度保证 */
+.app-container > .command-bar {
+  flex-shrink: 0;
+}
+.app-container > .status-bar {
+  flex-shrink: 0;
+}
+
+/* ---------- 受控指示 ---------- */
+.controlled-pill {
+  position: fixed;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 95;
+  padding: 2px 12px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #ffffff;
+  background: #2ea043;
+  border: 1px solid #23803a;
+  border-radius: 10px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 1px 6px rgba(46, 160, 67, 0.45);
+  animation: fadeIn 0.2s ease;
+  pointer-events: none;
+}
+[data-theme='light'] .controlled-pill {
+  color: #ffffff;
+  background: #2ea043;
+  border-color: #1a7f37;
+}
+
+/* 受控绿框：浏览器 iframe 容器 / 编辑器容器（2px） */
+.controlled-frame {
+  outline: 2px solid #2ea043;
+  outline-offset: -2px;
+}

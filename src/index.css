@@ -1,0 +1,178 @@
+/* =============================================
+   RX-IDE Lite — Global Styles
+   深空灰 #1a1a1a · 金盏菊黄 #d4a373 · 13px
+   支持 html[data-theme="light"] 浅色变量组（VS Code Light 系）
+   ============================================= */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #1e1e1e;
+  --bg-tertiary: #252526;
+  --bg-hover: #2a2a2c;
+  --bg-active: #333336;
+  --bg-input: #1c1c1c;
+  --bg-modal: #212121;
+  --bg-status: #141414;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+
+  --text-primary: #d4d4d4;
+  --text-secondary: #888888;
+  --text-muted: #5a5a5a;
+  --text-accent: #d4a373;
+
+  --border: #2d2d2d;
+  --border-focus: #3d3d3d;
+
+  --accent: #d4a373;
+  --accent-dim: rgba(212, 163, 115, 0.15);
+  --accent-glow: rgba(212, 163, 115, 0.25);
+
+  --diff-add: rgba(46, 160, 67, 0.2);
+  --diff-remove: rgba(224, 62, 62, 0.2);
+
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-size: 13px;
+  --font-size-sm: 11px;
+  --font-size-xs: 10px;
+
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 6px;
+
+  --command-bar-height: 40px;
+  --tab-bar-height: 36px;
+}
+
+/* 浅色主题：VS Code Light 系（#ffffff/#f3f3f3 底、#616161 文字、#e5e5e5 边框，
+   点缀深一档 #b07d3f 保证对比） */
+[data-theme='light'] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f3f3;
+  --bg-tertiary: #ececec;
+  --bg-hover: #e8e8e8;
+  --bg-active: #dcdcdc;
+  --bg-input: #ffffff;
+  --bg-modal: #ffffff;
+  --bg-status: #e7e7e7;
+  --bg-overlay: rgba(0, 0, 0, 0.25);
+
+  --text-primary: #616161;
+  --text-secondary: #7a7a7a;
+  --text-muted: #a0a0a0;
+  --text-accent: #b07d3f;
+
+  --border: #e5e5e5;
+  --border-focus: #c9c9c9;
+
+  --accent: #b07d3f;
+  --accent-dim: rgba(176, 125, 63, 0.12);
+  --accent-glow: rgba(176, 125, 63, 0.2);
+
+  --diff-add: rgba(46, 160, 67, 0.15);
+  --diff-remove: rgba(224, 62, 62, 0.15);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.panel-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Selection */
+::selection {
+  background: rgba(212, 163, 115, 0.3);
+  color: var(--text-primary);
+}
+[data-theme='light'] ::selection {
+  background: rgba(176, 125, 63, 0.25);
+}
+
+/* Focus outline */
+button:focus-visible,
+input:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* Button reset */
+button {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Input reset */
+input {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

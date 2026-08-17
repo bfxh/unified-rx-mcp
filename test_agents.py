@@ -19,9 +19,12 @@ from install_agents import _AGENTS, _merge_servers, _server_entry, _write_agent 
 def test_agents_supported_list():
     # 至少覆盖主流智能体
     assert {"claude", "cursor", "windsurf", "trae", "aider"} <= set(_AGENTS)
-    # 每个智能体都有项目级配置文件
-    for name, (rel, top) in _AGENTS.items():
-        assert rel.endswith(".json") and top == "mcpServers", f"{name}: {rel}/{top}"
+    # 每个智能体都有配置文件（project/user 为 JSON mcpServers；yaml 为 mcp_servers）
+    for name, (mode, rel, top) in _AGENTS.items():
+        if mode == "yaml":
+            assert rel.endswith(".yaml") and top == "mcp_servers", f"{name}: {rel}/{top}"
+        else:
+            assert rel.endswith(".json") and top == "mcpServers", f"{name}: {rel}/{top}"
 
 
 def test_merge_servers_keeps_existing():
@@ -48,7 +51,7 @@ def test_write_agent_creates_config():
 
 def test_write_agent_merges_existing_config():
     repo = tempfile.mkdtemp(prefix="agent_test2_")
-    rel, _ = _AGENTS["cursor"]
+    _, rel, _ = _AGENTS["cursor"]
     path = os.path.join(repo, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -62,7 +65,7 @@ def test_write_agent_merges_existing_config():
 
 def test_write_agent_skips_bad_existing():
     repo = tempfile.mkdtemp(prefix="agent_test3_")
-    rel, _ = _AGENTS["trae"]
+    _, rel, _ = _AGENTS["trae"]
     path = os.path.join(repo, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -77,5 +80,5 @@ def test_dry_run_no_write():
     repo = tempfile.mkdtemp(prefix="agent_test4_")
     r = _write_agent(repo, "aider", _server_entry(), dry_run=True)
     assert r["ok"] and r.get("dry_run")
-    rel, _ = _AGENTS["aider"]
+    _, rel, _ = _AGENTS["aider"]
     assert not os.path.exists(os.path.join(repo, rel)), "dry-run 不应落盘"

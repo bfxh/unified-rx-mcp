@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**149 工具的统一 MCP（73 核心 + 76 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时。
+**157 工具的统一 MCP（81 核心 + 76 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时与 Reasonix Studio。
 
 > **定位：工具集，不是智能体** —— 本 MCP 产出证据与事实，不替代 LLM 推理。
 > 工具行为契约见 [`spec/`](spec/README.md)，契约验证探针见 [`probes/`](probes/run_all.py)，
@@ -23,6 +23,15 @@
 | 🛠️ **IDE 增强**（editor） | `ide_rename` / `ide_complete` / `ide_actions` / `ide_quest` / `ide_fusion` | 安全重命名（注释/字符串排除）/ 声明优先补全 / 快速修复建议（TODO/吞错）/ 任务状态机 / 诊断→符号图 |
 | 🐛 **挖漏洞**（bug hunting） | `bug_scan` / `bug_locate` / `ui_check` / `file_dedup_state` | 静态 bug 模式 / traceback 定位 / Bevy UI 检查 |
 | 📏 **工程标准**（std_check） | `std_check` | 占位文字/命名冲突/UI硬编码/魔法数字——本地直接扫，兼容游戏/UI/前端/软件 |
+| 🏥 **代码库健康四理念**（2026-08-17） | `repo_health` | **去重/剔残缺/分支/标矛盾**——用户主要目标理念；只读检测 + 健康评分（action=dedup/incomplete/branch/conflict/all） |
+| 💰 **成本核算**（2026-08-17） | `cost_report` | 每个代码/工具调用的 token 与成本（调用次数+token 估算+单价表；按工具/天/项目汇总） |
+| 🗨️ **跨智能体聊天**（2026-08-17） | `chatlog_search` | 不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕，统一索引去重） |
+| 🧰 **本地工具桥**（2026-08-17） | `local_tools` | D:\rj 下 639 个本地工具注册表 + 安全调用桥（白名单+危险参数黑名单） |
+| 💾 **每日备份/回溯**（2026-08-17） | `backup` | git 自动提交 + 限量 7 份快照（备份不会太多）+ rollback 回溯（恢复前自动另存） |
+| 🧬 **分层开发理念**（2026-08-17） | `layer_check` | UI 先布局→动画→美术 / 代码 骨架→逻辑→优化 / 剪辑 粗剪→精剪→调色音效 / 3D动画 建模绑定→K帧→渲染 + 写完即模拟 |
+| 🎬 **剪辑/动画检查**（2026-08-17） | `media_check` | 视频容器（rx-media Rust 零依赖+Python 降级）/ Blender VSE 时间线断链 / .blend+.glb 动画完整性 / 完整渲染验证（详见 docs/MEDIA_TOOLS.md） |
+| 🩺 **IDE 自检**（2026-08-17） | `ide_health` | IDE 工具族健康诊断（graph_index/LSP server/缓存/工具完整性） |
+| 🎮 **游戏方向** | `game_*` / `runtime_state` | 游戏引擎中立检查/手感/规则/验证 |
 | 🃏 **Tool 角色回喂** | `tool_card` | 调用任意工具 → 结构化卡片 `{role,ok,summary,detail}`（Aether AiRole::Tool 启发） |
 | ⚙️ **纯函数**（math/str/json/sort/prime/stat/geo/conv/valid/list/fib） | 33 个 | 零依赖高性能计算 |
 | 🦀 **Rust 加速族** | `code_search` / `net_chaos` / `telemetry_query` / `telemetry_snapshot` / `telemetry_status` | 语义检索（BM25）/ 弱网模拟混沌代理 / 遥测（rx-search / rx-net / rx-telemetry Rust crate） |
@@ -260,6 +269,8 @@ python -m pytest -q            # 全量 456 tests + 4 skipped（含 net_chaos �
 - **2026-08-16（阶段 5：弱网模拟）** Rust rx-net 混沌代理（Clumsy 式本地 TCP：延迟/丢包/乱序/带宽限速，纯 std 零依赖零驱动）→ `net_chaos` 工具（start/stop/status/sanity 四动作，subprocess 启停）；修 3 个真 bug（sanity_check 端口未释放→AddrInUse 挂起、stop 语义 exit(0)、带宽断言按比特）；工具 96→97；5 Rust 单测 + 9 pytest（实机 402ms 延迟注入验证）
 - **2026-08-16（阶段 4：本地语义检索）** Rust rx-search crate（零依赖 BM25 + 符号加权 + 中文 bigram + 标识符拆词）→ `code_search` 工具（常驻子进程行协议 + 索引缓存）；explore_code 未命中自动 semantic_fallback；VoxelForge 真实语料 6/6 top3 命中固化为 pytest；工具 95→96
 - **2026-08-16（阶段 3：测试增强）** `cov_scan`（覆盖率/死代码）/ `stress_scan`（压力）/ `replay_record`/`replay_run`（崩溃复现）/ `sage_scan`（语义回归优先级）；工具 90→95
+- **2026-08-17（剪辑/动画：rx-media Rust + media_check + 分层模板）** 自造 `rx-media` Rust crate（零依赖 MP4/MOV box 解析：时长/分辨率/帧率/编码/轨道/损坏检测，`info` 命令 + stdin 常驻，对齐 rx-core——用户"没有就自己造一个"）；`media_check` 工具四 action：video（Rust 优先+Python atom 解析降级 parity）/timeline（Blender VSE 素材断链/时长越界/帧率混用，5.2 sequences_all 兼容）/anim（.blend action/关键帧/骨骼/蒙皮 + .glb animations/skin 越界检测，落地 glb_info 概念）/render（完整渲染验证：全帧/范围/单帧，引擎枚举归一化，输出齐全校验）；`layer_check` 新增 clip（粗剪→精剪→调色音效）/anim3d（建模绑定→K帧→渲染）分层模板（顺序违规校验）；工具 156→157（81 核心）；docs/MEDIA_TOOLS.md
+- **2026-08-17（全面加强：智能体协作/健康四理念/成本/聊天/本地工具/备份/分层）** 智能体接入 v2：install_agents.py 四写入模式（project/user/yaml/probe）15 家目标，实际接入 Qoder/WorkBuddy/Trae CN/Trae SOLO/Hermes 5 家 + Reasonix Studio 适配（.mcp.json/reasonix-plugin.json 路径更新）；`repo_health` 代码库健康四理念（去重/剔残缺/分支/标矛盾——用户主要目标理念）；`cost_report` 成本核算（调用次数+token 估算+9 模型单价表，_call 自动打点）；`chatlog_search` 跨智能体聊天记录（Marvis/Hermes/Trae/Qoder 6169 条统一索引）；design_note 扩展（trace 项目内智能体留痕 + similar 相似性检查）；`local_tools` 本地工具桥（D:\rj 639 工具白名单调用）；`backup` 每日备份（git+tag+限量 7 快照）+ rollback 回溯（zip_slip 防护）；`layer_check` 分层开发理念（UI 布局→动画→美术 / 代码骨架→逻辑→优化 + 写完即模拟）；`ide_health` IDE 自检（诊断 clangd 缺失）；工具 149→156（80 核心）
 - **2026-08-16（阶段 2：AI 可读遥测）** `telemetry_snapshot`/`alarm_check`/`failure_analyze`（告警 + 根因分析）；`daemon.py` 心跳/资源监控；工具 87→90
 - **2026-08-16（阶段 1：遥测核心）** `telemetry_status`/`telemetry_query`（工具耗时/daemon 心跳/资源监控，GB 级日志流式读尾）；工具 84→87；rx-telemetry Rust crate（流式 tail + JSONL 写入）
 - **2026-08-14（编程语言收官）** 三大编程语言任务全闭环：std_check 各规则对齐 25 语言（name_conflict 补 php/sh/bash 重复声明、dead_code 补 cs/dart/php 未使用 import、占位词注释前缀全语言映射）；契约探针 36 个（p35 抓出 bug_scan 别名缺口 `.cc/.cxx/.hh/.hxx/.zsh`——分发归一修复）；LSP 扩展 Go（gopls v0.23.0，PATH 根因修复 no views + 最小 capabilities + 重试）、json/css/html（vscode-langservers）、typescript 回退 5.9.2；五轮 security-review 闭环（cs/dart 前缀误报→阈值==0+行后搜索、php 方法重名→裸 function、别名归一 file 污染→_branch、php use 回归/边界、m.group(2) 越界）；全量 283 测试 + 探针 36/36 + cae 55（gopls 实机）

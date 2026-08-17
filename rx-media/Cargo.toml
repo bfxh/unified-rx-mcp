@@ -1,0 +1,17 @@
+[package]
+name = "rx-media"
+version = "0.1.0"
+edition = "2021"
+description = "unified-rx 媒体层（Rust）：MP4/MOV 容器零依赖解析——时长/分辨率/帧率/编码/轨道/损坏检测（剪辑与动画检查的底层）"
+
+# 对齐 rx-core：仅 serde_json（preserve_order），其余纯标准库
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[[bin]]
+name = "rx-media"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true

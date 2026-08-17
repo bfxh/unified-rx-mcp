@@ -2,7 +2,7 @@
   "mcpServers": {
     "unified-rx": {
       "command": "C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
-      "args": ["E:\\共享\\51\\unified-rx\\server.py"],
+      "args": ["D:\\开发\\unified-rx-mcp\\server.py"],
       "auto_start": true,
       "startup_timeout_seconds": 30,
       "call_timeout_seconds": 300

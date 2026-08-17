@@ -2,6 +2,8 @@
 
 > 2026-08-13 · unified-rx server.py 是**标准 MCP stdio 协议**——任何支持 MCP 的
 > 智能体都能连接。本文档说明：兼容矩阵、自动启动原理、接入方式、**优先适配 RX**。
+> 2026-08-17 v2：新增 Qoder/WorkBuddy/Trae 用户级/Hermes（YAML）/Marvis/ZCode/QClaw
+> 探测接入 + Reasonix Studio 适配（install_agents.py 四写入模式）。
 
 ---
 
@@ -9,14 +11,21 @@
 
 | 智能体 | 项目级配置文件 | 启动即加载 | 接入方式 |
 |---|---|---|---|
-| **Reasonix（RX）** ✅ 优先 | `reasonix-plugin.json`（v2 manifest，`auto_start: true`） | ✅ 打开 RX 自动启动 | 已装（无需操作） |
+| **Reasonix（RX）/ Reasonix Studio** ✅ 优先 | `reasonix-plugin.json`（v2 manifest，`auto_start: true`）+ `.mcp.json` | ✅ 打开即自动启动 | 已装（路径已更新 D:\开发\unified-rx-mcp） |
 | Claude Code | `.mcp.json` | ✅ | `scripts/install_agents.py --target claude` |
 | Cursor | `.cursor/mcp.json` | ✅ | 同上 `--target cursor` |
 | Windsurf | `.windsurf/mcp_config.json` | ✅ | 同上 `--target windsurf` |
-| Trae | `.trae/mcp.json` | ✅ | 同上 `--target trae` |
+| Trae | `.trae/mcp.json`（项目级） | ✅ | 同上 `--target trae` |
 | Aider | `.aider.mcp.json` | ✅ | 同上 `--target aider` |
 | Cline（VS Code） | `.cline/mcp_settings.json` | ✅ | 同上 `--target cline` |
 | Roo Code | `.roo/mcp.json` | ✅ | 同上 `--target roo` |
+| Qoder | `%APPDATA%\Qoder\User\settings.json`（用户级） | ✅ | 同上 `--target qoder`（已装 2026-08-17） |
+| WorkBuddy | `%APPDATA%\WorkBuddy\User\settings.json`（用户级） | ✅ | 同上 `--target workbuddy`（已装 2026-08-17） |
+| Trae CN（用户级） | `%APPDATA%\Trae CN\User\mcp.json` | ✅ | 同上 `--target trae-user`（已装 2026-08-17） |
+| Trae SOLO | `%APPDATA%\TRAE SOLO CN\User\mcp.json` | ✅ | 同上 `--target trae-solo`（已装 2026-08-17） |
+| Hermes Agent（华为） | `<Hermes>\data\hermes-home\config.yaml`（YAML `mcp_servers`） | ✅ | 同上 `--target hermes`（已装 2026-08-17，文本级更新保留注释/BOM） |
+| Marvis | 探测 `~/.marvis` 等（应用内 UI 配置为主） | ⚠️ 需应用内配置 | `--target marvis`（无配置文件时输出手动指引） |
+| ZCode / QClaw | 探测 `%APPDATA%` 等 | ⚠️ 需应用内配置 | `--target zcode` / `--target qclaw` |
 | Gemini CLI / Codex CLI | `~/.gemini/settings.json` 等 | ✅ | 手写（见三） |
 
 **原理**：所有条目都是标准 `mcpServers` 字典（`command` + `args` 指向
@@ -31,7 +40,7 @@
 # 在目标项目目录运行（写入该项目根的项目级配置）
 python <unified-rx 仓库>/scripts/install_agents.py --all
 # 或只装某智能体
-python <unified-rx 仓库>/scripts/install_agents.py --target claude
+python <unified-rx 仓库>/scripts/install_agents.py --target qoder
 # 预览不落盘
 python <unified-rx 仓库>/scripts/install_agents.py --dry-run
 # 指定项目
@@ -42,6 +51,15 @@ python <unified-rx 仓库>/scripts/install_agents.py --all --repo C:\path\to\pro
 - 只合并 `mcpServers` 字典——**不删除**项目已有的其他 MCP 服务器条目
 - `unified-rx` 条目用绝对路径（command=Python 解释器，args=[server.py 绝对路径]）
 - 已有配置无法解析（坏 JSON）→ 跳过不覆盖（防破坏用户配置）
+
+**四种写入模式**（v2，2026-08-17）：
+- `project`：写入项目根相对路径（claude/cursor/windsurf/trae/aider/cline/roo）
+- `user`：写入用户级配置（qoder/workbuddy/trae-user/trae-solo，`%APPDATA%` 展开，
+  打开任意项目即加载）
+- `yaml`：文本级更新 Hermes `config.yaml` 的 `mcp_servers` 块（保留注释与 BOM，
+  幂等——重复执行只替换不叠加）
+- `probe`：探测候选路径（marvis/zcode/qclaw），找到 JSON 配置就写，否则输出
+  应用内手动配置指引（这些应用以 UI 配置 MCP 为主）
 
 ### 手写配置（任意智能体通用模板）
 
@@ -116,5 +134,6 @@ python scripts/mcp_smoke.py   # 冒烟：list_tools 数量
 # 2. 确认配置 JSON 合法
 python -c "import json;json.load(open('.mcp.json'))"
 
-# 3. 重启智能体 → 对话里应出现 unified-rx 工具（121 = 97 核心 + 24 扩展）
+# 3. 重启智能体 → 对话里应出现 unified-rx 工具（149 = 73 核心 + 76 扩展；
+#    见 tools.json / scripts/mcp_smoke.py 输出）
 ```

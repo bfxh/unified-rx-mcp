@@ -107,3 +107,93 @@ def get_note(root: str, kind: str) -> dict:
     return {"ok": True, "kind": kind, "notes": notes,
             "count": len(notes),
             "tags": dict(sorted(_tags.items(), key=lambda kv: -kv[1]))}
+
+
+# ── 2026-08-17：智能体调用留痕 + 相似性检查 ────────────────────────────
+# 用户："怎么知道有其他的智能体调用过——会在那个项目当中做笔记的"
+# 项目内留痕文件 <root>/.unified-rx/traces.jsonl（追加式，记录谁/何时/做了什么）
+
+_TRACES = "traces.jsonl"
+
+
+def _traces_path(root: str) -> str:
+    return os.path.join(root, _DIR, _TRACES)
+
+
+def trace_call(root: str, agent: str, action: str, detail: str = "") -> dict:
+    """项目内智能体调用留痕（哪个智能体何时调用过什么/改过什么）。"""
+    if not root or not os.path.isdir(root):
+        return {"ok": False, "error": f"目录不存在: {root}"}
+    rec = {"agent": str(agent or "unknown"), "action": str(action or ""),
+           "detail": str(detail or "")[:500], "ts": time.time()}
+    p = _traces_path(root)
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except OSError as e:
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "trace": rec, "file": p}
+
+
+def list_traces(root: str, agent: str = "", limit: int = 20) -> dict:
+    """读取项目内留痕（可按 agent 过滤）。"""
+    if not root or not os.path.isdir(root):
+        return {"ok": False, "error": f"目录不存在: {root}"}
+    records = []
+    try:
+        with open(_traces_path(root), encoding="utf-8") as f:
+            for ln in f:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    d = json.loads(ln)
+                except ValueError:
+                    continue
+                if agent and d.get("agent") != agent:
+                    continue
+                records.append(d)
+    except OSError:
+        pass
+    records.sort(key=lambda r: r.get("ts", 0), reverse=True)
+    return {"ok": True, "root": root, "traces": records[:limit],
+            "count": len(records), "file": _traces_path(root)}
+
+
+def similar_notes(root: str, query: str, limit: int = 10) -> dict:
+    """相似性检查：项目笔记 + 留痕 + 跨智能体聊天记录（搞项目前看看有没有相似的）。"""
+    if not root or not os.path.isdir(root):
+        return {"ok": False, "error": f"目录不存在: {root}"}
+    q = str(query or "").strip().lower()
+    hits = []
+    # 1) 项目笔记（design.json 三类）
+    data = _load(root)
+    for kind, notes in data.items():
+        for n in notes:
+            text = str(n.get("text", ""))
+            if q and (q in text.lower() or q in str(n.get("tag", "")).lower()):
+                hits.append({"source": "note", "kind": kind, "text": text[:300],
+                             "ts": n.get("ts", 0)})
+    # 2) 项目内留痕（traces.jsonl）
+    for t in list_traces(root, limit=500).get("traces", []):
+        hay = f"{t.get('agent', '')} {t.get('action', '')} {t.get('detail', '')}".lower()
+        if q and q in hay:
+            hits.append({"source": "trace", "agent": t.get("agent", ""),
+                         "text": f"{t.get('action', '')}: {t.get('detail', '')}"[:300],
+                         "ts": t.get("ts", 0)})
+    # 3) 跨智能体聊天/编辑记录（chatlog 索引）
+    try:
+        from chatlog_core import search as _chatlog_search
+        r = _chatlog_search(q, limit=limit)
+        for h in r.get("hits", []):
+            hits.append({"source": "chatlog", "agent": h.get("agent", ""),
+                         "title": h.get("title", ""),
+                         "text": str(h.get("text", ""))[:300], "ts": h.get("ts", 0)})
+    except Exception:
+        pass
+    hits.sort(key=lambda h: h.get("ts", 0), reverse=True)
+    return {"ok": True, "root": root, "query": query, "hits": hits[:limit],
+            "hit_count": len(hits),
+            "advice": (f"{len(hits)} 条相似记录（笔记/留痕/其他智能体聊天）——"
+                       f"先看再动手，避免重复搞" if hits else "无相似记录，可放心开始")}

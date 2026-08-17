@@ -3554,8 +3554,15 @@ def _tool_skill_fetch(args: dict) -> "list[types.TextContent]":
 
 
 def _tool_design_note(args: dict) -> "list[types.TextContent]":
-    """项目本质三分（settled/adjustable/doubts）。"""
-    from design_notes import add_note, list_notes, get_note
+    """项目本质三分（settled/adjustable/doubts）+ 智能体调用留痕/相似性检查。
+
+    action=add|get|search|list（三分笔记）|trace（项目内智能体调用留痕：
+    agent/action/detail → <root>/.unified-rx/traces.jsonl）|traces（读取留痕，
+    agent 过滤）|similar（相似性检查：query 在项目笔记+留痕+跨智能体聊天
+    记录中查相似——搞项目前看看有没有其他智能体搞过相似的）。
+    """
+    from design_notes import (add_note, list_notes, get_note,
+                              trace_call, list_traces, similar_notes)
     action = args.get("action", "list")
     # IDE 增强 184（安全）：root 过 _check_path（add 写
     # <root>/design_notes.json——任意路径写文件越界；转 str 防 WindowsPath）
@@ -3567,6 +3574,16 @@ def _tool_design_note(args: dict) -> "list[types.TextContent]":
             r = add_note(root, kind, args.get("text", ""), args.get("tag", ""))
         elif action == "get":
             r = get_note(root, kind)
+        elif action == "trace":
+            r = trace_call(root, str(args.get("agent", "")),
+                           str(args.get("action", "")),
+                           str(args.get("detail", "")))
+        elif action == "traces":
+            r = list_traces(root, agent=str(args.get("agent", "")),
+                            limit=int(args.get("limit", 20)))
+        elif action == "similar":
+            r = similar_notes(root, str(args.get("query", "")),
+                              limit=int(args.get("limit", 10)))
         elif action == "search":
             # IDE 增强 182：全文检索（query 在全部 notes 里搜——含 tag）
             q = str(args.get("query", "")).strip().lower()
@@ -3904,6 +3921,274 @@ def _tool_rule_feedback(args: dict) -> "list[types.TextContent]":
         return [_TC(json.dumps({"ok": False, "error": "delta 须在 [0,1]"}, ensure_ascii=False))]
     res = _lse.delta_update_rule(rule_id, delta, adopted)
     return [_TC(json.dumps(res, ensure_ascii=False))]
+
+
+def _tool_repo_health(args: dict) -> "list[types.TextContent]":
+    """代码库健康四理念（去重/剔残缺/分支/标矛盾，用户 2026-08-17 理念）。
+
+    action=dedup|incomplete|branch|conflict|all（必填）；
+    root=项目根（默认 UNIFIED_RX_PROJECT 或当前目录）；top=结果上限。
+    只读检测：去重（完全相同/近似/重复块）、剔残缺（空实现/TODO/断引用）、
+    分支健康（git，非 git 降级）、标矛盾（同名符号）。
+    返回 {ok, action, root, items, summary, score, elapsed_ms}。
+    """
+    action = str(args.get("action", ""))
+    if action not in ("dedup", "incomplete", "branch", "conflict", "all"):
+        raise ValueError("action 必填: dedup/incomplete/branch/conflict/all")
+    root = str(args.get("root", os.environ.get("UNIFIED_RX_PROJECT") or os.getcwd()))
+    top = int(args.get("top", 20))
+    if not 1 <= top <= 200:
+        raise ValueError("top 须在 1..200")
+    try:
+        from repo_health import repo_health
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from repo_health import repo_health  # noqa: F811
+    return [_TC(json.dumps(repo_health(action, root, top), ensure_ascii=False))]
+
+
+def _tool_cost_report(args: dict) -> "list[types.TextContent]":
+    """成本核算（用户 2026-08-17：每个代码/工具调用次数和 token 消耗成本都要算）。
+
+    action=summary（默认，按工具/天/项目汇总调用次数+token+成本）|
+           estimate（估算一段文本的 token 与成本，text 参数）|
+           code（估算代码文件/目录的 token 与成本，path 参数）
+    model=模型单价表键（deepseek-chat 默认/deepseek-reasoner/claude-sonnet/
+          claude-opus/gpt-4o/gpt-4o-mini/qwen-max/qwen-plus）
+    summary 数据源：~/.unified-rx/stats.json 自动打点（tokens_in/out 已由 _call 估算）。
+    """
+    from cost_core import estimate_tokens, estimate_cost, summarize
+    action = str(args.get("action", "summary"))
+    model = str(args.get("model", "deepseek-chat"))
+    if action == "estimate":
+        text = str(args.get("text", ""))
+        tok = estimate_tokens(text)
+        return [_TC(json.dumps({"ok": True, "action": "estimate",
+                                "chars": len(text), **estimate_cost(tok, 0, model)},
+                               ensure_ascii=False))]
+    if action == "code":
+        p = _check_path(str(args.get("path", os.getcwd())))
+        total_tok = 0
+        files = 0
+        if p.is_file():
+            paths = [p]
+        else:
+            paths = [f for f in p.rglob("*") if f.is_file() and
+                     f.suffix.lower() in {".py", ".js", ".ts", ".tsx", ".jsx", ".rs",
+                                          ".go", ".java", ".c", ".cpp", ".h", ".json",
+                                          ".md", ".html", ".css", ".vue"}][:500]
+        for f in paths:
+            try:
+                if f.stat().st_size > 5_000_000:
+                    continue
+                total_tok += estimate_tokens(f.read_text(encoding="utf-8", errors="replace"))
+                files += 1
+            except OSError:
+                continue
+        return [_TC(json.dumps({"ok": True, "action": "code", "path": str(p),
+                                "files": files, **estimate_cost(total_tok, 0, model)},
+                               ensure_ascii=False))]
+    if action != "summary":
+        raise ValueError("action 可选: summary/estimate/code")
+    # summary：读 stats 自动打点记录汇总
+    records = []
+    try:
+        from vendor.extensions.stats.server import _load
+        records = _load()
+    except Exception:
+        state = os.path.join(os.path.expanduser("~"), ".unified-rx", "stats.json")
+        try:
+            import json as _json
+            records = _json.load(open(state, encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+    return [_TC(json.dumps(summarize(records, model=model), ensure_ascii=False))]
+
+
+def _tool_chatlog_search(args: dict) -> "list[types.TextContent]":
+    """不同智能体聊天记录检索（用户 2026-08-17：一定要获取不同的智能体聊天记录）。
+
+    action=search（默认，query 关键词匹配 title+text，agent 过滤，since_days 限定）
+          |collect（重新采集 Marvis/Hermes/Trae/Qoder 的聊天/记忆/编辑留痕，
+                   去重追加到 ~/.unified-rx/chatlog.jsonl）|status（索引统计）。
+    query/agent/limit/since_days 为 search 参数；agents 为 collect 参数（逗号分隔）。
+    """
+    from chatlog_core import collect, search
+    action = str(args.get("action", "search"))
+    if action == "collect":
+        agents = [a.strip() for a in str(args.get("agents", "")).split(",") if a.strip()] or None
+        return [_TC(json.dumps(collect(agents), ensure_ascii=False))]
+    if action == "status":
+        try:
+            with open(os.path.join(os.path.expanduser("~"), ".unified-rx",
+                                   "chatlog.jsonl"), encoding="utf-8") as f:
+                n = sum(1 for ln in f if ln.strip())
+            return [_TC(json.dumps({"ok": True, "action": "status", "total": n},
+                                   ensure_ascii=False))]
+        except OSError:
+            return [_TC(json.dumps({"ok": True, "action": "status", "total": 0},
+                                   ensure_ascii=False))]
+    if action != "search":
+        raise ValueError("action 可选: search/collect/status")
+    limit = int(args.get("limit", 20))
+    if not 1 <= limit <= 100:
+        raise ValueError("limit 须在 1..100")
+    r = search(str(args.get("query", "")),
+               agent=str(args.get("agent", "")) or None,
+               limit=limit,
+               since_days=int(args.get("since_days", 0)) or None)
+    return [_TC(json.dumps(r, ensure_ascii=False))]
+
+
+def _tool_local_tools(args: dict) -> "list[types.TextContent]":
+    """本地工具注册表与安全调用桥（用户 2026-08-17：可以调用大部分的本地工具）。
+
+    action=scan（扫描 D:\\rj\\GJ/SJ/KF 等工具根 → 注册表）|
+           discover（列出已注册工具，query 名称过滤）|
+           run（安全调用：name 工具名 + args 参数列表 + timeout 秒——
+                白名单注册 + 危险参数黑名单 + 输出截断 20k）
+    LOCAL_TOOL_ROOTS 环境变量可扩展工具根（分号分隔）。
+    """
+    from local_tools import scan, discover, run
+    action = str(args.get("action", "discover"))
+    if action == "scan":
+        return [_TC(json.dumps(scan(), ensure_ascii=False))]
+    if action == "discover":
+        r = discover(query=str(args.get("query", "")),
+                     category=str(args.get("category", "")))
+        return [_TC(json.dumps(r, ensure_ascii=False))]
+    if action == "run":
+        r = run(str(args.get("name", "")),
+                args.get("args") or [],
+                timeout=int(args.get("timeout", 60)))
+        return [_TC(json.dumps(r, ensure_ascii=False))]
+    raise ValueError("action 可选: scan/discover/run")
+
+
+def _tool_backup(args: dict) -> "list[types.TextContent]":
+    """每日备份 + 回溯（用户 2026-08-17：每天备份，备份不会太多 + 回溯效果）。
+
+    action=backup（git commit + tag daily-YYYYMMDD + 限量快照 zip，
+           keep 默认 7 份，删最旧）|list（备份时间线）|
+           rollback（回溯到指定日期快照，恢复前自动另存当前状态防不可逆）。
+    root=项目根（必填）；keep=保留份数（1..30）。
+    快照目录：~/.unified-rx/backups/<项目名>/<YYYYMMDD>.zip
+    """
+    from backup_core import daily_backup, list_snapshots, rollback
+    action = str(args.get("action", "list"))
+    root = str(args.get("root", ""))
+    if action == "backup":
+        r = daily_backup(root, keep=int(args.get("keep", 7)))
+    elif action == "rollback":
+        r = rollback(root, str(args.get("date", "")))
+    elif action == "list":
+        r = list_snapshots(root)
+    else:
+        raise ValueError("action 可选: backup/list/rollback")
+    return [_TC(json.dumps(r, ensure_ascii=False))]
+
+
+def _tool_ide_health(args: dict) -> "list[types.TextContent]":
+    """IDE 工具族健康自检（用户 2026-08-17：IDE 还是太弱——先诊断弱在哪）。
+
+    检查：graph_index（tree-sitter 符号图）可用性与语言数、LSP server
+    （pylsp/rust-analyzer/clangd）是否可发现、ide_cache 缓存条目数、
+    ide_tools 模块完整性。输出 {ok, checks: [{name, ok, detail}], advice}。
+    """
+    checks = []
+    # 1) graph_index / tree-sitter
+    try:
+        import graph_index as gi
+        langs = getattr(gi, "SUPPORTED_LANGS", getattr(gi, "LANGS", "unknown"))
+        checks.append({"name": "graph_index", "ok": True,
+                       "detail": f"符号图可用，支持语言: {langs}"})
+    except Exception as e:
+        checks.append({"name": "graph_index", "ok": False, "detail": str(e)[:120]})
+    # 2) LSP server 可发现性
+    import shutil
+    for lsp in ("pylsp", "rust-analyzer", "clangd", "typescript-language-server"):
+        found = shutil.which(lsp) is not None
+        checks.append({"name": f"lsp:{lsp}", "ok": found,
+                       "detail": shutil.which(lsp) or "未安装（可在 PATH 安装后启用）"})
+    # 3) ide_cache 状态
+    try:
+        from ide_cache import _CACHE, _MAX_ENTRIES, _WARM_DB
+        checks.append({"name": "ide_cache", "ok": True,
+                       "detail": f"缓存 {len(_CACHE)}/{_MAX_ENTRIES} 条目，"
+                                 f"温层持久化: {'启用' if _WARM_DB else '未启用'}"})
+    except Exception as e:
+        checks.append({"name": "ide_cache", "ok": False, "detail": str(e)[:120]})
+    # 4) ide_tools 完整性
+    import ide_tools
+    for fn in ("ide_rename", "ide_complete", "ide_references", "ide_actions"):
+        checks.append({"name": f"ide_tools.{fn}", "ok": hasattr(ide_tools, fn),
+                       "detail": "可用" if hasattr(ide_tools, fn) else "缺失"})
+    bad = [c for c in checks if not c["ok"]]
+    return [_TC(json.dumps({
+        "ok": True, "checks": checks,
+        "summary": f"{len(checks) - len(bad)}/{len(checks)} 项健康",
+        "advice": ("LSP server 未安装——语义补全/悬停/跳转走 graph_index 降级；"
+                   "安装 pylsp（pip install python-lsp-server）可增强 Python 语义"
+                   if any(c["name"].startswith("lsp:") and not c["ok"] for c in checks)
+                   else "IDE 工具族健康"),
+    }, ensure_ascii=False, indent=2))]
+
+
+def _tool_layer_check(args: dict) -> "list[types.TextContent]":
+    """分层开发理念 + 写完即模拟（用户 2026-08-17：先布局再动画再美术；写完要模拟）。
+
+    action=ui（UI 文件三层分检：布局→动画→美术，含顺序违规校验）|
+           code（代码三层分检：骨架→逻辑→优化）|
+           simulate（写完即模拟：Python AST+py_compile+隔离 import；
+                    JS/TS node --check——模拟不通过提示先修再交付）|
+           clip（剪辑：粗剪→精剪→调色音效）|anim3d（建模绑定→K帧→渲染）。
+    path=目标文件（必填）。
+    """
+    from layer_check import layer_check
+    action = str(args.get("action", "code"))
+    # 安全（审查 2026-08-17）：path 过 _check_path 沙盒校验——simulate 会
+    # exec_module 执行 .py 顶层代码，未校验路径可绕过沙盒读任意文件执行
+    path = str(_check_path(str(args.get("path", ""))))
+    if action not in ("ui", "code", "simulate", "clip", "anim3d"):
+        raise ValueError("action 可选: ui/code/simulate/clip/anim3d")
+    return [_TC(json.dumps(layer_check(action, path), ensure_ascii=False, indent=2))]
+
+
+def _tool_media_check(args: dict) -> "list[types.TextContent]":
+    """剪辑/动画检查（用户 2026-08-17：IDE 对剪辑和动画的提升）。
+
+    action=video（视频容器信息：rx-media Rust 优先 + Python 降级——时长/
+          分辨率/帧率/编码/损坏）|timeline（Blender VSE 时间线：素材断链/
+          时长越界/帧率混用）|anim（动画检查：.blend 场景 action/关键帧/
+          骨骼/蒙皮 via Blender 批处理；.glb animations/skin）|
+          render（完整渲染验证：blender -b 批处理渲染，默认全帧——
+          用户选定"写完即模拟"的 3D/视频版）。
+    path=目标文件（必填）；render 可配 frames（ALL 或 1-10）、engine
+    （CYCLES/EEVEE/WORKBENCH）、resolution（>0 覆盖宽）、timeout 秒。
+    """
+    from media_core import video_info, timeline_check, anim_check, render_sim
+    action = str(args.get("action", "video"))
+    # 安全：path 过 _check_path（沙盒校验——对齐 fs_read/locate_edit 惯例；
+    # 污点流风险由工具层拦截，media_core 内部 open 仅接收已校验路径）
+    path = str(_check_path(str(args.get("path", ""))))
+    if action == "video":
+        return [_TC(json.dumps(video_info(path), ensure_ascii=False, indent=2))]
+    if action == "timeline":
+        return [_TC(json.dumps(timeline_check(path), ensure_ascii=False, indent=2))]
+    if action == "anim":
+        return [_TC(json.dumps(anim_check(path), ensure_ascii=False, indent=2))]
+    if action == "render":
+        try:
+            resolution = int(args.get("resolution", 0))
+            timeout = int(args.get("timeout", 1800))
+        except (TypeError, ValueError):
+            raise ValueError("resolution/timeout 须为整数")
+        r = render_sim(path, frames=str(args.get("frames", "ALL")),
+                       engine=str(args.get("engine", "CYCLES")),
+                       resolution=resolution, timeout=timeout)
+        return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
+    raise ValueError("action 可选: video/timeline/anim/render")
 
 
 def _tool_std_check(args: dict) -> "list[types.TextContent]":
@@ -4670,6 +4955,9 @@ _TOOLS: dict[str, tuple] = {
         "exclude_comments": _S("boolean", "排除注释/字符串内引用（默认 true）"),
         "include_plan": _S("boolean", "生成 apply_plan（按文件聚合的行级编辑列表，fs_write 就绪，默认 false）"),
     }, ["root", "symbol", "new_name"]), "安全重命名：全库找引用→建议（L3 不落盘，确认后 fs_write 应用；include_plan 可生成批量应用计划）"),
+    "ide_health": (_tool_ide_health, _schema({}, []), "IDE 工具族健康自检（graph_index/LSP server/缓存/工具完整性——诊断 IDE 弱在哪）"),
+    "layer_check": (_tool_layer_check, _schema({"action": _S("string", "ui/code/simulate/clip/anim3d（默认 code）"), "path": _S("string", "目标文件（必填）")}, ["path"]), "分层开发理念（UI 布局→动画→美术 / 代码 骨架→逻辑→优化 / 剪辑 粗剪→精剪→调色音效 / 3D动画 建模绑定→K帧→渲染，含顺序违规校验）+ 写完即模拟"),
+    "media_check": (_tool_media_check, _schema({"action": _S("string", "video/timeline/anim/render（默认 video）"), "path": _S("string", "目标文件（视频/.blend/.glb）"), "frames": _S("string", "render 用：ALL 或 1-10"), "engine": _S("string", "render 用：CYCLES/EEVEE/WORKBENCH"), "resolution": _S("integer", "render 用：>0 覆盖宽"), "timeout": _S("integer", "render 用：超时秒(默认1800)")}, ["path"]), "剪辑/动画检查（视频容器 rx-media Rust+Python 降级 / Blender VSE 时间线断链 / .blend+.glb 动画完整性 / 完整渲染验证）"),
     "ide_complete": (_tool_ide_complete, _schema({
         "root": _S("string", "代码库根目录"),
         "file": _S("string", "当前文件"),
@@ -4938,6 +5226,11 @@ _TOOLS: dict[str, tuple] = {
     "ds_lookup": (_tool_ds_lookup, _schema({}, []), "设计系统 token 查询（AI 生成 UI 时引用）"),
     "ds_check": (_tool_ds_check, _schema({"path": _S("string", ".rs 文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "设计系统合规检查（硬编码值/规则偏离）"),
     "std_check": (_tool_std_check, _schema({"path": _S("string", "文件或目录"), "max_files": _S("integer", "扫描上限(默认200)")}, ["path"]), "通用工程标准检查（占位文字/命名冲突/UI硬编码/魔法数字；默认标准兼容绝大多数项目）"),
+    "repo_health": (_tool_repo_health, _schema({"action": _S("string", "dedup/incomplete/branch/conflict/all"), "root": _S("string", "项目根（默认 UNIFIED_RX_PROJECT 或 cwd）"), "top": _S("integer", "结果上限(默认20)")}, ["action"]), "代码库健康四理念（去重/剔残缺/分支/标矛盾——用户主要目标理念；只读检测 + 健康评分）"),
+    "cost_report": (_tool_cost_report, _schema({"action": _S("string", "summary/estimate/code（默认 summary）"), "model": _S("string", "模型单价键（deepseek-chat 默认）"), "text": _S("string", "estimate 用：待估算文本"), "path": _S("string", "code 用：代码文件/目录")}, []), "成本核算（调用次数+token+成本：按工具/天/项目汇总，或估算文本/代码成本——用户要求每个代码和工具调用都算成本）"),
+    "chatlog_search": (_tool_chatlog_search, _schema({"action": _S("string", "search/collect/status（默认 search）"), "query": _S("string", "关键词（匹配 title+text）"), "agent": _S("string", "智能体过滤（marvis/hermes/trae/qoder）"), "limit": _S("integer", "结果上限(默认20)"), "since_days": _S("integer", "只看最近 N 天"), "agents": _S("string", "collect 用：逗号分隔智能体列表")}, []), "不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕——统一索引去重）"),
+    "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
+    "backup": (_tool_backup, _schema({"action": _S("string", "backup/list/rollback（默认 list）"), "root": _S("string", "项目根（必填）"), "keep": _S("integer", "保留快照份数(默认7，删最旧)"), "date": _S("string", "rollback 用：YYYYMMDD 快照日期")}, ["root"]), "每日备份与回溯（git commit+tag + 限量快照 zip 7 份——备份不会太多；rollback 恢复前自动另存当前状态）"),
     "lesson_recall_lse": (_tool_lesson_recall_lse, _schema({
         "task_description": _S("string", "任务描述（召回相关教训）"),
         "lessons_dir": _S("string", "教训库目录（可选）"),
@@ -5240,6 +5533,7 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
     t0 = time.perf_counter()
     tel_ok = True
     tel_err = ""
+    _out_text = ""  # 成本核算：输出 token 估算（结果文本，各返回点赋值）
     try:
         import speculate  # 阶段3 推测执行（延迟 import 防启动开销）
         # 阶段3（2026-08-15）：推测执行消费——白名单只读工具命中推测缓存
@@ -5248,6 +5542,7 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
             cached = speculate.consume_speculated(name, arguments or {})
             if cached is not None:
                 _scan_log_tick(name, arguments or {}, [_TC(cached)])
+                _out_text = cached
                 return [_TC(cached)]
         # R2 权限检查（L4 写工具需显式授权——越权在分发前拒绝）
         from ide_permission import check as _perm_check, strip_auth as _perm_strip
@@ -5262,13 +5557,17 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
                 _scan_log_tick(name, arguments or {}, result)
                 # 日志闯进调用：扫描工具返回时附带该 root 已知问题（scan-log 反馈）
                 result = _attach_known_issues(name, arguments or {}, result)
+                _out_text = "".join(t.text for t in result)
                 return result
             _scan_log_tick(name, arguments or {}, [_TC(str(result))])
+            _out_text = str(result)
             return [_TC(str(result))]
         if name in ("stats_summary", "stats_status"):
             _stats_flush()  # 汇总/状态前落盘缓冲打点（协作：summary 能看到自动打点）
         if name.startswith(("pr_oracle_", "tautest_", "cae_", "stats_")):
-            return _call_ext(name, arguments or {})
+            _ext_res = _call_ext(name, arguments or {})
+            _out_text = "".join(t.text for t in _ext_res)
+            return _ext_res
         raise ValueError(f"unknown tool: {name}")
     except Exception as exc:
         tel_ok = False
@@ -5277,7 +5576,9 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
     finally:
         # 自动打点（工具协作：每个工具调用自动记录到 stats，stats_* 自身除外）
         if not name.startswith("stats_"):
-            _stats_tick(name, (time.perf_counter() - t0) * 1000)
+            _stats_tick(name, (time.perf_counter() - t0) * 1000,
+                        in_text=json.dumps(arguments or {}, ensure_ascii=False)[:2000],
+                        out_text=_out_text)
         # 遥测（阶段1）：工具调用耗时/状态/错误 → rx-telemetry（telemetry_* 自身除外防递归）
         if not name.startswith(("stats_", "telemetry_", "telemetry")):
             try:
@@ -5424,26 +5725,39 @@ def _scan_log_tick(name: str, args: dict, result: "list[types.TextContent]") -> 
     scan_log_core.append_scan({"tool": name, "root": root, "ok": True, "summary": summary})
 
 
-def _stats_tick(tool: str, duration_ms: float) -> None:
+def _stats_tick(tool: str, duration_ms: float,
+                in_text: str = "", out_text: str = "") -> None:
     """工具调用自动打点：内存缓冲，满 100 条或退出时批量落盘（失败静默）。
 
     性能约束：打点路径必须 O(1)——纯函数调用（math_ops 等）1000 次 <50ms。
     - 锁内只做 append（微秒级），绝不做文件 IO
     - flush 用快照交换 + 后台 daemon 线程异步落盘——_call 路径零阻塞
     - stats_summary/stats_status 调用前仍同步 _stats_flush() 取最新数据
+    - 成本核算（2026-08-17）：tokens_in/tokens_out 由 in_text/out_text 估算
+      （cost_core.estimate_tokens 延迟 import——纯函数路径零开销）
     """
     global _STATS_BUF
     try:
         if "stats_record" not in _EXT_DEFS:
             return
+        record = {
+            "ts": time.time(),
+            "task": "unified-rx",
+            "tool": tool,
+            "action": tool,
+            "duration_ms": duration_ms,
+        }
+        if in_text or out_text:
+            try:
+                from cost_core import estimate_tokens
+                if in_text:
+                    record["tokens_in"] = estimate_tokens(in_text)
+                if out_text:
+                    record["tokens_out"] = estimate_tokens(out_text)
+            except Exception:
+                pass  # 成本估算失败不影响打点
         with _STATS_LOCK:
-            _STATS_BUF.append({
-                "ts": time.time(),
-                "task": "unified-rx",
-                "tool": tool,
-                "action": tool,
-                "duration_ms": duration_ms,
-            })
+            _STATS_BUF.append(record)
             if len(_STATS_BUF) < _STATS_FLUSH_EVERY:
                 return
             # 快照交换：锁内 O(1) 取走缓冲；锁外异步落盘（不阻塞调用方）
