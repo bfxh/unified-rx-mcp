@@ -5296,6 +5296,23 @@ def _tool_train_export(args: dict) -> "list[types.TextContent]":
                            if ln.startswith("-") and not ln.startswith("---")]
                 added = [ln[1:].strip()[:80] for ln in diff.splitlines()
                          if ln.startswith("+") and not ln.startswith("+++")]
+                # DIFF 结构化（2026-08-18）：hunk 数/行号——表达复杂修改
+                _hunks = []
+                _cur = None
+                for _ln in diff.splitlines():
+                    _m = re.search(r"@@ -(\d+)[^@]*\+(\d+)", _ln)
+                    if _m:
+                        if _cur:
+                            _hunks.append(_cur)
+                        _cur = {"old_start": int(_m.group(1)), "new_start": int(_m.group(2)),
+                                "removed": 0, "added": 0}
+                    elif _cur is not None:
+                        if _ln.startswith("-") and not _ln.startswith("---"):
+                            _cur["removed"] += 1
+                        elif _ln.startswith("+") and not _ln.startswith("+++"):
+                            _cur["added"] += 1
+                if _cur:
+                    _hunks.append(_cur)
                 if removed or added:
                     samples.append({
                         "commit": c["sha"],
@@ -5303,6 +5320,7 @@ def _tool_train_export(args: dict) -> "list[types.TextContent]":
                         "bug_patterns": removed[:5],
                         "fix_patterns": added[:5],
                         "diff_excerpt": diff[:800],
+                        "hunks": _hunks[:8],
                     })
         with open(sample_path, "a", encoding="utf-8") as fp:
             for smp in samples:
