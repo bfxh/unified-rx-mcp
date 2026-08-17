@@ -29,6 +29,12 @@
 运行:  python server.py            (stdio)
 自检:  python server.py --selftest
 """
+
+# ── 合并引擎预加载（engine/scan_engine 等——旧模块名注册到 sys.modules）──
+import engine.scan_engine  # noqa: F401
+import engine.ide_engine  # noqa: F401
+import engine.learn_engine  # noqa: F401
+
 import argparse
 import ast
 import asyncio
