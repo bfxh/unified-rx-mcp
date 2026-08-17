@@ -1,7 +1,7 @@
 {
- "core_count": 89,
+ "core_count": 91,
  "ext_count": 76,
- "total": 165,
+ "total": 167,
  "core": [
   "agent",
   "alarm_check",
@@ -42,6 +42,7 @@
   "ide_complete",
   "ide_fusion",
   "ide_health",
+  "ide_open_at",
   "ide_quest",
   "ide_references",
   "ide_rename",
@@ -74,6 +75,7 @@
   "scan",
   "scan_all",
   "scan_delta",
+  "scan_fix_flow",
   "scan_now",
   "semantic_search",
   "skill_fetch",

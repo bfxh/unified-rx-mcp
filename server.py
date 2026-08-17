@@ -2095,7 +2095,78 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
+
+def _tool_ide_open_at(args: dict) -> "list[types.TextContent]":
+    """定位打开：path + line → IDE 打开并滚动到行（GUI 编辑器或降级命令）。"""
+    import os as _os
+    path = str(args.get("path", ""))
+    line = int(args.get("line", 1))
+    if not path or not _os.path.exists(path):
+        return [_TC(json.dumps({"ok": False, "error": "path 不存在"}, ensure_ascii=False))]
+    # 尝试 GUI 编辑器（ide_ui 的 open_file + 行定位）
+    gui_opened = False
+    try:
+        from ide_ui import open_file_at_line  # 若无此函数则走降级
+        open_file_at_line(path, line)
+        gui_opened = True
+    except Exception:  # noqa: BLE001
+        pass
+    # 降级：输出 IDE 命令（VSCode code --goto 或通用提示）
+    cmd = f'code --goto "{path}:{line}"'
+    return [_TC(json.dumps({
+        "ok": True, "path": path, "line": line,
+        "gui_opened": gui_opened,
+        "open_command": cmd,
+        "note": "GUI 打开失败时用 open_command（VSCode）或手动打开定位行",
+    }, ensure_ascii=False))]
+
+
+def _tool_scan_fix_flow(args: dict) -> "list[types.TextContent]":
+    """扫描→修复闭环工作台：unit_rerun（依赖重跑集）+ bug_scan（问题带行号）
+    + ide_open_at（定位打开）——一次调用完成 扫描→定位→打开→重跑 闭环。"""
+    import os as _os
+    import re as _re
+    root = args.get("path") or _os.getcwd()
+    changed = args.get("changed") or []
+    # 1. 依赖重跑集
+    rr = json.loads(_tool_unit_rerun({"path": root, "changed": changed})[0].text)
+    affected = rr.get("affected", {})
+    # 2. 对受影响文件跑 bug_scan（问题带行号）
+    issues_by_file = {}
+    for rel in list(affected.keys())[:10]:
+        fp = _os.path.join(root, rel)
+        try:
+            r = json.loads(_tool_bug_scan({"path": fp})[0].text)
+        except Exception:  # noqa: BLE001
+            continue
+        iss = r.get("issues", []) or []
+        if iss:
+            issues_by_file[rel] = [{
+                "line": i.get("line", i.get("start_line", 0)),
+                "severity": i.get("severity", "unknown"),
+                "rule": i.get("rule", i.get("id", "?")),
+                "msg": (i.get("msg") or i.get("message") or "")[:100],
+            } for i in iss[:8]]
+    # 3. 工作台输出（每个受影响文件：问题 + 打开命令 + 重跑提示）
+    workbench = {}
+    for rel, info in affected.items():
+        workbench[rel] = {
+            "depends_on": info.get("depends_on", []),
+            "issues": issues_by_file.get(rel, []),
+            "open": {"tool": "ide_open_at", "path": _os.path.join(root, rel).replace("\\", "/"),
+                     "line": (issues_by_file.get(rel) or [{}])[0].get("line", 1)},
+            "rerun": "bug_scan + 对应单元测试",
+        }
+    return [_TC(json.dumps({
+        "ok": True, "changed": changed,
+        "summary": rr.get("summary", ""),
+        "workbench": workbench,
+        "workflow": "scan → ide_open_at(定位行) → 修复 → unit_rerun(重跑依赖者)",
+    }, ensure_ascii=False))]
+
+
 def _tool_ide_rename(args: dict) -> "list[types.TextContent]":
+
     from ide_tools import ide_rename
     return [_TC(json.dumps(ide_rename(
         args.get("root", ""), args.get("symbol", ""), args.get("new_name", ""),
@@ -3881,22 +3952,41 @@ def _tool_unit_rerun(args: dict) -> "list[types.TextContent]":
             {"ok": True, "summary": "变更文件无定义符号（无需传播重跑）", "changed": [], "affected": {}},
             ensure_ascii=False))]
     affected = {}
-    for dirpath, dirs, files in _os.walk(root):
-        dirs[:] = [d for d in dirs if not d.startswith((".", "target", "node_modules", "vendor", "dist"))]
-        for f in files:
-            if not f.endswith((".rs", ".py", ".ts", ".js", ".go")):
-                continue
-            rel = _os.path.relpath(_os.path.join(dirpath, f), root).replace("\\", "/")
-            if any(c["file"] == rel for c in changed_info):
-                continue
-            try:
-                src = open(_os.path.join(dirpath, f), encoding="utf-8", errors="replace").read()
-            except Exception:
-                continue
-            refs = _refs_in(src)
-            hit = [c["file"] for c in changed_info for s in c["symbols"] if s in refs]
-            if hit:
-                affected[rel] = {"depends_on": hit[:8]}
+    # 增强：优先用 ide_references（精确符号引用——按文件聚合）
+    try:
+        from ide_tools import ide_references
+        for c in changed_info:
+            for sym in c["symbols"][:8]:
+                try:
+                    refs = ide_references(root, sym, max_refs=50) or {}
+                    for ref in refs.get("refs", []) or []:
+                        rel = str(ref.get("file", "")).replace("\\", "/")
+                        if rel and rel != c["file"]:
+                            affected.setdefault(rel, {"depends_on": []})
+                            if c["file"] not in affected[rel]["depends_on"]:
+                                affected[rel]["depends_on"].append(c["file"])
+                except Exception:  # noqa: BLE001
+                    pass
+    except Exception:  # noqa: BLE001
+        pass
+    # 正则兜底（ide_references 不可用时）
+    if not affected:
+        for dirpath, dirs, files in _os.walk(root):
+            dirs[:] = [d for d in dirs if not d.startswith((".", "target", "node_modules", "vendor", "dist"))]
+            for f in files:
+                if not f.endswith((".rs", ".py", ".ts", ".js", ".go")):
+                    continue
+                rel = _os.path.relpath(_os.path.join(dirpath, f), root).replace("\\", "/")
+                if any(c["file"] == rel for c in changed_info):
+                    continue
+                try:
+                    src = open(_os.path.join(dirpath, f), encoding="utf-8", errors="replace").read()
+                except Exception:
+                    continue
+                refs = _refs_in(src)
+                hit = [c["file"] for c in changed_info for s in c["symbols"] if s in refs]
+                if hit:
+                    affected[rel] = {"depends_on": hit[:8]}
     out = {
         "ok": True,
         "changed": changed_info,
@@ -5738,7 +5828,9 @@ _TOOLS: dict[str, tuple] = {
     "cost_report": (_tool_cost_report, _schema({"action": _S("string", "summary/estimate/code（默认 summary）"), "model": _S("string", "模型单价键（deepseek-chat 默认）"), "text": _S("string", "estimate 用：待估算文本"), "path": _S("string", "code 用：代码文件/目录")}, []), "成本核算（调用次数+token+成本：按工具/天/项目汇总，或估算文本/代码成本——用户要求每个代码和工具调用都算成本）"),
     "chatlog_search": (_tool_chatlog_search, _schema({"action": _S("string", "search/collect/status（默认 search）"), "query": _S("string", "关键词（匹配 title+text）"), "agent": _S("string", "智能体过滤（marvis/hermes/trae/qoder）"), "limit": _S("integer", "结果上限(默认20)"), "since_days": _S("integer", "只看最近 N 天"), "agents": _S("string", "collect 用：逗号分隔智能体列表")}, []), "不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕——统一索引去重）"),
     "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
-        "learn_weights": (_tool_learn_weights, _schema({}, []), "P2 闭环权重：samples+feedback → 规则权重 → vuln_rules.json"),
+        "ide_open_at": (_tool_ide_open_at, _schema({"path": _S("string", "文件绝对路径"), "line": _S("integer", "行号")}, []), "定位打开：path+line → IDE 打开滚动到行（GUI 或降级命令）"),
+    "scan_fix_flow": (_tool_scan_fix_flow, _schema({"path": _S("string", "仓库根"), "changed": _S("array", "变更文件列表")}, []), "扫描→修复闭环工作台：依赖重跑集+问题行号+定位打开"),
+    "learn_weights": (_tool_learn_weights, _schema({}, []), "P2 闭环权重：samples+feedback → 规则权重 → vuln_rules.json"),
     "unit_rerun": (_tool_unit_rerun, _schema({"path": _S("string", "仓库根（默认 cwd）"), "changed": _S("array", "变更文件列表（相对路径）")}, []), "单元级依赖重跑引擎：变更符号→引用者→受影响单元集（有依赖就要重跑）"),
     "scan_now": (_tool_scan_now, _schema({"path": _S("string", "扫描路径（默认 cwd/git 根）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "常态扫描（写完即挖）：vuln_scan + bug_scan 一次跑——每次代码完成后立刻调用，不等到收尾"),
     "scan_delta": (_tool_scan_delta, _schema({"path": _S("string", "git 仓库路径（默认 cwd）")}, []), "增量扫描：git diff 变更文件只扫变更（快——写完一个文件立刻挖）"),

@@ -15,10 +15,11 @@
 | explore_engine（LATS） | 通用树搜索 | 🟡 待验证 | 与 bug_locate 的 UCB 关系需梳理 |
 | distill_pipeline | 小模型蒸馏 | 🟡 依赖缺口 | torch/onnxruntime 未装——纯逻辑先行 |
 | mini_bert_tokenizer | 本地嵌入 | 🟡 待验证 | 实际消费场景少 |
-| 大量 IDE/媒体/存储模块 | 辅助 | 🔵 冗余候选 | 与 RX 主流程无直接关系——需定期清理评估 |
+| IDE 工具（ide_tools: rename/references/complete + ide_open_at/scan_fix_flow） | **工作流核心**（扫描→定位→打开→重跑闭环） | 🟢 高价值 | 2026-08-18 升级：scan_fix_flow 闭环 + unit_rerun 精确引用 |
 | dashboard/daemon/telemetry | 观测 | 🔵 低价值 | 单机场景收益有限 |
 
 ## 结论
 - **拉满原则**：每次搞东西，scan 系（now/delta/all）+ unit_rerun 全开——已实现。
 - **工具数量不是目标**：下一阶段重点 = 闭环（feedback→权重→规则）与蒸馏，而非新增工具。
-- **定期清理**：冗余候选（🔵）每季度评估一次，无用即删。
+- **定期清理**：其余冗余候选（媒体/存储辅助）每季度评估一次，无用即删。
+- **IDE 升级记录（2026-08-18）**：ide_open_at（定位打开）+ scan_fix_flow（扫描→修复工作台）——IDE 从孤立能力变为工作流核心：`scan → ide_open_at(定位行) → 修复 → unit_rerun(重跑依赖者)`。
