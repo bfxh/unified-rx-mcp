@@ -92,12 +92,16 @@ def bug_bisect(root: str, good_commit: str, bad_commit: str,
         # security-review HIGH（遗漏修复）：test_cmd 精确白名单——防任意命令执行
         _ALLOWED = ("cargo test", "cargo check", "python -m pytest", "pytest",
                     "node --test", "npm test", "go test", "go vet")
+        import re as _re
         if not any(test_cmd == k or
                    (k == "cargo test" and test_cmd.startswith("cargo test "))
                    or (k == "python -m pytest" and test_cmd.startswith("python -m pytest "))
                    or (k == "pytest" and test_cmd.startswith("pytest "))
                    for k in _ALLOWED):
             return {"ok": False, "error": f"test_cmd 不在白名单: {test_cmd!r}"}
+        # 终审 MEDIUM：参数 token 仅允许标识符/路径字符
+        if not all(_re.match(r"^[A-Za-z0-9_\-./]+$", t) for t in test_cmd.split()[1:]):
+            return {"ok": False, "error": f"test_cmd 参数含非法字符: {test_cmd!r}"}
         try:
             # 重置可能的旧 bisect 状态
             _sp.run(["git", "-C", root, "bisect", "reset"],

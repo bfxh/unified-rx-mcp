@@ -3867,6 +3867,9 @@ def _tool_scan_delta(args: dict) -> "list[types.TextContent]":
 
 from mcp import types
 
+import re as _re
+_TOKEN_RE = _re.compile(r"^[A-Za-z0-9_\-./]+$")
+
 def _tool_git_bisect_find(args: dict) -> "list[types.TextContent]":
     """可回溯：git bisect 自动二分定位引入 bug 的提交。
     test_cmd 为判定命令（0=好，非0=坏）；bisect 自动跑并输出首次坏提交。"""
@@ -3896,12 +3899,15 @@ def _tool_git_bisect_find(args: dict) -> "list[types.TextContent]":
         "go vet": None,
         # 允许单个目标参数（cargo test <name> / pytest <file>）——精确匹配首段
     }
-    _cmd_head = shlex.split(test_cmd)[0] if shlex.split(test_cmd) else ""
+    _tokens = shlex.split(test_cmd)
+    _cmd_head = _tokens[0] if _tokens else ""
     _allowed_cmd = next((k for k in _ALLOWED if test_cmd == k or
                          (k == "cargo test" and test_cmd.startswith("cargo test "))
                          or (k == "python -m pytest" and test_cmd.startswith("python -m pytest "))
                          or (k == "pytest" and test_cmd.startswith("pytest "))), None)
-    if _allowed_cmd is None or not _cmd_head:
+    # 终审 MEDIUM：参数 token 仅允许标识符/路径字符（防 --manifest-path 等选项注入）
+    _params_ok = all(_TOKEN_RE.match(t) for t in _tokens[1:])
+    if _allowed_cmd is None or not _cmd_head or not _params_ok:
         return [types.TextContent(type="text", text=json.dumps(
             {"ok": False, "error": f"test_cmd 不在白名单: {test_cmd!r}"}, ensure_ascii=False))]
     log = []
@@ -4743,11 +4749,22 @@ def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
     action = str(args.get("action", "locate")).strip()
     if action == "bisect":
         from causal_debug import bug_bisect
+        # security-review 终审 HIGH：bisect execute 会 git checkout + 跑测试——
+        # 强制 L4 授权（bug_locate 本身 L3，bisect 分支必须显式授权）
+        execute = bool(args.get("execute", False))
+        if execute and not args.get("__authorized", False):
+            return [_TC(json.dumps({"ok": False,
+                                    "error": "bisect execute=true 需 L4 授权（__authorized=true）"},
+                                   ensure_ascii=False))]
         root = _check_path(str(args.get("root", "")))
         good = str(args.get("good_commit", ""))
         bad = str(args.get("bad_commit", "")) or "HEAD"
+        # 终审 MEDIUM：good/bad 拒绝 - 开头（防 git 选项注入）
+        for _n, _r in (("good_commit", good), ("bad_commit", bad)):
+            if _r.startswith("-"):
+                return [_TC(json.dumps({"ok": False, "error": f"{_n} 不能以 - 开头"},
+                                       ensure_ascii=False))]
         cmd = str(args.get("test_cmd", "cargo test"))
-        execute = bool(args.get("execute", False))
         return [_TC(json.dumps(bug_bisect(str(root), good, bad, cmd,
                                   execute=execute),
                                ensure_ascii=False, indent=2))]
