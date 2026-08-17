@@ -1,7 +1,7 @@
 {
- "core_count": 93,
+ "core_count": 97,
  "ext_count": 76,
- "total": 169,
+ "total": 173,
  "core": [
   "agent",
   "alarm_check",
@@ -41,8 +41,12 @@
   "hallucination_guard",
   "ide_actions",
   "ide_complete",
+  "ide_complete_chain",
+  "ide_continue",
+  "ide_edit_multi",
   "ide_fusion",
   "ide_health",
+  "ide_jump_predict",
   "ide_open_at",
   "ide_quest",
   "ide_references",

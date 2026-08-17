@@ -2102,7 +2102,37 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
 
 
 
+
+def _tool_ide_complete_chain(args: dict) -> "list[types.TextContent]":
+    from engine.ide_engine import ide_complete_chain
+    return [_TC(json.dumps(ide_complete_chain(
+        str(args.get("root", "")), str(args.get("file_path", "")),
+        str(args.get("prefix", "")), int(args.get("limit", 20))), ensure_ascii=False))]
+
+
+def _tool_ide_continue(args: dict) -> "list[types.TextContent]":
+    from engine.ide_engine import ide_continue
+    return [_TC(json.dumps(ide_continue(
+        str(args.get("root", "")), str(args.get("file_path", "")),
+        int(args.get("line", 1)), int(args.get("count", 4))), ensure_ascii=False))]
+
+
+def _tool_ide_jump_predict(args: dict) -> "list[types.TextContent]":
+    from engine.ide_engine import ide_jump_predict
+    return [_TC(json.dumps(ide_jump_predict(
+        str(args.get("root", "")), str(args.get("file_path", "")),
+        str(args.get("symbol", "")), int(args.get("limit", 8))), ensure_ascii=False))]
+
+
+def _tool_ide_edit_multi(args: dict) -> "list[types.TextContent]":
+    from engine.ide_engine import ide_edit_multi
+    return [_TC(json.dumps(ide_edit_multi(
+        str(args.get("root", "")), str(args.get("file_path", "")),
+        args.get("edits", [])), ensure_ascii=False))]
+
+
 def _tool_ide_open_at(args: dict) -> "list[types.TextContent]":
+
     """定位打开：path + line → IDE 打开并滚动到行（GUI 编辑器或降级命令）。"""
     import os as _os
     path = str(args.get("path", ""))
@@ -5961,6 +5991,10 @@ _TOOLS: dict[str, tuple] = {
     "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
         "clean_data": (_tool_clean_data, _schema({"src": _S("string", "样本源（默认 train_data/samples.jsonl）"), "out": _S("string", "清洗输出（默认 samples_clean.jsonl）")}, []), "数据清洗管线：去重/空/短/假模式过滤（蒸馏前置——洗干净才蒸馏）"),
     "ui_tune": (_tool_ui_tune, _schema({"action": _S("string", "read/set/validate"), "path": _S("string", "ui_styles.json 路径（默认 assets/）"), "token": _S("string", "set 时 token 名"), "value": _S("any", "set 时值（rgba 列表或数值）")}, []), "UI 热调整：改 ui_styles.json → 游戏实时生效（MCP 前端调整闭环）"),
+    "ide_complete_chain": (_tool_ide_complete_chain, _schema({"root": _S("string", "仓库根"), "file_path": _S("string", "当前文件"), "prefix": _S("string", "补全前缀"), "limit": _S("integer", "上限(默认20)")}, []), "仓库级链式补全：当前文件符号+跨文件引用热点"),
+    "ide_continue": (_tool_ide_continue, _schema({"root": _S("string", "仓库根"), "file_path": _S("string", "文件"), "line": _S("integer", "续写行号"), "count": _S("integer", "候选数(默认4)")}, []), "代码续写：基于缩进/上下文生成多行候选"),
+    "ide_jump_predict": (_tool_ide_jump_predict, _schema({"root": _S("string", "仓库根"), "file_path": _S("string", "当前文件"), "symbol": _S("string", "符号"), "limit": _S("integer", "上限(默认8)")}, []), "跳转预测：调用点频率→下一步跳转位置"),
+    "ide_edit_multi": (_tool_ide_edit_multi, _schema({"root": _S("string", "仓库根"), "file_path": _S("string", "文件"), "edits": _S("array", "diff 格式修改列表 {old_start, old_lines[], new_lines[]}")}, []), "多行修改：diff 格式输入→应用"),
     "ide_open_at": (_tool_ide_open_at, _schema({"path": _S("string", "文件绝对路径"), "line": _S("integer", "行号")}, []), "定位打开：path+line → IDE 打开滚动到行（GUI 或降级命令）"),
     "scan_fix_flow": (_tool_scan_fix_flow, _schema({"path": _S("string", "仓库根"), "changed": _S("array", "变更文件列表")}, []), "扫描→修复闭环工作台：依赖重跑集+问题行号+定位打开"),
     "learn_weights": (_tool_learn_weights, _schema({}, []), "P2 闭环权重：samples+feedback → 规则权重 → vuln_rules.json"),
