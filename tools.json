@@ -1,7 +1,7 @@
 {
- "core_count": 88,
+ "core_count": 89,
  "ext_count": 76,
- "total": 164,
+ "total": 165,
  "core": [
   "agent",
   "alarm_check",
@@ -48,6 +48,7 @@
   "json_email",
   "kb_query",
   "layer_check",
+  "learn_weights",
   "lesson",
   "local_intel",
   "local_run",

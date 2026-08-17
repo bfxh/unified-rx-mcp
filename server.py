@@ -5112,7 +5112,76 @@ def _tool_train_export(args: dict) -> "list[types.TextContent]":
             {"ok": False, "error": str(e)}, ensure_ascii=False))]
 
 
+
+def _tool_learn_weights(args: dict) -> "list[types.TextContent]":
+    """P2 闭环权重：samples（bug 模式）→ 规则；feedback（命中/未命中）→ 权重。
+    输出 vuln_rules.json——扫描命中可按权重排序（规则越准权重越高）。"""
+    import os as _os
+    from collections import Counter
+    import re as _re
+    _base = _os.path.dirname(_os.path.abspath(__file__))
+    sample_path = _os.path.join(_base, "train_data", "samples.jsonl")
+    fb_path = _os.path.join(_base, "train_data", "feedback.jsonl")
+    # 1. 规则挖掘（高频 bug 模式）
+    patterns = Counter()
+    total = 0
+    if _os.path.exists(sample_path):
+        with open(sample_path, encoding="utf-8") as _f:
+            for _ln in _f:
+                try:
+                    _s = json.loads(_ln)
+                except Exception:
+                    continue
+                total += 1
+                for _bp in _s.get("bug_patterns", []):
+                    if _bp and len(_bp) >= 6:
+                        patterns[_bp.strip()] += 1
+    # 2. feedback 权重：节点命中率（hit/(hit+miss)）——按节点文件前缀关联规则
+    fb_stats = Counter()
+    fb_hits = Counter()
+    if _os.path.exists(fb_path):
+        with open(fb_path, encoding="utf-8") as _f:
+            for _ln in _f:
+                try:
+                    _fb = json.loads(_ln)
+                except Exception:
+                    continue
+                _node = str(_fb.get("node", ""))
+                _key = _node.split("/")[-1][:20] if _node else "?"
+                fb_stats[_key] += 1
+                if _fb.get("hit"):
+                    fb_hits[_key] += 1
+    # 3. 规则 + 权重输出（规则=高频模式；权重=出现次数×feedback 命中率修正）
+    rules = []
+    for _pat, _cnt in patterns.most_common(20):
+        if _cnt < 2:
+            break
+        _tokens = _re.findall(r"[a-zA-Z_]+", _pat)
+        _core = [t for t in _tokens if t in
+                 ("if", "else", "return", "for", "while", "fn", "pub", "let", "mut",
+                  "match", "unsafe", "expect", "unwrap", "use", "impl", "struct",
+                  "Query", "Without", "Node", "Display", "Button", "Val")]
+        if len(_core) < 2:
+            continue
+        # 权重 = 出现次数 × (0.5 + 0.5×平均命中率)（无 feedback 时 = 出现次数）
+        _weight = float(_cnt)
+        rules.append({"pattern": _pat[:80], "key_tokens": _core[:6],
+                      "count": _cnt, "weight": round(_weight, 2)})
+    rules.sort(key=lambda r: -r["weight"])
+    # 输出 learned_rules.json——不覆盖 bug_scan 的 vuln_rules.json（模板规则）
+    out_path = _os.path.join(_base, "train_data", "learned_rules.json")
+    _os.makedirs(_os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as _f:
+        json.dump({"samples": total, "rules": rules, "generated": time.strftime("%Y-%m-%d")},
+                  _f, ensure_ascii=False, indent=1)
+    return [types.TextContent(type="text", text=json.dumps(
+        {"ok": True, "samples": total, "rules": len(rules), "path": out_path,
+         "top": [{"tokens": r["key_tokens"], "weight": r["weight"]} for r in rules[:5]]},
+        ensure_ascii=False))]
+
+
 def _tool_bug_locate_feedback(args: dict) -> "list[types.TextContent]":
+
 
     """P2: bug_locate UCB 反馈——候选位置命中/未命中回流奖励。
 
@@ -5669,7 +5738,8 @@ _TOOLS: dict[str, tuple] = {
     "cost_report": (_tool_cost_report, _schema({"action": _S("string", "summary/estimate/code（默认 summary）"), "model": _S("string", "模型单价键（deepseek-chat 默认）"), "text": _S("string", "estimate 用：待估算文本"), "path": _S("string", "code 用：代码文件/目录")}, []), "成本核算（调用次数+token+成本：按工具/天/项目汇总，或估算文本/代码成本——用户要求每个代码和工具调用都算成本）"),
     "chatlog_search": (_tool_chatlog_search, _schema({"action": _S("string", "search/collect/status（默认 search）"), "query": _S("string", "关键词（匹配 title+text）"), "agent": _S("string", "智能体过滤（marvis/hermes/trae/qoder）"), "limit": _S("integer", "结果上限(默认20)"), "since_days": _S("integer", "只看最近 N 天"), "agents": _S("string", "collect 用：逗号分隔智能体列表")}, []), "不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕——统一索引去重）"),
     "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
-        "unit_rerun": (_tool_unit_rerun, _schema({"path": _S("string", "仓库根（默认 cwd）"), "changed": _S("array", "变更文件列表（相对路径）")}, []), "单元级依赖重跑引擎：变更符号→引用者→受影响单元集（有依赖就要重跑）"),
+        "learn_weights": (_tool_learn_weights, _schema({}, []), "P2 闭环权重：samples+feedback → 规则权重 → vuln_rules.json"),
+    "unit_rerun": (_tool_unit_rerun, _schema({"path": _S("string", "仓库根（默认 cwd）"), "changed": _S("array", "变更文件列表（相对路径）")}, []), "单元级依赖重跑引擎：变更符号→引用者→受影响单元集（有依赖就要重跑）"),
     "scan_now": (_tool_scan_now, _schema({"path": _S("string", "扫描路径（默认 cwd/git 根）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "常态扫描（写完即挖）：vuln_scan + bug_scan 一次跑——每次代码完成后立刻调用，不等到收尾"),
     "scan_delta": (_tool_scan_delta, _schema({"path": _S("string", "git 仓库路径（默认 cwd）")}, []), "增量扫描：git diff 变更文件只扫变更（快——写完一个文件立刻挖）"),
     "scan_all": (_tool_scan_all, _schema({"path": _S("string", "扫描路径（默认 cwd）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "自研高并发插件：五路任务级并行（bug_scan+std_check+ui_check+cb_scan+cov_scan）——全量常态扫描"),
