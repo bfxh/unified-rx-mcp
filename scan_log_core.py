@@ -154,6 +154,14 @@ def self_scan_files() -> list[str]:
             p = os.path.join(base, f)
             if os.path.isfile(p) and p not in files:
                 files.append(p)
+    # 架构合并（2026-08-18）：引擎层 engine/*.py 纳入自扫
+    eng_dir = os.path.join(base, "engine")
+    if os.path.isdir(eng_dir):
+        for f in sorted(os.listdir(eng_dir)):
+            if f.endswith(".py"):
+                p = os.path.join(eng_dir, f)
+                if os.path.isfile(p) and p not in files:
+                    files.append(p)
     return files
 
 

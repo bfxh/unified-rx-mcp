@@ -506,15 +506,16 @@ P1c 升级（2026-08-12，抄 mem0 自动提取 + Letta 三层）：
 
 import hashlib
 
+_ENGINE_ROOT_P = Path(_ENGINE_ROOT)
 _ENGINE_CANDIDATES = [
     # 同仓库 lse-engine 子目录 release 构建（unified-rx/lse-engine/target/release/）
-    Path(__file__).resolve().parent / "lse-engine" / "target" / "release" / "lse-engine.exe",
-    Path(__file__).resolve().parent / "lse-engine" / "target" / "release" / "lse-engine",
+    _ENGINE_ROOT_P / "lse-engine" / "target" / "release" / "lse-engine.exe",
+    _ENGINE_ROOT_P / "lse-engine" / "target" / "release" / "lse-engine",
     # cargo 显式指定 build.target 时的布局（target/<三元组>/release/）
-    Path(__file__).resolve().parent / "lse-engine" / "target" / "x86_64-pc-windows-gnu" / "release" / "lse-engine.exe",
-    Path(__file__).resolve().parent / "lse-engine" / "target" / "x86_64-pc-windows-msvc" / "release" / "lse-engine.exe",
+    _ENGINE_ROOT_P / "lse-engine" / "target" / "x86_64-pc-windows-gnu" / "release" / "lse-engine.exe",
+    _ENGINE_ROOT_P / "lse-engine" / "target" / "x86_64-pc-windows-msvc" / "release" / "lse-engine.exe",
     # 仓库根（mcp-servers/ 布局）lse-engine
-    Path(__file__).resolve().parent.parent / "unified-rx" / "lse-engine" / "target" / "release" / "lse-engine.exe",
+    _ENGINE_ROOT_P / "unified-rx" / "lse-engine" / "target" / "release" / "lse-engine.exe",
     # 环境变量覆盖
     Path(os.environ.get("LSE_ENGINE", "")) if os.environ.get("LSE_ENGINE") else None,
 ]

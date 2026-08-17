@@ -1,7 +1,8 @@
 """unified-rx 引擎层——合并后的大模块 + 兼容 re-export。
 新技术 = 往对应 engine 增量加函数（不新建零散文件）。
 旧模块名 import 继续可用（兼容层）。"""
-from engine import scan_engine, infra_engine, ide_engine, learn_engine  # noqa: F401,E402
+from engine import (scan_engine, infra_engine, ide_engine, learn_engine,
+                    locate_engine, index_engine)  # noqa: F401,E402
 
 # ── ide_engine（合并自：ide_tools, ide_ui, ide_session, ide_commands, ide_cache, ide_fusion, rx_ide）
 from engine.ide_engine import ide_actions, ide_complete, ide_references, ide_rename

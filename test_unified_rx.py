@@ -1682,7 +1682,8 @@ def test_self_scan_covers_all_tools():
     files = scan_log_core.self_scan_files()
     names = [os.path.basename(f) for f in files]
     assert "server.py" in names and "guard_core.py" in names
-    assert "lse_client.py" in names and "scan_log_core.py" in names
+    assert "scan_log_core.py" in names  # 架构合并：lse_client 并入 engine/locate_engine.py
+    assert any(n in names for n in ("locate_engine.py", "lse_client.py")), "定位引擎在自扫清单"
     assert any("mcp_smoke.py" in n for n in names), "scripts 在自扫清单"
     assert any("lib.rs" in n or "main.rs" in n for n in names), "lse-engine 在自扫清单"
     assert len(files) >= 15, f"自扫文件过少: {len(files)}"
@@ -1854,17 +1855,12 @@ def test_bug_scan_still_detects_real_none_deref(tmp_path):
 # ─────────────────────────────────────────────────────────────
 
 def test_daemon_importable():
-    """daemon.py 可 import（独立于 MCP 会话的守护入口）。"""
-    import importlib.util
-    import os
-    spec = importlib.util.spec_from_file_location(
-        "unifiedrx_daemon", os.path.join(os.path.dirname(os.path.abspath(__file__)), "daemon.py"))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    assert hasattr(mod, "main"), "daemon 需有 main 入口"
-    assert hasattr(mod, "_loop_self_scan"), "守护需有自扫循环"
-    assert hasattr(mod, "_loop_repo_manage"), "守护需有仓库管理循环"
-    assert hasattr(mod, "REPO_LOG"), "守护需有仓库日志路径"
+    """daemon 可 import（架构合并后并入 infra_engine——从引擎验证入口）。"""
+    import engine.infra_engine as _infra  # 合并后守护在 infra_engine
+    assert callable(_infra.main), "daemon 需有 main 入口（infra_engine）"
+    assert hasattr(_infra, "_loop_self_scan"), "守护需有自扫循环"
+    assert hasattr(_infra, "_loop_repo_manage"), "守护需有仓库管理循环"
+    assert hasattr(_infra, "REPO_LOG"), "守护需有仓库日志路径"
 
 
 def test_daemon_repo_log_written(tmp_path, monkeypatch):
