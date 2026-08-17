@@ -1,7 +1,7 @@
 {
- "core_count": 91,
+ "core_count": 92,
  "ext_count": 76,
- "total": 167,
+ "total": 168,
  "core": [
   "agent",
   "alarm_check",
@@ -90,6 +90,7 @@
   "train_all",
   "train_export",
   "ui_check",
+  "ui_tune",
   "unit_rerun",
   "voxel",
   "vuln_scan",

@@ -2171,7 +2171,61 @@ def _tool_scan_fix_flow(args: dict) -> "list[types.TextContent]":
     }, ensure_ascii=False))]
 
 
+
+def _tool_ui_tune(args: dict) -> "list[types.TextContent]":
+    """UI 热调整：读/改 assets/ui_styles.json token——游戏运行时实时生效（无需重编译）。
+    action: read（读当前）/ set（改 token）/ validate（验证格式）。"""
+    import os as _os
+    path = args.get("path") or _os.path.join(_os.getcwd(), "assets", "ui_styles.json")
+    if not _os.path.exists(path):
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": f"ui_styles.json 不存在: {path}"}, ensure_ascii=False))]
+    action = str(args.get("action", "read"))
+    try:
+        with open(path, encoding="utf-8") as _f:
+            cur = json.load(_f)
+    except Exception as _e:
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": f"JSON 解析失败: {_e}"}, ensure_ascii=False))]
+    if action == "read":
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": True, "path": path, "tokens": cur}, ensure_ascii=False))]
+    if action == "validate":
+        # token 类型校验
+        errors = []
+        for k, v in cur.items():
+            if k.startswith("//"):
+                continue
+            if isinstance(v, list) and len(v) == 4 and all(isinstance(x, (int, float)) for x in v):
+                continue  # rgba
+            if isinstance(v, (int, float)):
+                continue  # 数值
+            errors.append(f"{k}: 非法类型 {type(v).__name__}")
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": not errors, "errors": errors[:10]}, ensure_ascii=False))]
+    if action == "set":
+        token = str(args.get("token", ""))
+        value = args.get("value")
+        if not token or value is None:
+            return [types.TextContent(type="text", text=json.dumps(
+                {"ok": False, "error": "set 需 token + value"}, ensure_ascii=False))]
+        # 值规范化（[r,g,b,a] 列表 → float；数值 → float）
+        if isinstance(value, list):
+            value = [float(x) for x in value]
+        elif isinstance(value, (int, float)):
+            value = float(value)
+        cur[token] = value
+        with open(path, "w", encoding="utf-8") as _f:
+            json.dump(cur, _f, ensure_ascii=False, indent=2)
+        return [types.TextContent(type="text", text=json.dumps({
+            "ok": True, "token": token, "value": value,
+            "note": "已写入 ui_styles.json——游戏 1 秒内热重载生效（MCP 调整闭环）"}, ensure_ascii=False))]
+    return [types.TextContent(type="text", text=json.dumps(
+        {"ok": False, "error": f"未知 action: {action}（read/set/validate）"}, ensure_ascii=False))]
+
+
 def _tool_ide_rename(args: dict) -> "list[types.TextContent]":
+
 
     from ide_tools import ide_rename
     return [_TC(json.dumps(ide_rename(
@@ -5834,7 +5888,8 @@ _TOOLS: dict[str, tuple] = {
     "cost_report": (_tool_cost_report, _schema({"action": _S("string", "summary/estimate/code（默认 summary）"), "model": _S("string", "模型单价键（deepseek-chat 默认）"), "text": _S("string", "estimate 用：待估算文本"), "path": _S("string", "code 用：代码文件/目录")}, []), "成本核算（调用次数+token+成本：按工具/天/项目汇总，或估算文本/代码成本——用户要求每个代码和工具调用都算成本）"),
     "chatlog_search": (_tool_chatlog_search, _schema({"action": _S("string", "search/collect/status（默认 search）"), "query": _S("string", "关键词（匹配 title+text）"), "agent": _S("string", "智能体过滤（marvis/hermes/trae/qoder）"), "limit": _S("integer", "结果上限(默认20)"), "since_days": _S("integer", "只看最近 N 天"), "agents": _S("string", "collect 用：逗号分隔智能体列表")}, []), "不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕——统一索引去重）"),
     "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
-        "ide_open_at": (_tool_ide_open_at, _schema({"path": _S("string", "文件绝对路径"), "line": _S("integer", "行号")}, []), "定位打开：path+line → IDE 打开滚动到行（GUI 或降级命令）"),
+        "ui_tune": (_tool_ui_tune, _schema({"action": _S("string", "read/set/validate"), "path": _S("string", "ui_styles.json 路径（默认 assets/）"), "token": _S("string", "set 时 token 名"), "value": _S("any", "set 时值（rgba 列表或数值）")}, []), "UI 热调整：改 ui_styles.json → 游戏实时生效（MCP 前端调整闭环）"),
+    "ide_open_at": (_tool_ide_open_at, _schema({"path": _S("string", "文件绝对路径"), "line": _S("integer", "行号")}, []), "定位打开：path+line → IDE 打开滚动到行（GUI 或降级命令）"),
     "scan_fix_flow": (_tool_scan_fix_flow, _schema({"path": _S("string", "仓库根"), "changed": _S("array", "变更文件列表")}, []), "扫描→修复闭环工作台：依赖重跑集+问题行号+定位打开"),
     "learn_weights": (_tool_learn_weights, _schema({}, []), "P2 闭环权重：samples+feedback → 规则权重 → vuln_rules.json"),
     "unit_rerun": (_tool_unit_rerun, _schema({"path": _S("string", "仓库根（默认 cwd）"), "changed": _S("array", "变更文件列表（相对路径）")}, []), "单元级依赖重跑引擎：变更符号→引用者→受影响单元集（有依赖就要重跑）"),
