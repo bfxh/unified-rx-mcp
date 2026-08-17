@@ -1,7 +1,7 @@
 {
- "core_count": 86,
+ "core_count": 87,
  "ext_count": 76,
- "total": 162,
+ "total": 163,
  "core": [
   "agent",
   "alarm_check",
@@ -84,6 +84,7 @@
   "telemetry",
   "text_ops",
   "tool_card",
+  "train_all",
   "train_export",
   "ui_check",
   "voxel",

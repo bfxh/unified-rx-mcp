@@ -4895,10 +4895,70 @@ def _tool_scan_all(args: dict) -> "list[types.TextContent]":
             fut.result()
     results["elapsed_ms"] = int((time.perf_counter() - _t0) * 1000)
     results["ok"] = not any("error" in v for v in results["lanes"].values())
+    # 训练数据扩展 P1：error/high 问题自动入库负样本
+    _all_issues = []
+    for lane, res in results["lanes"].items():
+        if isinstance(res, dict):
+            _all_issues.extend(res.get("issues", []) or [])
+    results["negatives_logged"] = _log_negatives(path, _all_issues, "scan_all")
     return [types.TextContent(type="text", text=json.dumps(results, ensure_ascii=False))]
 
 
+
+def _log_negatives(path: str, issues: list, source: str) -> int:
+    """scan 发现的 error/high 问题自动入库负样本（训练数据扩展 P1）。"""
+    import os as _os
+    _base_dir = _os.path.dirname(_os.path.abspath(__file__))
+    out = _os.path.join(_base_dir, "train_data", "negatives.jsonl")
+    _os.makedirs(_os.path.dirname(out), exist_ok=True)
+    n = 0
+    with open(out, "a", encoding="utf-8") as f:
+        for iss in issues:
+            if iss.get("severity") in ("error", "high", "critical"):
+                f.write(json.dumps({
+                    "source": source,
+                    "path": str(iss.get("file", path))[:200],
+                    "pattern": str(iss.get("message", ""))[:160],
+                    "line": int(iss.get("line", 0) or 0),
+                }, ensure_ascii=False) + chr(10))
+                n += 1
+    return n
+
+
+def _tool_train_all(args: dict) -> "list[types.TextContent]":
+    """P0 训练数据流水线一键闭环：train_export（修复样本）+ scan 负样本统计 +
+    chatlog 样本 → train_data/ 汇总统计。"""
+    import os as _os
+    _base_dir = _os.path.dirname(_os.path.abspath(__file__))
+    path = args.get("path") or _os.getcwd()
+    count = int(args.get("count", 30))
+    out_dir = args.get("out_dir") or _os.path.join(_base_dir, "train_data")
+    _os.makedirs(out_dir, exist_ok=True)
+    result = {"ok": True, "dir": out_dir, "sources": {}}
+    # ① 修复提交样本
+    try:
+        r = _tool_train_export({"path": path, "count": count, "out_dir": out_dir})
+        d = json.loads(r[0].text)
+        result["sources"]["fix_commits"] = d.get("samples", 0)
+    except Exception as e:  # noqa: BLE001
+        result["sources"]["fix_commits"] = f"error: {e}"
+    # ② scan-log 历史问题（负样本候选——已由 scan 钩子入库）
+    neg = _os.path.join(out_dir, "negatives.jsonl")
+    if _os.path.exists(neg):
+        result["sources"]["scan_negatives"] = sum(1 for _ in open(neg, encoding="utf-8"))
+    else:
+        result["sources"]["scan_negatives"] = 0
+    # ③ chatlog 样本（若存在）
+    for f in ("chatlog_samples.jsonl", "feedback.jsonl"):
+        fp = _os.path.join(out_dir, f)
+        if _os.path.exists(fp):
+            result["sources"][f] = sum(1 for _ in open(fp, encoding="utf-8"))
+    result["ok"] = True
+    return [types.TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+
+
 def _tool_train_export(args: dict) -> "list[types.TextContent]":
+
 
     """可微分编程：从修复提交自动提取训练样本（diff 模式 → 检测规则/学习样本）。
     每个修复提交生成 {commit, file, diff, pattern} 样本落盘 train_data/samples.jsonl——
@@ -4989,6 +5049,15 @@ def _tool_bug_locate_feedback(args: dict) -> "list[types.TextContent]":
     if not node:
         return [_TC(json.dumps({"ok": False, "error": "node 必填"}, ensure_ascii=False))]
     res = _lse.ucb_backprop(node, 1.0 if hit else -1.0)
+    # 训练数据扩展 P1：反馈落盘（规则权重回灌依据）
+    try:
+        import os as _os2
+        _fb = _os2.path.join(_os2.path.dirname(_os2.path.abspath(__file__)), "train_data", "feedback.jsonl")
+        _os2.makedirs(_os2.path.dirname(_fb), exist_ok=True)
+        with open(_fb, "a", encoding="utf-8") as _f:
+            _f.write(json.dumps({"node": node, "hit": hit, "ts": time.time()}, ensure_ascii=False) + chr(10))
+    except Exception:  # noqa: BLE001
+        pass
     return [_TC(json.dumps(res, ensure_ascii=False))]
 
 
@@ -5522,6 +5591,7 @@ _TOOLS: dict[str, tuple] = {
         "scan_now": (_tool_scan_now, _schema({"path": _S("string", "扫描路径（默认 cwd/git 根）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "常态扫描（写完即挖）：vuln_scan + bug_scan 一次跑——每次代码完成后立刻调用，不等到收尾"),
     "scan_delta": (_tool_scan_delta, _schema({"path": _S("string", "git 仓库路径（默认 cwd）")}, []), "增量扫描：git diff 变更文件只扫变更（快——写完一个文件立刻挖）"),
     "scan_all": (_tool_scan_all, _schema({"path": _S("string", "扫描路径（默认 cwd）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "自研高并发插件：五路任务级并行（bug_scan+std_check+ui_check+cb_scan+cov_scan）——全量常态扫描"),
+    "train_all": (_tool_train_all, _schema({"path": _S("string", "git 仓库路径"), "count": _S("integer", "提交数(默认30)"), "out_dir": _S("string", "输出目录")}, []), "P0 训练数据流水线一键闭环（修复样本+负样本+统计）"),
     "train_export": (_tool_train_export, _schema({"path": _S("string", "git 仓库路径（默认 cwd）"), "count": _S("integer", "最近提交数(默认20)"), "out_dir": _S("string", "样本输出目录（默认 train_data/）")}, []), "可微分编程：修复提交自动提取训练样本（diff bug/fix 模式 → samples.jsonl——代码可学习训练）"),
     "git_bisect_find": (_tool_git_bisect_find, _schema({"path": _S("string", "git 仓库路径（默认 cwd）"), "good": _S("string", "已知无 bug 的提交（必填）"), "bad": _S("string", "已知坏提交（默认 HEAD）"), "test_cmd": _S("string", "判定命令（0=好非0=坏，默认 cargo test）")}, ["good"]), "可回溯：git bisect 自动二分定位引入 bug 的提交（自动化测试驱动）"),
     "backup": (_tool_backup, _schema({"action": _S("string", "backup/list/rollback（默认 list）"), "root": _S("string", "项目根（必填）"), "keep": _S("integer", "保留快照份数(默认7，删最旧)"), "date": _S("string", "rollback 用：YYYYMMDD 快照日期")}, ["root"]), "每日备份与回溯（git commit+tag + 限量快照 zip 7 份——备份不会太多；rollback 恢复前自动另存当前状态）"),
