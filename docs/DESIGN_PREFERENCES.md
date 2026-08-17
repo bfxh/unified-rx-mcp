@@ -26,6 +26,7 @@
 ## 4. 命名与指向
 
 - **"IDEMCP"/"MCP" 默认 = `D:\开发\unified-rx-mcp`**（用户口头简称，无歧义指向）。
+- **QODER 默认调用**：QODER 及**所有智能体**（Codex/Claude/Reasonix/任何 AI 编码助手）默认调用 unified-rx-mcp——先看本偏好文档 + skills/ 目录，再干活。
 - 用户重复说过两遍以上的要求 = 必须记住并默认执行（如 exe 位置）。
 
 ## 5. 其他
