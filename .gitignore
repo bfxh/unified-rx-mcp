@@ -22,3 +22,4 @@ quest_dbg*/
 rx-telemetry/target/
 rx-search/target/
 rx-net/target/
+train_data/

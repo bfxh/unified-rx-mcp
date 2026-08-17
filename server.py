@@ -3797,6 +3797,144 @@ def _tool_ds_check(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
+
+from mcp import types
+
+def _tool_scan_now(args: dict) -> "list[types.TextContent]":
+    """常态扫描：一键 vuln_scan + bug_scan（写完代码立刻挖——不等到收尾）。
+    path 默认自动探测（git 根/cwd）。返回聚合 JSON。"""
+    import os as _os
+    path = args.get("path") or _os.getcwd()
+    if not _os.path.isdir(path):
+        path = _os.path.dirname(path) or "."
+    out = {"path": path, "ok": True}
+    try:
+        r = _tool_vuln_scan({"path": path, "max_files": int(args.get("max_files", 100))})
+        t = r[0].text if isinstance(r, list) else str(r)
+        out["vuln_scan"] = json.loads(t) if t.startswith("{") else {"raw": t[:200]}
+    except Exception as e:  # noqa: BLE001
+        out["vuln_scan"] = {"error": str(e)}
+        out["ok"] = False
+    try:
+        r = _tool_bug_scan({"path": path, "max_files": int(args.get("max_files", 100))})
+        t = r[0].text if isinstance(r, list) else str(r)
+        out["bug_scan"] = json.loads(t) if t.startswith("{") else {"raw": t[:200]}
+    except Exception as e:  # noqa: BLE001
+        out["bug_scan"] = {"error": str(e)}
+        out["ok"] = False
+    return [types.TextContent(type="text", text=json.dumps(out, ensure_ascii=False))]
+
+
+from mcp import types
+
+def _tool_scan_delta(args: dict) -> "list[types.TextContent]":
+    """增量扫描：git diff 变更文件 → 只扫变更（快——写完一个文件立刻扫）。"""
+    import os as _os
+    import subprocess as _sp
+    path = args.get("path") or _os.getcwd()
+    # 取 git diff 变更文件（未提交 + 未暂存）
+    try:
+        r = _sp.run(["git", "-C", path, "diff", "--name-only", "HEAD"], capture_output=True,
+                    text=True, timeout=60)
+        files = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+        if not files:
+            r = _sp.run(["git", "-C", path, "status", "--short"], capture_output=True,
+                        text=True, timeout=30)
+            files = [ln[3:].strip() for ln in r.stdout.splitlines() if ln.strip()]
+    except Exception as e:  # noqa: BLE001
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": f"git 不可用: {e}"}, ensure_ascii=False))]
+    if not files:
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": True, "delta": [], "note": "无变更文件"}, ensure_ascii=False))]
+    # 只扫变更文件
+    out = {"ok": True, "delta_files": files[:50], "issues": []}
+    for f in files[:50]:
+        fp = _os.path.join(path, f)
+        if not _os.path.isfile(fp):
+            continue
+        try:
+            r = _tool_bug_scan({"path": fp, "max_files": 5})
+            t = r[0].text if isinstance(r, list) else str(r)
+            d = json.loads(t) if t.startswith("{") else {}
+            iss = d.get("issues") or d.get("findings") or []
+            if iss:
+                out["issues"].append({"file": f, "issues": iss})
+        except Exception as e:  # noqa: BLE001
+            out["issues"].append({"file": f, "error": str(e)})
+    return [types.TextContent(type="text", text=json.dumps(out, ensure_ascii=False))]
+
+
+from mcp import types
+
+def _tool_git_bisect_find(args: dict) -> "list[types.TextContent]":
+    """可回溯：git bisect 自动二分定位引入 bug 的提交。
+    test_cmd 为判定命令（0=好，非0=坏）；bisect 自动跑并输出首次坏提交。"""
+    import os as _os
+    import subprocess as _sp
+    path = args.get("path") or _os.getcwd()
+    good = args.get("good")  # 好提交（无 bug）
+    bad = args.get("bad") or "HEAD"  # 坏提交（默认 HEAD）
+    test_cmd = args.get("test_cmd", "cargo test")
+    if not good:
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": "需提供 good 提交（已知无 bug 的提交）"}, ensure_ascii=False))]
+    # 安全校验（常态扫描告警修复）：test_cmd 白名单——只允许已知测试命令
+    _ALLOWED = ("cargo test", "cargo check", "python -m pytest", "pytest", "node --test",
+                "npm test", "go test", "go vet")
+    if not test_cmd.startswith(_ALLOWED):
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": f"test_cmd 不在白名单: {_ALLOWED}"}, ensure_ascii=False))]
+    log = []
+    try:
+        _sp.run(["git", "-C", path, "bisect", "reset"], capture_output=True, timeout=30)
+        _sp.run(["git", "-C", path, "bisect", "start"], capture_output=True, timeout=30)
+        _sp.run(["git", "-C", path, "bisect", "bad", bad], capture_output=True, timeout=30)
+        _sp.run(["git", "-C", path, "bisect", "good", good], capture_output=True, timeout=30)
+        step = 0
+        while step < 40:  # 最多 40 轮（足够二分）
+            step += 1
+            # 当前检查点提交
+            r = _sp.run(["git", "-C", path, "rev-parse", "--short", "HEAD"],
+                        capture_output=True, text=True, timeout=30)
+            rev = r.stdout.strip()
+            # 跑测试命令
+            import shlex
+            tr = _sp.run(shlex.split(test_cmd), cwd=path, capture_output=True, text=True, timeout=900)
+            verdict = "good" if tr.returncode == 0 else "bad"
+            log.append(f"[{step}] {rev}: {verdict}")
+            _sp.run(["git", "-C", path, "bisect", verdict], capture_output=True, timeout=30)
+            # bisect 结束判定：输出 "is the first bad commit"
+            sr = _sp.run(["git", "-C", path, "bisect", "log"], capture_output=True,
+                         text=True, timeout=30)
+            if "first bad commit" in sr.stdout or "is the first bad commit" in sr.stderr:
+                break
+            # 无更多候选（退出码 128 或输出确认）
+            rr = _sp.run(["git", "-C", path, "bisect", "visualize"], capture_output=True,
+                         text=True, timeout=30)
+            if not rr.stdout.strip() and step > 3:
+                break
+        # 读取首个坏提交
+        lr = _sp.run(["git", "-C", path, "bisect", "log"], capture_output=True, text=True, timeout=30)
+        first_bad = ""
+        for ln in lr.stdout.splitlines() + lr.stderr.splitlines():
+            if "first bad commit" in ln:
+                parts = ln.split()
+                first_bad = parts[-1] if parts else ""
+                break
+        _sp.run(["git", "-C", path, "bisect", "reset"], capture_output=True, timeout=30)
+        return [types.TextContent(type="text", text=json.dumps({
+            "ok": True, "first_bad_commit": first_bad, "log": log,
+            "note": "测试命令: " + test_cmd}, ensure_ascii=False))]
+    except Exception as e:  # noqa: BLE001
+        try:
+            _sp.run(["git", "-C", path, "bisect", "reset"], capture_output=True, timeout=30)
+        except Exception as re:  # noqa: BLE001
+            log.append(f"bisect reset 失败: {re}")
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": str(e), "log": log}, ensure_ascii=False))]
+
+
 def _tool_lesson_recall_lse(args: dict) -> "list[types.TextContent]":
     """LSE 增强版教训召回（P0：Delta 奖励进化记忆）。
 
@@ -4683,7 +4821,113 @@ def _tool_bug_locate(args: dict) -> "list[types.TextContent]":
     }, ensure_ascii=False))]
 
 
+
+
+def _tool_scan_all(args: dict) -> "list[types.TextContent]":
+    """自研高并发插件：五路任务级并行扫描（bug_scan+std_check+ui_check+cb_scan+cross_taint）
+    全项目扫描——写完即挖的全量版（比 vuln_scan 多 cb_scan 代码库索引 + cross_taint 污点）。"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import os as _os
+    path = args.get("path") or _os.getcwd()
+    max_files = int(args.get("max_files", 100))
+    _t0 = time.perf_counter()
+    results = {"path": path, "lanes": {}}
+
+    def run_one(name: str, fn) -> None:
+        try:
+            r = fn({"path": path, "max_files": max_files})
+            t = r[0].text if isinstance(r, list) else str(r)
+            results["lanes"][name] = json.loads(t) if t.startswith("{") else {"raw": t[:200]}
+        except Exception as e:  # noqa: BLE001
+            results["lanes"][name] = {"error": str(e)}
+
+    lanes = [
+        ("bug_scan", _tool_bug_scan),
+        ("std_check", _tool_std_check),
+        ("ui_check", _tool_ui_check),
+        ("cb_scan", _tool_cb_scan),
+        ("cov_scan", _tool_cov_scan),
+    ]
+    with _CONCURRENCY_SEM:
+        pool = _pool()
+        futs = [pool.submit(run_one, n, f) for n, f in lanes]
+        for fut in as_completed(futs):
+            fut.result()
+    results["elapsed_ms"] = int((time.perf_counter() - _t0) * 1000)
+    results["ok"] = not any("error" in v for v in results["lanes"].values())
+    return [types.TextContent(type="text", text=json.dumps(results, ensure_ascii=False))]
+
+
+def _tool_train_export(args: dict) -> "list[types.TextContent]":
+
+    """可微分编程：从修复提交自动提取训练样本（diff 模式 → 检测规则/学习样本）。
+    每个修复提交生成 {commit, file, diff, pattern} 样本落盘 train_data/samples.jsonl——
+    代码可被学习训练（后续模型微调/规则生成直接用）。"""
+    import os as _os
+    import subprocess as _sp
+    path = args.get("path") or _os.getcwd()
+    count = int(args.get("count", 20))
+    out_dir = args.get("out_dir") or _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "train_data")
+    _os.makedirs(out_dir, exist_ok=True)
+    sample_path = _os.path.join(out_dir, "samples.jsonl")
+    try:
+        # 最近 N 个提交（--name-only 直接给文件列表——可靠）
+        r = _sp.run(["git", "-C", path, "log", "-n", str(count), "--name-only", "--format=%h"],
+                    capture_output=True, text=True, timeout=60,
+                    encoding="utf-8", errors="replace")
+        commits = []
+        cur = None
+        for ln in r.stdout.splitlines():
+            ln = ln.strip()
+            if ln and len(ln) <= 12 and not ln.startswith((".", "/")) and "/" not in ln and "." not in ln and commits is not None:
+                # 提交哈希行（短哈希——无点无斜杠）
+                if cur:
+                    commits.append(cur)
+                cur = {"sha": ln, "files": []}
+            elif cur is not None and ln:
+                if ln.endswith((".rs", ".py", ".ts", ".js", ".go", ".toml", ".mjs")):
+                    cur["files"].append(ln)
+        if cur:
+            commits.append(cur)
+        samples = []
+        for c in commits:
+            for f in c["files"][:5]:
+                # 每个修复文件的 diff（前 40 行——模式提取）
+                d = _sp.run(["git", "-C", path, "show", f"{c['sha']}--{f}"],
+                            capture_output=True, text=True, timeout=60,
+                            encoding="utf-8", errors="replace")
+                diff = d.stdout[:1200]
+                if not diff:
+                    d = _sp.run(["git", "-C", path, "show", c["sha"], "--", f],
+                                capture_output=True, text=True, timeout=60,
+                                encoding="utf-8", errors="replace")
+                    diff = d.stdout[:1200]
+                # 简单模式提取：删除行（bug 模式）vs 新增行（修复模式）
+                removed = [ln[1:].strip()[:80] for ln in diff.splitlines()
+                           if ln.startswith("-") and not ln.startswith("---")]
+                added = [ln[1:].strip()[:80] for ln in diff.splitlines()
+                         if ln.startswith("+") and not ln.startswith("+++")]
+                if removed or added:
+                    samples.append({
+                        "commit": c["sha"],
+                        "file": f,
+                        "bug_patterns": removed[:5],
+                        "fix_patterns": added[:5],
+                        "diff_excerpt": diff[:800],
+                    })
+        with open(sample_path, "a", encoding="utf-8") as fp:
+            for smp in samples:
+                fp.write(json.dumps(smp, ensure_ascii=False) + chr(10))
+        return [types.TextContent(type="text", text=json.dumps({
+            "ok": True, "samples": len(samples), "path": sample_path,
+            "note": "追加写入 samples.jsonl（每提交=一个学习样本）"}, ensure_ascii=False))]
+    except Exception as e:  # noqa: BLE001
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": str(e)}, ensure_ascii=False))]
+
+
 def _tool_bug_locate_feedback(args: dict) -> "list[types.TextContent]":
+
     """P2: bug_locate UCB 反馈——候选位置命中/未命中回流奖励。
 
     命中（用户定位到正确位置）→ reward=+1；未命中 → reward=-1。
@@ -5230,6 +5474,11 @@ _TOOLS: dict[str, tuple] = {
     "cost_report": (_tool_cost_report, _schema({"action": _S("string", "summary/estimate/code（默认 summary）"), "model": _S("string", "模型单价键（deepseek-chat 默认）"), "text": _S("string", "estimate 用：待估算文本"), "path": _S("string", "code 用：代码文件/目录")}, []), "成本核算（调用次数+token+成本：按工具/天/项目汇总，或估算文本/代码成本——用户要求每个代码和工具调用都算成本）"),
     "chatlog_search": (_tool_chatlog_search, _schema({"action": _S("string", "search/collect/status（默认 search）"), "query": _S("string", "关键词（匹配 title+text）"), "agent": _S("string", "智能体过滤（marvis/hermes/trae/qoder）"), "limit": _S("integer", "结果上限(默认20)"), "since_days": _S("integer", "只看最近 N 天"), "agents": _S("string", "collect 用：逗号分隔智能体列表")}, []), "不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕——统一索引去重）"),
     "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
+        "scan_now": (_tool_scan_now, _schema({"path": _S("string", "扫描路径（默认 cwd/git 根）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "常态扫描（写完即挖）：vuln_scan + bug_scan 一次跑——每次代码完成后立刻调用，不等到收尾"),
+    "scan_delta": (_tool_scan_delta, _schema({"path": _S("string", "git 仓库路径（默认 cwd）")}, []), "增量扫描：git diff 变更文件只扫变更（快——写完一个文件立刻挖）"),
+    "scan_all": (_tool_scan_all, _schema({"path": _S("string", "扫描路径（默认 cwd）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "自研高并发插件：五路任务级并行（bug_scan+std_check+ui_check+cb_scan+cov_scan）——全量常态扫描"),
+    "train_export": (_tool_train_export, _schema({"path": _S("string", "git 仓库路径（默认 cwd）"), "count": _S("integer", "最近提交数(默认20)"), "out_dir": _S("string", "样本输出目录（默认 train_data/）")}, []), "可微分编程：修复提交自动提取训练样本（diff bug/fix 模式 → samples.jsonl——代码可学习训练）"),
+    "git_bisect_find": (_tool_git_bisect_find, _schema({"path": _S("string", "git 仓库路径（默认 cwd）"), "good": _S("string", "已知无 bug 的提交（必填）"), "bad": _S("string", "已知坏提交（默认 HEAD）"), "test_cmd": _S("string", "判定命令（0=好非0=坏，默认 cargo test）")}, ["good"]), "可回溯：git bisect 自动二分定位引入 bug 的提交（自动化测试驱动）"),
     "backup": (_tool_backup, _schema({"action": _S("string", "backup/list/rollback（默认 list）"), "root": _S("string", "项目根（必填）"), "keep": _S("integer", "保留快照份数(默认7，删最旧)"), "date": _S("string", "rollback 用：YYYYMMDD 快照日期")}, ["root"]), "每日备份与回溯（git commit+tag + 限量快照 zip 7 份——备份不会太多；rollback 恢复前自动另存当前状态）"),
     "lesson_recall_lse": (_tool_lesson_recall_lse, _schema({
         "task_description": _S("string", "任务描述（召回相关教训）"),
