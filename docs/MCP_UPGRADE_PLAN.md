@@ -43,4 +43,6 @@
 - **模拟数据**：sim_data 9 条四类合成（补全/续写/修复/跳转）
 - **DIFF 结构化**：train_export 样本含 hunks（行号/删增——表达复杂修改）
 - **策略**：on-policy 蒸馏 + DPO 偏好（bug/fix 对作偏好对——修复优于原文）
+- **四段式对齐**（DeepSeek 视觉原语论文）：专家 SFT → 专项 RL → 统一 RFT → 蒸馏
+- **视觉原语**：41 条样本加锚定（连接点 point/UI bbox——空间推理训练）
 - **门槛**：162 ≥ 150 就绪 ✅；torch 安装后跑 distill_pipeline 真蒸馏
