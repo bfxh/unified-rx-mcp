@@ -1,7 +1,7 @@
 {
- "core_count": 97,
+ "core_count": 98,
  "ext_count": 76,
- "total": 173,
+ "total": 174,
  "core": [
   "agent",
   "alarm_check",
@@ -83,6 +83,7 @@
   "scan_fix_flow",
   "scan_now",
   "semantic_search",
+  "sim_data",
   "skill_fetch",
   "sort_search",
   "speculate",

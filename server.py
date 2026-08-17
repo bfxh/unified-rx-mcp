@@ -5219,7 +5219,61 @@ def _tool_train_all(args: dict) -> "list[types.TextContent]":
 
 
 
+
+def _tool_sim_data(args: dict) -> "list[types.TextContent]":
+    """模拟场景训练数据：合成四类样本（补全/续写/修复/跳转）——各种情况模拟训练。"""
+    import os as _os
+    _base = _os.path.dirname(_os.path.abspath(__file__))
+    out = args.get("out") or _os.path.join(_base, "train_data", "sim_samples.jsonl")
+    count = int(args.get("count", 60))
+    _samples = []
+    _completions = [
+        ("fn ", "fn", "函数定义补全"),
+        ("pub fn m", "mouse_ray", "pub 函数补全"),
+        ("let mut s", "state", "变量补全"),
+        ("res.", "resource", "资源访问补全"),
+    ]
+    _continuations = [
+        ("if x > 0 {", "    handle(x);" + chr(10) + "}", "块续写"),
+        ("match v {", "    Some(x) => x," + chr(10) + "    None => 0," + chr(10) + "}", "match 续写"),
+    ]
+    _fixes = [
+        ("cursor.execute('SELECT * FROM t WHERE id=' + u)",
+         "cursor.execute('SELECT * FROM t WHERE id=%s', (u,))", "SQL 注入修复"),
+        ("open(p).read()", "with open(p) as f: return f.read()", "资源泄漏修复"),
+    ]
+    _jumps = [
+        ("mouse_ray", ["app/src/fx.rs:324", "app/src/input_systems.rs:58"], "跳转预测"),
+    ]
+    _i = 0
+    for _pfx, _exp, _tag in _completions:
+        if _i >= count: break
+        _samples.append({"sim": "completion", "tag": _tag, "prefix": _pfx, "expected": _exp, "source": "synthetic"})
+        _i += 1
+    for _ctx, _cont, _tag in _continuations:
+        if _i >= count: break
+        _samples.append({"sim": "continuation", "tag": _tag, "context": _ctx, "expected": _cont, "source": "synthetic"})
+        _i += 1
+    for _bug, _fix, _tag in _fixes:
+        if _i >= count: break
+        _samples.append({"sim": "fix", "tag": _tag, "bug_pattern": _bug, "fix_pattern": _fix, "source": "synthetic"})
+        _i += 1
+    for _sym, _locs, _tag in _jumps:
+        if _i >= count: break
+        _samples.append({"sim": "jump", "tag": _tag, "symbol": _sym, "predictions": _locs, "source": "synthetic"})
+        _i += 1
+    _os.makedirs(_os.path.dirname(out), exist_ok=True)
+    with open(out, "w", encoding="utf-8") as _f:
+        for _s in _samples:
+            _f.write(json.dumps(_s, ensure_ascii=False) + chr(10))
+    return [types.TextContent(type="text", text=json.dumps({
+        "ok": True, "samples": len(_samples), "path": out,
+        "note": "合成模拟样本（补全/续写/修复/跳转四类——各种情况模拟训练）"},
+        ensure_ascii=False))]
+
+
 def _tool_clean_data(args: dict) -> "list[types.TextContent]":
+
     """数据清洗管线（蒸馏前置——数据洗干净才蒸馏）：
     去重（commit+file）/空模式过滤/短模式过滤/假模式过滤（allow/import/注释误提）。"""
     import os as _os
@@ -5989,7 +6043,8 @@ _TOOLS: dict[str, tuple] = {
     "cost_report": (_tool_cost_report, _schema({"action": _S("string", "summary/estimate/code（默认 summary）"), "model": _S("string", "模型单价键（deepseek-chat 默认）"), "text": _S("string", "estimate 用：待估算文本"), "path": _S("string", "code 用：代码文件/目录")}, []), "成本核算（调用次数+token+成本：按工具/天/项目汇总，或估算文本/代码成本——用户要求每个代码和工具调用都算成本）"),
     "chatlog_search": (_tool_chatlog_search, _schema({"action": _S("string", "search/collect/status（默认 search）"), "query": _S("string", "关键词（匹配 title+text）"), "agent": _S("string", "智能体过滤（marvis/hermes/trae/qoder）"), "limit": _S("integer", "结果上限(默认20)"), "since_days": _S("integer", "只看最近 N 天"), "agents": _S("string", "collect 用：逗号分隔智能体列表")}, []), "不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕——统一索引去重）"),
     "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
-        "clean_data": (_tool_clean_data, _schema({"src": _S("string", "样本源（默认 train_data/samples.jsonl）"), "out": _S("string", "清洗输出（默认 samples_clean.jsonl）")}, []), "数据清洗管线：去重/空/短/假模式过滤（蒸馏前置——洗干净才蒸馏）"),
+        "sim_data": (_tool_sim_data, _schema({"out": _S("string", "输出路径（默认 sim_samples.jsonl）"), "count": _S("integer", "样本数(默认60)")}, []), "模拟场景训练数据：合成补全/续写/修复/跳转四类样本"),
+    "clean_data": (_tool_clean_data, _schema({"src": _S("string", "样本源（默认 train_data/samples.jsonl）"), "out": _S("string", "清洗输出（默认 samples_clean.jsonl）")}, []), "数据清洗管线：去重/空/短/假模式过滤（蒸馏前置——洗干净才蒸馏）"),
     "ui_tune": (_tool_ui_tune, _schema({"action": _S("string", "read/set/validate"), "path": _S("string", "ui_styles.json 路径（默认 assets/）"), "token": _S("string", "set 时 token 名"), "value": _S("any", "set 时值（rgba 列表或数值）")}, []), "UI 热调整：改 ui_styles.json → 游戏实时生效（MCP 前端调整闭环）"),
     "ide_complete_chain": (_tool_ide_complete_chain, _schema({"root": _S("string", "仓库根"), "file_path": _S("string", "当前文件"), "prefix": _S("string", "补全前缀"), "limit": _S("integer", "上限(默认20)")}, []), "仓库级链式补全：当前文件符号+跨文件引用热点"),
     "ide_continue": (_tool_ide_continue, _schema({"root": _S("string", "仓库根"), "file_path": _S("string", "文件"), "line": _S("integer", "续写行号"), "count": _S("integer", "候选数(默认4)")}, []), "代码续写：基于缩进/上下文生成多行候选"),
