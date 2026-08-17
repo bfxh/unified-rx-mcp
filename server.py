@@ -5272,7 +5272,67 @@ def _tool_sim_data(args: dict) -> "list[types.TextContent]":
         ensure_ascii=False))]
 
 
+
+_KEEP_DOMAINS = ["重设计", "设计", "代码", "建模", "动画", "ui", "界面", "游戏",
+                "色彩心理", "心理学", "用户体验", "渲染", "纹理", "交互"]
+_DROP_DOMAINS = ["医疗", "法律", "化学", "生物", "社会学", "经济学", "文学", "历史",
+                "医学", "金融", "会计", "物理", "数学"]
+_DROP_KEYWORDS = ["美观", "时尚", "流行", "故事", "情感", "赛博朋克", "蒸汽波",
+                  "极简风", "复古风", "未来风", "暗黑风", "卡通风", "像素风"]
+
+
+def _classify_text(text: str) -> dict:
+    t = text.lower()
+    dd = [d for d in _DROP_DOMAINS if d.lower() in t]
+    dk = [k for k in _DROP_KEYWORDS if k.lower() in t]
+    kd = [d for d in _KEEP_DOMAINS if d.lower() in t]
+    if dd or dk:
+        return {"verdict": "drop", "drop_domains": dd, "drop_keywords": dk}
+    if kd:
+        return {"verdict": "keep", "keep_domains": kd}
+    return {"verdict": "keep_unknown", "note": "无匹配（保守保留）"}
+
+
+def _tool_data_filter(args: dict) -> "list[types.TextContent]":
+    """数据筛选器：保留高质量方向（重设计/代码/建模/动画/UI/色彩心理/用户体验），
+    丢弃无关学科（医疗/法律/化学/...）与风格词（赛博朋克/美观/时尚/...）。"""
+    import os as _os
+    _base = _os.path.dirname(_os.path.abspath(__file__))
+    src = args.get("src") or _os.path.join(_base, "train_data", "samples_clean.jsonl")
+    out = args.get("out") or _os.path.join(_base, "train_data", "samples_filtered.jsonl")
+    text = args.get("text")  # 单条文本分类模式
+    if text is not None:
+        return [_TC(json.dumps({"ok": True, **_classify_text(str(text))}, ensure_ascii=False))]
+    if not _os.path.exists(src):
+        return [_TC(json.dumps({"ok": False, "error": f"样本不存在: {src}"}, ensure_ascii=False))]
+    _kept = []
+    _dropped = 0
+    _stats = {}
+    with open(src, encoding="utf-8") as _f:
+        for _ln in _f:
+            try:
+                _s = json.loads(_ln)
+            except Exception:
+                continue
+            _blob = json.dumps(_s, ensure_ascii=False)
+            _r = _classify_text(_blob)
+            if _r["verdict"] == "drop":
+                _dropped += 1
+                for _d in _r.get("drop_domains", []) + _r.get("drop_keywords", []):
+                    _stats[_d] = _stats.get(_d, 0) + 1
+                continue
+            _kept.append(_s)
+    with open(out, "w", encoding="utf-8") as _f:
+        for _s in _kept:
+            _f.write(json.dumps(_s, ensure_ascii=False) + chr(10))
+    return [_TC(json.dumps({
+        "ok": True, "before": _dropped + len(_kept), "after": len(_kept),
+        "dropped": _dropped, "drop_reasons": _stats, "path": out,
+        "note": "保留域：重设计/代码/建模/动画/UI/色彩心理/用户体验"}, ensure_ascii=False))]
+
+
 def _tool_clean_data(args: dict) -> "list[types.TextContent]":
+
 
     """数据清洗管线（蒸馏前置——数据洗干净才蒸馏）：
     去重（commit+file）/空模式过滤/短模式过滤/假模式过滤（allow/import/注释误提）。"""
@@ -6043,7 +6103,8 @@ _TOOLS: dict[str, tuple] = {
     "cost_report": (_tool_cost_report, _schema({"action": _S("string", "summary/estimate/code（默认 summary）"), "model": _S("string", "模型单价键（deepseek-chat 默认）"), "text": _S("string", "estimate 用：待估算文本"), "path": _S("string", "code 用：代码文件/目录")}, []), "成本核算（调用次数+token+成本：按工具/天/项目汇总，或估算文本/代码成本——用户要求每个代码和工具调用都算成本）"),
     "chatlog_search": (_tool_chatlog_search, _schema({"action": _S("string", "search/collect/status（默认 search）"), "query": _S("string", "关键词（匹配 title+text）"), "agent": _S("string", "智能体过滤（marvis/hermes/trae/qoder）"), "limit": _S("integer", "结果上限(默认20)"), "since_days": _S("integer", "只看最近 N 天"), "agents": _S("string", "collect 用：逗号分隔智能体列表")}, []), "不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕——统一索引去重）"),
     "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
-        "sim_data": (_tool_sim_data, _schema({"out": _S("string", "输出路径（默认 sim_samples.jsonl）"), "count": _S("integer", "样本数(默认60)")}, []), "模拟场景训练数据：合成补全/续写/修复/跳转四类样本"),
+        "data_filter": (_tool_data_filter, _schema({"src": _S("string", "样本源（默认 samples_clean）"), "out": _S("string", "过滤输出"), "text": _S("string", "单条文本分类（可选）")}, []), "数据筛选器：保留高质量方向（重设计/代码/建模/动画/UI/色彩心理/用户体验）——丢弃学科/风格词"),
+    "sim_data": (_tool_sim_data, _schema({"out": _S("string", "输出路径（默认 sim_samples.jsonl）"), "count": _S("integer", "样本数(默认60)")}, []), "模拟场景训练数据：合成补全/续写/修复/跳转四类样本"),
     "clean_data": (_tool_clean_data, _schema({"src": _S("string", "样本源（默认 train_data/samples.jsonl）"), "out": _S("string", "清洗输出（默认 samples_clean.jsonl）")}, []), "数据清洗管线：去重/空/短/假模式过滤（蒸馏前置——洗干净才蒸馏）"),
     "ui_tune": (_tool_ui_tune, _schema({"action": _S("string", "read/set/validate"), "path": _S("string", "ui_styles.json 路径（默认 assets/）"), "token": _S("string", "set 时 token 名"), "value": _S("any", "set 时值（rgba 列表或数值）")}, []), "UI 热调整：改 ui_styles.json → 游戏实时生效（MCP 前端调整闭环）"),
     "ide_complete_chain": (_tool_ide_complete_chain, _schema({"root": _S("string", "仓库根"), "file_path": _S("string", "当前文件"), "prefix": _S("string", "补全前缀"), "limit": _S("integer", "上限(默认20)")}, []), "仓库级链式补全：当前文件符号+跨文件引用热点"),

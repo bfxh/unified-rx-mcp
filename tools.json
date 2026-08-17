@@ -1,7 +1,7 @@
 {
- "core_count": 98,
+ "core_count": 99,
  "ext_count": 76,
- "total": 174,
+ "total": 175,
  "core": [
   "agent",
   "alarm_check",
@@ -22,6 +22,7 @@
   "code_search",
   "cost_report",
   "cov_scan",
+  "data_filter",
   "design_note",
   "ds_check",
   "ds_lookup",
