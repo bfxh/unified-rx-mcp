@@ -1,7 +1,7 @@
 {
- "core_count": 92,
+ "core_count": 93,
  "ext_count": 76,
- "total": 168,
+ "total": 169,
  "core": [
   "agent",
   "alarm_check",
@@ -15,6 +15,7 @@
   "cb_scan",
   "cb_status",
   "chatlog_search",
+  "clean_data",
   "cmd_cheatsheet",
   "code_complete",
   "code_embed",
