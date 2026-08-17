@@ -28,6 +28,7 @@
 - **"IDEMCP"/"MCP" 默认 = `D:\开发\unified-rx-mcp`**（用户口头简称，无歧义指向）。
 - **QODER 默认调用**：QODER 及**所有智能体**（Codex/Claude/Reasonix/任何 AI 编码助手）默认调用 unified-rx-mcp——先看本偏好文档 + skills/ 目录，再干活。
 - **常态扫描（写完即挖——不是收尾）**：每完成一个代码单元（函数/模块/提交前）立刻跑 `scan_delta`（增量）/`scan_now`（全量）——不依赖提示词、不等到对话收尾。收尾时再补一轮 vuln_scan 全量。
+- **前端 skill 必须用**：UI/前端相关工作时，impeccable（反模式词典）/ taste-skill（审美）/ garden-skills（风格配方）/ gsap-skills（动效）/ react-bits（组件）必须参考应用——下载了就要用上，不许裸写。
 - 用户重复说过两遍以上的要求 = 必须记住并默认执行（如 exe 位置）。
 
 ## 5. 其他
