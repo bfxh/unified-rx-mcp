@@ -100,7 +100,7 @@ def bug_bisect(root: str, good_commit: str, bad_commit: str,
                    for k in _ALLOWED):
             return {"ok": False, "error": f"test_cmd 不在白名单: {test_cmd!r}"}
         # 终审 MEDIUM：参数 token 仅允许标识符/路径字符
-        if not all(_re.match(r"^[A-Za-z0-9_\-./]+$", t) for t in test_cmd.split()[1:]):
+        if not all(_re.match(r"^(?!-)[A-Za-z0-9_\-./]+$", t) for t in test_cmd.split()[1:]):
             return {"ok": False, "error": f"test_cmd 参数含非法字符: {test_cmd!r}"}
         try:
             # 重置可能的旧 bisect 状态

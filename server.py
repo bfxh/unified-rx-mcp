@@ -3868,7 +3868,7 @@ def _tool_scan_delta(args: dict) -> "list[types.TextContent]":
 from mcp import types
 
 import re as _re
-_TOKEN_RE = _re.compile(r"^[A-Za-z0-9_\-./]+$")
+_TOKEN_RE = _re.compile(r"^(?!-)[A-Za-z0-9_\-./]+$")  # 禁止 - 开头（防选项注入）
 
 def _tool_git_bisect_find(args: dict) -> "list[types.TextContent]":
     """可回溯：git bisect 自动二分定位引入 bug 的提交。
