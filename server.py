@@ -3827,7 +3827,88 @@ def _tool_scan_now(args: dict) -> "list[types.TextContent]":
 
 from mcp import types
 
+
+def _tool_unit_rerun(args: dict) -> "list[types.TextContent]":
+    """单元级依赖重跑引擎：变更文件 → 变更符号 → 全库引用者 → 受影响单元集。
+    认定标准：变更符号的直接引用者 = 重跑集（有依赖的东西就要重新跑）。"""
+    import os as _os
+    import re as _re
+    root = args.get("path") or _os.getcwd()
+    changed = args.get("changed") or []
+    if not changed:
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": "需提供 changed（变更文件列表）"}, ensure_ascii=False))]
+
+    def _extract_symbols(src: str) -> set:
+        syms = set()
+        for m in _re.finditer(r"^(?:pub\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)", src, _re.M):
+            syms.add(m.group(1))
+        for m in _re.finditer(r"^(?:pub\s+)?(?:struct|enum|trait|impl|class)\s+([a-zA-Z_][a-zA-Z0-9_]*)", src, _re.M):
+            syms.add(m.group(1))
+        for m in _re.finditer(r"^\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)", src, _re.M):
+            syms.add(m.group(1))
+        for m in _re.finditer(r"^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)", src, _re.M):
+            syms.add(m.group(1))
+        return syms
+
+    def _refs_in(src: str) -> set:
+        refs = set()
+        for m in _re.finditer(r"(?:fn|struct|enum|trait|impl|class|def)\s+([a-zA-Z_][a-zA-Z0-9_]*)", src):
+            refs.add(m.group(1))
+        for m in _re.finditer(r"use\s+[^;{]*\{([^}]+)\}", src):
+            for name in m.group(1).split(","):
+                n = name.strip()
+                if n:
+                    refs.add(n.split("::")[-1])
+        for m in _re.finditer(r"(?:use|from)\s+[\w:]+\s+import\s+(\w+)", src):
+            refs.add(m.group(1))
+        return refs
+
+    changed_info = []
+    for cf in changed:
+        fp = _os.path.join(root, cf)
+        if not _os.path.exists(fp):
+            continue
+        try:
+            src = open(fp, encoding="utf-8", errors="replace").read()
+        except Exception:
+            continue
+        syms = _extract_symbols(src)
+        if syms:
+            changed_info.append({"file": cf, "symbols": sorted(syms)[:20]})
+    if not changed_info:
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": True, "summary": "变更文件无定义符号（无需传播重跑）", "changed": [], "affected": {}},
+            ensure_ascii=False))]
+    affected = {}
+    for dirpath, dirs, files in _os.walk(root):
+        dirs[:] = [d for d in dirs if not d.startswith((".", "target", "node_modules", "vendor", "dist"))]
+        for f in files:
+            if not f.endswith((".rs", ".py", ".ts", ".js", ".go")):
+                continue
+            rel = _os.path.relpath(_os.path.join(dirpath, f), root).replace("\\", "/")
+            if any(c["file"] == rel for c in changed_info):
+                continue
+            try:
+                src = open(_os.path.join(dirpath, f), encoding="utf-8", errors="replace").read()
+            except Exception:
+                continue
+            refs = _refs_in(src)
+            hit = [c["file"] for c in changed_info for s in c["symbols"] if s in refs]
+            if hit:
+                affected[rel] = {"depends_on": hit[:8]}
+    out = {
+        "ok": True,
+        "changed": changed_info,
+        "affected": affected,
+        "summary": f"变更 {len(changed_info)} 个单元 → 受影响 {len(affected)} 个单元（依赖者需重跑）",
+        "rerun_hint": "受影响单元的重跑：对应扫描 lane（bug_scan/std_check/ui_check）+ 单元测试",
+    }
+    return [types.TextContent(type="text", text=json.dumps(out, ensure_ascii=False))]
+
+
 def _tool_scan_delta(args: dict) -> "list[types.TextContent]":
+
     """增量扫描：git diff 变更文件 → 只扫变更（快——写完一个文件立刻扫）。"""
     import os as _os
     import subprocess as _sp
@@ -5588,7 +5669,8 @@ _TOOLS: dict[str, tuple] = {
     "cost_report": (_tool_cost_report, _schema({"action": _S("string", "summary/estimate/code（默认 summary）"), "model": _S("string", "模型单价键（deepseek-chat 默认）"), "text": _S("string", "estimate 用：待估算文本"), "path": _S("string", "code 用：代码文件/目录")}, []), "成本核算（调用次数+token+成本：按工具/天/项目汇总，或估算文本/代码成本——用户要求每个代码和工具调用都算成本）"),
     "chatlog_search": (_tool_chatlog_search, _schema({"action": _S("string", "search/collect/status（默认 search）"), "query": _S("string", "关键词（匹配 title+text）"), "agent": _S("string", "智能体过滤（marvis/hermes/trae/qoder）"), "limit": _S("integer", "结果上限(默认20)"), "since_days": _S("integer", "只看最近 N 天"), "agents": _S("string", "collect 用：逗号分隔智能体列表")}, []), "不同智能体聊天记录检索（Marvis/Hermes 聊天记忆 + Trae/Qoder 编辑留痕——统一索引去重）"),
     "local_tools": (_tool_local_tools, _schema({"action": _S("string", "scan/discover/run（默认 discover）"), "query": _S("string", "discover 用：名称过滤"), "category": _S("string", "discover 用：目录过滤"), "name": _S("string", "run 用：已注册工具名"), "args": _S("array", "run 用：参数列表"), "timeout": _S("integer", "run 用：超时秒(默认60)")}, []), "本地工具注册表与安全调用桥（D:\\rj 下 639 个工具：7zip/Blender/Everything/aria2 等——白名单+危险参数黑名单）"),
-        "scan_now": (_tool_scan_now, _schema({"path": _S("string", "扫描路径（默认 cwd/git 根）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "常态扫描（写完即挖）：vuln_scan + bug_scan 一次跑——每次代码完成后立刻调用，不等到收尾"),
+        "unit_rerun": (_tool_unit_rerun, _schema({"path": _S("string", "仓库根（默认 cwd）"), "changed": _S("array", "变更文件列表（相对路径）")}, []), "单元级依赖重跑引擎：变更符号→引用者→受影响单元集（有依赖就要重跑）"),
+    "scan_now": (_tool_scan_now, _schema({"path": _S("string", "扫描路径（默认 cwd/git 根）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "常态扫描（写完即挖）：vuln_scan + bug_scan 一次跑——每次代码完成后立刻调用，不等到收尾"),
     "scan_delta": (_tool_scan_delta, _schema({"path": _S("string", "git 仓库路径（默认 cwd）")}, []), "增量扫描：git diff 变更文件只扫变更（快——写完一个文件立刻挖）"),
     "scan_all": (_tool_scan_all, _schema({"path": _S("string", "扫描路径（默认 cwd）"), "max_files": _S("integer", "文件上限(默认100)")}, []), "自研高并发插件：五路任务级并行（bug_scan+std_check+ui_check+cb_scan+cov_scan）——全量常态扫描"),
     "train_all": (_tool_train_all, _schema({"path": _S("string", "git 仓库路径"), "count": _S("integer", "提交数(默认30)"), "out_dir": _S("string", "输出目录")}, []), "P0 训练数据流水线一键闭环（修复样本+负样本+统计）"),
