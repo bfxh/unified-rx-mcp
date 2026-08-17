@@ -23,3 +23,16 @@
 - **工具数量不是目标**：下一阶段重点 = 闭环（feedback→权重→规则）与蒸馏，而非新增工具。
 - **定期清理**：其余冗余候选（媒体/存储辅助）每季度评估一次，无用即删。
 - **IDE 升级记录（2026-08-18）**：ide_open_at（定位打开）+ scan_fix_flow（扫描→修复工作台）——IDE 从孤立能力变为工作流核心：`scan → ide_open_at(定位行) → 修复 → unit_rerun(重跑依赖者)`。
+
+## 冗余清理评估（2026-08-18）
+| 候选 | 注册 | 测试 | 结论 |
+|---|---|---|---|
+| media_check | 1 | 1 | 保留（注册即用） |
+| media_core / storage_tiers / dashboard | 0 | 0 | **归档候选**（无注册无测试——并入 infra_engine 后未接线） |
+| cost_report | 1 | 1 | 保留 |
+| telemetry | 2 | 0 | 观察（注册有调用） |
+| backup | 2 | 1 | 保留 |
+| window_core | 0 | 2 | 保留（测试引用） |
+
+**归档策略**：media_core/storage_tiers/dashboard 已在 infra_engine 内（不删代码）——
+仅标记"未接线"（下季度若仍无注册调用则从 _TOOLS 移除）。
