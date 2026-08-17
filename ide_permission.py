@@ -61,6 +61,17 @@ TOOL_LEVELS: dict[str, int] = {
     # git checkout 改写工作区 + 跑任意 test_cmd——L4 授权（未登记默认
     # L1 只读——execute 路径将绕过授权模型）
     "bug_bisect": L4,
+    # 2026-08-17（security-review CRITICAL 回归）：git_bisect_find 与
+    # bug_bisect 同模式（git checkout + test_cmd）——必须 L4；同轮新增的
+    # 写/执行类工具一并登记（scan 系读只读但含 subprocess——L2 保守；
+    # train_export 写文件 / local_run 执行脚本——L4）
+    "git_bisect_find": L4,
+    "train_export": L4,
+    "local_run": L4,
+    "local_tools": L4,
+    "scan_now": L2,
+    "scan_delta": L2,
+    "scan_all": L2,
 }
 
 # 授权字段名（L4 工具 args 中必须为 true）

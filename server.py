@@ -3871,20 +3871,39 @@ def _tool_git_bisect_find(args: dict) -> "list[types.TextContent]":
     """可回溯：git bisect 自动二分定位引入 bug 的提交。
     test_cmd 为判定命令（0=好，非0=坏）；bisect 自动跑并输出首次坏提交。"""
     import os as _os
+    import shlex
     import subprocess as _sp
     path = args.get("path") or _os.getcwd()
     good = args.get("good")  # 好提交（无 bug）
     bad = args.get("bad") or "HEAD"  # 坏提交（默认 HEAD）
     test_cmd = args.get("test_cmd", "cargo test")
-    if not good:
+    # security-review MEDIUM：good/bad 必须以非 - 开头（防 git 选项注入）
+    for _name, _rev in (("good", good), ("bad", bad)):
+        if not _rev or _rev.startswith("-"):
+            return [types.TextContent(type="text", text=json.dumps(
+                {"ok": False, "error": f"{_name} 提交非法（不能以 - 开头）: {_rev!r}"},
+                ensure_ascii=False))]
+    # 安全校验（security-review MEDIUM）：test_cmd 精确白名单——
+    # 不再 startswith（防 `cargo test --manifest-path <任意>` 触发 build script）
+    _ALLOWED = {
+        "cargo test": None,
+        "cargo check": None,
+        "python -m pytest": None,
+        "pytest": None,
+        "node --test": None,
+        "npm test": None,
+        "go test": None,
+        "go vet": None,
+        # 允许单个目标参数（cargo test <name> / pytest <file>）——精确匹配首段
+    }
+    _cmd_head = shlex.split(test_cmd)[0] if shlex.split(test_cmd) else ""
+    _allowed_cmd = next((k for k in _ALLOWED if test_cmd == k or
+                         (k == "cargo test" and test_cmd.startswith("cargo test "))
+                         or (k == "python -m pytest" and test_cmd.startswith("python -m pytest "))
+                         or (k == "pytest" and test_cmd.startswith("pytest "))), None)
+    if _allowed_cmd is None or not _cmd_head:
         return [types.TextContent(type="text", text=json.dumps(
-            {"ok": False, "error": "需提供 good 提交（已知无 bug 的提交）"}, ensure_ascii=False))]
-    # 安全校验（常态扫描告警修复）：test_cmd 白名单——只允许已知测试命令
-    _ALLOWED = ("cargo test", "cargo check", "python -m pytest", "pytest", "node --test",
-                "npm test", "go test", "go vet")
-    if not test_cmd.startswith(_ALLOWED):
-        return [types.TextContent(type="text", text=json.dumps(
-            {"ok": False, "error": f"test_cmd 不在白名单: {_ALLOWED}"}, ensure_ascii=False))]
+            {"ok": False, "error": f"test_cmd 不在白名单: {test_cmd!r}"}, ensure_ascii=False))]
     log = []
     try:
         _sp.run(["git", "-C", path, "bisect", "reset"], capture_output=True, timeout=30)
@@ -4867,7 +4886,12 @@ def _tool_train_export(args: dict) -> "list[types.TextContent]":
     import subprocess as _sp
     path = args.get("path") or _os.getcwd()
     count = int(args.get("count", 20))
-    out_dir = args.get("out_dir") or _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "train_data")
+    _base = _os.path.dirname(_os.path.abspath(__file__))
+    out_dir = args.get("out_dir") or _os.path.join(_base, "train_data")
+    # security-review HIGH：out_dir 限定在服务器目录内（防任意路径写）
+    if not _os.path.abspath(out_dir).startswith(_os.path.abspath(_base)):
+        return [types.TextContent(type="text", text=json.dumps(
+            {"ok": False, "error": "out_dir 必须位于 unified-rx 目录内"}, ensure_ascii=False))]
     _os.makedirs(out_dir, exist_ok=True)
     sample_path = _os.path.join(out_dir, "samples.jsonl")
     try:
