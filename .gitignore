@@ -26,3 +26,5 @@ train_data/
 
 # Obsidian 编辑器本地状态（不入库——应用自动保存）
 .obsidian/
+
+node_modules/
