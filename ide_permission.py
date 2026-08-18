@@ -69,6 +69,9 @@ TOOL_LEVELS: dict[str, int] = {
     "train_export": L4,
     "local_run": L4,
     "local_tools": L4,
+    # 2026-08-19（mcp-developer 审查 M1/M2）：blender_verify 执行子进程
+    # （截图 + 写 PNG + 本地 HTTP OCR）——执行类工具登记 L4 显式授权
+    "blender_verify": L4,
     "scan_now": L2,
     "scan_delta": L2,
     "scan_all": L2,

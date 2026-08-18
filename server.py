@@ -2296,19 +2296,28 @@ def _tool_blender_verify(args: dict) -> "list[types.TextContent]":
 
     每次搞完 Blender 相关改动后必须调用本工具实地查看（用户：'每次搞完都要
     自动看一下'）。"""
-    import subprocess
-    import sys as _sys
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "blender_verify.py")
-    cmd = [_sys.executable, script]
+    cmd = [sys.executable, script]
     if args.get("ocr"):
         cmd.append("--ocr")
     try:
+        # M1（mcp-developer 审查）：PYTHONUTF8 强制子进程 UTF-8 输出
+        # （blender_verify.py 内已 reconfigure 双保险）
+        env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
         r = subprocess.run(cmd, capture_output=True, text=True,
-                           timeout=90, encoding="utf-8", errors="replace")
-        return [_TC(r.stdout + "\n" + r.stderr)]
+                           timeout=90, encoding="utf-8", errors="replace",
+                           env=env)
+        # M3：结构化返回（含 returncode——NO_BLENDER_WINDOW=2 可识别）
+        return [_TC(json.dumps({
+            "ok": r.returncode == 0,
+            "returncode": r.returncode,
+            "stdout": r.stdout,
+            "stderr": r.stderr,
+        }, ensure_ascii=False, indent=2))]
     except Exception as e:
-        return [_TC(f"blender_verify 失败: {e}")]
+        return [_TC(json.dumps({"ok": False, "error": str(e)},
+                               ensure_ascii=False, indent=2))]
 
 
 def _tool_game_feel(args: dict) -> "list[types.TextContent]":

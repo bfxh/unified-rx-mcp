@@ -10,8 +10,17 @@
 import os
 import sys
 
+# M1 修复（mcp-developer 审查 2026-08-19）：Windows 管道下默认 GBK 输出
+# → 父进程 utf-8 解码中文全乱码。强制 UTF-8 输出（双保险：env 见 server.py）
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 OUT_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "blender_verify.png")
+
+# 底部图标判定阈值（底部两段白色像素和 > 阈值 = 有图标）——常量供测试引用
+BOTTOM_ICON_THRESHOLD = 20
 
 
 def find_blender_window():
@@ -55,7 +64,7 @@ def analyze_toolbar(img):
     w, h = gray.size
     tb_w = 64  # 工具栏宽度（Blender 默认 ~50-64px）
     tb = gray.crop((0, 0, min(tb_w, w), h))
-    px = list(tb.getdata())
+    px = list(tb.get_flattened_data())
     white = sum(1 for p in px if p > 150)
     total = len(px)
     # 分 8 段看分布
@@ -64,31 +73,9 @@ def analyze_toolbar(img):
         y0 = i * h // 8
         y1 = (i + 1) * h // 8
         seg = tb.crop((0, y0, tb_w, y1))
-        sp = list(seg.getdata())
+        sp = list(seg.get_flattened_data())
         segs.append(sum(1 for p in sp if p > 150))
     return {"white_ratio": white / total, "segments": segs, "tb_width": tb_w}
-
-
-def ocr(img):
-    """调本地 Umi-OCR HTTP API（127.0.0.1:1224）→ 文本行"""
-    import base64
-    import io
-    import json
-    import urllib.request
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    payload = json.dumps({"base64": base64.b64encode(buf.getvalue()).decode()}).encode()
-    req = urllib.request.Request(
-        "http://127.0.0.1:1224/api/ocr", data=payload,
-        headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read().decode())
-    lines = []
-    for item in data.get("data", []):
-        t = item.get("text", "").strip()
-        if t:
-            lines.append(t)
-    return lines
 
 
 def ocr_file(path):
@@ -103,8 +90,9 @@ def ocr_file(path):
         "http://127.0.0.1:1224/api/ocr", data=payload,
         headers={"Content-Type": "application/json"})
     # 禁用系统代理（curl 直连正常但 urllib 走代理被拒——2026-08-19 实地发现）
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    # build_opener 也放入 try（opener 构造失败同样容错——测试暴露）
     try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         with opener.open(req, timeout=30) as resp:
             data = json.loads(resp.read().decode())
     except Exception as e:
@@ -125,6 +113,9 @@ def main():
         out = args[args.index("--out") + 1]
     # 纯 OCR 模式：只读已有截图
     if "--ocr-file" in args:
+        if args.index("--ocr-file") + 1 >= len(args):
+            print("用法: --ocr-file <png路径>")
+            return 2
         path = args[args.index("--ocr-file") + 1]
         lines = ocr_file(path)
         print(f"OCR({len(lines)}行): {lines[:25]}")
@@ -143,7 +134,7 @@ def main():
           f"段分布(上→下)={info['segments']}")
     # 底部两段（6/7 段）有白色 → 底部有图标
     bottom_white = info["segments"][6] + info["segments"][7]
-    print(f"BOTTOM_ICON: {'YES' if bottom_white > 20 else 'NO'} "
+    print(f"BOTTOM_ICON: {'YES' if bottom_white > BOTTOM_ICON_THRESHOLD else 'NO'} "
           f"(底部白色像素={bottom_white})")
     if do_ocr:
         lines = ocr_file(out)
