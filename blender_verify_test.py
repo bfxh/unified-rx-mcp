@@ -32,20 +32,24 @@ def test_analyze_toolbar_empty_bottom():
     assert bottom == 0
 
 
-def test_ocr_file_tolerates_down_server(monkeypatch):
-    """Umi-OCR 不可达时返回明确的失败行（monkeypatch——不依赖服务状态）"""
+def test_ocr_file_tolerates_down_server(monkeypatch, tmp_path):
+    """Umi-OCR 不可达时返回明确的失败行（monkeypatch + tmp_path——
+    不依赖真实截图产物文件）"""
     def _raise(*a, **k):
         raise OSError("connection refused")
     import urllib.request
     monkeypatch.setattr(urllib.request, "build_opener", _raise)
-    lines = bv.ocr_file(bv.OUT_DEFAULT)
+    from PIL import Image
+    img_path = tmp_path / "tiny.png"
+    Image.new("L", (8, 8), 40).save(img_path)
+    lines = bv.ocr_file(str(img_path))
     assert isinstance(lines, list) and lines
     assert "OCR 失败" in lines[0]
 
 
 def test_encoding_contract_no_mojibake(monkeypatch):
-    """M1 集成契约（不依赖真实 Blender 窗口）：子进程输出中文
-    （含 GBK 场景）→ 父进程 JSON 返回无替换符乱码"""
+    """M1 集成契约（不依赖真实 Blender 窗口）：验证父进程向子进程传递
+    的编码契约（env PYTHONUTF8=1 + encoding=utf-8）与结构化返回"""
     import json
     import subprocess as sp
     import server
@@ -73,6 +77,32 @@ def test_encoding_contract_no_mojibake(monkeypatch):
 def test_bottom_icon_threshold_logic():
     """判定阈值常量化：BOTTOM_ICON_THRESHOLD 可被测试引用（>=20 像素）"""
     assert bv.BOTTOM_ICON_THRESHOLD == 20
+
+
+def test_bottom_icon_verdict_function():
+    """判定函数边界（防方向写反）：>20 → YES；==20/<=20 → NO"""
+    assert bv.bottom_icon_yes(21) is True
+    assert bv.bottom_icon_yes(20) is False
+    assert bv.bottom_icon_yes(0) is False
+
+
+def test_no_blender_window_returncode_2(monkeypatch):
+    """should-fix（复审）：无 Blender 窗口（子进程返回码 2）→
+    父进程透传 ok=False + returncode=2（可识别）"""
+    import json
+    import subprocess as sp
+    import server
+
+    class FakeNoWindow:
+        returncode = 2
+        stdout = "RESULT: NO_BLENDER_WINDOW\n"
+        stderr = ""
+
+    monkeypatch.setattr(sp, "run", lambda *a, **k: FakeNoWindow())
+    r = server._tool_blender_verify({})
+    data = json.loads(r[0].text)
+    assert data["ok"] is False and data["returncode"] == 2
+    assert "NO_BLENDER_WINDOW" in data["stdout"]
 
 
 def test_main_missing_arg_guards(monkeypatch):

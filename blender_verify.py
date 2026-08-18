@@ -23,6 +23,11 @@ OUT_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 BOTTOM_ICON_THRESHOLD = 20
 
 
+def bottom_icon_yes(bottom_white):
+    """底部图标判定（可测纯函数——main 与测试共用，防判定方向写反）"""
+    return bottom_white > BOTTOM_ICON_THRESHOLD
+
+
 def find_blender_window():
     """win32gui 找 Blender 主窗口 → (hWnd, rect) 或 None"""
     import win32gui
@@ -137,7 +142,7 @@ def main():
           f"段分布(上→下)={info['segments']}")
     # 底部两段（6/7 段）有白色 → 底部有图标
     bottom_white = info["segments"][6] + info["segments"][7]
-    print(f"BOTTOM_ICON: {'YES' if bottom_white > BOTTOM_ICON_THRESHOLD else 'NO'} "
+    print(f"BOTTOM_ICON: {'YES' if bottom_icon_yes(bottom_white) else 'NO'} "
           f"(底部白色像素={bottom_white})")
     if do_ocr:
         lines = ocr_file(out)
