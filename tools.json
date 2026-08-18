@@ -1,11 +1,12 @@
 {
- "core_count": 100,
+ "core_count": 101,
  "ext_count": 76,
- "total": 176,
+ "total": 177,
  "core": [
   "agent",
   "alarm_check",
   "backup",
+  "blender_verify",
   "bug_locate",
   "bug_locate_feedback",
   "bug_scan",

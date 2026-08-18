@@ -43,6 +43,9 @@ jobs:
       - name: cargo build release
         run: cd lse-engine && cargo build --release
 
+      - name: Run semantic regression (语义回归：每次改完代码必跑，改坏语义即红)
+        run: python scripts/semantic_regression.py
+
       - name: Run pytest suite
         run: python -m pytest test_unified_rx.py -q
 

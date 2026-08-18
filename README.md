@@ -251,8 +251,15 @@ python scripts/install_agents.py --list           # 支持的智能体与配置�
 
 ```bash
 python server.py --selftest    # 97 工具自检（含防幻觉守卫抽样）
+python scripts/semantic_regression.py   # 语义回归 118 锚点（改完代码必跑：改坏工具语义即红）
 python -m pytest -q            # 全量 456 tests + 4 skipped（含 net_chaos 实机代理往返）
 ```
+
+**语义回归测试**（`scripts/semantic_regression.py`，pre-push/CI 第一步）：
+走生产路径 `server._call()` 断言每个工具的**输出语义**（值/结构/规则命中/错误契约），
+覆盖核心纯函数族（含 rx-core Rust 桥接）、文件层、扫描工具（bug_scan 五类规则、
+std_check、hallucination_guard）、协作层、扩展层（ciopt_ 52 全量可路由——bug#1
+"manifest 有但调不动"防线）+ manifest 工具名一致性检查。退出码 0=全过。
 
 ## 安全（已审查）
 

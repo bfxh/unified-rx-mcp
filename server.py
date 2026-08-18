@@ -6538,7 +6538,7 @@ def _call(name: str, arguments: dict | None) -> "list[types.TextContent]":
             return [_TC(str(result))]
         if name in ("stats_summary", "stats_status"):
             _stats_flush()  # 汇总/状态前落盘缓冲打点（协作：summary 能看到自动打点）
-        if name.startswith(("pr_oracle_", "tautest_", "cae_", "stats_")):
+        if name.startswith(("pr_oracle_", "tautest_", "cae_", "stats_", "ciopt_")):
             _ext_res = _call_ext(name, arguments or {})
             _out_text = "".join(t.text for t in _ext_res)
             return _ext_res
