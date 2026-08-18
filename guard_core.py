@@ -30,16 +30,17 @@ _SNIPPET_LEN = 160
 # 声明提取（从 AI 文本中提取可验证事实）
 # ─────────────────────────────────────────────────────────────
 
-_PATH_LINE_RE = re.compile(r"(?<![A-Za-z0-9_/\\])([A-Za-z0-9_./\\-]+\.(?:py|rs|go|ts|js|md|json|toml|txt|java|c|h|cpp|hpp|gd|sh|yml|yaml)):(\d+)")
+# 文件路径部分（三处复用）：可选 Windows 盘符（C:\）+ 相对/绝对路径 + 扩展名
+_PATH_PART = r"(?:[A-Za-z]:[\\/])?[A-Za-z0-9_./\\-]+\.(?:py|rs|go|ts|js|md|json|toml|txt|java|c|h|cpp|hpp|gd|sh|yml|yaml)"
+_PATH_LINE_RE = re.compile(r"(?<![A-Za-z0-9_/\\:.])((" + _PATH_PART + r")):(\d+)")
 _SYMBOL_RE = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`")
 # "符号在文件" / "文件 中 符号" / "文件 里 符号" 表述（符号+文件绑定验证，防跨文件误判）
 # 表述含"定义在/定义于"时 defined=True（要求定义模式匹配，仅出现引用不算证据）
 _SYMBOL_IN_FILE_RE = re.compile(
-    r"`([A-Za-z_][A-Za-z0-9_]*)`\s*(在|位于|出现在|定义在|定义于)\s*"
-    r"([A-Za-z0-9_./\\-]+\.(?:py|rs|go|ts|js|md|json|toml|txt|java|c|h|cpp|hpp|gd|sh|yml|yaml))"
+    r"`([A-Za-z_][A-Za-z0-9_]*)`\s*(在|位于|出现在|定义在|定义于)\s*(" + _PATH_PART + r")"
 )
 _SYMBOL_OF_FILE_RE = re.compile(
-    r"([A-Za-z0-9_./\\-]+\.(?:py|rs|go|ts|js|md|json|toml|txt|java|c|h|cpp|hpp|gd|sh|yml|yaml))\s*(?:中|里|文件)\s*"
+    r"(" + _PATH_PART + r")\s*(?:中|里|文件)\s*"
     r"`([A-Za-z_][A-Za-z0-9_]*)`"
 )
 # 常见 TLD——URL（example.com/data.json:80 / sub.example.co.uk:80）误报为 file_line 时跳过
@@ -61,7 +62,7 @@ def extract_claims(text: str) -> list[dict]:
     seen = set()
 
     for m in _PATH_LINE_RE.finditer(text or ""):
-        p, ln = m.group(1), int(m.group(2))
+        p, ln = m.group(1), int(m.group(3))
         if _URL_TLD_RE.match(p):
             continue  # URL 端口段，非文件引用
         key = f"file_line|{p}|{ln}"

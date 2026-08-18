@@ -134,6 +134,6 @@ python scripts/mcp_smoke.py   # 冒烟：list_tools 数量
 # 2. 确认配置 JSON 合法
 python -c "import json;json.load(open('.mcp.json'))"
 
-# 3. 重启智能体 → 对话里应出现 unified-rx 工具（149 = 73 核心 + 76 扩展；
+# 3. 重启智能体 → 对话里应出现 unified-rx 工具（177 = 101 核心 + 76 扩展；
 #    见 tools.json / scripts/mcp_smoke.py 输出）
 ```

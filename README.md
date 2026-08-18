@@ -1,6 +1,6 @@
 # unified-rx-mcp
 
-**157 工具的统一 MCP（81 核心 + 76 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时与 Reasonix Studio。
+**177 工具的统一 MCP（101 核心 + 76 扩展，single-file, lazy-loaded, memory-lean）** —— 适配 Reasonix 扩展运行时与 Reasonix Studio。
 
 > **定位：工具集，不是智能体** —— 本 MCP 产出证据与事实，不替代 LLM 推理。
 > 工具行为契约见 [`spec/`](spec/README.md)，契约验证探针见 [`probes/`](probes/run_all.py)，

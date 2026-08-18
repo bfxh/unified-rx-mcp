@@ -175,23 +175,68 @@ def _bug_check_deref(node, none_vars, path, lines, issues, parents=None):
         _bug_check_deref(child, none_vars, path, lines, issues, parents=ancestors)
 
 
+def _bug_check_len_index(node, path, lines, issues):
+    """确定性规则（不依赖容器跟踪）：x[len(x)] 必然越界。
+
+    0-based 索引 == 长度（len 返回元素个数 n，有效索引 0..n-1），对任何
+    序列/容器恒为 IndexError/KeyError——静态 100% 确定，直接报 error。
+    入口为函数/类时只查装饰器与参数默认值——函数体由 _bug_scope_scan
+    递归处理时逐语句调用本函数，避免同一模式重复上报。
+    """
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        for d in list(node.decorator_list) + list(node.args.defaults) + list(node.args.kw_defaults):
+            if d is not None:
+                _bug_check_len_index(d, path, lines, issues)
+        return
+    if isinstance(node, ast.ClassDef):
+        for d in node.decorator_list:
+            _bug_check_len_index(d, path, lines, issues)
+        return
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.Subscript) \
+                and isinstance(child.slice, ast.Call) \
+                and isinstance(child.slice.func, ast.Name) \
+                and child.slice.func.id == "len" \
+                and len(child.slice.args) == 1 \
+                and ast.dump(child.slice.args[0]) == ast.dump(child.value):
+            issues.append(_bug_issue(path, child, "index_out_of_range", "error",
+                                     "x[len(x)] 必然越界（索引 == 长度，0-based 恒 IndexError）", lines))
+        else:
+            _bug_check_len_index(child, path, lines, issues)
+
+
+def _bug_idx_value(slice_node) -> int | None:
+    """解析下标为确定整数：字面量 Constant 或一元负号 UnaryOp(USub, Constant)。
+
+    `s[-3]` 的 AST 是 UnaryOp 而非 Constant——原规则只认 Constant，
+    负索引字面量越界全部漏报（2026-08-19 算法演进）。
+    """
+    if isinstance(slice_node, ast.Constant) and isinstance(slice_node.value, int):
+        return slice_node.value
+    if isinstance(slice_node, ast.UnaryOp) and isinstance(slice_node.op, ast.USub) \
+            and isinstance(slice_node.operand, ast.Constant) \
+            and isinstance(slice_node.operand.value, int):
+        return -slice_node.operand.value
+    return None
+
+
 def _bug_check_seq(node, seq_vars, path, lines, issues):
     """字面量容器变量被字面量索引越界检测；线性近似。"""
     for child in ast.iter_child_nodes(node):
         if isinstance(child, ast.Subscript) and isinstance(child.value, ast.Name) \
-                and child.value.id in seq_vars and isinstance(child.slice, ast.Constant) \
-                and isinstance(child.slice.value, int):
-            size, _ = seq_vars[child.value.id]
-            idx = child.slice.value
-            if idx >= size or idx < -size:
-                issues.append(_bug_issue(path, child, "index_out_of_range", "error",
-                                         f"索引 {idx} 越界（容器长度 {size}）", lines))
+                and child.value.id in seq_vars:
+            idx = _bug_idx_value(child.slice)
+            if idx is not None:
+                size, _ = seq_vars[child.value.id]
+                if idx >= size or idx < -size:
+                    issues.append(_bug_issue(path, child, "index_out_of_range", "error",
+                                             f"索引 {idx} 越界（容器长度 {size}）", lines))
         else:
             _bug_check_seq(child, seq_vars, path, lines, issues)
 
 
 def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
-    """遍历一个作用域：未定义变量 + None 解引用。返回本作用域定义名集合。"""
+    """遍历一个作用域：未定义变量 + None 解引用 + 常量零分母。返回本作用域定义名集合。"""
     defs = set()
     for stmt in stmts:
         defs |= _bug_direct_defs(stmt)
@@ -232,9 +277,10 @@ def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
     for stmt in stmts:
         walk_names(stmt, frozenset())
 
-    # ── None 解引用 + 常量容器越界（线性跟踪当前作用域直接语句，分支近似）──
+    # ── None 解引用 + 常量容器越界 + 常量零分母（线性跟踪当前作用域直接语句，分支近似）──
     none_vars = {}
     seq_vars = {}  # name -> (长度, 行号)：字面量容器变量
+    zero_vars = {}  # name -> 行号：明确赋 0 且未重赋的变量（确定性除零分母）
     for stmt in stmts:
         if isinstance(stmt, ast.Assign):
             val_none = isinstance(stmt.value, ast.Constant) and stmt.value.value is None
@@ -243,6 +289,9 @@ def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
             val_alias = isinstance(stmt.value, ast.Name) and stmt.value.id in none_vars
             is_call_assign = isinstance(stmt.value, ast.Call)
             seq_len = _bug_seq_len(stmt.value)
+            # 零分母跟踪（2026-08-19 算法演进）：z = 0 后、重赋值前 / z 确定性
+            # ZeroDivisionError——与 none_vars 同模式线性近似；X = Foo() 绝不视为 0
+            val_zero = isinstance(stmt.value, ast.Constant) and stmt.value.value == 0
             for t in stmt.targets:
                 if isinstance(t, ast.Name):
                     if (val_none or val_alias) and not is_call_assign:
@@ -253,6 +302,10 @@ def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
                         seq_vars[t.id] = (seq_len, stmt.lineno)
                     else:
                         seq_vars.pop(t.id, None)
+                    if val_zero and not is_call_assign:
+                        zero_vars[t.id] = stmt.lineno
+                    else:
+                        zero_vars.pop(t.id, None)
         # 容器变异（append/extend/+=）后长度未知 → 清空该条目，防越界误报（review should-fix）
         if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) \
                 and isinstance(stmt.value.func, ast.Attribute) \
@@ -262,6 +315,9 @@ def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
         if isinstance(stmt, ast.AugAssign) and isinstance(stmt.target, ast.Name) \
                 and isinstance(stmt.op, ast.Add):
             seq_vars.pop(stmt.target.id, None)
+        # 零分母跟踪：任何 AugAssign 重赋都清除零标记（y += 3 后 y 不再为 0）
+        if isinstance(stmt, ast.AugAssign) and isinstance(stmt.target, ast.Name):
+            zero_vars.pop(stmt.target.id, None)
         # try 块内联：body/handlers/orelse 的赋值流并入当前作用域——必须先于
         # deref 检查（修复 'X=None 后 X=Foo() 构造赋值仍报 none_deref' 误报：
         # try 内语句原本不参与外层线性跟踪，构造赋值无法清除 None 标记）
@@ -279,10 +335,34 @@ def _bug_scope_scan(stmts, outer: set, path, lines, issues) -> set:
                                     none_vars[t.id] = is2.lineno
                                 else:
                                     none_vars.pop(t.id, None)
+                                # 零分母同步（与 none_vars 同模式）
+                                if isinstance(iv, ast.Constant) and iv.value == 0:
+                                    zero_vars[t.id] = is2.lineno
+                                else:
+                                    zero_vars.pop(t.id, None)
         if none_vars:
             _bug_check_deref(stmt, none_vars, path, lines, issues)
         if seq_vars:
             _bug_check_seq(stmt, seq_vars, path, lines, issues)
+        # 确定性规则无条件跑（不依赖容器跟踪）：x[len(x)] 恒越界
+        _bug_check_len_index(stmt, path, lines, issues)
+        # 常量零分母（2026-08-19 算法演进）：z=0 后 / z 确定性除零
+        if zero_vars:
+            for n in ast.walk(stmt):
+                if isinstance(n, ast.BinOp) \
+                        and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)) \
+                        and isinstance(n.right, ast.Name) \
+                        and n.right.id in zero_vars:
+                    issues.append(_bug_issue(path, n, "divide_by_zero", "error",
+                                             f"分母 '{n.right.id}' 为变量 0（第 {zero_vars[n.right.id]} 行赋值）",
+                                             lines))
+                if isinstance(n, ast.AugAssign) \
+                        and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)) \
+                        and isinstance(n.value, ast.Name) \
+                        and n.value.id in zero_vars:
+                    issues.append(_bug_issue(path, n, "divide_by_zero", "error",
+                                             f"分母 '{n.value.id}' 为变量 0（第 {zero_vars[n.value.id]} 行赋值）",
+                                             lines))
 
     # ── 递归嵌套函数/类（闭包可见外层定义）──
     for stmt in stmts:
@@ -1222,8 +1302,14 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
         return
     count = 0
     lines = src.splitlines()
+    _seen_lines: set[int] = set()
     for m in _MAGIC_NUMBER_RE.finditer(src):
         line_no = src.count("\n", 0, m.start()) + 1
+        # 修复（2026-08-19）：同行多个相同数字只报一次（grid = [[0]*1024]*1024
+        # 同一行两个 1024 是同一语义——重复上报稀释信噪比）
+        if line_no in _seen_lines:
+            continue
+        _seen_lines.add(line_no)
         # 双报去重（2026-08-14）：Val::Px/Val::Percent 内的数字已由
         # ui_hardcode 报（语义更准）——magic_number 跳过 UI 维度上下文
         try:
@@ -1242,6 +1328,18 @@ def _scan_magic_number(path: str, src: str, issues: list, limit: int):
             continue
         if "Val::Px" in line_txt or "Val::Percent" in line_txt \
                 or "Val::Vw" in line_txt or "Val::Vh" in line_txt:
+            continue
+        # 修复（2026-08-19 智能降低排查）：命名常量定义（全大写 WINDOW_W = 1280，
+        # 整行就是 NAME = 数字）不是魔法数字——数字已被名字表达；普通小写变量
+        # 赋值（size = 4096）里的裸数字仍要报。同时跳过 import/from 行的版本号、
+        # __version__ 等自描述上下文。
+        _lstrip = line_txt.lstrip()
+        _const_def = re.match(
+            r"^[A-Z][A-Z0-9_]*\s*(?::\s*[A-Za-z_][A-Za-z0-9_]*)?\s*=\s*"
+            r"[+-]?[0-9_]+(?:\.[0-9_]+)?\s*(?:#.*)?$", _lstrip)
+        if _const_def:
+            continue
+        if _lstrip.startswith(("import ", "from ", "__version__", "VERSION")):
             continue
         issues.append({
             "file": path, "line": line_no, "rule": "magic_number",

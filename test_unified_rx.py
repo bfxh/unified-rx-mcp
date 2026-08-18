@@ -811,6 +811,116 @@ def test_bug_scan_nested_close_ok(tmp_path):
     assert not leaks, f"嵌套 close 误报: {out['issues']}"
 
 
+def test_bug_scan_len_index_deterministic(tmp_path):
+    """确定性规则：x[len(x)] 必然越界（0-based 索引==长度），
+    安全模式（len(x)-1、len(x)//2）不误报，且无重复上报。"""
+    f = tmp_path / "lenidx.py"
+    f.write_text(
+        "def pick(items):\n"
+        "    return items[len(items)]\n"       # L2 必越界
+        "\n"
+        "def safe(items):\n"
+        "    return items[len(items) - 1]\n"   # L5 安全：最后元素
+        "\n"
+        "def safe2(items):\n"
+        "    return items[len(items) // 2]\n"  # L8 安全
+        "\n"
+        "def f():\n"
+        "    x = [1, 2]\n"
+        "    return x[5]\n"                     # L12 字面量越界（原有规则）
+        "\n"
+        "class W:\n"
+        "    def get(self):\n"
+        "        return self.items[len(self.items)]\n"  # L16 必越界（属性访问）
+        "\n"
+        "def other(a, b):\n"
+        "    return a[len(b)]\n"                # L19 不同变量：不报（非确定性）
+        "\n",
+        encoding="utf-8",
+    )
+    out = json.loads(server._call("bug_scan", {"path": str(f)})[0].text)
+    assert out["ok"], out
+    issues = out["issues"]
+    lenidx = [i for i in issues if i["rule"] == "index_out_of_range"]
+    # 3 条确定性：L2、L16；L12 是字面量规则。L5/L8 安全模式不报、L19 不报。
+    lenidx_lines = sorted(i["line"] for i in lenidx)
+    assert lenidx_lines == [2, 12, 16], f"越界行号不符: {lenidx_lines} (issues={issues})"
+    assert all(i["severity"] == "error" for i in lenidx), f"确定性越界必须 error: {issues}"
+    # 无重复上报
+    assert len(lenidx) == 3, f"重复上报: {issues}"
+
+
+def test_bug_scan_neg_index_deterministic(tmp_path):
+    """算法演进（2026-08-19）：负索引字面量越界（s[-3]，AST 是 UnaryOp 非
+    Constant——原规则漏报）必须检出；安全负索引（-1/-2）不误报。"""
+    f = tmp_path / "negidx.py"
+    f.write_text(
+        "def neg():\n"
+        "    s = [1, 2]\n"
+        "    return s[-3]\n"      # L3 越界（长度 2，-3 越界）
+        "\n"
+        "def neg_ok():\n"
+        "    s = [1, 2]\n"
+        "    return s[-1]\n"      # L7 安全：最后一个
+        "\n"
+        "def neg_ok2():\n"
+        "    s = [1, 2]\n"
+        "    return s[-2]\n"      # L10 安全：第一个
+        "\n"
+        "def pos():\n"
+        "    s = [1, 2]\n"
+        "    return s[3]\n"       # L15 正索引越界（原有规则）
+        "\n",
+        encoding="utf-8",
+    )
+    out = json.loads(server._call("bug_scan", {"path": str(f)})[0].text)
+    assert out["ok"], out
+    lines = sorted(i["line"] for i in out["issues"]
+                   if i["rule"] == "index_out_of_range")
+    assert lines == [3, 15], f"负索引越界漏报/误报: {lines} (issues={out['issues']})"
+
+
+def test_bug_scan_zero_var_deterministic(tmp_path):
+    """算法演进（2026-08-19）：z = 0 后 / z（/、//、%）确定性除零必须报
+    error（变量线性跟踪）；重赋（x = 5 / y += 3）与参数分母不误报。"""
+    f = tmp_path / "zerovar.py"
+    f.write_text(
+        "def d():\n"
+        "    z = 0\n"
+        "    return 10 / z\n"      # L3 确定性除零
+        "\n"
+        "def e():\n"
+        "    x = 0\n"
+        "    x = 5\n"
+        "    return 10 / x\n"      # L7 已重赋：不报
+        "\n"
+        "def g():\n"
+        "    y = 0\n"
+        "    y += 3\n"
+        "    return 10 / y\n"      # L12 AugAssign 重赋：不报
+        "\n"
+        "def h():\n"
+        "    w = 0\n"
+        "    return 10 // w\n"     # L17 整除零
+        "\n"
+        "def i():\n"
+        "    v = 0\n"
+        "    return 10 % v\n"      # L21 模零
+        "\n"
+        "def f(divisor):\n"
+        "    return 10 / divisor\n"  # L24 参数：不报
+        "\n",
+        encoding="utf-8",
+    )
+    out = json.loads(server._call("bug_scan", {"path": str(f)})[0].text)
+    assert out["ok"], out
+    lines = sorted(i["line"] for i in out["issues"]
+                   if i["rule"] == "divide_by_zero")
+    assert lines == [3, 17, 21], f"变量零除漏报/误报: {lines} (issues={out['issues']})"
+    assert all(i["severity"] == "error" for i in out["issues"]
+               if i["rule"] == "divide_by_zero"), "确定性除零必须 error"
+
+
 # ── 设计系统（ds_lookup/ds_check）───────────────────────────
 def test_ds_lookup_tokens():
     """ds_lookup 返回全部 tokens（AI 引用设计系统）。"""
@@ -1254,7 +1364,8 @@ def test_hallucination_guard_url_not_file(tmp_path):
     })[0]
     d = json.loads(r.text)
     assert d["verdict"] in ("no_claims", "unverified"), d
-    assert all(not i["claim"].startswith("example.com") for i in d["items"]), d
+    items = d.get("items", [])
+    assert all(not str(i.get("claim", "")).startswith("example.com") for i in items), d
 
 
 def test_hallucination_guard_empty_and_trailing_newline(tmp_path):

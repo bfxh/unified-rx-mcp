@@ -176,3 +176,35 @@ mcp-tool:unified-rx/bug_scan (path=…\VoxelForge-Nexus\crates\nexus_core\src)
 - 实测：VoxelForge-Nexus `scripts/rust_scan_all.py`（46 文件 / 266 条 / as 232 条）
 - 实测：`bug_scan` MCP 首次调用 300s 超时、重试成功
 - 相关文档：`docs/MCP_INTERFACE.md`（协议层）、`docs/REPORT_2026-08-13.md`（契约验证 13/13）
+
+---
+
+## 附二：2026-08-19 第二轮排查（工具导致 AI 智商降低专项）
+
+> 用户要求："找找因为工具导致智商降低的各种情况然后修复 然后演进算法"。
+> 本轮从"AI 消费工具输出"视角全面核查，修复 8 处 + 算法演进 3 条。
+
+### 修复（噪音/漏报/误导，每项配测试或语义回归锚点）
+
+| # | 问题 | 类型 | 修复 |
+|---|---|---|---|
+| R1 | `ciopt_` 52 工具 manifest 有、`_call` unknown tool | 能力清单幻觉 | 分发前缀补 `ciopt_`；语义回归全量可路由锚点 |
+| R2 | `mcp_smoke.py` 断言旧工具名 `lesson_recall_lse`（已合并）→ pre-push 必挂 | 断言过时 | 断言更新 `lesson`、48→177 |
+| R3 | `hallucination_guard` Windows 绝对路径 `C:\...\f.py:1` 提取丢盘符 → 真实声明判 unverifiable | 误判（AI 不敢引用事实） | `_PATH_PART` 支持盘符；lookbehind 排 `.` 防 URL 误报 |
+| R4 | guard 行号超范围 → unverifiable（应 refuted） | 误判 | 已有 refuted 分支，路径修复后生效（测试断言更新） |
+| R5 | `std_check` 魔法数字：`WINDOW_W = 1280` 常量定义误报；同行重复报 | 误报噪音 | 全大写常量定义豁免（小写变量仍报）+ 行内去重 |
+| R6 | 文档工具数漂移 6 处（157/149/81/73 vs 实际 177/101） | 能力认知错误 | README/spec/AGENT_COMPAT/MEDIA_TOOLS/ARCHITECTURE/TOOL_INVENTORY 全部修正 |
+| R7 | `items[len(items)]` 确定性越界漏报（AI 误信"0 issue"） | 漏报 | 新增 `_bug_check_len_index` 确定性规则（error 级） |
+| R8 | 负索引字面量 `s[-3]` 越界漏报（AST UnaryOp 非 Constant） | 漏报 | `_bug_idx_value` 解析一元负号 |
+| R9 | `z = 0` 后 `10 / z` 确定性除零漏报 | 漏报 | `zero_vars` 变量线性跟踪（重赋/`+=`/参数不报） |
+
+### 演进原则（防再犯）
+
+1. **确定性规则必须 error 级**：静态 100% 确定的缺陷不与其他 warning 混级
+   （AI 按 severity 排序时 error 优先展示——spec §0.5 契约）。
+2. **漏报与误报同罪**：漏报让 AI 误信"无问题"，误报让 AI 整体忽略扫描——
+   两者都摧毁信噪比；每新增规则必须配"正例+反例"测试（安全模式不误报）。
+3. **能力清单与实现必须一致**：manifest 列出的每个工具必须可路由
+   （语义回归 6b 锚点：扩展全量实调，`unknown tool` 即红）。
+4. **文档数字是契约**：工具数/测试数漂移会让 AI 引用错误事实——
+   `tools.json` 一致性测试 + README 数字定期对账。

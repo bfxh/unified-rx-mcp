@@ -21,9 +21,17 @@
 - 未定义变量引用
 - None 解引用（`x.field` 而 `x` 可能为 None）
 - 资源泄漏（打开未关闭的文件/锁）
-- 除零（`a / b` 且 `b` 无约束）
-- 越界（`list[i]` 无长度校验）
+- 除零（`a / b` 且 `b` 无约束——含确定性：字面量 0 与 `z = 0` 后 `/ z`
+  变量线性跟踪，重赋/参数分母不报；`/`、`//`、`%` 三算子）
+- 越界（`list[i]` 无长度校验——含确定性：字面量正/负索引、`x[len(x)]`
+  恒越界，安全模式 `len(x)-1`/`len(x)//2` 不报；error 级）
 - 可疑的 `except: pass`
+
+> 2026-08-19 算法演进：新增三条确定性规则（error 级，静态 100% 确定）：
+> ① `x[len(x)]` 恒越界（0-based 索引==长度）② 负索引字面量越界
+> （`s[-3]`，AST 为 UnaryOp 非 Constant）③ 变量零分母（`z=0` 后 `/z`，
+> 重赋/`+=`/参数不报）。对应测试：`test_bug_scan_len_index_deterministic` /
+> `test_bug_scan_neg_index_deterministic` / `test_bug_scan_zero_var_deterministic`。
 
 ## 1.4 安全（MUST）
 

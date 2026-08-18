@@ -21,7 +21,7 @@ unified-rx-mcp/
 ├── vuln_rules.json      # 模板规则（bug_scan 加载）
 ├── train_data/          # 训练数据（samples/feedback/learned_rules——gitignore）
 ├── docs/                # 设计文档
-└── test_unified_rx.py   # 测试（159+）
+└── test_unified_rx.py   # 测试（161+）
 ```
 
 ## 引擎加载机制（为什么旧代码不用改）

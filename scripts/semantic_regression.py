@@ -189,6 +189,24 @@ def main() -> int:
     with open(clean, "w", encoding="utf-8") as f:
         f.write("def f(a, b):\n    return a + b\n")
     check("bug_scan", {"path": clean}, "json_field", ("issue_count", 0), "干净文件零命中")
+    # 2026-08-19 智商降低排查：x[len(x)] 确定性越界必须报 error
+    lenidx = os.path.join(_TMP, "lenidx.py")
+    with open(lenidx, "w", encoding="utf-8") as f:
+        f.write("def pick(items):\n    return items[len(items)]\n")
+    check("bug_scan", {"path": lenidx}, "json_field", ("issue_count", 1),
+          "x[len(x)] 确定性越界检出（error）")
+    # 2026-08-19 算法演进：负索引字面量越界（AST UnaryOp）检出
+    negidx = os.path.join(_TMP, "negidx.py")
+    with open(negidx, "w", encoding="utf-8") as f:
+        f.write("def neg():\n    s = [1, 2]\n    return s[-3]\n")
+    check("bug_scan", {"path": negidx}, "json_field", ("issue_count", 1),
+          "负索引字面量越界检出（error）")
+    # 2026-08-19 算法演进：变量零分母（z=0 后 / z）确定性除零检出
+    zerovar = os.path.join(_TMP, "zerovar.py")
+    with open(zerovar, "w", encoding="utf-8") as f:
+        f.write("def d():\n    z = 0\n    return 10 / z\n")
+    check("bug_scan", {"path": zerovar}, "json_field", ("issue_count", 1),
+          "变量零分母确定性除零检出（error）")
     close_ok = os.path.join(_TMP, "close_ok.py")
     with open(close_ok, "w", encoding="utf-8") as f:
         f.write("h = open('a')\nh.close()\nwith open('b') as g:\n    pass\n")
@@ -206,6 +224,12 @@ def main() -> int:
         f.write("TODO: 待实现\nSECRET = 'sk-abc123'\nx = 42  # magic\n")
     check("std_check", {"path": std_bad}, "json_field", ("summary.total", 1),
           "std_check 检出占位符（total≥1）")
+    # 2026-08-19 智商降低排查：命名常量不误报、裸魔法数字仍报
+    std_const = os.path.join(_TMP, "std_const.py")
+    with open(std_const, "w", encoding="utf-8") as f:
+        f.write("WINDOW_W = 1280\nTIMEOUT_SEC = 300\ndef g():\n    return [[0] * 1024]\n")
+    check("std_check", {"path": std_const}, "json_field", ("summary.total", 1),
+          "std_check 命名常量不误报 + 裸数字仍报（去重）")
     check("hallucination_guard", {"text": "def foo() 在 server.py:99999"},
           "contains", "refuted", "幻觉守卫 refuted 语义")
     check("hallucination_guard", {"text": "这里没有可验证声明"},

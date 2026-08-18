@@ -57,8 +57,8 @@ def main() -> int:
         tools = resp["result"]["tools"]
         names = {t["name"] for t in tools}
         print(f"[ok] tools/list -> {len(tools)} tools")
-        assert len(tools) >= 48, f"工具数不足: {len(tools)}"
-        for expect in ("math_ops", "vuln_scan", "lesson_recall_lse", "cae_lsp_query", "pr_oracle_map_pr"):
+        assert len(tools) >= 177, f"工具数不足: {len(tools)}"
+        for expect in ("math_ops", "vuln_scan", "lesson", "cae_lsp_query", "pr_oracle_map_pr"):
             assert expect in names, f"缺工具 {expect}"
 
         # 4) tools/call math_ops（组合工具真实调用）

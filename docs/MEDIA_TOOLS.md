@@ -60,4 +60,4 @@
 2. `pytest test_media_core.py` 9/9（含 Blender 真实批处理）
 3. `pytest test_layer_check.py` 11/11（clip/anim3d 模板 + 顺序违规）
 4. Blender 5.2 实跑：vse_check（空场景 JSON）/ anim_check（默认 cube 网格无骨架提示）/ render_sim（1 帧 PNG 输出齐全）
-5. tools.json 一致性（81 核心）
+5. tools.json 一致性（101 核心）
