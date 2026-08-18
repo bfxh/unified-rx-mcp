@@ -2877,3 +2877,13 @@ def test_vuln_three_capabilities(tmp_path, monkeypatch):
         {"id": "rd3", "pattern": "(ab|ac){1,}", "msg": "x"}]}),
         encoding="utf-8")
     assert load_ext_rules(force=True) == [], "(ab|ac){1,} 应被拒绝"
+
+
+def test_data_filter_keeps_physics_math():
+    """筛选器：物理/数学保留（用户规则——不能丢）；医疗丢弃。"""
+    import server as _s
+    for t in ["物理引擎碰撞检测", "数学矩阵变换"]:
+        d = json.loads(_s._call("data_filter", {"text": t})[0].text)
+        assert d.get("verdict") == "keep", f"{t} 应保留"
+    d = json.loads(_s._call("data_filter", {"text": "医疗诊断系统"})[0].text)
+    assert d.get("verdict") == "drop", "医疗应丢弃"
