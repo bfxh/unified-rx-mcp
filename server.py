@@ -2316,7 +2316,7 @@ def _tool_blender_verify(args: dict) -> "list[types.TextContent]":
             "stderr": r.stderr,
         }, ensure_ascii=False, indent=2))]
     except Exception as e:
-        return [_TC(json.dumps({"ok": False, "error": str(e)},
+        return [_TC(json.dumps({"ok": False, "returncode": None, "error": str(e)},
                                ensure_ascii=False, indent=2))]
 
 

@@ -73,3 +73,28 @@ def test_encoding_contract_no_mojibake(monkeypatch):
 def test_bottom_icon_threshold_logic():
     """判定阈值常量化：BOTTOM_ICON_THRESHOLD 可被测试引用（>=20 像素）"""
     assert bv.BOTTOM_ICON_THRESHOLD == 20
+
+
+def test_main_missing_arg_guards(monkeypatch):
+    """边界参数（复审 nit）：--out / --ocr-file 缺值 → 返回 2 而非 IndexError"""
+    import sys
+    monkeypatch.setattr(sys, "argv", ["blender_verify.py", "--out"])
+    assert bv.main() == 2
+    monkeypatch.setattr(sys, "argv", ["blender_verify.py", "--ocr-file"])
+    assert bv.main() == 2
+
+
+def test_exception_branch_has_returncode(monkeypatch):
+    """异常分支 JSON 契约（复审 nit）：ok=False + returncode=None"""
+    import json
+    import subprocess as sp
+    import server
+
+    def _boom(*a, **k):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(sp, "run", _boom)
+    r = server._tool_blender_verify({})
+    data = json.loads(r[0].text)
+    assert data["ok"] is False and data["returncode"] is None
+    assert "timed out" in data["error"]

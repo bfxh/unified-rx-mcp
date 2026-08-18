@@ -110,6 +110,9 @@ def main():
     do_ocr = "--ocr" in args
     out = OUT_DEFAULT
     if "--out" in args:
+        if args.index("--out") + 1 >= len(args):
+            print("用法: --out <png路径>")
+            return 2
         out = args[args.index("--out") + 1]
     # 纯 OCR 模式：只读已有截图
     if "--ocr-file" in args:
