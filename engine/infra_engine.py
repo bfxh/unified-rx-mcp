@@ -48,7 +48,6 @@ ROOT = _ENGINE_ROOT
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-import server as _lazy_server  # noqa: F401（延迟——函数内 import server）
 import scan_log_core  # noqa: E402
 
 
