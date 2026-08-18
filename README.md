@@ -32,6 +32,8 @@
 | 🎬 **剪辑/动画检查**（2026-08-17） | `media_check` | 视频容器（rx-media Rust 零依赖+Python 降级）/ Blender VSE 时间线断链 / .blend+.glb 动画完整性 / 完整渲染验证（详见 docs/MEDIA_TOOLS.md） |
 | 🩺 **IDE 自检**（2026-08-17） | `ide_health` | IDE 工具族健康诊断（graph_index/LSP server/缓存/工具完整性） |
 | 🎮 **游戏方向** | `game_*` / `runtime_state` | 游戏引擎中立检查/手感/规则/验证 |
+| 🎮 **Blender 实地验证**（2026-08-19） | `blender_verify` | Blender 窗口截图 + 左侧工具栏分析（图标分布/底部检查）+ Umi-OCR 读界面文字——**每次搞完 Blender 相关改动必须自动调用实地查看**（用户："每次搞完都要自动看一下"）；依赖本地 Umi-OCR（D:\rj\GJ\Umi-OCR_Paddle_v2.1.5） |
+| 🎮 **VoxelForge 评价**（2026-08-18） | `game_eval`（game_eval.py） | 专项评价系统：连接点设计性规则（full_6/tri_3/无 0 点）/ 按键全覆盖（死键+关键键）/ 程序化模板参数——用户定案"以后检查/增加东西按这个来"；`python game_eval.py` 产出 `docs/reports/GAME_EVAL.md` + JSON |
 | 🃏 **Tool 角色回喂** | `tool_card` | 调用任意工具 → 结构化卡片 `{role,ok,summary,detail}`（Aether AiRole::Tool 启发） |
 | ⚙️ **纯函数**（math/str/json/sort/prime/stat/geo/conv/valid/list/fib） | 33 个 | 零依赖高性能计算 |
 | 🦀 **Rust 加速族** | `code_search` / `net_chaos` / `telemetry_query` / `telemetry_snapshot` / `telemetry_status` | 语义检索（BM25）/ 弱网模拟混沌代理 / 遥测（rx-search / rx-net / rx-telemetry Rust crate） |

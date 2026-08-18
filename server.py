@@ -2290,6 +2290,27 @@ def _tool_game_check(args: dict) -> "list[types.TextContent]":
                            ensure_ascii=False, indent=2))]
 
 
+def _tool_blender_verify(args: dict) -> "list[types.TextContent]":
+    """Blender 窗口实地验证（2026-08-19 用户要求"加个 blender 对 MCP 去看"）：
+    截取 Blender 窗口 → 检查左侧工具栏图标分布（底部/末尾是否有工具）→ 可选 OCR。
+
+    每次搞完 Blender 相关改动后必须调用本工具实地查看（用户：'每次搞完都要
+    自动看一下'）。"""
+    import subprocess
+    import sys as _sys
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "blender_verify.py")
+    cmd = [_sys.executable, script]
+    if args.get("ocr"):
+        cmd.append("--ocr")
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           timeout=90, encoding="utf-8", errors="replace")
+        return [_TC(r.stdout + "\n" + r.stderr)]
+    except Exception as e:
+        return [_TC(f"blender_verify 失败: {e}")]
+
+
 def _tool_game_feel(args: dict) -> "list[types.TextContent]":
     """表现寄存器判定（skill M2：character/abstract/serious）。"""
     from game_check import judge_register, check_project
@@ -5892,6 +5913,9 @@ _TOOLS: dict[str, tuple] = {
         "path": _S("string", "项目路径"),
         "rules": _S("string", "可选：逗号分隔规则名过滤（frame_io/input_unthrottled/physics_scale/frame_rate_dependent）"),
     }, ["path"]), "游戏工程引擎中立检查（skill M1/M5：每帧 IO 红线/输入节流不变量/物理参数数量级）"),
+    "blender_verify": (_tool_blender_verify, _schema({
+        "ocr": _S("boolean", "是否调 Umi-OCR 读界面文字（需 Umi-OCR 运行中）"),
+    }, []), "Blender 窗口实地验证：截图+工具栏检查+OCR（2026-08-19 用户要求，每次搞完自动看）"),
     "game_feel": (_tool_game_feel, _schema({
         "path": _S("string", "项目路径（或单文件）"),
     }, ["path"]), "表现寄存器判定（skill M2：character/abstract/serious——效果建议前先定寄存器）"),
