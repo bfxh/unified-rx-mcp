@@ -459,3 +459,75 @@ def test_voxelize_and_ray_cache(tmp_path, monkeypatch):
         f.write("v 2 0 0\nv 2 1 0\n")
     v4 = gt.voxelize(str(p), resolution=8)
     assert v4["ok"], "文件变更后应重新计算"
+
+
+def test_collision_check_modes(tmp_path, monkeypatch):
+    """碰撞检测（FCL/Parry 概念零依赖）：mesh-mesh/点/包围盒四模式。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_TRI_TRI_CACHE", {})
+    p1 = tmp_path / "a.obj"
+    _unit_cube(str(p1))
+    p2 = tmp_path / "b.obj"
+    # 重叠立方体（+0.5 x）
+    open(str(p2), "w", encoding="utf-8").write(
+        open(str(p1), encoding="utf-8").read().replace("v 0 0 0", "v 0.5 0 0")
+        .replace("v 1 0 0", "v 1.5 0 0").replace("v 1 1 0", "v 1.5 1 0")
+        .replace("v 0 1 0", "v 0.5 1 0").replace("v 0 0 1", "v 0.5 0 1")
+        .replace("v 1 0 1", "v 1.5 0 1").replace("v 1 1 1", "v 1.5 1 1")
+        .replace("v 0 1 1", "v 0.5 1 1"))
+    r = gt.collision_check(str(p1), str(p2))
+    assert r["ok"] and r["colliding"] is True, f"重叠应碰撞: {r}"
+    p3 = tmp_path / "c.obj"
+    open(str(p3), "w", encoding="utf-8").write(
+        open(str(p1), encoding="utf-8").read().replace("v 0 0 0", "v 3 0 0")
+        .replace("v 1 0 0", "v 4 0 0").replace("v 1 1 0", "v 4 1 0")
+        .replace("v 0 1 0", "v 3 1 0").replace("v 0 0 1", "v 3 0 1")
+        .replace("v 1 0 1", "v 4 0 1").replace("v 1 1 1", "v 4 1 1")
+        .replace("v 0 1 1", "v 3 1 1"))
+    r2 = gt.collision_check(str(p1), str(p3))
+    assert r2["ok"] and r2["colliding"] is False, f"分离不应碰撞: {r2}"
+    assert r2["broad_phase"] == "separate"
+    # mesh-point（中心点在内部——射线去重修复）
+    r3 = gt.collision_check(str(p1), point=[0.5, 0.5, 0.5])
+    assert r3["ok"] and r3["colliding"] is True, f"中心点应在内: {r3}"
+    r4 = gt.collision_check(str(p1), point=[9, 9, 9])
+    assert r4["colliding"] is False
+    # mesh-aabb
+    r5 = gt.collision_check(str(p1), aabb=[[0.2, 0.2, 0.2], [0.8, 0.8, 0.8]])
+    assert r5["colliding"] is True
+    r6 = gt.collision_check(str(p1), aabb=[[9, 9, 9], [10, 10, 10]])
+    assert r6["colliding"] is False
+
+
+def test_mesh_betti_semantics(tmp_path, monkeypatch):
+    """#11 Betti 数（拓扑质量度量）：球面/双分量/开口网格。"""
+    import geometry_tools as gt
+    p = tmp_path / "cube.obj"
+    _unit_cube(str(p))
+    r = gt.mesh_betti(str(p))
+    assert r["ok"] and r["closed"] is True
+    assert r["betti"]["beta0"] == 1, f"单连通 β0=1: {r['betti']}"
+    assert r["betti"]["beta2"] == 1, f"球面拓扑 β2=1: {r['betti']}"
+    # 双分离立方体：β0=2（面索引偏移构造）
+    vlines = [l for l in open(str(p), encoding="utf-8").read().splitlines()
+              if l.startswith("v ")]
+    flines = [l for l in open(str(p), encoding="utf-8").read().splitlines()
+              if l.startswith("f ")]
+    two = tmp_path / "two.obj"
+    with open(str(two), "w", encoding="utf-8") as f:
+        f.write(open(str(p), encoding="utf-8").read() + "\n")
+        for l in vlines:
+            parts = l.split()
+            f.write(f"v {float(parts[1]) + 5} {parts[2]} {parts[3]}\n")
+        for l in flines:
+            idxs = [str(int(x) + 8) for x in l.split()[1:]]
+            f.write("f " + " ".join(idxs) + "\n")
+    r2 = gt.mesh_betti(str(two))
+    assert r2["betti"]["beta0"] == 2, f"双分量 β0=2: {r2['betti']}"
+    assert r2["betti"]["beta2"] == 2
+    # 开口网格（少一个面）：非闭合 → β1/β2 标注不可靠
+    hole = tmp_path / "hole.obj"
+    open(str(hole), "w", encoding="utf-8").write(
+        "\n".join(open(str(p), encoding="utf-8").read().splitlines()[:-1]) + "\n")
+    r3 = gt.mesh_betti(str(hole))
+    assert r3["ok"] and r3["closed"] is False and r3["boundary_edges"] > 0

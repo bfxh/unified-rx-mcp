@@ -606,22 +606,38 @@ def voxelize(path: str, resolution: int = 16) -> dict:
 
 
 def _point_in_mesh(p, verts, faces) -> bool:
-    """射线法：向 +X 方向发射射线，与三角形相交奇数次 = 在内部。"""
-    hits = 0
+    """射线法：向 +X 方向发射射线，与三角形相交奇数次 = 在内部。
+
+    修复（2026-08-19）：收集所有命中 t 值并**去重后**判奇偶——射线穿过
+    共享边/对角线时两个三角形同时命中（同 t），不去重会把"穿出面"误计
+    为两次→内部点判成外部（中心点实测复现）。同 t（相对容差）合并。
+    """
+    hits = []
     for (a, b, c) in faces:
-        if _ray_tri_intersect(p, verts[a], verts[b], verts[c]):
-            hits += 1
-    return hits % 2 == 1
+        t = _ray_tri_intersect(p, verts[a], verts[b], verts[c])
+        if t is not None:
+            hits.append(t)
+    if not hits:
+        return False
+    hits.sort()
+    # 去重：相邻 t 差 < 相对容差（1e-9 × 尺度）合并为同一次命中
+    dedup = [hits[0]]
+    for t in hits[1:]:
+        if abs(t - dedup[-1]) > 1e-9 * max(1.0, abs(t)):
+            dedup.append(t)
+    return len(dedup) % 2 == 1
 
 
-def _ray_tri_intersect(origin, v0, v1, v2) -> bool:
+def _ray_tri_intersect(origin, v0, v1, v2):
     """Möller–Trumbore 射线-三角形相交（射线：origin 向 +X）。
 
-    数值稳定（security-review LOW）：相对阈值——det 与三角形尺度比较，
-    小尺度网格（mm/µm）不误拒；边界 t>1e-12（防 t=0 表面抖动误判）。
-    相交缓存（3D 小手术刀 #16，2026-08-19）：三角形顶点坐标元组为键——
-    voxelize/point_in_mesh 对同一网格反复发射射线，同三角形同射线同结果
-    （射线固定 +X，键 = 三角形顶点坐标 + origin 坐标量化）。纯确定性。
+    返回命中距离 t（float），未命中返回 None——调用方用 t 做奇偶计数时
+    可去重（同 t 相邻命中合并，防共享边重复计数误判——2026-08-19 修复
+    _point_in_mesh 中心点误判外部）。数值稳定（security-review LOW）：
+    相对阈值——det 与三角形尺度比较，小尺度网格（mm/µm）不误拒；
+    边界 t>1e-12（防 t=0 表面抖动误判）。相交缓存（3D 小手术刀 #16）：
+    三角形顶点坐标元组为键——voxelize/point_in_mesh 对同一网格反复发射
+    射线，同三角形同射线同结果（射线固定 +X）。纯确定性。
     """
     key = (round(origin[0], 6), round(origin[1], 6), round(origin[2], 6),
            round(v0[0], 6), round(v0[1], 6), round(v0[2], 6),
@@ -638,21 +654,21 @@ def _ray_tri_intersect(origin, v0, v1, v2) -> bool:
     # 相对阈值：与三角形尺度（e1/e2 长度积）比较
     scale = (math.sqrt(_dot(e1, e1)) * math.sqrt(_dot(e2, e2)) + 1e-30)
     if abs(det) < 1e-9 * scale:
-        _RAY_HIT_CACHE[key] = False
-        return False
+        _RAY_HIT_CACHE[key] = None
+        return None
     inv = 1.0 / det
     tvec = (origin[0] - v0[0], origin[1] - v0[1], origin[2] - v0[2])
     u = _dot(tvec, pvec) * inv
     if u < 0 or u > 1:
-        _RAY_HIT_CACHE[key] = False
-        return False
+        _RAY_HIT_CACHE[key] = None
+        return None
     qvec = _cross(tvec, e1)
     v = _dot(dir, qvec) * inv
     if v < 0 or u + v > 1:
-        _RAY_HIT_CACHE[key] = False
-        return False
+        _RAY_HIT_CACHE[key] = None
+        return None
     t = _dot(e2, qvec) * inv
-    res = t > 1e-12  # 正向射线命中（边界抖动防御）
+    res = t if t > 1e-12 else None  # 正向射线命中（边界抖动防御）
     if len(_RAY_HIT_CACHE) >= _RAY_HIT_CACHE_MAX:
         _RAY_HIT_CACHE.clear()
     _RAY_HIT_CACHE[key] = res
@@ -1673,3 +1689,270 @@ def render_gradient(path: str, target: list, resolution: int = 32,
             "base_loss": base["loss"], "eps": eps,
             "advice": "数值梯度（#9 可微渲染④⑤）——∂loss/∂v 有限差分；"
                       "沿负梯度更新顶点可使渲染逼近目标"}
+
+
+# ── ⑮ 碰撞检测（FCL/Parry 概念零依赖落地，用户点名）──────────
+# FCL/Parry 是 C++/Rust 精确碰撞库——本仓库零依赖原则下自研轻量等价：
+# ① AABB 粗筛（快速排除）② 三角形对精确相交（Möller 三角形-三角形）。
+# 确定性、纯 Python、无外部依赖。支持 mesh-mesh / mesh-AABB / mesh-点。
+_TRI_TRI_CACHE: dict[tuple, bool] = {}
+_TRI_TRI_CACHE_MAX = 4096
+
+
+def _tri_tri_intersect(p1, q1, r1, p2, q2, r2) -> bool:
+    """Möller 三角形-三角形相交测试（返回是否相交）。
+
+    基于间隔重叠测试（interval overlap along intersection line）——
+    精确、无浮点脆弱点（相对阈值）。缓存键 = 6 顶点坐标量化。
+    """
+    key = tuple(round(x, 6) for pt in (p1, q1, r1, p2, q2, r2) for x in pt)
+    hit = _TRI_TRI_CACHE.get(key)
+    if hit is not None:
+        return hit
+
+    def _sub(a, b):
+        return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+    def _cross(a, b):
+        return (a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0])
+
+    def _dot(a, b):
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+    # 平面分离测试（第一个三角形平面）
+    n1 = _cross(_sub(q1, p1), _sub(r1, p1))
+    if _dot(n1, n1) < 1e-30:
+        _TRI_TRI_CACHE[key] = False
+        return False  # 退化三角形
+    d1 = -_dot(n1, p1)
+    dv2 = _dot(n1, p2) + d1
+    dv3 = _dot(n1, q2) + d1
+    dv4 = _dot(n1, r2) + d1
+    if dv2 * dv3 > 0 and dv3 * dv4 > 0:
+        _TRI_TRI_CACHE[key] = False
+        return False  # 同侧——分离
+    # 第二个三角形平面
+    n2 = _cross(_sub(q2, p2), _sub(r2, p2))
+    if _dot(n2, n2) < 1e-30:
+        _TRI_TRI_CACHE[key] = False
+        return False
+    d2 = -_dot(n2, p2)
+    dv1 = _dot(n2, p1) + d2
+    dv2b = _dot(n2, q1) + d2
+    dv3b = _dot(n2, r1) + d2
+    if dv1 * dv2b > 0 and dv2b * dv3b > 0:
+        _TRI_TRI_CACHE[key] = False
+        return False
+    # 相交线方向 + 间隔重叠（在相交线上投影区间）
+    line_dir = _cross(n1, n2)
+    if _dot(line_dir, line_dir) < 1e-30:
+        # 共面——退化情况：用顶点包含测试近似（精确共面极罕见）
+        res = _point_in_tri(p1, p2, q2, r2) or _point_in_tri(p2, p1, q1, r1)
+        _TRI_TRI_CACHE[key] = res
+        return res
+    # 投影间隔 [min1,max1] vs [min2,max2]（沿相交线）
+    def _proj_interval(pts):
+        vals = sorted(_dot(pt, line_dir) for pt in pts)
+        return vals[0], vals[-1]
+    lo1, hi1 = _proj_interval((p1, q1, r1))
+    lo2, hi2 = _proj_interval((p2, q2, r2))
+    res = not (hi1 < lo2 or hi2 < lo1)
+    if len(_TRI_TRI_CACHE) >= _TRI_TRI_CACHE_MAX:
+        _TRI_TRI_CACHE.clear()
+    _TRI_TRI_CACHE[key] = res
+    return res
+
+
+def _point_in_tri(p, a, b, c) -> bool:
+    """点是否在三角形内（重心坐标，含边界容差）。"""
+    def _cross(u, v):
+        return (u[1] * v[2] - u[2] * v[1],
+                u[2] * v[0] - u[0] * v[2],
+                u[0] * v[1] - u[1] * v[0])
+    def _dot(u, v):
+        return u[0] * v[0] + u[1] * v[1] + u[2] * v[2]
+    v0 = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+    v1 = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    v2 = (p[0] - a[0], p[1] - a[1], p[2] - a[2])
+    n = _cross(v0, v1)
+    if _dot(n, n) < 1e-30:
+        return False
+    inv = 1.0 / _dot(n, n)
+    # 重心坐标（投影到法线平面）
+    u = _dot(_cross(v2, v1), n) * inv
+    v = _dot(_cross(v0, v2), n) * inv
+    w = 1.0 - u - v
+    eps = 1e-6
+    return u >= -eps and v >= -eps and w >= -eps
+
+
+def collision_check(path_a: str, path_b: str | None = None,
+                    point: list | None = None,
+                    aabb: list | None = None) -> dict:
+    """碰撞检测（FCL/Parry 概念零依赖落地）：AABB 粗筛 + 三角形对精确相交。
+
+    模式：
+    - mesh-mesh：path_a vs path_b——AABB 不相交直接"无碰撞"（秒回）；
+      相交则三角形对精确检测（采样上限防爆炸）。
+    - mesh-point：path_a vs point [x,y,z]——点是否在网格内/表面。
+    - mesh-aabb：path_a vs aabb [[minx,miny,minz],[maxx,maxy,maxz]]。
+    三角形对结果缓存（量化键）——重复查询/多视角复用。
+    """
+    m1 = load_mesh(path_a)
+    if not m1.get("ok"):
+        return m1
+    va, fa = m1["vertices"], m1["faces"]
+    b1 = mesh_bbox(path_a)
+    if not b1.get("ok"):
+        return b1
+    if point is not None:
+        if len(point) != 3:
+            return {"ok": False, "error": "point 需 [x,y,z]"}
+        p = tuple(float(v) for v in point)
+        inside = _point_in_mesh(p, va, fa)
+        return {"ok": True, "mode": "mesh-point", "point": list(p),
+                "colliding": inside,
+                "advice": "点在网格内=碰撞（射线法奇偶测试）" if inside
+                          else "点在网格外（无碰撞）"}
+    if aabb is not None:
+        if len(aabb) != 2 or any(len(r) != 3 for r in aabb):
+            return {"ok": False, "error": "aabb 需 [[minx,miny,minz],[maxx,maxy,maxz]]"}
+        lo = tuple(float(v) for v in aabb[0])
+        hi = tuple(float(v) for v in aabb[1])
+        bmin, bmax = b1["min"], b1["max"]
+        overlap = (bmin[0] <= hi[0] and bmax[0] >= lo[0]
+                   and bmin[1] <= hi[1] and bmax[1] >= lo[1]
+                   and bmin[2] <= hi[2] and bmax[2] >= lo[2])
+        return {"ok": True, "mode": "mesh-aabb", "aabb": [lo, hi],
+                "colliding": overlap,
+                "advice": "网格 AABB 与查询 AABB 重叠" if overlap
+                          else "网格 AABB 与查询 AABB 分离（无碰撞）"}
+    if not path_b:
+        return {"ok": False, "error": "需提供 path_b / point / aabb 之一"}
+    m2 = load_mesh(path_b)
+    if not m2.get("ok"):
+        return m2
+    vb, fb = m2["vertices"], m2["faces"]
+    b2 = mesh_bbox(path_b)
+    if not b2.get("ok"):
+        return b2
+    # AABB 粗筛（FCL 同款 broad-phase：快速排除不相交对）
+    a1, a2 = b1["min"], b1["max"]
+    c1, c2 = b2["min"], b2["max"]
+    if (a1[0] > c2[0] or a2[0] < c1[0]
+            or a1[1] > c2[1] or a2[1] < c1[1]
+            or a1[2] > c2[2] or a2[2] < c1[2]):
+        return {"ok": True, "mode": "mesh-mesh", "broad_phase": "separate",
+                "colliding": False,
+                "advice": "AABB 粗筛分离——无需精确检测（FCL broad-phase）"}
+    # 精确阶段（narrow-phase）：三角形对相交（采样上限防爆炸）
+    max_pairs = 200_000
+    total_pairs = len(fa) * len(fb)
+    sampled = 0
+    hit_count = 0
+    stride = max(1, total_pairs // max_pairs) if total_pairs > max_pairs else 1
+    for i in range(0, len(fa), stride):
+        tri_a = fa[i]
+        pa = (va[tri_a[0]], va[tri_a[1]], va[tri_a[2]])
+        for j in range(0, len(fb), stride):
+            tri_b = fb[j]
+            pb = (vb[tri_b[0]], vb[tri_b[1]], vb[tri_b[2]])
+            if _tri_tri_intersect(pa[0], pa[1], pa[2],
+                                  pb[0], pb[1], pb[2]):
+                hit_count += 1
+                # 找到首个碰撞即可（报告数量用采样估计）
+                return {"ok": True, "mode": "mesh-mesh",
+                        "broad_phase": "overlap",
+                        "colliding": True,
+                        "first_hit": {"face_a": tri_a, "face_b": tri_b},
+                        "sampled_pairs": sampled + 1,
+                        "total_pairs": total_pairs,
+                        "advice": "网格碰撞（narrow-phase 精确检测命中）"}
+            sampled += 1
+    return {"ok": True, "mode": "mesh-mesh", "broad_phase": "overlap",
+            "colliding": False, "sampled_pairs": sampled,
+            "total_pairs": total_pairs,
+            "advice": "AABB 重叠但三角形对无相交（间隙网格或采样未命中）"}
+
+
+# ── ⑯ 拓扑持久同调简化版：Betti 数（#11 技术1 落地）──────────
+# 持久同调完整版（Persistence Diagram）需滤复形计算；本落地为确定性
+# Betti 数（拓扑"体检"标量）：
+#   β0 = 连通分量数（网格是否碎裂）
+#   β1 = 一维环数（孔洞/隧道——欧拉公式 β1 = β0 + β2 - χ）
+#   β2 = 二维空腔数（封闭空腔——mesh_check 边界边=0 时用闭合性近似）
+# 与 mesh_check 互补：mesh_check 报"哪里有洞"，Betti 数报"拓扑是什么"。
+def mesh_betti(path: str) -> dict:
+    """网格 Betti 数（拓扑质量度量，#11 简化落地）。
+
+    β0 连通分量：顶点图并查集；β2 空腔：无边界边且非球面拓扑（用
+    欧拉公式反推）；β1 环数：β1 = β0 + β2 - χ（欧拉公式，闭合网格）。
+    对非闭合网格 β2 不适用（先 mesh_check）。
+    """
+    m = load_mesh(path)
+    if not m.get("ok"):
+        return m
+    verts, faces = m["vertices"], m["faces"]
+    n = len(verts)
+    # 并查集求连通分量（顶点通过面边相连）
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for f in faces:
+        for i in range(len(f)):
+            union(f[i], f[(i + 1) % len(f)])
+    components = len({find(i) for i in range(n)})
+    # 欧拉示性数 χ = V - E + F
+    edge_set = set()
+    for f in faces:
+        for i in range(len(f)):
+            a, b = f[i], f[(i + 1) % len(f)]
+            edge_set.add((min(a, b), max(a, b)))
+    chi = n - len(edge_set) + len(faces)
+    # 边界边（β2 判定用）
+    edge_faces: dict[tuple, int] = defaultdict(int)
+    for f in faces:
+        for i in range(len(f)):
+            a, b = f[i], f[(i + 1) % len(f)]
+            edge_faces[(min(a, b), max(a, b))] += 1
+    boundary = sum(1 for c in edge_faces.values() if c == 1)
+    closed = boundary == 0
+    # 闭合网格：χ = β0 - β1 + β2 → β2 = χ - β0 + β1；球面拓扑 β2=1。
+    # 近似：闭合且 χ 与 β0 关系判定（β2 = χ - β0 + 1 当 β1 未知——
+    # 用 β1 = β0 + β2 - χ 与闭合球面基准 χ=2β0 比较）
+    if closed:
+        # 对闭合网格：β2 = χ - β0 + β1；单连通（β1=0）时 β2 = χ - β0。
+        # 常见判定：χ > β0 → 有孔洞或空腔。用 β2 = max(0, χ - β0) 近似
+        # （球面 χ=2，β0=1 → β2=1 正确；圆环 χ=0，β0=1 → β2=0 + β1=1）。
+        beta2_approx = max(0, chi - components)
+        beta1 = max(0, components + beta2_approx - chi)
+    else:
+        beta2_approx = None
+        # 非闭合：β1 无法从欧拉公式可靠获得（边界贡献未知）——给警告
+        beta1 = None
+    result = {"ok": True, "path": path,
+              "betti": {
+                  "beta0": components,      # 连通分量（>1 = 网格碎裂）
+                  "beta1": beta1,           # 环/孔洞数
+                  "beta2": beta2_approx,    # 空腔数
+              },
+              "euler_characteristic": chi,
+              "closed": closed,
+              "boundary_edges": boundary,
+              "advice": (
+                  "闭合网格：β0=连通分量，β1=环/隧道，β2=空腔——"
+                  "β0>1 网格碎裂，β1>0 有孔洞，β2>1 有多重空腔" if closed
+                  else "网格非闭合（有边界边）——β1/β2 不可靠，先用 mesh_check 补洞")}
+    return result

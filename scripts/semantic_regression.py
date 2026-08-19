@@ -319,6 +319,28 @@ def main() -> int:
         RESULTS.append({"tool": "geometry_caches", "kind": "json_field",
                         "desc": "几何缓存/可微渲染", "ok": False,
                         "detail": f"{type(exc).__name__}: {exc}", "args": {}})
+    # 第四轮（2026-08-19）：碰撞检测 + Betti 拓扑分析
+    try:
+        import geometry_tools as _gt4
+        _gt4._TRI_TRI_CACHE.clear()
+        _cube2 = os.path.join(_TMP, "cube2.obj")
+        with open(_cube2, "w", encoding="utf-8") as _f:
+            _f.write("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"
+                     "v 0 0 1\nv 1 0 1\nv 1 1 1\nv 0 1 1\n"
+                     "f 1 2 3 4\nf 5 8 7 6\nf 1 5 6 2\n"
+                     "f 3 7 8 4\nf 2 6 7 3\nf 1 4 8 5\n")
+        _col = _gt4.collision_check(_cube2, point=[0.5, 0.5, 0.5])
+        _bet = _gt4.mesh_betti(_cube2)
+        RESULTS.append({"tool": "collision_check", "kind": "json_field",
+                        "desc": "碰撞检测 + Betti 拓扑（FCL 概念零依赖 + #11）",
+                        "ok": bool(_col.get("colliding"))
+                        and _bet.get("betti", {}).get("beta0") == 1
+                        and _bet.get("betti", {}).get("beta2") == 1,
+                        "detail": "", "args": {}})
+    except Exception as exc:  # noqa: BLE001
+        RESULTS.append({"tool": "collision_check", "kind": "json_field",
+                        "desc": "碰撞检测/Betti", "ok": False,
+                        "detail": f"{type(exc).__name__}: {exc}", "args": {}})
     check("cae_lsp_position_convert",
           {"text": "abc\ndef", "direction": "byte_to_position", "byte_offset": 4},
           "json_field", ("position.line", 1), "cae lsp byte→position 语义")
