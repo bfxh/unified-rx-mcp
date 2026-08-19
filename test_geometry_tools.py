@@ -331,3 +331,57 @@ def test_load_mesh_cache_semantics(tmp_path, monkeypatch):
     gt._MESH_CACHE.clear()
     bad = gt.load_mesh(str(tmp_path / "missing.obj"))
     assert bad["ok"] is False and str(tmp_path / "missing.obj") not in gt._MESH_CACHE
+
+
+def test_transform_compose_semantics(tmp_path, monkeypatch):
+    """维度8（算子融合缓存）：TRS 合成语义 + 缓存命中 + 错误契约。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_TRANSFORM_CACHE", {})
+    # glTF 惯例：[translate, rotate] = 先旋转后平移
+    r = gt.transform_compose([
+        {"type": "translate", "x": 1, "y": 0, "z": 0},
+        {"type": "rotate", "axis": "z", "angle_deg": 90},
+    ])
+    assert r["ok"] and not r["cached"], r
+    m = r["matrix"]
+    # 点 (1,0,0)：先绕 z 转 90° → (0,1,0)，再平移 → (1,1,0)
+    v = [1, 0, 0, 1]
+    out = [round(sum(m[i * 4 + j] * v[j] for j in range(4)), 3) for i in range(4)]
+    assert out[:3] == [1.0, 1.0, 0.0], f"TRS 合成语义错误: {out}"
+    # 缓存命中（同参数）
+    r2 = gt.transform_compose([
+        {"type": "translate", "x": 1, "y": 0, "z": 0},
+        {"type": "rotate", "axis": "z", "angle_deg": 90},
+    ])
+    assert r2["cached"] is True, "同参数应缓存命中"
+    # 均匀缩放简写（只给 x）
+    rs = gt.transform_compose([{"type": "scale", "x": 2}])
+    assert rs["ok"] and rs["matrix"][0] == 2.0 and rs["matrix"][5] == 2.0
+    # 错误契约
+    assert gt.transform_compose([]).get("ok") is False
+    assert gt.transform_compose([{"type": "nope"}]).get("ok") is False
+    assert gt.transform_compose([{"type": "scale", "x": 0}]).get("ok") is False
+    assert gt.transform_compose([{"type": "matrix", "m": [1] * 4}]).get("ok") is False
+
+
+def test_pattern_expand_semantics(tmp_path, monkeypatch):
+    """维度9（阵列展开缓存）：grid/ring/hilbert + 缓存 + 上限安全。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_PATTERN_CACHE", {})
+    g = gt.pattern_expand("grid", rows=3, cols=2, spacing=1.0)
+    assert g["ok"] and g["count"] == 6, g
+    assert g["positions"][0] == (0.0, 0.0, 0.0)
+    assert g["positions"][-1] == (1.0, 2.0, 0.0)  # (cols-1, rows-1)
+    # 缓存命中
+    g2 = gt.pattern_expand("grid", rows=3, cols=2, spacing=1.0)
+    assert g2["cached"] is True and g2["positions"] == g["positions"]
+    # ring 数量 = rows*cols
+    rg = gt.pattern_expand("ring", rows=2, cols=3, spacing=1.0)
+    assert rg["ok"] and rg["count"] == 6
+    # hilbert 封顶（depth ≤ 6 → ≤64 段——防展开爆炸 DoS）
+    hb = gt.pattern_expand("hilbert", rows=99, cols=99)
+    assert hb["ok"] and hb["count"] <= 256, f"hilbert 应封顶: {hb['count']}"
+    # 上限校验 + 错误契约
+    assert gt.pattern_expand("grid", rows=999, cols=1).get("ok") is False
+    assert gt.pattern_expand("grid", rows=2, cols=2, spacing=0).get("ok") is False
+    assert gt.pattern_expand("nope", 2, 2).get("ok") is False

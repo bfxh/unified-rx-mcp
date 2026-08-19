@@ -265,6 +265,29 @@ def main() -> int:
         RESULTS.append({"tool": "load_mesh", "kind": "json_field",
                         "desc": "几何解析缓存", "ok": False,
                         "detail": f"{type(exc).__name__}: {exc}", "args": {}})
+    # 维度 8/9（2026-08-19 追加）：变换合成缓存 + 阵列展开缓存
+    try:
+        import geometry_tools as _gt2
+        _gt2._TRANSFORM_CACHE.clear()
+        _tr = _gt2.transform_compose([
+            {"type": "translate", "x": 1, "y": 0, "z": 0},
+            {"type": "rotate", "axis": "z", "angle_deg": 90},
+        ])
+        _tr2 = _gt2.transform_compose([
+            {"type": "translate", "x": 1, "y": 0, "z": 0},
+            {"type": "rotate", "axis": "z", "angle_deg": 90},
+        ])
+        _gt2._PATTERN_CACHE.clear()
+        _pa = _gt2.pattern_expand("grid", rows=3, cols=2, spacing=1.0)
+        RESULTS.append({"tool": "transform_compose", "kind": "json_field",
+                        "desc": "变换合成缓存命中（维度8 落地）",
+                        "ok": bool(_tr.get("ok")) and bool(_tr2.get("cached"))
+                        and _pa.get("count") == 6,
+                        "detail": "", "args": {}})
+    except Exception as exc:  # noqa: BLE001
+        RESULTS.append({"tool": "transform_compose", "kind": "json_field",
+                        "desc": "变换合成/阵列展开", "ok": False,
+                        "detail": f"{type(exc).__name__}: {exc}", "args": {}})
     check("cae_lsp_position_convert",
           {"text": "abc\ndef", "direction": "byte_to_position", "byte_offset": 4},
           "json_field", ("position.line", 1), "cae lsp byte→position 语义")

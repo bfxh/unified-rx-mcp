@@ -1197,3 +1197,159 @@ def voxel_surface(path: str, resolution: int = 16) -> dict:
             "surface_points": surface[:100],
             "advice": f"表面体素 {len(surface)} 个（占用的 {100.0*len(surface)/max(1,len(occ)):.0f}%）"
                       "——表面点云可直接用于碰撞/光线追踪"}
+
+
+# ── ⑩ 变换合成缓存（7 维缓存方案维度 8：算子融合——缓存执行计划）──────
+# "平移→旋转→缩放"连续变换经常出现；合成矩阵缓存 = 缓存复合变换的
+# 执行计划（同参数命中直接给合成结果，不重复矩阵乘法）。纯确定性。
+_TRANSFORM_CACHE: dict[tuple, list] = {}
+_TRANSFORM_CACHE_MAX = 128
+
+
+def _mat_mul(a: list, b: list) -> list:
+    """4x4 矩阵乘法（行主序，列向量约定 v' = M·v）。"""
+    return [sum(a[r * 4 + k] * b[k * 4 + c] for k in range(4))
+            for r in range(4) for c in range(4)]
+
+
+def transform_compose(transforms: list, round_digits: int = 6) -> dict:
+    """合成多个 4x4 变换（维度 8 落地：算子融合——缓存执行计划）。
+
+    transforms: [{type: "translate"|"rotate"|"scale"|"matrix", ...}]，
+      按 glTF TRS 惯例合成：v' = M₁·M₂·...·Mₙ·v（**列表末尾的变换最先作用于
+      顶点**——写 [translate, rotate] = 先旋转后平移，与引擎 TRS 分解一致）。
+    - translate: {x,y,z}
+    - rotate: {axis: "x"|"y"|"z", angle_deg}
+    - scale: {x,y,z}（均匀缩放只给 x 即可）
+    - matrix: {m: [16 元素行主序]}
+    缓存键 = (tuple 化的 transforms, round_digits)——同参数命中直接返回。
+    """
+    import math as _m
+    key = (json.dumps(transforms, sort_keys=True, ensure_ascii=False), round_digits)
+    hit = _TRANSFORM_CACHE.get(key)
+    if hit is not None:
+        return {"ok": True, "cached": True, "matrix": hit,
+                "note": "变换合成缓存命中（维度8：算子融合）"}
+    if not isinstance(transforms, list) or not transforms:
+        return {"ok": False, "error": "transforms 需为非空数组"}
+    ident = [1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0]
+    acc = ident
+    # 列向量约定：先应用的在最右 → 逆序遍历逐个左乘
+    for t in reversed(transforms):
+        if not isinstance(t, dict):
+            return {"ok": False, "error": "每个变换需为对象"}
+        typ = t.get("type")
+        if typ == "translate":
+            x, y, z = (float(t.get(k, 0)) for k in ("x", "y", "z"))
+            if not all(_m.isfinite(v) for v in (x, y, z)):
+                return {"ok": False, "error": "translate 参数需有限数"}
+            m = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1]
+        elif typ == "scale":
+            x = float(t.get("x", 1)); y = float(t.get("y", x)); z = float(t.get("z", x))
+            if not all(_m.isfinite(v) and v != 0 for v in (x, y, z)):
+                return {"ok": False, "error": "scale 需非零有限数"}
+            m = [x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0, 0, 0, 0, 1]
+        elif typ == "rotate":
+            axis = str(t.get("axis", "z"))
+            if axis not in ("x", "y", "z"):
+                return {"ok": False, "error": "axis 需 x/y/z"}
+            ang = _m.radians(float(t.get("angle_deg", 0)))
+            if not _m.isfinite(ang):
+                return {"ok": False, "error": "angle_deg 需有限数"}
+            c, s = _m.cos(ang), _m.sin(ang)
+            if axis == "x":
+                m = [1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1]
+            elif axis == "y":
+                m = [c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1]
+            else:
+                m = [c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        elif typ == "matrix":
+            mm = t.get("m")
+            if not isinstance(mm, list) or len(mm) != 16:
+                return {"ok": False, "error": "matrix.m 需 16 元素列表"}
+            m = [float(v) for v in mm]
+            if not all(_m.isfinite(v) for v in m):
+                return {"ok": False, "error": "matrix 元素需有限数"}
+        else:
+            return {"ok": False, "error": f"未知变换类型: {typ!r}（translate/rotate/scale/matrix）"}
+        acc = _mat_mul(m, acc)
+    if round_digits is not None:
+        acc = [round(v, round_digits) for v in acc]
+    if len(_TRANSFORM_CACHE) >= _TRANSFORM_CACHE_MAX:
+        _TRANSFORM_CACHE.clear()
+    _TRANSFORM_CACHE[key] = acc
+    return {"ok": True, "cached": False, "matrix": acc,
+            "note": "变换合成完成（维度8：算子融合——缓存执行计划，同参数下次命中）"}
+
+
+# ── ⑪ 阵列模式展开缓存（7 维缓存方案维度 9：分形/阵列展开）────────
+# 重复结构（10x10 孔阵列等）的坐标生成器——命中时 LLM 只需输出模式引用，
+# 后处理展开。确定性：同模式同参数 → 同坐标。
+_PATTERN_CACHE: dict[tuple, list] = {}
+_PATTERN_CACHE_MAX = 128
+
+
+def pattern_expand(pattern: str, rows: int = 4, cols: int = 4,
+                   spacing: float = 1.0, center: list | None = None) -> dict:
+    """阵列模式展开（维度 9 落地：重复结构坐标生成器）。
+
+    pattern: "grid"（矩形阵列）/ "ring"（环形阵列）/ "hilbert"（希尔伯特曲线
+    次序——空间填充，缓存友好）。
+    输出 positions: [(x,y,z), ...]——LLM 生成重复 3D 结构时可直接引用模式，
+    免去逐坐标/循环 Token。
+    缓存键 = (pattern, rows, cols, spacing, center)——确定性命中。
+    """
+    import math as _m
+    key = (pattern, rows, cols, spacing,
+           json.dumps(center or [0, 0, 0], ensure_ascii=False))
+    hit = _PATTERN_CACHE.get(key)
+    if hit is not None:
+        return {"ok": True, "cached": True, "pattern": pattern,
+                "positions": hit, "count": len(hit),
+                "note": "阵列模式缓存命中（维度9：展开缓存）"}
+    cx, cy, cz = (float(v) for v in (center or [0, 0, 0]))
+    if not all(_m.isfinite(v) for v in (cx, cy, cz)):
+        return {"ok": False, "error": "center 需有限数"}
+    if not (1 <= rows <= 200 and 1 <= cols <= 200):
+        return {"ok": False, "error": "rows/cols 需在 [1,200]"}
+    try:
+        spacing = float(spacing)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "spacing 需为数字"}
+    if not _m.isfinite(spacing) or spacing == 0:
+        return {"ok": False, "error": "spacing 需非零有限数"}
+    positions: list = []
+    if pattern == "grid":
+        for r in range(rows):
+            for c in range(cols):
+                positions.append((cx + c * spacing, cy + r * spacing, cz))
+    elif pattern == "ring":
+        total = rows * cols
+        for i in range(total):
+            ang = 2 * _m.pi * i / total
+            rad = spacing * (i // cols + 1)
+            positions.append((cx + rad * _m.cos(ang), cy + rad * _m.sin(ang), cz))
+    elif pattern == "hilbert":
+        # 希尔伯特曲线（2D 空间填充，迭代深度 d=rows）——递归生成
+        def _hilbert(d, x, y, dx, dy):
+            if d <= 0:
+                return [(x, y)]
+            pts = []
+            pts += _hilbert(d - 1, x, y, dy, dx)
+            pts += _hilbert(d - 1, x + dx, y + dy, dx, dy)
+            pts += _hilbert(d - 1, x + dx, y + dy, dx, dy)
+            pts += _hilbert(d - 1, x + dx - dy, y + dy - dx, -dy, -dx)
+            return pts
+        depth = min(rows, 4)  # 4^4=256 段封顶（防展开爆炸 DoS）
+        pts = _hilbert(depth, 0, 0, 1, 0)
+        for (px, py) in pts:
+            positions.append((cx + px * spacing, cy + py * spacing, cz))
+    else:
+        return {"ok": False, "error": f"未知 pattern: {pattern!r}（grid/ring/hilbert）"}
+    if len(_PATTERN_CACHE) >= _PATTERN_CACHE_MAX:
+        _PATTERN_CACHE.clear()
+    _PATTERN_CACHE[key] = positions
+    return {"ok": True, "cached": False, "pattern": pattern,
+            "positions": positions, "count": len(positions),
+            "note": f"阵列模式展开（维度9）——{len(positions)} 个坐标；"
+                    "LLM 生成重复 3D 结构时可引用模式免循环 Token"}

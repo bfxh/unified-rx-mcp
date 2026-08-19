@@ -39,3 +39,19 @@
   - 新建 `skills/blender-skill`（bpy/bmesh 全流程+反模式）、`skills/threejs-skill`（Three.js 网页 3D+性能）、`skills/maya-skill`（MEL/cmds+FBX 管线）；GSAP 已有官方 8 子 skill 不动；skill_templates/blender-modeling 占位符升级指向完整版
   - 7 维缓存方案逐维裁决写入 `docs/CACHE_DIMENSIONS.md`：维度 4（几何结果缓存）✅落地（load_mesh 解析缓存：mtime+size 键/深拷贝保 tuple 类型/成功才缓存/64 条 LRU）；维度 2/3/5 已有等价（speculate/cb_index+scan_cache/vuln_rules+LSE）；维度 1（语义模糊）/7（潜空间）不交付（正确性风险+无承载点，符合"有风险不交付"原则）
 - 验证：pytest 182/182（含 test_load_mesh_cache_semantics）、语义回归 123/123、geometry_tools 基线 10 issues 为预存误报无新增
+
+### 5. 7 维缓存方案维度 8-14 评估（用户：这些都看看）
+- 用户贴出第二批 7 个"非主流硬核"缓存维度（算子融合/阵列展开/早退分类/
+  记忆压缩/大页内存/逆缓存/时间旅行），要求"这些都看看"。
+- 决策（沿用正确性优先框架，写入 docs/CACHE_DIMENSIONS.md 追加节）：
+  - ✅ 落地 2 个：维度 8 变换合成缓存（transform_compose：4x4 TRS 合成，
+    glTF 惯例，参数序列缓存键）→ 维度 9 阵列展开缓存（pattern_expand：
+    grid/ring/hilbert，hilbert 4^4=256 封顶防 DoS）
+  - 已有等价 3 个：维度 11 记忆压缩（LSE 教训引擎/scan-log 摘要）、
+    维度 13 逆缓存（mesh_check/bug_scan/vuln_rules/LSE 负回灌）、
+    维度 14 时间旅行（backup rollback/replay）
+  - 不交付 2 个：维度 10 早退分类器、维度 12 大页内存（依赖 LLM 内部表示
+    或硬件平台，无承载点；符合"有风险不交付"）
+- 14 维最终总览：落地 3 / 已有等价 6 / 部分采用 1 / 不交付 4。
+- 验证：pytest 184/184（新增 2 测试）、语义回归 124/124、geometry_tools
+  基线 10 条预存误报无新增。
