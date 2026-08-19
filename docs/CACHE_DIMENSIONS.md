@@ -265,3 +265,37 @@ test_voxelize_and_ray_cache）；语义回归新增锚点待跑。
 分层、121 图式=pattern_expand 模式库、134 红移=TTL 时效）。
 **唯一可提取原则**（入档不实现）："任何能减少不确定性、增加可预测性的
 机制都可转化为缓存策略"——但落地必须保持**精确匹配/确定性**，不用近似。
+
+---
+
+## 追加四：#13-#16 评估（2026-08-19 第五轮）
+
+> 用户贴出 #13（101-140，与 #12 **完全相同**——已裁决，不重复评估）、
+> #14/#15（3D 检测工具清单 + 可微分动画前沿）、#16（可微分物理 20 方向）。
+
+### #13 与 #12 重复确认
+#13 全文与上轮 #12（101-140 生物/物理/数学启发）一字不差——40 项统一不交付
+裁决仍有效（软匹配/概率吸引违反正确性优先）。唯一可提取原则已入档：
+"确定性落地，不用近似"。
+
+### #14/#15 检测工具清单裁决（新增量）
+
+| 工具/指标 | 判定 | 落地点 |
+|---|---|---|
+| neatmesh（体积/表面积/法线） | ✅ 本次落地 | mesh_mass_props 增 `surface_area` + `surface_volume_ratio`（单位立方体 6.0 验证） |
+| Trimesh watertight（水密） | 已有等价 | mesh_betti `closed`（boundary_edges==0） |
+| val3dity ISO19107 合规 | 已有等价 | mesh_check（拓扑）+ mesh_betti（闭合性） |
+| Blender 3D Print Toolbox / MeshLab / Netfabb / Meshmixer | 已有等价 | mesh_check（非流形/洞/孤立顶点）+ mesh_betti + collision_check |
+| glTF Validator / gltf-inspector | 已有等价 | _parse_glb（结构校验） |
+| CloudCompare / GOM / Geomagic 偏差分析 | 不适用 | 扫描-模型比对需参考数据（未来方向） |
+| CAiD MCP Server / OpenGeode | 已有等价 | geometry_tools 工具族（布尔/倒角/抽壳对应 mesh_boolean/mesh_clip 等） |
+| 壁厚/悬垂检测（3D 打印） | 未来方向 | 需 SDF 采样或射线厚度分析（#6-19 同类） |
+
+### #15/#16 可微分动画/物理前沿裁决
+
+PhysRig / SNARF / Puppeteer / DiffMimic / Genesis / Newton / phyz / Dojo /
+DiffAvatar / PhysGaussian / DiffMPM 等 20+ 方向——**统一不交付**，理由：
+①全部需 GPU 框架（Warp/JAX/CUDA）或重型引擎（违反零依赖）；②神经训练需
+数据集（无源）；③本仓库的可微能力已落地为数据基础设施（render_depth/
+render_loss/render_gradient 有限差分）。趋势入档：LBS 蒙皮被"神经-物理"
+可微分框架取代——与本仓库 mesh_splat（可训练参数表）方向一致，标注未来。

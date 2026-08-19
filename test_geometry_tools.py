@@ -396,7 +396,8 @@ def _unit_cube(path):
 
 
 def test_mesh_bbox_and_mass_props(tmp_path, monkeypatch):
-    """#5 包围盒缓存 + #76 质量属性缓存：单位立方体 → 体积 1.0、质心 0.5。"""
+    """#5 包围盒缓存 + #76 质量属性缓存：单位立方体 → 体积 1.0、质心 0.5、
+    表面积 6.0（#14/#15 neatmesh 指标）。"""
     import geometry_tools as gt
     monkeypatch.setattr(gt, "_BBOX_CACHE", {})
     monkeypatch.setattr(gt, "_MASS_CACHE", {})
@@ -409,6 +410,8 @@ def test_mesh_bbox_and_mass_props(tmp_path, monkeypatch):
     mp = gt.mesh_mass_props(str(p))
     assert mp["ok"], mp
     assert abs(mp["volume"] - 1.0) < 1e-4, f"单位立方体体积应≈1.0: {mp['volume']}"
+    assert abs(mp["surface_area"] - 6.0) < 1e-4, f"单位立方体表面积应≈6.0: {mp['surface_area']}"
+    assert abs(mp["surface_volume_ratio"] - 6.0) < 1e-3, f"表体比应≈6.0: {mp['surface_volume_ratio']}"
     assert all(abs(c - 0.5) < 1e-3 for c in mp["centroid"]), f"质心应≈0.5: {mp['centroid']}"
     mp2 = gt.mesh_mass_props(str(p))
     assert mp2["volume"] == mp["volume"], "质量属性应缓存命中"

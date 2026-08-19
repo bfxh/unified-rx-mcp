@@ -88,3 +88,16 @@
 - 验证：pytest 189/189（新增 collision_check 四模式 + mesh_betti 语义测试）、
   语义回归 126/126（新增锚点）、geometry_tools 扫描 12 条 = 基线 10 + 2 条
   finally 清理容错（预期）。
+
+### 8. #13-#16 评估 + 表面积指标（用户贴 #13 重复 + #14/#15 检测工具 + #16 可微分物理）
+- 用户贴出 #13（101-140 与 #12 完全相同——确认重复不重评）、#14/#15（3D
+  检测工具清单：neatmesh/Trimesh/val3dity/Blender Toolbox 等 + 可微分动画
+  PhysRig/SNARF/Puppeteer）、#16（可微分物理 20 方向：Genesis/Newton/phyz 等）。
+- 决策：
+  - 增量落地 1 项：mesh_mass_props 增 surface_area + surface_volume_ratio
+    （neatmesh 指标，单位立方体 6.0 精确验证）
+  - 已有等价确认：watertight=mesh_betti.closed、ISO19107=mesh_check+mesh_betti、
+    glTF 校验=_parse_glb、CAiD/OpenGeode=geometry_tools 工具族
+  - 可微分动画/物理 20+ 方向统一不交付（GPU/神经/引擎依赖 + 无数据集；
+    本仓库可微能力已落地为有限差分数据基础设施，趋势入档标注未来）
+- 验证：pytest 189/189、语义回归 126/126、扫描 12 条=基线+2 条 finally 容错。

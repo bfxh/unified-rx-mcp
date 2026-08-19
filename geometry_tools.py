@@ -1488,8 +1488,16 @@ def mesh_mass_props(path: str) -> dict:
     vol6 = 0.0  # 6×体积（有符号）
     cx = cy = cz = 0.0
     ixx = iyy = izz = ixy = ixz = iyz = 0.0
+    surface_area = 0.0  # 表面积（#14/#15 neatmesh/Trimesh 指标，3D 打印质量）
     for (a, b, c) in faces:
         v0, v1, v2 = verts[a], verts[b], verts[c]
+        # 表面积：三角形叉积模长一半
+        e1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
+        e2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
+        cr = (e1[1] * e2[2] - e1[2] * e2[1],
+              e1[2] * e2[0] - e1[0] * e2[2],
+              e1[0] * e2[1] - e1[1] * e2[0])
+        surface_area += 0.5 * math.sqrt(cr[0] ** 2 + cr[1] ** 2 + cr[2] ** 2)
         # 有符号四面体体积（6 倍）
         det = (v0[0] * (v1[1] * v2[2] - v1[2] * v2[1])
                - v0[1] * (v1[0] * v2[2] - v1[2] * v2[0])
@@ -1521,6 +1529,8 @@ def mesh_mass_props(path: str) -> dict:
     cent = (cx / (4 * vol6), cy / (4 * vol6), cz / (4 * vol6))
     result = {"ok": True, "path": path,
               "volume": round(vol, 6),
+              "surface_area": round(surface_area, 6),
+              "surface_volume_ratio": round(surface_area / vol, 6) if vol > 0 else None,
               "centroid": [round(v, 6) for v in cent],
               "inertia": {
                   "ixx": round(sign * ixx, 6), "iyy": round(sign * iyy, 6),
@@ -1528,7 +1538,8 @@ def mesh_mass_props(path: str) -> dict:
                   "ixy": round(sign * ixy, 6), "ixz": round(sign * ixz, 6),
                   "iyz": round(sign * iyz, 6)},
               "closed": True,
-              "advice": "质量属性缓存（#76）——物理查询直接复用标量；"
+              "advice": "质量属性缓存（#76）+ 表面积（#14/#15 neatmesh 指标）——"
+                        "体积/表面积/表面积体积比是 3D 打印与物理查询关键标量；"
                         "惯性矩为相对原点近似（质心处张量需平行轴修正）"}
     if len(_MASS_CACHE) >= _MASS_CACHE_MAX:
         _MASS_CACHE.clear()
