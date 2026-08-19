@@ -32,3 +32,10 @@
   - **每项目至少两个文档**：CHATLOG.md（聊天记录）+ DESIGN.md（设计文档）。
   - **规则按项目级钩子**：项目根 AGENTS.md（所有 AI 工具默认读取）固化规则 + 指向双文档。
 - 落地：global REASONIX.md 元规则第 8/9 条；本仓库 AGENTS.md + CHATLOG.md + DESIGN.md。
+
+### 4. 3D skills + 7 维缓存方案（用户：搞搞3D的skill如 Maya/Blender/GSAP/three 等等 + 考虑各种情况加 还要高质量）
+- 用户原话："搞搞3D的skill如 MACskill blender skill GSAPskill three skill 等等的"、"你需要考虑各种的情况再加 还要考虑高质量"、"有些有风险的可以看看其他的地方 反正总有落脚点"
+- 决策（Maya 经 ask 确认）：
+  - 新建 `skills/blender-skill`（bpy/bmesh 全流程+反模式）、`skills/threejs-skill`（Three.js 网页 3D+性能）、`skills/maya-skill`（MEL/cmds+FBX 管线）；GSAP 已有官方 8 子 skill 不动；skill_templates/blender-modeling 占位符升级指向完整版
+  - 7 维缓存方案逐维裁决写入 `docs/CACHE_DIMENSIONS.md`：维度 4（几何结果缓存）✅落地（load_mesh 解析缓存：mtime+size 键/深拷贝保 tuple 类型/成功才缓存/64 条 LRU）；维度 2/3/5 已有等价（speculate/cb_index+scan_cache/vuln_rules+LSE）；维度 1（语义模糊）/7（潜空间）不交付（正确性风险+无承载点，符合"有风险不交付"原则）
+- 验证：pytest 182/182（含 test_load_mesh_cache_semantics）、语义回归 123/123、geometry_tools 基线 10 issues 为预存误报无新增

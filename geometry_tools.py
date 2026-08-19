@@ -33,12 +33,57 @@ def _check_path(p):
 
 
 # ── 解析层（OBJ / STL 二进制 / PLY 文本）───────────────────
+# 几何结果缓存（2026-08-19，7 维缓存方案维度 4 安全落地）：
+# 同文件重复解析（mesh_check/voxelize/mesh_union 等每个工具都先 load_mesh，
+# 64MB 网格全量解析重复浪费）→ 键=(mtime,size,格式)，文件变化即失效，
+# 成功才缓存，上限 64 条 LRU。纯确定性（同文件同解析结果），零正确性风险。
+_MESH_CACHE: dict[str, tuple[tuple, dict]] = {}
+_MESH_CACHE_MAX = 64
+
+
+def _load_mesh_cached(path: str) -> dict | None:
+    """命中返回缓存结果（深拷贝防调用方污染）；未命中返回 None。"""
+    try:
+        st = os.stat(path)
+        key = (st.st_mtime_ns, st.st_size, os.path.splitext(path)[1].lower())
+    except OSError:
+        return None
+    hit = _MESH_CACHE.get(path)
+    if hit is not None and hit[0] == key:
+        # copy.deepcopy 保类型（JSON round-trip 会把 vertices/faces 的
+        # tuple 变 list——破坏调用方类型契约；deepcopy 等价保真）
+        import copy
+        return copy.deepcopy(hit[1])
+    return None
+
+
+def _store_mesh_cached(path: str, result: dict) -> None:
+    """成功结果才缓存；LRU 上限 64 条。"""
+    if not result.get("ok"):
+        return
+    try:
+        st = os.stat(path)
+        key = (st.st_mtime_ns, st.st_size, os.path.splitext(path)[1].lower())
+    except OSError:
+        return
+    import copy
+    _MESH_CACHE[path] = (key, copy.deepcopy(result))
+    if len(_MESH_CACHE) > _MESH_CACHE_MAX:
+        # 简单 LRU：删最早插入的（dict 保持插入序）
+        for k in list(_MESH_CACHE)[: len(_MESH_CACHE) - _MESH_CACHE_MAX]:
+            _MESH_CACHE.pop(k, None)
+
+
 def load_mesh(path: str) -> dict:
     """加载网格 → {vertices: [(x,y,z)], faces: [(i,j,k)], normals, uvs}。
 
     安全边界（security-review）：读前 stat 大小上限（防 OOM）；
     畸形文件结构化捕获（不裸抛——返回 ok:False + error）。
+    解析缓存（2026-08-19）：同文件同版本复用解析结果（mtime+size 键）。
     """
+    cached = _load_mesh_cached(path)
+    if cached is not None:
+        return cached
     try:
         if os.path.getsize(path) > _MAX_MESH_BYTES:
             return {"ok": False, "error": f"网格文件超过 {_MAX_MESH_BYTES // (1 << 20)}MB 上限"}
@@ -71,6 +116,7 @@ def load_mesh(path: str) -> dict:
                 if not (math.isfinite(v[0]) and math.isfinite(v[1])
                         and math.isfinite(v[2])):
                     return {"ok": False, "error": "顶点含非有限坐标（NaN/Inf）"}
+        _store_mesh_cached(path, m)
         return m
     except (IndexError, ValueError, struct.error, OSError) as e:
         return {"ok": False, "error": f"网格解析失败（畸形文件）: {e}"}

@@ -308,3 +308,15 @@ If this project helps you, feel free to buy me a coffee ☕ Thanks for your supp
 - **[AetherStudio](https://github.com/aetherstudio-cn/AetherStudio)** — Windows 原生轻量代码编辑器，Tool 角色工具结果回喂（`AiRole::Tool`）与本 MCP 的 `tool_card` 结构化回喂相互印证
 - **[arch-optimize](https://github.com/bfxh/arch-optimize)** — 架构优化技能（五阶段工作流 + R1-R6 风险扫描 + 质量度量），分析仓库类工具的设计参考
 - **[Reasonix](https://github.com/esengine/DeepSeek-Reasonix)** — 本 MCP 适配的宿主（`.mcp.json` / `reasonix-plugin.json` 部署，auto_start 常驻）
+
+## 3D/动画技能（skills/ 目录）
+
+| 技能 | 覆盖 | 定位 |
+|---|---|---|
+| `blender-skill` | bpy/bmesh 建模/材质/绑定/动画/渲染/GLB 导出 | Blender 4.x/5.x 全流程，反模式清单（非流形/未应用变换/Y-up） |
+| `threejs-skill` | Three.js 场景/GLB 加载/交互/动画/性能 | WebGL 网页 3D，反模式清单（SRGB/每帧 new/dispose/合并几何） |
+| `maya-skill` | MEL + Python cmds 建模/绑定/动画/Arnold/FBX 导出 | Autodesk Maya 脚本化，反模式清单（单位/历史/命名空间/FBX 朝向） |
+| `gsap-skills`（官方 8 子） | gsap-core/timeline/scrolltrigger/react/plugins/performance/utils/frameworks | JS 动画（与 threejs 搭配做网页 3D 动效） |
+
+3D 管线协同：**Blender/Maya 建模导出 GLB → three.js 网页展示 → GSAP 动效**（导出 Y-up、
+PBR 材质、DRACO 压缩是全链路质量要点）。几何计算缓存见 [`docs/CACHE_DIMENSIONS.md`](docs/CACHE_DIMENSIONS.md)。

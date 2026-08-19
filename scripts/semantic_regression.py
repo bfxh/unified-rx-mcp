@@ -246,6 +246,25 @@ def main() -> int:
           "contains", "42", "parallel 并发结果汇总语义")
 
     # ── 5) 扩展层语义 ──
+    # 几何结果缓存（7 维缓存方案维度 4 安全落地）：同文件重复 load 命中
+    try:
+        import geometry_tools as _gt
+        _gt._MESH_CACHE.clear()
+        _mesh_p = os.path.join(_TMP, "cube.obj")
+        with open(_mesh_p, "w", encoding="utf-8") as _f:
+            _f.write("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
+        _m1 = _gt.load_mesh(_mesh_p)
+        _m2 = _gt.load_mesh(_mesh_p)
+        RESULTS.append({"tool": "load_mesh", "kind": "json_field",
+                        "desc": "几何解析缓存命中（维度4 落地）",
+                        "ok": bool(_m1.get("ok")) and _mesh_p in _gt._MESH_CACHE
+                        and _m2.get("vertices") == _m1.get("vertices"),
+                        "detail": "" if _m1.get("ok") else str(_m1),
+                        "args": {"path": _mesh_p}})
+    except Exception as exc:  # noqa: BLE001
+        RESULTS.append({"tool": "load_mesh", "kind": "json_field",
+                        "desc": "几何解析缓存", "ok": False,
+                        "detail": f"{type(exc).__name__}: {exc}", "args": {}})
     check("cae_lsp_position_convert",
           {"text": "abc\ndef", "direction": "byte_to_position", "byte_offset": 4},
           "json_field", ("position.line", 1), "cae lsp byte→position 语义")

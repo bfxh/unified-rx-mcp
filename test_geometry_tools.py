@@ -304,3 +304,30 @@ def test_voxel_surface_extract(tmp_path, monkeypatch):
     assert d["ok"] is True and d["occupied"] > 0, d
     assert 0 < d["surface_voxels"] <= d["occupied"], d
     assert d["surface_points"], d
+
+
+def test_load_mesh_cache_semantics(tmp_path, monkeypatch):
+    """几何结果缓存（7 维缓存方案维度 4 安全落地，2026-08-19）：
+    命中/深拷贝隔离/文件变更失效/失败不缓存。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_MESH_CACHE", {})
+    p = tmp_path / "cube.obj"
+    p.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n", encoding="utf-8")
+    r1 = gt.load_mesh(str(p))
+    assert r1["ok"] and len(r1["faces"]) == 2
+    assert str(p) in gt._MESH_CACHE, "成功结果应入缓存"
+    # 命中路径：直接对比结果等价
+    r2 = gt.load_mesh(str(p))
+    assert r2["ok"] and r2["vertices"] == r1["vertices"]
+    # 深拷贝隔离：调用方污染返回结果不影响缓存
+    r2["faces"].append("POLLUTED")
+    r3 = gt.load_mesh(str(p))
+    assert "POLLUTED" not in [f for f in r3["faces"] if isinstance(f, str)], "深拷贝隔离失效"
+    # 文件变更（size 变）→ 缓存失效
+    p.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nv 2 0 0\nf 1 2 3 4\n", encoding="utf-8")
+    r4 = gt.load_mesh(str(p))
+    assert len(r4["vertices"]) == 5, "文件变更后应重新解析"
+    # 失败结果不缓存
+    gt._MESH_CACHE.clear()
+    bad = gt.load_mesh(str(tmp_path / "missing.obj"))
+    assert bad["ok"] is False and str(tmp_path / "missing.obj") not in gt._MESH_CACHE
