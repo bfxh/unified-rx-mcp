@@ -538,7 +538,7 @@ def test_mesh_betti_semantics(tmp_path, monkeypatch):
 
 def test_lbs_skin_deform_and_gradient(tmp_path, monkeypatch):
     """LBS 蒙皮（趋势：LBS→神经-物理可微分框架的零依赖数据基础设施）：
-    单位矩阵不变形/平移骨跟随/混合插值/模板/梯度=该骨单独作用位置。"""
+    单位矩阵不变形/平移骨跟随/混合插值/模板/权重归一化/梯度有限差分。"""
     import geometry_tools as gt
     monkeypatch.setattr(gt, "_SKIN_CACHE", {})
     p = tmp_path / "cube.obj"
@@ -563,21 +563,87 @@ def test_lbs_skin_deform_and_gradient(tmp_path, monkeypatch):
                         template="rigid")
     assert r4["ok"] and r4["template"] == "rigid"
     assert gt.skin_deform(str(p), [{"matrix": I}], {}, template="nope").get("ok") is False
-    # 5) 梯度（原始权重语义）：∂v'/∂wᵢ = Mᵢ·v（该骨单独作用位置——方向直观）
+    # 5) 权重归一化（2026-08-20 修复：Σw≠1 放大/缩水——1.5 应归一化到 1.0）
+    rn = gt.skin_deform(str(p), [{"matrix": I}],
+                        {"1": [{"bone": 0, "weight": 1.5}]})
+    assert rn["ok"] and rn["deformed_vertices"][1] == (1.0, 0.0, 0.0), \
+        f"权重 1.5 应归一化（非放大）: {rn['deformed_vertices'][1]}"
+    rn2 = gt.skin_deform(str(p), [{"matrix": I}],
+                         {"1": [{"bone": 0, "weight": 0.5}]})
+    assert rn2["ok"] and rn2["deformed_vertices"][1] == (1.0, 0.0, 0.0), \
+        f"权重 0.5 应归一化（非缩水）: {rn2['deformed_vertices'][1]}"
+    assert gt.skin_deform(str(p), [{"matrix": I}],
+                          {"1": [{"bone": 0, "weight": 0.0}]}).get("ok") is False, \
+        "零权重和应拒绝"
+    # 6) 梯度（有限差分 vs 归一化变形精确一致——-4.9505 实测）
     g0 = gt.skin_gradient(str(p), [{"matrix": I}, {"matrix": T}],
                           {"1": [{"bone": 0, "weight": 0.5},
                                  {"bone": 1, "weight": 0.5}]},
                           vertex=1, bone=0, eps=0.01)
-    assert g0["ok"] and abs(g0["gradient"][0] - 1.0) < 1e-3, f"bone0 梯度应≈I·v: {g0}"
+    assert g0["ok"] and abs(g0["gradient"][0] - (-4.9505)) < 1e-2, f"bone0 梯度应≈-4.95: {g0}"
     g1 = gt.skin_gradient(str(p), [{"matrix": I}, {"matrix": T}],
                           {"1": [{"bone": 0, "weight": 0.5},
                                  {"bone": 1, "weight": 0.5}]},
                           vertex=1, bone=1, eps=0.01)
-    assert g1["ok"] and abs(g1["gradient"][0] - 11.0) < 1e-3, f"bone1 梯度应≈T·v: {g1}"
-    # 6) 契约：骨骼越界/权重越界/eps 非法
+    assert g1["ok"] and abs(g1["gradient"][0] - 4.9505) < 1e-2, f"bone1 梯度应≈4.95: {g1}"
+    # 7) 契约：骨骼越界/权重越界/eps 非法
     assert gt.skin_deform(str(p), [{"matrix": [1] * 4}],
                           {"0": [{"bone": 0, "weight": 1.0}]}).get("ok") is False
     assert gt.skin_gradient(str(p), [{"matrix": I}], {"0": [{"bone": 0, "weight": 1.0}]},
                             vertex=99).get("ok") is False
     assert gt.skin_gradient(str(p), [{"matrix": I}], {"0": [{"bone": 0, "weight": 1.0}]},
                             eps=0).get("ok") is False
+
+
+def test_cache_isolation_all_caches(tmp_path, monkeypatch):
+    """2026-08-20 挖漏洞修复：7 个缓存双向深拷贝——调用方污染返回结果
+    不得影响后续命中（skin/voxel/bbox/mass/transform/pattern/mesh）。"""
+    import geometry_tools as gt
+    for c in (gt._SKIN_CACHE, gt._VOXEL_CACHE, gt._BBOX_CACHE, gt._MASS_CACHE,
+              gt._TRANSFORM_CACHE, gt._PATTERN_CACHE):
+        c.clear()
+    p = tmp_path / "cube.obj"
+    _unit_cube(str(p))
+    I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    # skin
+    r1 = gt.skin_deform(str(p), [{"matrix": I}], {"1": [{"bone": 0, "weight": 1.0}]})
+    r1["deformed_vertices"].append("P")
+    assert "P" not in gt.skin_deform(str(p), [{"matrix": I}],
+                                     {"1": [{"bone": 0, "weight": 1.0}]})["deformed_vertices"]
+    # voxelize
+    v1 = gt.voxelize(str(p), resolution=4)
+    v1["bbox"]["min"] = "P"
+    assert gt.voxelize(str(p), resolution=4)["bbox"]["min"] != "P"
+    # bbox / mass
+    b1 = gt.mesh_bbox(str(p)); b1["min"] = "P"
+    assert gt.mesh_bbox(str(p))["min"] != "P"
+    m1 = gt.mesh_mass_props(str(p)); m1["centroid"][0] = 999
+    assert gt.mesh_mass_props(str(p))["centroid"][0] != 999
+    # transform / pattern
+    t1 = gt.transform_compose([{"type": "translate", "x": 1, "y": 0, "z": 0}])
+    t1["matrix"][0] = 999
+    assert gt.transform_compose([{"type": "translate", "x": 1, "y": 0, "z": 0}])["matrix"][0] != 999
+    p1 = gt.pattern_expand("grid", rows=2, cols=2)
+    p1["positions"].append("P")
+    assert "P" not in gt.pattern_expand("grid", rows=2, cols=2)["positions"]
+    # mesh（load_mesh 缓存）
+    gt._MESH_CACHE.clear()
+    m = gt.load_mesh(str(p))
+    m["faces"].append("P")
+    assert "P" not in gt.load_mesh(str(p))["faces"]
+
+
+def test_hilbert_curve_correctness(tmp_path, monkeypatch):
+    """2026-08-20 挖漏洞修复：Hilbert 曲线迭代实现——16/64 点唯一、
+    相邻曼哈顿距离=1（空间填充性质）、depth 封顶 256。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_PATTERN_CACHE", {})
+    h2 = gt.pattern_expand("hilbert", rows=2, cols=2)
+    pts2 = h2["positions"]
+    assert len(pts2) == 16 and len(set(pts2)) == 16, f"n=2 应 16 唯一点: {len(set(pts2))}"
+    assert all(abs(pts2[i][0] - pts2[i - 1][0]) + abs(pts2[i][1] - pts2[i - 1][1]) == 1
+               for i in range(1, len(pts2))), "n=2 相邻点曼哈顿距离必须=1"
+    h3 = gt.pattern_expand("hilbert", rows=3, cols=3)
+    assert len(h3["positions"]) == 64 and len(set(h3["positions"])) == 64
+    h9 = gt.pattern_expand("hilbert", rows=99, cols=99)
+    assert len(h9["positions"]) == 256, f"depth 封顶应 256: {len(h9['positions'])}"

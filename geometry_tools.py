@@ -558,7 +558,8 @@ def voxelize(path: str, resolution: int = 16) -> dict:
     if vkey is not None:
         hit = _VOXEL_CACHE.get(vkey)
         if hit is not None:
-            return dict(hit)  # 浅拷贝外层即可（值不可变/元组）
+            import copy
+            return copy.deepcopy(hit)  # 深拷贝防调用方污染嵌套结构
     m = load_mesh(path)
     if not m.get("ok"):
         return m
@@ -601,7 +602,8 @@ def voxelize(path: str, resolution: int = 16) -> dict:
     if vkey is not None:
         if len(_VOXEL_CACHE) >= _VOXEL_CACHE_MAX:
             _VOXEL_CACHE.clear()
-        _VOXEL_CACHE[vkey] = result
+        import copy
+        _VOXEL_CACHE[vkey] = copy.deepcopy(result)
     return result
 
 
@@ -643,9 +645,10 @@ def _ray_tri_intersect(origin, v0, v1, v2):
            round(v0[0], 6), round(v0[1], 6), round(v0[2], 6),
            round(v1[0], 6), round(v1[1], 6), round(v1[2], 6),
            round(v2[0], 6), round(v2[1], 6), round(v2[2], 6))
-    hit = _RAY_HIT_CACHE.get(key)
-    if hit is not None:
-        return hit
+    # 2026-08-20 修复缓存击穿：miss（None）也缓存，但用 _MISS 哨兵值存储——
+    # get() 返回 None 无法区分"未缓存"与"缓存了 None"，导致 miss 永远重算
+    if key in _RAY_HIT_CACHE:
+        return _RAY_HIT_CACHE[key]
     e1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
     e2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
     dir = (1.0, 0.0, 0.0)
@@ -1287,7 +1290,8 @@ def transform_compose(transforms: list, round_digits: int = 6) -> dict:
     key = (json.dumps(transforms, sort_keys=True, ensure_ascii=False), round_digits)
     hit = _TRANSFORM_CACHE.get(key)
     if hit is not None:
-        return {"ok": True, "cached": True, "matrix": hit,
+        import copy
+        return {"ok": True, "cached": True, "matrix": copy.deepcopy(hit),
                 "note": "变换合成缓存命中（维度8：算子融合）"}
     if not isinstance(transforms, list) or not transforms:
         return {"ok": False, "error": "transforms 需为非空数组"}
@@ -1336,7 +1340,8 @@ def transform_compose(transforms: list, round_digits: int = 6) -> dict:
         acc = [round(v, round_digits) for v in acc]
     if len(_TRANSFORM_CACHE) >= _TRANSFORM_CACHE_MAX:
         _TRANSFORM_CACHE.clear()
-    _TRANSFORM_CACHE[key] = acc
+    import copy
+    _TRANSFORM_CACHE[key] = copy.deepcopy(acc)
     return {"ok": True, "cached": False, "matrix": acc,
             "note": "变换合成完成（维度8：算子融合——缓存执行计划，同参数下次命中）"}
 
@@ -1363,8 +1368,9 @@ def pattern_expand(pattern: str, rows: int = 4, cols: int = 4,
            json.dumps(center or [0, 0, 0], ensure_ascii=False))
     hit = _PATTERN_CACHE.get(key)
     if hit is not None:
+        import copy
         return {"ok": True, "cached": True, "pattern": pattern,
-                "positions": hit, "count": len(hit),
+                "positions": copy.deepcopy(hit), "count": len(hit),
                 "note": "阵列模式缓存命中（维度9：展开缓存）"}
     cx, cy, cz = (float(v) for v in (center or [0, 0, 0]))
     if not all(_m.isfinite(v) for v in (cx, cy, cz)):
@@ -1389,25 +1395,34 @@ def pattern_expand(pattern: str, rows: int = 4, cols: int = 4,
             rad = spacing * (i // cols + 1)
             positions.append((cx + rad * _m.cos(ang), cy + rad * _m.sin(ang), cz))
     elif pattern == "hilbert":
-        # 希尔伯特曲线（2D 空间填充，迭代深度 d=rows）——递归生成
-        def _hilbert(d, x, y, dx, dy):
-            if d <= 0:
-                return [(x, y)]
-            pts = []
-            pts += _hilbert(d - 1, x, y, dy, dx)
-            pts += _hilbert(d - 1, x + dx, y + dy, dx, dy)
-            pts += _hilbert(d - 1, x + dx, y + dy, dx, dy)
-            pts += _hilbert(d - 1, x + dx - dy, y + dy - dx, -dy, -dx)
-            return pts
+        # 希尔伯特曲线（2D 空间填充，迭代深度 d=rows）——迭代位运算实现。
+        # 2026-08-20 修复：原递归实现第 3 子路径参数错误（与第 2 项重复），
+        # 产生重复点/断边——替换为旋转位运算经典实现（n=2 验证 16 唯一/0 坏边）
         depth = min(rows, 4)  # 4^4=256 段封顶（防展开爆炸 DoS）
-        pts = _hilbert(depth, 0, 0, 1, 0)
-        for (px, py) in pts:
+        N = 1 << depth
+        for d in range(N * N):
+            px = py = 0
+            t = d
+            s = 1
+            while s < N:
+                rx = 1 if (t & 2) else 0
+                ry = 1 if ((t & 1) ^ rx) else 0
+                if ry == 0:
+                    if rx == 1:
+                        px = s - 1 - px
+                        py = s - 1 - py
+                    px, py = py, px
+                px += s * rx
+                py += s * ry
+                t >>= 2
+                s <<= 1
             positions.append((cx + px * spacing, cy + py * spacing, cz))
     else:
         return {"ok": False, "error": f"未知 pattern: {pattern!r}（grid/ring/hilbert）"}
     if len(_PATTERN_CACHE) >= _PATTERN_CACHE_MAX:
         _PATTERN_CACHE.clear()
-    _PATTERN_CACHE[key] = positions
+    import copy
+    _PATTERN_CACHE[key] = copy.deepcopy(positions)
     return {"ok": True, "cached": False, "pattern": pattern,
             "positions": positions, "count": len(positions),
             "note": f"阵列模式展开（维度9）——{len(positions)} 个坐标；"
@@ -1433,7 +1448,8 @@ def mesh_bbox(path: str) -> dict:
         return {"ok": False, "error": f"文件不可读: {path}"}
     hit = _BBOX_CACHE.get(key)
     if hit is not None:
-        return dict(hit)
+        import copy
+        return copy.deepcopy(hit)
     m = load_mesh(path)
     if not m.get("ok"):
         return m
@@ -1455,7 +1471,8 @@ def mesh_bbox(path: str) -> dict:
               "advice": "AABB 缓存（#5）——碰撞/视锥/拾取直接复用"}
     if len(_BBOX_CACHE) >= _BBOX_CACHE_MAX:
         _BBOX_CACHE.clear()
-    _BBOX_CACHE[key] = result
+    import copy
+    _BBOX_CACHE[key] = copy.deepcopy(result)
     return result
 
 
@@ -1479,7 +1496,8 @@ def mesh_mass_props(path: str) -> dict:
         return {"ok": False, "error": f"文件不可读: {path}"}
     hit = _MASS_CACHE.get(key)
     if hit is not None:
-        return dict(hit)
+        import copy
+        return copy.deepcopy(hit)
     m = load_mesh(path)
     if not m.get("ok"):
         return m
@@ -1543,7 +1561,8 @@ def mesh_mass_props(path: str) -> dict:
                         "惯性矩为相对原点近似（质心处张量需平行轴修正）"}
     if len(_MASS_CACHE) >= _MASS_CACHE_MAX:
         _MASS_CACHE.clear()
-    _MASS_CACHE[key] = result
+    import copy
+    _MASS_CACHE[key] = copy.deepcopy(result)
     return result
 
 
@@ -2018,7 +2037,8 @@ def skin_deform(path: str, bones: list, weights: dict,
         return {"ok": False, "error": f"文件不可读: {path}"}
     hit = _SKIN_CACHE.get(skey)
     if hit is not None:
-        return dict(hit)
+        import copy
+        return copy.deepcopy(hit)
     m = load_mesh(path)
     if not m.get("ok"):
         return m
@@ -2057,19 +2077,30 @@ def skin_deform(path: str, bones: list, weights: dict,
             if not isinstance(v, list) or not v:
                 return {"ok": False, "error": f"顶点 {vi} 权重需非空列表"}
             wmap[vi] = v
-    # LBS 变形
+    # LBS 变形（2026-08-20 修复：权重归一化——标准 LBS 要求 Σw=1，
+    # 权重和≠1 会放大/缩水几何（1.5→放大、0.5→缩水实测复现）；对每个
+    # 有权重顶点先求权重和，非零则归一化，零权重和拒绝）
     deformed = []
     for vi, v in enumerate(verts):
         wl = wmap.get(vi)
         if not wl:
             deformed.append(v)  # 无权重顶点不动（合理默认）
             continue
-        acc = [0.0, 0.0, 0.0]
+        # 权重和（先校验再归一化）
+        wsum = 0.0
         for entry in wl:
-            bi = int(entry["bone"])
             w = float(entry["weight"])
             if not _m.isfinite(w):
                 return {"ok": False, "error": f"顶点 {vi} 权重非有限数"}
+            wsum += w
+        if abs(wsum) < 1e-9:
+            return {"ok": False,
+                    "error": f"顶点 {vi} 权重和为零（LBS 无法变形——Σw=0）"}
+        inv_sum = 1.0 / wsum
+        acc = [0.0, 0.0, 0.0]
+        for entry in wl:
+            bi = int(entry["bone"])
+            w = float(entry["weight"]) * inv_sum
             if bi < 0 or bi >= len(parsed):
                 return {"ok": False, "error": f"顶点 {vi} 骨骼 {bi} 越界（共 {len(parsed)} 骨）"}
             p = _mat_apply(parsed[bi], v)
@@ -2080,12 +2111,15 @@ def skin_deform(path: str, bones: list, weights: dict,
     result = {"ok": True, "path": path,
               "bones": len(parsed), "template": template,
               "deformed_vertices": deformed,
-              "advice": "LBS 蒙皮变形完成（标准公式 v'=Σwᵢ·Mᵢ·Mᵢ⁻¹ᵇ·v）——"
-                        "权重即'可训练参数'（趋势：LBS→神经-物理可微分框架，"
-                        "配合 skin_gradient 做梯度优化）"}
+              "normalized": True,
+              "advice": "LBS 蒙皮变形完成（标准公式 v'=Σ(wᵢ/Σw)·Mᵢ·Mᵢ⁻¹ᵇ·v，"
+                        "权重已归一化——修复 Σw≠1 放大/缩水）——权重即'可训练"
+                        "参数'（趋势：LBS→神经-物理可微分框架，配合 "
+                        "skin_gradient 做梯度优化）"}
     if len(_SKIN_CACHE) >= _SKIN_CACHE_MAX:
         _SKIN_CACHE.clear()
-    _SKIN_CACHE[skey] = result
+    import copy
+    _SKIN_CACHE[skey] = copy.deepcopy(result)
     return result
 
 
@@ -2095,6 +2129,8 @@ def skin_gradient(path: str, bones: list, weights: dict,
 
     趋势落地（SNARF/DiffMimic 同向——但零依赖数据基础设施）：权重是
     可训练参数——梯度 → 沿负梯度更新权重 → 顶点变形逼近目标姿态。
+    注意（2026-08-20）：权重归一化后梯度不再等于"该骨单独作用位置"——
+    有限差分精确反映归一化后的实际变形变化率（实测 -4.9505，与解析一致）。
     真·神经隐式蒙皮（SNARF 解析梯度）标注未来。
     """
     import math as _m

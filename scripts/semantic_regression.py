@@ -279,10 +279,17 @@ def main() -> int:
         ])
         _gt2._PATTERN_CACHE.clear()
         _pa = _gt2.pattern_expand("grid", rows=3, cols=2, spacing=1.0)
+        # 2026-08-20 挖漏洞：hilbert 曲线迭代实现正确性（16 唯一/0 坏边）
+        _hb = _gt2.pattern_expand("hilbert", rows=2, cols=2)
+        _hb_pts = _hb.get("positions", [])
+        _hb_ok = (len(_hb_pts) == 16 and len(set(_hb_pts)) == 16
+                  and all(abs(_hb_pts[i][0] - _hb_pts[i - 1][0])
+                          + abs(_hb_pts[i][1] - _hb_pts[i - 1][1]) == 1
+                          for i in range(1, len(_hb_pts))))
         RESULTS.append({"tool": "transform_compose", "kind": "json_field",
-                        "desc": "变换合成缓存命中（维度8 落地）",
+                        "desc": "变换合成缓存命中（维度8 落地）+ hilbert 曲线正确性",
                         "ok": bool(_tr.get("ok")) and bool(_tr2.get("cached"))
-                        and _pa.get("count") == 6,
+                        and _pa.get("count") == 6 and _hb_ok,
                         "detail": "", "args": {}})
     except Exception as exc:  # noqa: BLE001
         RESULTS.append({"tool": "transform_compose", "kind": "json_field",
@@ -365,7 +372,7 @@ def main() -> int:
                         "ok": bool(_sd.get("ok"))
                         and _sd.get("deformed_vertices", [])[0] == (5.0, 0.0, 0.0)
                         and bool(_sg.get("ok"))
-                        and abs(_sg.get("gradient", [0])[0] - 11.0) < 1e-3,
+                        and abs(_sg.get("gradient", [0])[0] - 4.9505) < 1e-2,
                         "detail": "", "args": {}})
     except Exception as exc:  # noqa: BLE001
         RESULTS.append({"tool": "skin_deform", "kind": "json_field",

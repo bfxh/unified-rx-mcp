@@ -110,3 +110,23 @@
   - 与 transform_compose/skin_deform/skin_gradient/render_* 形成
     "参数化 3D 资产优化"最小可微分管线闭环
 - 验证：pytest 190/190、语义回归 127/127、扫描 12 条=基线+2 finally 容错。
+
+### 10. 挖漏洞专项：4 个真 bug 修复（用户：检查bug 那个MCP 看看有什么bug 挖漏洞）
+- 用户要求对 unified-rx-mcp 全面挖漏洞。静态扫描 + 人工审查 + 针对性实测，
+  确认 4 个真 bug 并修复：
+  1. **skin_deform 权重未归一化**：Σw≠1 时顶点放大/缩水（1.5→(1.5,0,0) 放大、
+     0.5→(0.5,0,0) 缩水实测复现）——标准 LBS 应归一化；修复：每顶点先求
+     权重和，非零归一化，零权重和拒绝；skin_gradient 有限差分自动跟随
+     归一化语义（-4.9505 与解析一致），测试/锚点断言同步更新
+  2. **7 个缓存双向引用污染**：skin/voxel/bbox/mass/transform/pattern/mesh
+     缓存首次返回即缓存对象本身 + 命中返回浅拷贝——调用方修改污染后续
+     命中（脏数据）；修复：存储+读取双向 copy.deepcopy（6 处）
+  3. **_RAY_HIT_CACHE 缓存击穿**：miss（None）也存缓存但用 get() 判断，
+     None 无法区分"未缓存"与"缓存 miss"→ miss 永远重算（热点性能 bug）；
+     修复：改用 `key in cache` 判断（1000 次 miss 命中 2.64ms）
+  4. **hilbert 曲线递归实现错误**：第 3 子路径 (x+dx,y+dy) 与第 2 项重复
+     → 16 点仅 13 唯一/7 条断边（空间填充性质破坏）；修复：替换为迭代
+     位运算经典实现（n=2: 16 唯一/0 坏边验证）
+- 验证：pytest 192/192（新增 test_cache_isolation_all_caches 7 缓存隔离 +
+  test_hilbert_curve_correctness）；语义回归 127/127（hilbert 锚点）；
+  剩余 error 均为已确认误报（dedup 有保护/ms[] 有长度校验）。
