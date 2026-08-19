@@ -156,3 +156,15 @@
   3. scripts/hooks/pre-commit 入库 + README 写完即验说明（装钩子命令）
 - 机制层级（从软到硬）：AGENTS.md 规则 → REASONIX.md 全局条款 → dev_check.py
   工具 → pre-commit 物理强制 → pre-push 七连 → CI。规则不再靠自觉。
+
+### 13. 第二轮挖缺点：4 项修复（负间距/负权重/模板注释/pre-commit 缺口）
+- 用户："继续找看看还有没有问题 还有什么缺点"——边界实测（静态扫描无新
+  error 后转逻辑边界）确认 4 项：
+  1. pattern_expand 负 spacing 未拒绝（-1.0 产生负坐标——无几何语义）
+  2. skin_deform 负权重未拒绝（LBS 负权重翻转几何；0.6/-0.4 混合实测
+     归一化后扭曲）
+  3. _SKIN_TEMPLATES 注释与实际条目不符（说 5 骨/3 骨实为 2 条——误导）
+  4. pre-commit 用 --quick 跳过语义回归（写完即验缺最快一环）
+- 修复：spacing ≤0 拒绝/权重 <0 拒绝/注释修正/pre-commit 完整四连；
+  新增 test_negative_inputs_rejected；dev_check 全过。
+- 验证：pytest 193/193、语义回归 127/127。

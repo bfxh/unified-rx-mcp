@@ -647,3 +647,22 @@ def test_hilbert_curve_correctness(tmp_path, monkeypatch):
     assert len(h3["positions"]) == 64 and len(set(h3["positions"])) == 64
     h9 = gt.pattern_expand("hilbert", rows=99, cols=99)
     assert len(h9["positions"]) == 256, f"depth 封顶应 256: {len(h9['positions'])}"
+
+
+def test_negative_inputs_rejected(tmp_path, monkeypatch):
+    """2026-08-20 第二轮挖缺点：负 spacing/负权重拒绝（无负值几何语义）。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_PATTERN_CACHE", {})
+    monkeypatch.setattr(gt, "_SKIN_CACHE", {})
+    assert gt.pattern_expand("grid", rows=2, cols=2, spacing=-1.0).get("ok") is False
+    assert gt.pattern_expand("ring", rows=2, cols=2, spacing=-0.5).get("ok") is False
+    p = tmp_path / "cube.obj"
+    _unit_cube(str(p))
+    I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    r = gt.skin_deform(str(p), [{"matrix": I}],
+                       {"1": [{"bone": 0, "weight": -1.0}]})
+    assert r.get("ok") is False and "负值" in r.get("error", ""), r
+    r2 = gt.skin_deform(str(p), [{"matrix": I}, {"matrix": I}],
+                        {"1": [{"bone": 0, "weight": 0.6},
+                               {"bone": 1, "weight": -0.4}]})
+    assert r2.get("ok") is False, r2

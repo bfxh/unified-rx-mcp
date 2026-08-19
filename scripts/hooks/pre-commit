@@ -27,8 +27,8 @@ if [ "$CODE" = "0" ]; then
 fi
 
 echo "=== pre-commit: 写完即验（dev_check 四连）==="
-# 用已暂存文件列表跑 dev_check（--quick 跳过全量语义回归——pre-push 会补全量）
-python scripts/dev_check.py --quick $FILES
+# 完整四连（语义回归几秒，写完即验必须含——2026-08-20 修复：--quick 会跳过它）
+python scripts/dev_check.py $FILES
 RC=$?
 if [ $RC -ne 0 ]; then
   echo ""

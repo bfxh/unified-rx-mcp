@@ -1381,8 +1381,8 @@ def pattern_expand(pattern: str, rows: int = 4, cols: int = 4,
         spacing = float(spacing)
     except (TypeError, ValueError):
         return {"ok": False, "error": "spacing 需为数字"}
-    if not _m.isfinite(spacing) or spacing == 0:
-        return {"ok": False, "error": "spacing 需非零有限数"}
+    if not _m.isfinite(spacing) or spacing <= 0:
+        return {"ok": False, "error": "spacing 需正有限数（间距无负值语义——2026-08-20 修复）"}
     positions: list = []
     if pattern == "grid":
         for r in range(rows):
@@ -1998,9 +1998,9 @@ _SKIN_CACHE: dict[tuple, dict] = {}
 _SKIN_CACHE_MAX = 64
 # 权重模板（#83：标准骨骼权重模板——命中直接引用，省重复定义）
 _SKIN_TEMPLATES = {
-    "default_human": [  # 5 骨：root/spine/arm_l/arm_r/head（线性递减权重）
+    "default_human": [  # 2 骨简化（root→末端）：根 0.6 + 末端 0.4
         {"bone": 0, "weight": 0.6}, {"bone": 1, "weight": 0.4}],
-    "tentacle": [      # 3 骨：从根到尖（每段主要影响最近 2 骨）
+    "tentacle": [      # 2 骨简化（根→尖）：根 0.8 + 尖 0.2
         {"bone": 0, "weight": 0.8}, {"bone": 1, "weight": 0.2}],
     "rigid": [         # 单骨刚性（无混合——刚性绑定）
         {"bone": 0, "weight": 1.0}],
@@ -2086,12 +2086,16 @@ def skin_deform(path: str, bones: list, weights: dict,
         if not wl:
             deformed.append(v)  # 无权重顶点不动（合理默认）
             continue
-        # 权重和（先校验再归一化）
+        # 权重和（先校验再归一化；2026-08-20 修复：负权重拒绝——LBS 负权重
+        # 导致几何翻转/扭曲，归一化掩盖不了（0.6/-0.4 混合实测翻转））
         wsum = 0.0
         for entry in wl:
             w = float(entry["weight"])
             if not _m.isfinite(w):
                 return {"ok": False, "error": f"顶点 {vi} 权重非有限数"}
+            if w < 0:
+                return {"ok": False,
+                        "error": f"顶点 {vi} 权重含负值 {w}（LBS 权重须 ≥0——负权重翻转几何）"}
             wsum += w
         if abs(wsum) < 1e-9:
             return {"ok": False,
