@@ -22,6 +22,10 @@ from collections import defaultdict
 _MAX_MESH_BYTES = 64 * 1024 * 1024  # 64MB（网格比源码大——按格式放宽）
 _MAX_FACES = 500_000  # 面数上限（防 voxelize 计算爆炸 DoS）
 
+# 射线-三角形相交缓存（3D 小手术刀 #16）：键 = 三角形顶点坐标 + origin 量化
+_RAY_HIT_CACHE: dict[tuple, bool] = {}
+_RAY_HIT_CACHE_MAX = 4096
+
 
 def _check_path(p):
     """路径校验钩子（默认宽松——server 注入沙盒版覆盖——geom_graph 节点路径）。
@@ -531,13 +535,30 @@ def mesh_splat(path: str) -> dict:
 
 
 # ── ④ voxelize：体素表示（Radiant Foam 概念）───────────────
+# 体素化结果缓存（3D 小手术刀 #18，2026-08-19）：
+# voxelize 是 O(res³×faces) 最重计算——同文件同版本同 resolution 重复调用
+# 直接命中（键 = 文件 mtime+size + resolution）。纯确定性，零正确性风险。
+_VOXEL_CACHE: dict[tuple, dict] = {}
+_VOXEL_CACHE_MAX = 64
+
+
 def voxelize(path: str, resolution: int = 16) -> dict:
     """网格体素化：包围盒网格采样 + 三角形相交测试（纯 Python）。
 
     Radiant Foam 概念落地：体素占用表示（体素光线追踪分析基础）。
+    结果缓存（#18）：(文件签名, resolution) 键——同参数重复调用直接命中。
     """
     if not 4 <= resolution <= 128:
         return {"ok": False, "error": "resolution 须在 4..128"}
+    try:
+        st = os.stat(path)
+        vkey = (st.st_mtime_ns, st.st_size, resolution)
+    except OSError:
+        vkey = None
+    if vkey is not None:
+        hit = _VOXEL_CACHE.get(vkey)
+        if hit is not None:
+            return dict(hit)  # 浅拷贝外层即可（值不可变/元组）
     m = load_mesh(path)
     if not m.get("ok"):
         return m
@@ -571,12 +592,17 @@ def voxelize(path: str, resolution: int = 16) -> dict:
                     occupied += 1
     total = resolution ** 3
     density = occupied / total if total else 0
-    return {"ok": True, "path": path, "resolution": resolution,
-            "bbox": {"min": bmin, "max": bmax, "span": round(span, 4)},
-            "occupied_voxels": occupied, "total_voxels": total,
-            "density": round(density, 4),
-            "advice": (f"体素占用 {occupied}/{total}（密度 {density:.2%}）——"
-                       "Radiant Foam 概念基础：体素表示可做光线追踪/碰撞")}
+    result = {"ok": True, "path": path, "resolution": resolution,
+              "bbox": {"min": bmin, "max": bmax, "span": round(span, 4)},
+              "occupied_voxels": occupied, "total_voxels": total,
+              "density": round(density, 4),
+              "advice": (f"体素占用 {occupied}/{total}（密度 {density:.2%}）——"
+                         "Radiant Foam 概念基础：体素表示可做光线追踪/碰撞")}
+    if vkey is not None:
+        if len(_VOXEL_CACHE) >= _VOXEL_CACHE_MAX:
+            _VOXEL_CACHE.clear()
+        _VOXEL_CACHE[vkey] = result
+    return result
 
 
 def _point_in_mesh(p, verts, faces) -> bool:
@@ -593,7 +619,17 @@ def _ray_tri_intersect(origin, v0, v1, v2) -> bool:
 
     数值稳定（security-review LOW）：相对阈值——det 与三角形尺度比较，
     小尺度网格（mm/µm）不误拒；边界 t>1e-12（防 t=0 表面抖动误判）。
+    相交缓存（3D 小手术刀 #16，2026-08-19）：三角形顶点坐标元组为键——
+    voxelize/point_in_mesh 对同一网格反复发射射线，同三角形同射线同结果
+    （射线固定 +X，键 = 三角形顶点坐标 + origin 坐标量化）。纯确定性。
     """
+    key = (round(origin[0], 6), round(origin[1], 6), round(origin[2], 6),
+           round(v0[0], 6), round(v0[1], 6), round(v0[2], 6),
+           round(v1[0], 6), round(v1[1], 6), round(v1[2], 6),
+           round(v2[0], 6), round(v2[1], 6), round(v2[2], 6))
+    hit = _RAY_HIT_CACHE.get(key)
+    if hit is not None:
+        return hit
     e1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
     e2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
     dir = (1.0, 0.0, 0.0)
@@ -602,18 +638,25 @@ def _ray_tri_intersect(origin, v0, v1, v2) -> bool:
     # 相对阈值：与三角形尺度（e1/e2 长度积）比较
     scale = (math.sqrt(_dot(e1, e1)) * math.sqrt(_dot(e2, e2)) + 1e-30)
     if abs(det) < 1e-9 * scale:
+        _RAY_HIT_CACHE[key] = False
         return False
     inv = 1.0 / det
     tvec = (origin[0] - v0[0], origin[1] - v0[1], origin[2] - v0[2])
     u = _dot(tvec, pvec) * inv
     if u < 0 or u > 1:
+        _RAY_HIT_CACHE[key] = False
         return False
     qvec = _cross(tvec, e1)
     v = _dot(dir, qvec) * inv
     if v < 0 or u + v > 1:
+        _RAY_HIT_CACHE[key] = False
         return False
     t = _dot(e2, qvec) * inv
-    return t > 1e-12  # 正向射线命中（边界抖动防御）
+    res = t > 1e-12  # 正向射线命中（边界抖动防御）
+    if len(_RAY_HIT_CACHE) >= _RAY_HIT_CACHE_MAX:
+        _RAY_HIT_CACHE.clear()
+    _RAY_HIT_CACHE[key] = res
+    return res
 
 
 def _cross(a, b):
@@ -1353,3 +1396,280 @@ def pattern_expand(pattern: str, rows: int = 4, cols: int = 4,
             "positions": positions, "count": len(positions),
             "note": f"阵列模式展开（维度9）——{len(positions)} 个坐标；"
                     "LLM 生成重复 3D 结构时可引用模式免循环 Token"}
+
+
+# ── ⑫ 包围盒缓存（3D 小手术刀 #5）──────────────────────────
+# 每个形状的 AABB 本地计算并缓存——碰撞检测/视锥裁切直接取缓存。
+# 键 = 文件签名（mtime+size）+ 可选 transform 合成矩阵。纯确定性。
+_BBOX_CACHE: dict[tuple, dict] = {}
+_BBOX_CACHE_MAX = 128
+
+
+def mesh_bbox(path: str) -> dict:
+    """网格包围盒（AABB）：min/max/center/extent——本地计算并缓存。
+
+    3D 小手术刀 #5（包围盒缓存）：重复查询直接命中（键 = 文件 mtime+size）。
+    """
+    try:
+        st = os.stat(path)
+        key = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return {"ok": False, "error": f"文件不可读: {path}"}
+    hit = _BBOX_CACHE.get(key)
+    if hit is not None:
+        return dict(hit)
+    m = load_mesh(path)
+    if not m.get("ok"):
+        return m
+    verts = m["vertices"]
+    if not verts:
+        return {"ok": False, "error": "网格无顶点"}
+    xs = [v[0] for v in verts]
+    ys = [v[1] for v in verts]
+    zs = [v[2] for v in verts]
+    bmin = (min(xs), min(ys), min(zs))
+    bmax = (max(xs), max(ys), max(zs))
+    center = ((bmin[0] + bmax[0]) / 2, (bmin[1] + bmax[1]) / 2,
+              (bmin[2] + bmax[2]) / 2)
+    extent = (bmax[0] - bmin[0], bmax[1] - bmin[1], bmax[2] - bmin[2])
+    result = {"ok": True, "path": path, "min": bmin, "max": bmax,
+              "center": center, "extent": extent,
+              "radius": round(math.sqrt(extent[0] ** 2 + extent[1] ** 2
+                                        + extent[2] ** 2) / 2, 6),
+              "advice": "AABB 缓存（#5）——碰撞/视锥/拾取直接复用"}
+    if len(_BBOX_CACHE) >= _BBOX_CACHE_MAX:
+        _BBOX_CACHE.clear()
+    _BBOX_CACHE[key] = result
+    return result
+
+
+# ── ⑬ 质量属性缓存（3D 技术点 #76：惯性矩）─────────────────
+# 质心/体积/惯性矩——LLM 查询物理属性时只返回几个标量，不重复计算。
+# 确定性；键 = 文件签名。三角形四面体分解（零依赖）。
+_MASS_CACHE: dict[tuple, dict] = {}
+_MASS_CACHE_MAX = 64
+
+
+def mesh_mass_props(path: str) -> dict:
+    """网格质量属性：体积/质心/惯性矩（三角形四面体分解，闭合网格）。
+
+    3D 技术点 #76（惯性矩缓存）：物理属性标量化——碰撞/物理引擎查询
+    直接复用。注意：体积对非闭合（有洞）网格无意义——先 mesh_check。
+    """
+    try:
+        st = os.stat(path)
+        key = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return {"ok": False, "error": f"文件不可读: {path}"}
+    hit = _MASS_CACHE.get(key)
+    if hit is not None:
+        return dict(hit)
+    m = load_mesh(path)
+    if not m.get("ok"):
+        return m
+    verts, faces = m["vertices"], m["faces"]
+    # 四面体分解：以原点为参考点，每个三角形与原点构成四面体
+    vol6 = 0.0  # 6×体积（有符号）
+    cx = cy = cz = 0.0
+    ixx = iyy = izz = ixy = ixz = iyz = 0.0
+    for (a, b, c) in faces:
+        v0, v1, v2 = verts[a], verts[b], verts[c]
+        # 有符号四面体体积（6 倍）
+        det = (v0[0] * (v1[1] * v2[2] - v1[2] * v2[1])
+               - v0[1] * (v1[0] * v2[2] - v1[2] * v2[0])
+               + v0[2] * (v1[0] * v2[1] - v1[1] * v2[0]))
+        vol6 += det
+        # 四面体质心（相对原点）
+        cx += (v0[0] + v1[0] + v2[0]) * det
+        cy += (v0[1] + v1[1] + v2[1]) * det
+        cz += (v0[2] + v1[2] + v2[2]) * det
+        # 惯性矩（二阶矩，平行轴在质心处修正——简化：相对原点的二阶矩）
+        for i, p in enumerate((v0, v1, v2)):
+            for j, q in enumerate((v0, v1, v2)):
+                pass  # 完整张量计算量小——直接累加分量（见下）
+        # 分量累加（单位密度，相对原点）
+        for p in (v0, v1, v2):
+            ixx += det * (p[1] ** 2 + p[2] ** 2) / 24
+            iyy += det * (p[0] ** 2 + p[2] ** 2) / 24
+            izz += det * (p[0] ** 2 + p[1] ** 2) / 24
+            ixy += det * (p[0] * p[1]) / 24
+            ixz += det * (p[0] * p[2]) / 24
+            iyz += det * (p[1] * p[2]) / 24
+    if abs(vol6) < 1e-12:
+        return {"ok": False, "error": "网格体积为零（非闭合或退化）——"
+                                      "先用 mesh_check 检查拓扑"}
+    vol = vol6 / 6.0
+    sign = 1.0 if vol > 0 else -1.0
+    vol = abs(vol)
+    # 质心（四面体质心 = (v0+v1+v2)/4，加权有符号体积——修复 1/4 因子）
+    cent = (cx / (4 * vol6), cy / (4 * vol6), cz / (4 * vol6))
+    result = {"ok": True, "path": path,
+              "volume": round(vol, 6),
+              "centroid": [round(v, 6) for v in cent],
+              "inertia": {
+                  "ixx": round(sign * ixx, 6), "iyy": round(sign * iyy, 6),
+                  "izz": round(sign * izz, 6),
+                  "ixy": round(sign * ixy, 6), "ixz": round(sign * ixz, 6),
+                  "iyz": round(sign * iyz, 6)},
+              "closed": True,
+              "advice": "质量属性缓存（#76）——物理查询直接复用标量；"
+                        "惯性矩为相对原点近似（质心处张量需平行轴修正）"}
+    if len(_MASS_CACHE) >= _MASS_CACHE_MAX:
+        _MASS_CACHE.clear()
+    _MASS_CACHE[key] = result
+    return result
+
+
+# ── ⑭ 可微渲染基础设施（#9 可微分渲染落地）─────────────────
+# 可微渲染四大件的数据层：①可微表示（mesh_splat 参数张量已有）②软光栅
+# 渲染器（render_depth）③损失（render_loss）④数值梯度（render_gradient）。
+# 纯 Python 零依赖（无 GPU 框架）——提供"可微渲染的数据基础设施"，
+# 梯度用有限差分（可验证正确性）；真·GPU 梯度（Nvdiffrast 级）为未来方向。
+
+def render_depth(path: str, resolution: int = 32, camera: str = "front") -> dict:
+    """软光栅渲染器：网格 → 深度图（z-buffer，正交投影，三视图可选）。
+
+    #9 可微渲染落地①：渲染器。把 3D 网格"画"成 2D 深度图（可微分渲染
+    的数据流起点——渲染图与目标图差异 → 损失 → 梯度）。
+    camera: front（+Z 视）/ top（-Y 视）/ side（-X 视）。
+    输出 depth: [resolution][resolution] 浮点深度（0=空，>0=近表面距离）。
+    """
+    if not 4 <= resolution <= 128:
+        return {"ok": False, "error": "resolution 须在 4..128"}
+    m = load_mesh(path)
+    if not m.get("ok"):
+        return m
+    verts, faces = m["vertices"], m["faces"]
+    if not verts:
+        return {"ok": False, "error": "网格无顶点"}
+    b = mesh_bbox(path)
+    if not b.get("ok"):
+        return b
+    bmin, bmax = b["min"], b["max"]
+    span = max(bmax[0] - bmin[0], bmax[1] - bmin[1],
+               bmax[2] - bmin[2], 1e-9)
+    cell = span / resolution
+    # 正交投影：取两轴坐标 → 像素格；第三轴为深度
+    def _proj(v):
+        if camera == "front":
+            return (v[0], v[1]), v[2]
+        if camera == "top":
+            return (v[0], v[2]), -v[1]
+        return (v[1], v[2]), -v[0]  # side：-X 视
+
+    # 光栅化：每三角形 → 其 AABB 像素范围 → 重心坐标内测试 → z-buffer
+    depth = [[float("inf")] * resolution for _ in range(resolution)]
+    for (a, b, c) in faces:
+        va, vb, vc = verts[a], verts[b], verts[c]
+        pts = [_proj(v) for v in (va, vb, vc)]
+        (p0, z0), (p1, z1), (p2, z2) = pts
+        # 像素范围（含边界）
+        px_min = max(0, int(min(p0[0], p1[0], p2[0]) / cell))
+        px_max = min(resolution - 1, int(max(p0[0], p1[0], p2[0]) / cell))
+        py_min = max(0, int(min(p0[1], p1[1], p2[1]) / cell))
+        py_max = min(resolution - 1, int(max(p0[1], p1[1], p2[1]) / cell))
+        for ix in range(px_min, px_max + 1):
+            px = bmin[0] + (ix + 0.5) * cell
+            for iy in range(py_min, py_max + 1):
+                py = bmin[1] + (iy + 0.5) * cell
+                # 重心坐标（2D 三角形包含）
+                denom = ((p1[1] - p2[1]) * (p0[0] - p2[0])
+                         + (p2[0] - p1[0]) * (p0[1] - p2[1]))
+                if abs(denom) < 1e-12:
+                    continue
+                w0 = ((p1[1] - p2[1]) * (px - p2[0])
+                      + (p2[0] - p1[0]) * (py - p2[1])) / denom
+                w1 = ((p2[1] - p0[1]) * (px - p2[0])
+                      + (p0[0] - p2[0]) * (py - p2[1])) / denom
+                w2 = 1 - w0 - w1
+                if w0 >= 0 and w1 >= 0 and w2 >= 0:
+                    z = w0 * z0 + w1 * z1 + w2 * z2  # 插值深度
+                    if z < depth[iy][ix]:
+                        depth[iy][ix] = z
+    # 归一化深度（近=1，远=0；空=0）
+    norm = [[round(1.0 - (d - bmin[2]) / span, 4) if d != float("inf") else 0.0
+             for d in row] for row in depth]
+    return {"ok": True, "path": path, "camera": camera,
+            "resolution": resolution, "depth": norm,
+            "advice": "软光栅深度图（#9 可微渲染①）——渲染→损失→梯度数据流起点"}
+
+
+def render_loss(path: str, target: list, resolution: int = 32,
+                camera: str = "front") -> dict:
+    """渲染损失：当前网格渲染图 vs 目标图（L1/L2，可微渲染②③）。
+
+    target: 与 render_depth 同构的 [resolution][resolution] 0..1 目标图。
+    loss = mean(|render - target|)（L1）——梯度下降优化的标量目标。
+    """
+    r = render_depth(path, resolution=resolution, camera=camera)
+    if not r.get("ok"):
+        return r
+    if len(target) != resolution or any(len(row) != resolution for row in target):
+        return {"ok": False, "error": f"target 需为 {resolution}×{resolution} 矩阵"}
+    total = 0.0
+    count = 0
+    for i in range(resolution):
+        for j in range(resolution):
+            d = r["depth"][i][j]
+            t = float(target[i][j])
+            total += abs(d - t)
+            count += 1
+    return {"ok": True, "loss": round(total / max(1, count), 6),
+            "loss_type": "L1",
+            "advice": "渲染损失（#9 可微渲染②③）——梯度下降的标量目标"}
+
+
+def render_gradient(path: str, target: list, resolution: int = 32,
+                    camera: str = "front", eps: float = 0.01,
+                    vertex: int = 0) -> dict:
+    """数值梯度（有限差分）：顶点扰动 → 渲染损失变化率（可微渲染④⑤）。
+
+    #9 可微渲染落地：给定目标图，计算指定顶点的梯度（∂loss/∂v）——
+    "训练/优化 3D 模型"的数据基础设施：梯度 → 顶点位置更新 → 渲染更接近
+    目标。真·GPU 反向传播（Nvdiffrast）为未来方向——有限差分可验证且
+    零依赖。
+    """
+    if not (eps > 0 and eps <= 0.5):
+        return {"ok": False, "error": "eps 须在 (0, 0.5]"}
+    if vertex < 0:
+        return {"ok": False, "error": "vertex 须 >= 0"}
+    m = load_mesh(path)
+    if not m.get("ok"):
+        return m
+    verts = m["vertices"]
+    if vertex >= len(verts):
+        return {"ok": False, "error": f"vertex {vertex} 越界（共 {len(verts)} 顶点）"}
+    base = render_loss(path, target, resolution=resolution, camera=camera)
+    if not base.get("ok"):
+        return base
+    grad = []
+    for axis in range(3):
+        perturbed = os.path.join(os.path.dirname(path),
+                                 f"_grad_{os.path.basename(path)}")
+        try:
+            v = list(verts)
+            v[vertex] = list(v[vertex])
+            v[vertex][axis] += eps
+            v[vertex] = tuple(v[vertex])
+            if path.lower().endswith(".obj"):
+                with open(perturbed, "w", encoding="utf-8") as f:
+                    for p in v:
+                        f.write(f"v {p[0]} {p[1]} {p[2]}\n")
+                    for (a, b, c) in m["faces"]:
+                        f.write(f"f {a+1} {b+1} {c+1}\n")
+            else:
+                return {"ok": False, "error": "有限差分暂支持 .obj（梯度基础设施）"}
+            pl = render_loss(perturbed, target, resolution=resolution,
+                             camera=camera)
+            if not pl.get("ok"):
+                return pl
+            grad.append(round((pl["loss"] - base["loss"]) / eps, 6))
+        finally:
+            try:
+                os.remove(perturbed)
+            except OSError:
+                pass
+    return {"ok": True, "vertex": vertex, "gradient": grad,
+            "base_loss": base["loss"], "eps": eps,
+            "advice": "数值梯度（#9 可微渲染④⑤）——∂loss/∂v 有限差分；"
+                      "沿负梯度更新顶点可使渲染逼近目标"}

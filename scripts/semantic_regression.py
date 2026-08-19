@@ -288,6 +288,37 @@ def main() -> int:
         RESULTS.append({"tool": "transform_compose", "kind": "json_field",
                         "desc": "变换合成/阵列展开", "ok": False,
                         "detail": f"{type(exc).__name__}: {exc}", "args": {}})
+    # 第三轮（2026-08-19）：bbox/质量属性/体素缓存 + 可微渲染链路
+    try:
+        import geometry_tools as _gt3
+        _gt3._MESH_CACHE.clear()
+        _gt3._BBOX_CACHE.clear()
+        _gt3._MASS_CACHE.clear()
+        _gt3._VOXEL_CACHE.clear()
+        _cube_p = os.path.join(_TMP, "cube.obj")
+        with open(_cube_p, "w", encoding="utf-8") as _f:
+            _f.write("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"
+                     "v 0 0 1\nv 1 0 1\nv 1 1 1\nv 0 1 1\n"
+                     "f 1 2 3 4\nf 5 8 7 6\nf 1 5 6 2\n"
+                     "f 3 7 8 4\nf 2 6 7 3\nf 1 4 8 5\n")
+        _bb = _gt3.mesh_bbox(_cube_p)
+        _mp = _gt3.mesh_mass_props(_cube_p)
+        _vx = _gt3.voxelize(_cube_p, resolution=8)
+        _t0 = [[0.0] * 16 for _ in range(16)]
+        _rl = _gt3.render_loss(_cube_p, _t0, resolution=16)
+        _rg = _gt3.render_gradient(_cube_p, _t0, resolution=16, vertex=0, eps=0.05)
+        RESULTS.append({"tool": "geometry_caches", "kind": "json_field",
+                        "desc": "bbox/质量属性/体素缓存+可微渲染链路（#5/#76/#18/#9）",
+                        "ok": bool(_bb.get("ok")) and bool(_mp.get("ok"))
+                        and abs(_mp.get("volume", 0) - 1.0) < 1e-3
+                        and bool(_vx.get("ok")) and bool(_rl.get("ok"))
+                        and abs(_rl.get("loss", 0) - 1.0) < 1e-6
+                        and bool(_rg.get("ok")),
+                        "detail": "", "args": {}})
+    except Exception as exc:  # noqa: BLE001
+        RESULTS.append({"tool": "geometry_caches", "kind": "json_field",
+                        "desc": "几何缓存/可微渲染", "ok": False,
+                        "detail": f"{type(exc).__name__}: {exc}", "args": {}})
     check("cae_lsp_position_convert",
           {"text": "abc\ndef", "direction": "byte_to_position", "byte_offset": 4},
           "json_field", ("position.line", 1), "cae lsp byte→position 语义")

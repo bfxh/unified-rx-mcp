@@ -385,3 +385,77 @@ def test_pattern_expand_semantics(tmp_path, monkeypatch):
     assert gt.pattern_expand("grid", rows=999, cols=1).get("ok") is False
     assert gt.pattern_expand("grid", rows=2, cols=2, spacing=0).get("ok") is False
     assert gt.pattern_expand("nope", 2, 2).get("ok") is False
+
+
+def _unit_cube(path):
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"
+                "v 0 0 1\nv 1 0 1\nv 1 1 1\nv 0 1 1\n"
+                "f 1 2 3 4\nf 5 8 7 6\nf 1 5 6 2\n"
+                "f 3 7 8 4\nf 2 6 7 3\nf 1 4 8 5\n")
+
+
+def test_mesh_bbox_and_mass_props(tmp_path, monkeypatch):
+    """#5 包围盒缓存 + #76 质量属性缓存：单位立方体 → 体积 1.0、质心 0.5。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_BBOX_CACHE", {})
+    monkeypatch.setattr(gt, "_MASS_CACHE", {})
+    p = tmp_path / "cube.obj"
+    _unit_cube(str(p))
+    b = gt.mesh_bbox(str(p))
+    assert b["ok"] and b["min"] == (0.0, 0.0, 0.0) and b["max"] == (1.0, 1.0, 1.0)
+    b2 = gt.mesh_bbox(str(p))
+    assert b2["min"] == b["min"], "包围盒应缓存命中"
+    mp = gt.mesh_mass_props(str(p))
+    assert mp["ok"], mp
+    assert abs(mp["volume"] - 1.0) < 1e-4, f"单位立方体体积应≈1.0: {mp['volume']}"
+    assert all(abs(c - 0.5) < 1e-3 for c in mp["centroid"]), f"质心应≈0.5: {mp['centroid']}"
+    mp2 = gt.mesh_mass_props(str(p))
+    assert mp2["volume"] == mp["volume"], "质量属性应缓存命中"
+
+
+def test_render_depth_loss_gradient(tmp_path, monkeypatch):
+    """#9 可微渲染基础设施：软光栅→损失→数值梯度数据流 + 契约。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_MESH_CACHE", {})
+    p = tmp_path / "cube.obj"
+    _unit_cube(str(p))
+    r = gt.render_depth(str(p), resolution=16)
+    assert r["ok"] and len(r["depth"]) == 16, r
+    # 全 0 目标 → 损失 1.0（渲染全 1）
+    t0 = [[0.0] * 16 for _ in range(16)]
+    l = gt.render_loss(str(p), t0, resolution=16)
+    assert l["ok"] and abs(l["loss"] - 1.0) < 1e-6, f"loss 应≈1.0: {l}"
+    # 全 1 目标 → 损失 0（渲染即目标）
+    t1 = [[1.0] * 16 for _ in range(16)]
+    l1 = gt.render_loss(str(p), t1, resolution=16)
+    assert l1["ok"] and abs(l1["loss"]) < 1e-6, f"loss 应≈0: {l1}"
+    # 数值梯度：3 分量有限（链路通畅）；顶点越界/eps 非法拒绝
+    g = gt.render_gradient(str(p), t0, resolution=16, vertex=0, eps=0.05)
+    assert g["ok"] and len(g["gradient"]) == 3, g
+    assert all(isinstance(x, float) for x in g["gradient"])
+    assert gt.render_gradient(str(p), t0, vertex=999).get("ok") is False
+    assert gt.render_gradient(str(p), t0, eps=0).get("ok") is False
+    assert gt.render_gradient(str(p), t0, eps=1.0).get("ok") is False
+
+
+def test_voxelize_and_ray_cache(tmp_path, monkeypatch):
+    """#18 体素化缓存 + #16 射线相交缓存：同参数命中、文件变更失效。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_VOXEL_CACHE", {})
+    monkeypatch.setattr(gt, "_RAY_HIT_CACHE", {})
+    p = tmp_path / "cube.obj"
+    _unit_cube(str(p))
+    v1 = gt.voxelize(str(p), resolution=8)
+    assert v1["ok"] and v1["total_voxels"] == 512, v1
+    assert len(gt._RAY_HIT_CACHE) > 0, "射线相交应有缓存条目"
+    v2 = gt.voxelize(str(p), resolution=8)
+    assert v2["occupied_voxels"] == v1["occupied_voxels"], "体素化应缓存命中"
+    # 不同 resolution → 不同键
+    v3 = gt.voxelize(str(p), resolution=16)
+    assert v3["total_voxels"] == 4096
+    # 文件变更 → 失效
+    with open(str(p), "a", encoding="utf-8") as f:
+        f.write("v 2 0 0\nv 2 1 0\n")
+    v4 = gt.voxelize(str(p), resolution=8)
+    assert v4["ok"], "文件变更后应重新计算"
