@@ -1967,3 +1967,164 @@ def mesh_betti(path: str) -> dict:
                   "β0>1 网格碎裂，β1>0 有孔洞，β2>1 有多重空腔" if closed
                   else "网格非闭合（有边界边）——β1/β2 不可靠，先用 mesh_check 补洞")}
     return result
+
+
+# ── ⑰ LBS 蒙皮（线性混合蒙皮——趋势落地：LBS → 神经-物理可微分框架）──
+# #15/#16 趋势（PhysRig/SNARF/Puppeteer/DiffMimic）的**零依赖数据基础设施**：
+# ① skin_deform：标准 LBS 变形（骨骼矩阵+权重 → 变形顶点，纯确定性公式）
+# ② skin_gradient：顶点对权重的数值梯度（可微分蒙皮——权重即"可训练参数"，
+#    与 mesh_splat 参数张量方向一致；真·神经隐式蒙皮 SNARF 标注未来）
+# ③ 权重模板缓存（#83：标准骨骼权重模板复用）
+_SKIN_CACHE: dict[tuple, dict] = {}
+_SKIN_CACHE_MAX = 64
+# 权重模板（#83：标准骨骼权重模板——命中直接引用，省重复定义）
+_SKIN_TEMPLATES = {
+    "default_human": [  # 5 骨：root/spine/arm_l/arm_r/head（线性递减权重）
+        {"bone": 0, "weight": 0.6}, {"bone": 1, "weight": 0.4}],
+    "tentacle": [      # 3 骨：从根到尖（每段主要影响最近 2 骨）
+        {"bone": 0, "weight": 0.8}, {"bone": 1, "weight": 0.2}],
+    "rigid": [         # 单骨刚性（无混合——刚性绑定）
+        {"bone": 0, "weight": 1.0}],
+}
+
+
+def _mat_apply(m: list, v: tuple) -> tuple:
+    """4x4 行主序矩阵 × 列向量（v 齐次 w=1）。"""
+    return (m[0] * v[0] + m[1] * v[1] + m[2] * v[2] + m[3],
+            m[4] * v[0] + m[5] * v[1] + m[6] * v[2] + m[7],
+            m[8] * v[0] + m[9] * v[1] + m[10] * v[2] + m[11])
+
+
+def skin_deform(path: str, bones: list, weights: dict,
+                template: str | None = None) -> dict:
+    """LBS 蒙皮变形（标准公式 v' = Σᵢ wᵢ·(Mᵢ·Mᵢ⁻¹ᵇ·v)）。
+
+    趋势落地（LBS → 神经-物理可微分框架——零依赖数据基础设施）：
+    bones: [{matrix: 16 元素行主序（当前姿势）, inverse_bind: 16 元素行主序
+    （绑定姿势逆矩阵，可省略=单位阵）}, ...]——矩阵可用 transform_compose
+    生成。
+    weights: {顶点索引: [{bone, weight}, ...]} 或 "template" 名
+    （#83 权重模板：default_human/tentacle/rigid）。
+    确定性公式——同参数同结果，缓存命中（文件签名+参数序列键）。
+    """
+    import math as _m
+    try:
+        st = os.stat(path)
+        skey = (st.st_mtime_ns, st.st_size,
+                json.dumps(bones, sort_keys=True, ensure_ascii=False),
+                json.dumps(weights, sort_keys=True, ensure_ascii=False),
+                template)
+    except OSError:
+        return {"ok": False, "error": f"文件不可读: {path}"}
+    hit = _SKIN_CACHE.get(skey)
+    if hit is not None:
+        return dict(hit)
+    m = load_mesh(path)
+    if not m.get("ok"):
+        return m
+    verts, faces = m["vertices"], m["faces"]
+    if not isinstance(bones, list) or not bones:
+        return {"ok": False, "error": "bones 需为非空数组"}
+    # 解析骨骼矩阵（NaN/长度校验）
+    parsed = []
+    for bi, b in enumerate(bones):
+        if not isinstance(b, dict):
+            return {"ok": False, "error": f"bones[{bi}] 需为对象"}
+        mat = b.get("matrix")
+        ib = b.get("inverse_bind") or [1, 0, 0, 0, 0, 1, 0, 0,
+                                       0, 0, 1, 0, 0, 0, 0, 1]
+        if not isinstance(mat, list) or len(mat) != 16:
+            return {"ok": False, "error": f"bones[{bi}].matrix 需 16 元素"}
+        if not isinstance(ib, list) or len(ib) != 16:
+            return {"ok": False, "error": f"bones[{bi}].inverse_bind 需 16 元素"}
+        if not all(_m.isfinite(x) for x in mat + ib):
+            return {"ok": False, "error": f"bones[{bi}] 含非有限数"}
+        parsed.append(_mat_mul(mat, ib))  # 联合矩阵 M·M⁻¹ᵇ
+    # 解析权重（模板 or 逐顶点）
+    wmap: dict[int, list] = {}
+    if template is not None:
+        tmpl = _SKIN_TEMPLATES.get(template)
+        if tmpl is None:
+            return {"ok": False,
+                    "error": f"未知模板: {template}（{sorted(_SKIN_TEMPLATES)}）"}
+        for vi in range(len(verts)):
+            wmap[vi] = tmpl
+    else:
+        if not isinstance(weights, dict) or not weights:
+            return {"ok": False, "error": "weights 需为 {顶点: [{bone, weight}]} 或 template"}
+        for k, v in weights.items():
+            vi = int(k)
+            if not isinstance(v, list) or not v:
+                return {"ok": False, "error": f"顶点 {vi} 权重需非空列表"}
+            wmap[vi] = v
+    # LBS 变形
+    deformed = []
+    for vi, v in enumerate(verts):
+        wl = wmap.get(vi)
+        if not wl:
+            deformed.append(v)  # 无权重顶点不动（合理默认）
+            continue
+        acc = [0.0, 0.0, 0.0]
+        for entry in wl:
+            bi = int(entry["bone"])
+            w = float(entry["weight"])
+            if not _m.isfinite(w):
+                return {"ok": False, "error": f"顶点 {vi} 权重非有限数"}
+            if bi < 0 or bi >= len(parsed):
+                return {"ok": False, "error": f"顶点 {vi} 骨骼 {bi} 越界（共 {len(parsed)} 骨）"}
+            p = _mat_apply(parsed[bi], v)
+            acc[0] += w * p[0]
+            acc[1] += w * p[1]
+            acc[2] += w * p[2]
+        deformed.append((round(acc[0], 6), round(acc[1], 6), round(acc[2], 6)))
+    result = {"ok": True, "path": path,
+              "bones": len(parsed), "template": template,
+              "deformed_vertices": deformed,
+              "advice": "LBS 蒙皮变形完成（标准公式 v'=Σwᵢ·Mᵢ·Mᵢ⁻¹ᵇ·v）——"
+                        "权重即'可训练参数'（趋势：LBS→神经-物理可微分框架，"
+                        "配合 skin_gradient 做梯度优化）"}
+    if len(_SKIN_CACHE) >= _SKIN_CACHE_MAX:
+        _SKIN_CACHE.clear()
+    _SKIN_CACHE[skey] = result
+    return result
+
+
+def skin_gradient(path: str, bones: list, weights: dict,
+                  vertex: int = 0, bone: int = 0, eps: float = 0.01) -> dict:
+    """可微分蒙皮梯度：顶点位置对权重的数值梯度（∂v'/∂w，有限差分）。
+
+    趋势落地（SNARF/DiffMimic 同向——但零依赖数据基础设施）：权重是
+    可训练参数——梯度 → 沿负梯度更新权重 → 顶点变形逼近目标姿态。
+    真·神经隐式蒙皮（SNARF 解析梯度）标注未来。
+    """
+    import math as _m
+    if not (eps > 0 and eps <= 0.5):
+        return {"ok": False, "error": "eps 须在 (0, 0.5]"}
+    # 基态变形
+    base = skin_deform(path, bones, weights)
+    if not base.get("ok"):
+        return base
+    if vertex < 0 or vertex >= len(base["deformed_vertices"]):
+        return {"ok": False,
+                "error": f"vertex {vertex} 越界（共 {len(base['deformed_vertices'])} 顶点）"}
+    # 找该顶点涉及的目标骨骼权重项
+    if isinstance(weights, dict) and str(vertex) in weights:
+        entries = weights[str(vertex)]
+        if bone < 0 or bone >= len(entries):
+            return {"ok": False, "error": f"顶点 {vertex} 权重项 {bone} 越界"}
+        # 扰动第 bone 项权重
+        w_perturbed = dict(weights)
+        w_perturbed[str(vertex)] = [dict(e) for e in entries]
+        w_perturbed[str(vertex)][bone]["weight"] += eps
+        pert = skin_deform(path, bones, w_perturbed)
+        if not pert.get("ok"):
+            return pert
+        base_v = base["deformed_vertices"][vertex]
+        pert_v = pert["deformed_vertices"][vertex]
+        grad = [(pert_v[i] - base_v[i]) / eps for i in range(3)]
+        return {"ok": True, "vertex": vertex, "bone_entry": bone,
+                "gradient": grad, "base_vertex": base_v, "eps": eps,
+                "advice": "∂v'/∂w 有限差分——沿负梯度更新权重使变形逼近目标"
+                          "（可微分蒙皮数据基础设施；SNARF 解析梯度=未来）"}
+    return {"ok": False,
+            "error": f"顶点 {vertex} 不在 weights 中（无法扰动——传显式权重）"}

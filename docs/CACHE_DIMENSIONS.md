@@ -299,3 +299,33 @@ DiffAvatar / PhysGaussian / DiffMPM 等 20+ 方向——**统一不交付**，�
 数据集（无源）；③本仓库的可微能力已落地为数据基础设施（render_depth/
 render_loss/render_gradient 有限差分）。趋势入档：LBS 蒙皮被"神经-物理"
 可微分框架取代——与本仓库 mesh_splat（可训练参数表）方向一致，标注未来。
+
+---
+
+## 追加五：LBS 蒙皮 + 可微分梯度（趋势落地，2026-08-19 第六轮）
+
+> 用户："那开搞啊"（选定上下文："趋势入档：LBS 蒙皮 → 神经-物理可微分框架"）
+> ——把 #15/#16 可微分动画/物理前沿（PhysRig/SNARF/Puppeteer/DiffMimic）中
+> 的确定性数学部分落地为零依赖数据基础设施。
+
+### 落地 2 项（全确定性公式）
+
+| 项 | 说明 |
+|---|---|
+| `skin_deform` | 标准 LBS 公式 v' = Σ wᵢ·(Mᵢ·Mᵢ⁻¹ᵇ·v)：骨骼矩阵（transform_compose 可生成）+ 权重（逐顶点或 #83 模板 default_human/tentacle/rigid）；文件签名+参数序列缓存；NaN/骨骼越界/权重非有限校验。实测：单位矩阵不变形、平移骨跟随、0.5/0.5 混合插值精确 5.0 |
+| `skin_gradient` | 可微分蒙皮：∂v'/∂wᵢ 有限差分（原始权重语义 = 该骨单独作用位置 Mᵢ·Mᵢ⁻¹ᵇ·v——梯度方向即"该骨骼拉动顶点的方向"，直观）。权重=可训练参数，与 mesh_splat 参数张量方向一致 |
+
+### 趋势映射
+
+- LBS 蒙皮（本落地）→ SNARF（神经隐式蒙皮，解析梯度）→ PhysRig（MPM 物理
+  绑定）→ 全可微分物理（Genesis/Newton）——梯度链逐级增强，本落地是最底层
+  的确定性台阶（零依赖、可验证、无训练数据需求）。
+- 与已落地链路闭环：transform_compose（骨骼矩阵）→ skin_deform（变形）→
+  skin_gradient（可训练参数梯度）→ render_depth/loss/gradient（渲染监督）——
+  一个"参数化 3D 资产优化"的最小可微分管线已成型。
+
+### 验证
+
+pytest 190/190（新增 test_lbs_skin_deform_and_gradient：不变形/跟随/插值/
+模板/双梯度数值/三错误契约）；语义回归 127/127（新增锚点）；扫描 12 条=
+基线 10+2 finally 容错。

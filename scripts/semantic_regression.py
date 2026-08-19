@@ -341,6 +341,36 @@ def main() -> int:
         RESULTS.append({"tool": "collision_check", "kind": "json_field",
                         "desc": "碰撞检测/Betti", "ok": False,
                         "detail": f"{type(exc).__name__}: {exc}", "args": {}})
+    # 第五轮（2026-08-19）：LBS 蒙皮 + 可微分梯度（趋势落地）
+    try:
+        import geometry_tools as _gt5
+        _gt5._SKIN_CACHE.clear()
+        _skin_cube = os.path.join(_TMP, "skin_cube.obj")
+        with open(_skin_cube, "w", encoding="utf-8") as _f:
+            _f.write("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"
+                     "v 0 0 1\nv 1 0 1\nv 1 1 1\nv 0 1 1\n"
+                     "f 1 2 3 4\nf 5 8 7 6\nf 1 5 6 2\n"
+                     "f 3 7 8 4\nf 2 6 7 3\nf 1 4 8 5\n")
+        _I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        _T = [1, 0, 0, 10, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        _sd = _gt5.skin_deform(_skin_cube, [{"matrix": _I}, {"matrix": _T}],
+                               {"0": [{"bone": 0, "weight": 0.5},
+                                      {"bone": 1, "weight": 0.5}]})
+        _sg = _gt5.skin_gradient(_skin_cube, [{"matrix": _I}, {"matrix": _T}],
+                                 {"1": [{"bone": 0, "weight": 0.5},
+                                        {"bone": 1, "weight": 0.5}]},
+                                 vertex=1, bone=1, eps=0.01)
+        RESULTS.append({"tool": "skin_deform", "kind": "json_field",
+                        "desc": "LBS 蒙皮+可微分梯度（趋势：LBS→神经-物理框架）",
+                        "ok": bool(_sd.get("ok"))
+                        and _sd.get("deformed_vertices", [])[0] == (5.0, 0.0, 0.0)
+                        and bool(_sg.get("ok"))
+                        and abs(_sg.get("gradient", [0])[0] - 11.0) < 1e-3,
+                        "detail": "", "args": {}})
+    except Exception as exc:  # noqa: BLE001
+        RESULTS.append({"tool": "skin_deform", "kind": "json_field",
+                        "desc": "LBS 蒙皮/梯度", "ok": False,
+                        "detail": f"{type(exc).__name__}: {exc}", "args": {}})
     check("cae_lsp_position_convert",
           {"text": "abc\ndef", "direction": "byte_to_position", "byte_offset": 4},
           "json_field", ("position.line", 1), "cae lsp byte→position 语义")

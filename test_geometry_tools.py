@@ -534,3 +534,50 @@ def test_mesh_betti_semantics(tmp_path, monkeypatch):
         "\n".join(open(str(p), encoding="utf-8").read().splitlines()[:-1]) + "\n")
     r3 = gt.mesh_betti(str(hole))
     assert r3["ok"] and r3["closed"] is False and r3["boundary_edges"] > 0
+
+
+def test_lbs_skin_deform_and_gradient(tmp_path, monkeypatch):
+    """LBS 蒙皮（趋势：LBS→神经-物理可微分框架的零依赖数据基础设施）：
+    单位矩阵不变形/平移骨跟随/混合插值/模板/梯度=该骨单独作用位置。"""
+    import geometry_tools as gt
+    monkeypatch.setattr(gt, "_SKIN_CACHE", {})
+    p = tmp_path / "cube.obj"
+    _unit_cube(str(p))
+    I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    T = [1, 0, 0, 10, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    # 1) 单位矩阵 + 刚性权重 → 不变形
+    r = gt.skin_deform(str(p), [{"matrix": I}],
+                       {"0": [{"bone": 0, "weight": 1.0}]})
+    assert r["ok"] and r["deformed_vertices"][0] == (0.0, 0.0, 0.0)
+    # 2) 平移骨 → 顶点跟随
+    r2 = gt.skin_deform(str(p), [{"matrix": T}],
+                        {"0": [{"bone": 0, "weight": 1.0}]})
+    assert r2["ok"] and r2["deformed_vertices"][0] == (10.0, 0.0, 0.0)
+    # 3) 混合权重 0.5/0.5（I 与 T 平移 10）→ 插值 5
+    r3 = gt.skin_deform(str(p), [{"matrix": I}, {"matrix": T}],
+                        {"0": [{"bone": 0, "weight": 0.5},
+                               {"bone": 1, "weight": 0.5}]})
+    assert r3["ok"] and r3["deformed_vertices"][0] == (5.0, 0.0, 0.0), r3
+    # 4) 模板（#83 权重模板复用）
+    r4 = gt.skin_deform(str(p), [{"matrix": I}, {"matrix": T}], {},
+                        template="rigid")
+    assert r4["ok"] and r4["template"] == "rigid"
+    assert gt.skin_deform(str(p), [{"matrix": I}], {}, template="nope").get("ok") is False
+    # 5) 梯度（原始权重语义）：∂v'/∂wᵢ = Mᵢ·v（该骨单独作用位置——方向直观）
+    g0 = gt.skin_gradient(str(p), [{"matrix": I}, {"matrix": T}],
+                          {"1": [{"bone": 0, "weight": 0.5},
+                                 {"bone": 1, "weight": 0.5}]},
+                          vertex=1, bone=0, eps=0.01)
+    assert g0["ok"] and abs(g0["gradient"][0] - 1.0) < 1e-3, f"bone0 梯度应≈I·v: {g0}"
+    g1 = gt.skin_gradient(str(p), [{"matrix": I}, {"matrix": T}],
+                          {"1": [{"bone": 0, "weight": 0.5},
+                                 {"bone": 1, "weight": 0.5}]},
+                          vertex=1, bone=1, eps=0.01)
+    assert g1["ok"] and abs(g1["gradient"][0] - 11.0) < 1e-3, f"bone1 梯度应≈T·v: {g1}"
+    # 6) 契约：骨骼越界/权重越界/eps 非法
+    assert gt.skin_deform(str(p), [{"matrix": [1] * 4}],
+                          {"0": [{"bone": 0, "weight": 1.0}]}).get("ok") is False
+    assert gt.skin_gradient(str(p), [{"matrix": I}], {"0": [{"bone": 0, "weight": 1.0}]},
+                            vertex=99).get("ok") is False
+    assert gt.skin_gradient(str(p), [{"matrix": I}], {"0": [{"bone": 0, "weight": 1.0}]},
+                            eps=0).get("ok") is False
