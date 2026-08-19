@@ -250,10 +250,17 @@ python scripts/install_agents.py --list           # 支持的智能体与配置�
 ## 验证
 
 ```bash
+python scripts/dev_check.py <文件>    # 写完即验四连（语法+bug_scan+相关测试+语义回归）——每个代码单元写完立刻跑
 python server.py --selftest    # 97 工具自检（含防幻觉守卫抽样）
 python scripts/semantic_regression.py   # 语义回归 118 锚点（改完代码必跑：改坏工具语义即红）
 python -m pytest -q            # 全量 456 tests + 4 skipped（含 net_chaos 实机代理往返）
 ```
+
+**写完即验（2026-08-20 用户硬性要求）**：每个代码单元写完立刻
+`python scripts/dev_check.py <文件>`——语法 + bug_scan + 相关测试 + 语义回归四连，
+**不许攒一堆再验**。物理强制：`.git/hooks/pre-commit`（仓库内脚本见
+`scripts/hooks/pre-commit`，装钩子：`cp scripts/hooks/pre-commit .git/hooks/`）
+每次 commit 前自动跑 dev_check，带病提交被 BLOCKED（`--no-verify` 仅紧急显式绕过）。
 
 **语义回归测试**（`scripts/semantic_regression.py`，pre-push/CI 第一步）：
 走生产路径 `server._call()` 断言每个工具的**输出语义**（值/结构/规则命中/错误契约），
