@@ -3723,6 +3723,25 @@ def _tool_local_run(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
 
 
+def _tool_plugin_list(args: dict) -> "list[types.TextContent]":
+    """通用插件注册：列出已注册插件（内置 plugins/ + 用户 ~/.unified-rx/plugins/）。"""
+    from plugin_core import list_plugins
+    query = str(args.get("query", "") or "").strip()
+    return [_TC(json.dumps(list_plugins(query), ensure_ascii=False, indent=2))]
+
+
+def _tool_plugin_launch(args: dict) -> "list[types.TextContent]":
+    """按插件声明启动命令（gui=异步启动 IDE，cli=同步捕获输出）。L4 显式授权。"""
+    from plugin_core import launch
+    try:
+        timeout = int(args.get("timeout", 120))
+    except (TypeError, ValueError):
+        timeout = 120
+    r = launch(str(args.get("plugin", "")), str(args.get("command", "")),
+               args.get("args"), timeout)
+    return [_TC(json.dumps(r, ensure_ascii=False, indent=2))]
+
+
 def _tool_skill_fetch(args: dict) -> "list[types.TextContent]":
     """技能申请制：request/list/approve（用户批准才下载）。"""
     from skill_fetch import request_skill, approve_skill, list_approvals
@@ -3989,7 +4008,10 @@ def _tool_ds_check(args: dict) -> "list[types.TextContent]":
 
 
 
-from mcp import types
+try:
+    from mcp import types
+except Exception:  # 无 mcp 环境（headless/CI/测试）下仍允许 import server 读注册表
+    types = None
 
 def _tool_scan_now(args: dict) -> "list[types.TextContent]":
     """常态扫描：一键 vuln_scan + bug_scan（写完代码立刻挖——不等到收尾）。
@@ -4016,7 +4038,10 @@ def _tool_scan_now(args: dict) -> "list[types.TextContent]":
     return [types.TextContent(type="text", text=json.dumps(out, ensure_ascii=False))]
 
 
-from mcp import types
+try:
+    from mcp import types
+except Exception:  # 无 mcp 环境（headless/CI/测试）下仍允许 import server 读注册表
+    types = None
 
 
 def _tool_unit_rerun(args: dict) -> "list[types.TextContent]":
@@ -4156,7 +4181,10 @@ def _tool_scan_delta(args: dict) -> "list[types.TextContent]":
     return [types.TextContent(type="text", text=json.dumps(out, ensure_ascii=False))]
 
 
-from mcp import types
+try:
+    from mcp import types
+except Exception:  # 无 mcp 环境（headless/CI/测试）下仍允许 import server 读注册表
+    types = None
 
 import re as _re
 _TOKEN_RE = _re.compile(r"^(?!-)[A-Za-z0-9_\-./]+$")  # 禁止 - 开头（防选项注入）
@@ -6142,6 +6170,15 @@ _TOOLS: dict[str, tuple] = {
         "workdir": _S("string", "工作目录（默认当前）"),
         "timeout": _S("integer", "超时秒（默认 300）"),
     }, ["domain", "name"]), "执行内建命令模板（白名单——本地运行省 token）"),
+    "plugin_list": (_tool_plugin_list, _schema({
+        "query": _S("string", "名称/描述/启动命令子串过滤（缺省全部）"),
+    }, []), "通用插件注册：列出已注册插件（内置 plugins/ + 用户 ~/.unified-rx/plugins/）"),
+    "plugin_launch": (_tool_plugin_launch, _schema({
+        "plugin": _S("string", "插件名（查 plugin_list）"),
+        "command": _S("string", "launch 命令名（如 aether 的 open）"),
+        "args": _S("array", "启动参数（字符串列表，可选）"),
+        "timeout": _S("integer", "cli 超时秒（默认 120）"),
+    }, ["plugin", "command"]), "按声明启动插件命令（gui=异步启动 IDE/cli=同步捕获——L4 显式授权）"),
     "skill_fetch": (_tool_skill_fetch, _schema({
         "action": _S("string", "request/list/approve"),
         "task": _S("string", "request 时任务描述"),
@@ -6812,15 +6849,27 @@ async def run() -> None:
         out = await asyncio.to_thread(_call, name, arguments)
         return [types.TextContent(type=getattr(c, "type", "text"), text=c.text) for c in out]
 
-    # 打开 RX 即自动开启后台扫描循环（daemon 线程持续跑，不会停下）：
-    # 5 模式各自独立循环线程并发（自扫/项目/全盘），互不打扰，结果落盘 scan-log。
-    _spawn_self_scan()
-    # 阶段1（2026-08-15）：实时触发——文件改动监听（2s 指纹轮询 → 即时增量扫描）
-    try:
-        from realtime_watch import start_watcher
-        start_watcher()
-    except Exception:  # 尽力而为（监听失败不影响主服务）
-        pass
+    # 后台扫描策略（门面化后细化，分别可控）：
+    # - 常规模式（非 sidecar）：自扫描循环 + 实时监听都开（原行为）。
+    # - sidecar 模式（被 Rust 门面统一二进制拉起作代理）：
+    #     · 自扫描循环：默认开启（门面置 UNIFIED_RX_SIDECAR_SCAN=1，可用
+    #       UNIFIED_RX_FACADE_SCAN=0 关闭）——使代理工具也有热缓存/索引，
+    #       不再「空扫项目」（项目根由门面显式转发 UNIFIED_RX_PROJECT）。
+    #     · 实时监听：默认关闭（避免与宿主文件监听抢占/重复扫描），
+    #       可用 UNIFIED_RX_SIDECAR_WATCH=1（门面 UNIFIED_RX_FACADE_WATCH=1）显式开启。
+    _sidecar = os.environ.get("UNIFIED_RX_SIDECAR") == "1"
+    _sidecar_scan = os.environ.get("UNIFIED_RX_SIDECAR_SCAN") == "1"
+    _sidecar_watch = os.environ.get("UNIFIED_RX_SIDECAR_WATCH") == "1"
+
+    if (not _sidecar) or _sidecar_scan:
+        _spawn_self_scan()
+    if (not _sidecar) or _sidecar_watch:
+        # 阶段1（2026-08-15）：实时触发——文件改动监听（2s 指纹轮询 → 即时增量扫描）
+        try:
+            from realtime_watch import start_watcher
+            start_watcher()
+        except Exception:  # 尽力而为（监听失败不影响主服务）
+            pass
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(

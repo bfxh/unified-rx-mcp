@@ -654,8 +654,30 @@ def ide_actions(path: str) -> dict:
 import sys
 import threading
 import time
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+try:
+    import tkinter as _TK
+    from tkinter import filedialog as _filedialog, messagebox as _messagebox, ttk as _ttk
+    TK_OK = True
+except Exception:  # 无头/CI 环境无 tkinter（嵌入版 Python 缺 TCL/Tk）——纯逻辑与测试不受影响
+    _TK = None
+    _filedialog = _messagebox = _ttk = None
+    TK_OK = False
+
+# tkinter 惰性代理：import 期不因缺 tkinter 崩溃；真正启动 GUI 时才需要 tkinter。
+# TK 不可用时基类退化为占位类（GUI 本就无法在无 tkinter 环境运行）。
+class _TkProxy:
+    def __getattr__(self, name):
+        if _TK is None:
+            return type("_TkStub", (), {})
+        return getattr(_TK, name)
+
+
+if TK_OK:
+    tk = _TK
+    filedialog, messagebox, ttk = _filedialog, _messagebox, _ttk
+else:
+    tk = _TkProxy()
+    filedialog = messagebox = ttk = _TkProxy()
 
 HERE = _ENGINE_ROOT
 sys.path.insert(0, HERE)
