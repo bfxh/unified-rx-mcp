@@ -205,7 +205,9 @@ def _gh_request(method: str, url: str, token: str, body: dict | None = None) -> 
 
 def _fingerprint(issue: dict) -> str:
     key = f"{issue.get('file')}:{issue.get('line')}:{issue.get('rule')}:{(issue.get('msg') or '')[:100]}"
-    return hashlib.sha1(key.encode("utf-8")).hexdigest()[:16]
+    # 指纹仅用于 issue 去重（非安全用途）——usedforsecurity=False 明确语义，
+    # 同时满足 bandit B324（SHA1 不做安全哈希）
+    return hashlib.sha1(key.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
 
 
 def _load_state() -> dict:
