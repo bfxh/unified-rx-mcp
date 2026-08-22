@@ -202,6 +202,8 @@ def main() -> int:
                                    capture_output=True, text=True, timeout=30)
                 files = [os.path.join(REPO, ln[3:].strip())
                          for ln in r.stdout.splitlines() if ln.strip()]
+            # 过滤已删除/不存在文件（git status 的 D 状态行会混入）
+            files = [f for f in files if os.path.isfile(f)]
         except Exception as exc:  # noqa: BLE001
             print(f"[FAIL] git 变更检测: {exc}")
             return 1
