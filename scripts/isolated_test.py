@@ -74,6 +74,10 @@ CALL_TABLE: dict[str, dict] = {
     "hallucination_guard": {"text": "server.py 位于仓库根目录", "root": ROOT},
     "denoise": {"text": "好的，没问题。首先我想说的是，这个功能确实是可以的。"
                         "换句话说，也就是说，它很好用。希望对你有所帮助！"},
+    "ciopt_batch": {"func": "string_case_to_uppercase",
+                    "input": ["hello", "world"], "arg": "s"},
+    "dep_graph": {"path": str(Path(ROOT) / "scripts"), "max_files": 20},
+    "user_sim": {"actions": [{"action": "wait", "ms": 30}]},
     "bug_scan": {"path": SAMPLE_FILE, "max_files": 3},
     "std_check": {"path": SAMPLE_FILE},
     "vuln_scan": {"path": SAMPLE_FILE, "max_files": 3},

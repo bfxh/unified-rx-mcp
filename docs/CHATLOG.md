@@ -197,3 +197,32 @@
   平均 2.3s（337 次共 13 分钟）、输出 token 是输入 42 倍——工具交换慢与
   token 膨胀实锤，作为后续优化基线。
 - 规则固化：AGENTS.md 规则 9（隔离验收+高压常态化）+ 全局 REASONIX.md 条款。
+
+### 15. 第二批：纯函数自动化 + 依赖图 + 用户模拟 + 慢工具优化（用户"继续全部都做完"）
+- 用户（2026-08-23）："继续全部都做完 然后你自己检查"——第二批遗留四项全落地：
+  1. **ciopt_batch**（server.py 核心工具 + cli run-func）：纯函数批量执行器——
+     单值/数组/对象数组/JSON 文件输入/结果落盘。用户批评"纯函数没自动化，
+     纯让 AI 推动"→ 现在 `cli.py run-func <func> --input-file in.json
+     --output-file out.json` 批量处理；实测 value-batch/object-batch/文件
+     落盘全通；错误识别（"Error in ..." 包装文本 → errors 数组）
+  2. **dep_graph**（dep_graph.py + cli deps + schedule --deps）：代码依赖图
+     索引——Python import/Rust use+mod/JS import+require 解析，文件级
+     依赖图 + 环形引用检测 + 被依赖统计；实测仓库 148 边、server.py 被
+     65 文件依赖、6 个惰性 import 环（设计使然）；stdlib 过滤防 unresolved
+     刷屏；标准库/外部包正确区分
+  3. **user_sim**（user_sim.py + MCP 工具 + cli user-sim）：零依赖（ctypes）
+     Windows 用户操作模拟——窗口激活（FindWindow/EnumWindows 模糊匹配）/
+     移动/点击（左右中/双击）/输入（VkKeyScan）/组合键/等待/截图（PIL）；
+     步数≤100/文本≤500 安全限制；配合截图+OCR 做 UI 冒烟断言
+  4. **慢工具优化**：
+     - blender_verify 60s/次 → OCR 服务存活探测（≤2s 秒失败跳过，不再
+       干等 30s 超时）+ 大图缩放 1600px（4K 窗口 OCR 减速）
+     - project_scan 单次输出曾 300 万 token → 默认截断 issues（error 全
+       保留/warn 前50/info 前20，full=true 全量）；实测大仓库 bug_scan
+       1021→70 条
+- 附带修复：cli execv 参数破坏（Windows os.execv 实测 '["a"]'→'[a]'——
+  base64 保护 + main 还原，全子命令受益）；engine 两处 shell=True 加
+  nosec B602（白名单/授权门防护的设计性使用）——vuln-scan 0 error
+- 自查链：isolated_test 183 契约 + 33 实调全过、pytest 163/163、语义回归
+  全过、dev_check 全过（抓到 user_sim L102 误报改 next(iter()) 消除）、
+  stress_scan 全过、vuln-scan 0 error
