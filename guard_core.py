@@ -338,6 +338,13 @@ def capability_manifest(core_tools: list[dict], ext_tools: list[dict]) -> dict:
     """
     return {
         "generated_from": "live registry",
+        "runtime": {
+            "local": True,
+            "network": False,
+            "cost_model": "全部工具本地执行、零 API 费用；每次调用自动打点 ~/.unified-rx/stats.json"
+                          "（duration_ms + tokens_in/out 估算）；用 cost_report 或 `python cli.py stats` 查看",
+            "token_note": "tokens_in/out 是输入输出字符的估算值（非模型计费口径）",
+        },
         "has": {
             "core_tools": core_tools,
             "ext_tools": ext_tools,

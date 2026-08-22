@@ -346,7 +346,7 @@ def scan_repo(root: str, max_files: int = 200) -> dict:
             issues.append(issue)
 
     # 排序：变更优先，其次 severity
-    sev_rank = {"error": 0, "warning": 1}
+    sev_rank = {"error": 0, "warning": 1, "warn": 1}
     issues.sort(key=lambda i: (i.get("priority") != "changed", sev_rank.get(i.get("severity"), 2), i.get("file"), i.get("line")))
     return {
         "ok": True,

@@ -23,6 +23,17 @@
 7. **零依赖/懒加载哲学**：新功能优先往 `engine/` 引擎加函数，不新建散乱 .py；
    重型依赖按需 import，启动 <100ms。
 8. **收尾维护双文档**：本轮重要决策追加 `docs/CHATLOG.md`；设计变更同步 `docs/DESIGN.md`。
+9. **隔离验收 + 高压常态化（2026-08-23，用户：自测有盲区，测试必须隔离；检测要加强度常态化）**：
+   - MCP 自测必须隔离：`python scripts/isolated_test.py`（spawn 独立进程 +
+     JSON-RPC 直连黑盒，不经 AI/网关/stats 打点）——工具变更后必跑，
+     契约失败/表实调失败/临界慢工具(>2s) 即拦截
+   - 高压基线：`python -m stress_scan <path> <mode> <scale>` 强度拉满（并发
+     丢行/大文件/大索引），任一场景 ok=False 必须修复或显式 skip（环境缺失
+     不算缺陷，但必须标注）
+   - 独立工具性：`python cli.py scan|stats|track|schedule|denoise` 不经模型
+     可干活——新工具必须同时提供 CLI 入口，不许只活在 AI 对话里
+   - 代码/依赖跟踪：schedule 常驻（索引→扫描→自动开/关 issue）是默认跟踪
+     机制；改动代码后依赖方用 predict_impact 校验
 
 ## 验证命令（改完必跑，按此顺序）
 
@@ -36,7 +47,7 @@ scripts/pre-push.sh                     # 提交前七步全链
 
 ## 仓库结构速览
 
-- `server.py`：唯一分发入口（`_call`），101 核心工具注册表
+- `server.py`：唯一分发入口（`_call`），103 核心工具注册表
 - `engine/`：六引擎（scan/ide/learn/locate/index/infra）
 - `vendor/extensions/`：76 扩展（cae/pr-oracle/tautest/stats/ciopt）
 - `scripts/`：语义回归 / mcp_smoke / pre-push 等

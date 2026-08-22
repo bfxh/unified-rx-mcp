@@ -28,6 +28,30 @@ import subprocess
 import sys
 from pathlib import Path
 
+ROOT = str(Path(__file__).resolve().parent.parent)
+
+
+def _mcp_python() -> str:
+    """探测带 mcp SDK 的解释器（语义回归/测试依赖 mcp；默认解释器可能没有，
+    如 Python3.14 未装 mcp——用 3.14 跑语义回归会误报扩展工具断链）。"""
+    try:
+        import mcp  # noqa: F401
+        return sys.executable
+    except ImportError:
+        pass
+    home = Path.home()
+    for ver in ("Python311", "Python312", "Python313", "Python310"):
+        p = home / "AppData" / "Local" / "Programs" / "Python" / ver / "python.exe"
+        if p.exists():
+            try:
+                r = subprocess.run([str(p), "-c", "import mcp"],
+                                   capture_output=True, timeout=30)
+                if r.returncode == 0:
+                    return str(p)
+            except Exception:
+                continue
+    return sys.executable
+
 REPO = str(Path(__file__).resolve().parent.parent)
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
@@ -148,7 +172,7 @@ def _discover_tests(files: list) -> list:
 def _run_tests(tests: list, quick: bool) -> None:
     if not tests:
         return
-    cmd = [sys.executable, "-m", "pytest", "-q", *tests]
+    cmd = [_mcp_python(), "-m", "pytest", "-q", *tests]
     if quick:
         cmd.append("--no-header")
     try:
@@ -193,7 +217,7 @@ def main() -> int:
     if tests:
         _run_tests(tests, quick)
     if not quick:
-        r = subprocess.run([sys.executable, "scripts/semantic_regression.py"],
+        r = subprocess.run([_mcp_python(), "scripts/semantic_regression.py"],
                            capture_output=True, text=True, timeout=300)
         ok = r.returncode == 0
         _report("语义回归", ok,

@@ -105,7 +105,9 @@ def _stress_telemetry(scale: int = 5000) -> dict:
     try:
         import telemetry_core
     except ImportError:
-        return _t("telemetry", False, 0, 0, 1, "telemetry_core 不可用")
+        # 环境缺失 ≠ 压力缺陷：Rust 桥接模块未构建时标记 skip（server 有降级路径）
+        return _t("telemetry", True, 0, 0, 0,
+                  "skip: telemetry_core 未构建（RX_TELEMETRY 未启用，server 降级）")
     n_threads = 8
     per = max(1, scale // n_threads)
     errs = [0]

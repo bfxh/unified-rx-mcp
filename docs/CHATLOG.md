@@ -168,3 +168,32 @@
 - 修复：spacing ≤0 拒绝/权重 <0 拒绝/注释修正/pre-commit 完整四连；
   新增 test_negative_inputs_rejected；dev_check 全过。
 - 验证：pytest 193/193、语义回归 127/127。
+
+### 14. 独立工具化 + 隔离测试 + 消除废话（用户长篇批判：MCP 不该靠模型活着）
+- 用户核心批判（2026-08-23）：①自测有盲区（"我拿其他 AI 检查你有很多问题"——
+  测试 MCP 必须隔离，第三方视角）②纯函数工具鸡肋（"我希望它是一个工具，
+  不是纯函数"）③模型 API 一停 MCP 就没事干（"它是独立工具，也能接受 MCP"）
+  ④调用 token/是否本地不透明 ⑤要自动跟踪问题、代替智能体重复工作 ⑥点名加
+  "消除废话 skill 减 token" ⑦工具交换慢 ⑧本地脚本检测不完善 ⑨代码/依赖要
+  定期索引 ⑩模拟用户操作 + 高压测试常态化、强度拉满。
+- 落地（全部实测通过）：
+  1. `scripts/isolated_test.py` 隔离验收测试：spawn 独立进程 + JSON-RPC 直连
+     （黑盒第三方视角，不经 AI/网关，UNIFIED_RX_NO_STATS=1 零打点）——
+     180 工具契约全过 + 30 代表实调全过 + 性能基线（慢工具标记）
+  2. `cli.py` 独立 CLI（不经模型可干活）：scan / stats / track / schedule /
+     denoise 五子命令；track=扫描→指纹去重→自动开/关 GitHub issue（状态
+     文件 ~/.unified-rx/tracked-issues.json，--dry-run 预览，--close-stale
+     自动关已修复）；schedule=常驻定时索引+扫描+跟踪（日志 schedule.log）
+  3. `denoise` 工具（server.py 第 180 个）+ `denoise` skill（~/.reasonix/
+     skills/denoise/SKILL.md）——去客套/重复/填充/套话，代码块保护，实测
+     节省 24% token
+  4. guard_core.capability_manifest 增加 runtime 声明（全部本地执行、零 API
+     费用、tokens 为估算、stats.json 打点位置）——token/本地透明
+  5. 契约修复：bug_scan 双口径 bug（severity_counts 键 warn vs 条目 warning）
+     统一为 warn；std_check 历史契约（统计小写/条目大写）保持不动；
+     index_engine 兼容 warn 键；cli 兼容两套词汇
+  6. stress_scan telemetry 场景"环境缺失"从 fail 改显式 skip（非缺陷不误报）
+- 实测数据（stats.json 11262 条）：blender_verify 平均 60s/次、project_scan
+  平均 2.3s（337 次共 13 分钟）、输出 token 是输入 42 倍——工具交换慢与
+  token 膨胀实锤，作为后续优化基线。
+- 规则固化：AGENTS.md 规则 9（隔离验收+高压常态化）+ 全局 REASONIX.md 条款。

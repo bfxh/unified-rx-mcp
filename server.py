@@ -1540,6 +1540,89 @@ def _tool_capability_manifest(args: dict) -> "list[types.TextContent]":
     return [_TC(json.dumps(res, ensure_ascii=False))]
 
 
+# ── 降噪（denoise）：消除废话减 token（2026-08-23，用户点名）──
+# 规则保守可解释：只删 客套短行 / 独立成句的填充引导词 / 尾部套话 / 空行压缩；
+# 代码块（```）内一行不动。aggressive 模式额外删"句首引导词+短句"。
+_DENOISE_GREET = {
+    "好的", "没问题", "当然可以", "明白了", "收到", "是的", "嗯", "好的呢",
+    "没问题呢", "可以", "好的好的", "行", "好嘞", "了解", "嗯嗯", "OK", "ok",
+    "好的！", "没问题！", "对", "对的", "好", "收到！",
+}
+_DENOISE_FILLERS = (
+    "首先", "其次", "再者", "另外", "此外", "换句话说", "也就是说",
+    "需要注意的是", "请注意", "简而言之", "总而言之", "由此可见",
+    "综上所述", "其实", "当然", "确实", "众所周知", "毫无疑问",
+    "毋庸置疑", "坦白说", "老实说", "讲真", "说真的", "我们来看",
+    "可以看到", "值得注意的是", "需要指出的是", "值得一提的是",
+)
+_DENOISE_TRAILERS = (
+    "希望对你有帮助", "希望对你有所帮助", "如果有任何问题", "如果有什么问题",
+    "如有疑问", "随时告诉我", "随时联系我", "祝好", "谢谢", "感谢阅读",
+    "感谢观看", "希望对你有用", "希望能帮到你", "不客气", "再见", "拜拜",
+    "谢谢观看", "感谢支持", "以上", "仅供参考",
+)
+
+
+def _denoise_text(text: str, aggressive: bool = False) -> dict:
+    """文本降噪：返回 {text, original_chars, denoised_chars, saved_chars,
+    saved_pct, removed_lines}。纯规则、零 LLM、毫秒级。"""
+    import re as _re
+    _strip = lambda s: _re.sub(  # noqa: E731
+        r"[\s，。！？、,.!?;；:：'\"“”‘’（）()【】\[\]]", "", s)
+    out: list[str] = []
+    removed: list[str] = []
+    in_fence = False
+    for ln in text.splitlines():
+        if ln.strip().startswith("```"):
+            in_fence = not in_fence
+            out.append(ln)
+            continue
+        if in_fence:
+            out.append(ln)
+            continue
+        s = ln.strip()
+        if not s:
+            continue  # 空行压缩
+        core = _strip(s)
+        # 1) 客套短行（整行）
+        if core in _DENOISE_GREET and len(core) <= 6:
+            removed.append(ln)
+            continue
+        # 2) 尾部套话（独立成行，短）
+        if any(t in s for t in _DENOISE_TRAILERS) and len(s) <= 40:
+            removed.append(ln)
+            continue
+        # 3) 句首填充引导词（独立成句才删——行内容很短）
+        hit = next((f for f in _DENOISE_FILLERS if s.startswith(f)), None)
+        if hit:
+            tail_len = len(core) - len(_strip(hit))
+            if tail_len <= (14 if aggressive else 8):
+                removed.append(ln)
+                continue
+        out.append(ln)
+    denoised = "\n".join(out).strip("\n") + "\n"
+    orig = text.strip("\n") + "\n"
+    saved = max(0, len(orig) - len(denoised))
+    return {
+        "text": denoised,
+        "original_chars": len(orig),
+        "denoised_chars": len(denoised),
+        "saved_chars": saved,
+        "saved_pct": round(saved / max(len(orig), 1) * 100, 1),
+        "removed_lines": removed,
+        "aggressive": aggressive,
+    }
+
+
+def _tool_denoise(args: dict) -> "list[types.TextContent]":
+    """消除废话：去客套/重复/解释性填充，减少 token（纯规则本地执行）。"""
+    text = str(args.get("text", ""))
+    if not text.strip():
+        raise ValueError("text 不能为空")
+    aggressive = bool(args.get("aggressive", False))
+    return [_TC(json.dumps(_denoise_text(text, aggressive), ensure_ascii=False))]
+
+
 def _tool_scan_log(args: dict) -> "list[types.TextContent]":
     """扫描日志查询（常驻自扫落盘）：按项目 root / 工具名过滤，返回最近记录。
 
@@ -2015,8 +2098,12 @@ def _tool_bug_scan(args: dict) -> "list[types.TextContent]":
     # P2 信噪比度量（SCAN_QUALITY_ISSUES.md 问题 C 修复）：severity 归一化统计 +
     # noise_ratio（info 占比）——AI 一眼可判断"这份报告可信度"；error 优先展示
     sev_counts = {"error": 0, "warn": 0, "info": 0}
+    # 契约统一（2026-08-23 隔离测试发现）：issues[].severity 必须与
+    # severity_counts 键一致（error/warn/info/hint）——engine 旧路径生成
+    # "warning"，在此归一化，杜绝"统计 warn 但条目 warning"的双口径
     for i in issues:
-        s = str(i.get("severity", "warn"))
+        s = str(i.get("severity", "warn")).lower()
+        i["severity"] = "warn" if s in ("warn", "warning") else s
         sev_counts["warn" if s in ("warn", "warning") else
                    ("error" if s == "error" else "info")] += 1
     total = len(issues)
@@ -5873,6 +5960,10 @@ _TOOLS: dict[str, tuple] = {
         "root": _S("string", "仓库根目录（相对路径解析基准，可选）"),
     }, ["text"]), "幻觉守卫：提取声明并对照本地验证（verified/refuted/unverifiable），refuted 即幻觉必须纠正"),
     "capability_manifest": (_tool_capability_manifest, _schema({}, []), "能力清单：全部工具 + 有什么/没有什么边界声明（防能力幻觉）"),
+    "denoise": (_tool_denoise, _schema({
+        "text": _S("string", "待精简文本"),
+        "aggressive": _S("boolean", "激进模式(默认false)：额外删句首引导词短句"),
+    }, ["text"]), "消除废话：去客套/重复/解释性填充，减少 token（纯规则本地执行，毫秒级）"),
     "scan_log": (_tool_scan_log, _schema({
         "root": _S("string", "项目根路径（过滤，可选）"),
         "tool": _S("string", "工具名过滤（bug_scan/std_check/vuln_scan/ui_check/cb_scan 等，可选）"),
@@ -6749,6 +6840,10 @@ def _stats_tick(tool: str, duration_ms: float,
     """
     global _STATS_BUF
     try:
+        # 隔离测试/批处理开关：UNIFIED_RX_NO_STATS=1 时零打点
+        # （isolated_test.py 等第三方验收不得污染 stats.json 统计）
+        if os.environ.get("UNIFIED_RX_NO_STATS") == "1":
+            return
         if "stats_record" not in _EXT_DEFS:
             return
         record = {
