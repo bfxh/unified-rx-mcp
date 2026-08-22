@@ -253,6 +253,11 @@ def cmd_track(args: argparse.Namespace) -> int:
     server = _import_server()
     token = _github_token()
     repo = args.repo
+    # 防御：repo 只允许 owner/name 格式（防路径注入到 api.github.com URL）
+    import re as _re
+    if not _re.fullmatch(r"[\w.-]+/[\w.-]+", repo or ""):
+        print(f"[track] repo 格式非法（须 owner/name）：{repo}")
+        return 2
     state = _load_state()
     issues = _collect_issues(server, args.path, args.min_severity)
     print(f"[track] {args.path} → {len(issues)} 个 ≥{args.min_severity} 问题")
@@ -328,6 +333,10 @@ def cmd_track(args: argparse.Namespace) -> int:
 def cmd_schedule(args: argparse.Namespace) -> int:
     server = _import_server()
     token = _github_token()
+    import re as _re
+    if not _re.fullmatch(r"[\w.-]+/[\w.-]+", args.repo or ""):
+        print(f"[schedule] repo 格式非法（须 owner/name）：{args.repo}")
+        return 2
     roots = [r.strip() for r in args.roots.split(";") if r.strip()]
     if not roots:
         roots = [os.getcwd()]
