@@ -1821,8 +1821,9 @@ def replay_run(name: str, stop_on_fail: bool = True) -> dict:
                 ok_all = False if stop_on_fail else ok_all
             else:
                 try:
+                    # cmd 步骤需显式授权（authorized=true）——设计性 shell 使用
                     r = subprocess.run(
-                        str(step.get("cmd", "")), shell=True,
+                        str(step.get("cmd", "")), shell=True,  # nosec B602
                         cwd=step.get("cwd") or None,
                         capture_output=True, text=True, timeout=60,
                         encoding="utf-8", errors="replace")

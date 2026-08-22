@@ -84,20 +84,48 @@ def analyze_toolbar(img):
 
 
 def ocr_file(path):
-    """对已保存的 PNG 调 Umi-OCR HTTP API → 文本行"""
+    """对已保存的 PNG 调 Umi-OCR HTTP API → 文本行
+
+    性能（2026-08-23 优化：blender_verify 平均 60s/次）：①先探测服务存活
+    （≤2s 失败立即跳过，不再干等 30s 超时）②大图先缩放到最长边 1600px
+    再送 OCR（4K 窗口 OCR 推理显著变慢）。"""
     import base64
     import json
     import urllib.request
-    with open(path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
+
+    # ① 服务存活探测（连接拒绝/超时 → 秒回，不干等）
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        probe = urllib.request.Request("http://127.0.0.1:1224/",
+                                       method="GET")
+        with opener.open(probe, timeout=2) as resp:
+            if resp.status >= 500:
+                return ["<OCR 服务异常>"]
+    except Exception as e:
+        return [f"<OCR 服务不可用（跳过 OCR，省 30s 超时）: {e}>"]
+
+    # ② 大图缩放（最长边 ≤1600px——OCR 速度与识别率平衡）
+    try:
+        from PIL import Image
+        img = Image.open(path)
+        max_side = 1600
+        if max(img.size) > max_side:
+            scale = max_side / float(max(img.size))
+            img = img.resize((max(1, int(img.size[0] * scale)),
+                              max(1, int(img.size[1] * scale))))
+        import io
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        img_bytes = buf.getvalue()
+    except Exception as e:
+        return [f"<OCR 图像处理失败: {e}>"]
+
+    b64 = base64.b64encode(img_bytes).decode()
     payload = json.dumps({"base64": b64}).encode()
     req = urllib.request.Request(
         "http://127.0.0.1:1224/api/ocr", data=payload,
         headers={"Content-Type": "application/json"})
-    # 禁用系统代理（curl 直连正常但 urllib 走代理被拒——2026-08-19 实地发现）
-    # build_opener 也放入 try（opener 构造失败同样容错——测试暴露）
     try:
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         with opener.open(req, timeout=30) as resp:
             data = json.loads(resp.read().decode())
     except Exception as e:

@@ -1,7 +1,7 @@
 {
-  "core_count": 104,
+  "core_count": 107,
   "ext_count": 76,
-  "total": 180,
+  "total": 183,
   "core": [
     "agent",
     "alarm_check",
@@ -16,6 +16,7 @@
     "cb_scan",
     "cb_status",
     "chatlog_search",
+    "ciopt_batch",
     "clean_data",
     "cmd_cheatsheet",
     "code_complete",
@@ -25,6 +26,7 @@
     "cov_scan",
     "data_filter",
     "denoise",
+    "dep_graph",
     "design_note",
     "ds_check",
     "ds_lookup",
@@ -104,6 +106,7 @@
     "ui_check",
     "ui_tune",
     "unit_rerun",
+    "user_sim",
     "voxel",
     "vuln_scan",
     "watch_status"

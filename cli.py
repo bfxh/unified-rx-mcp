@@ -52,7 +52,10 @@ for _stream in (sys.stdout, sys.stderr):
 
 
 def ensure_mcp_python() -> None:
-    """本 CLI 依赖 server（mcp SDK）。当前解释器缺 mcp 时自动换到带 mcp 的解释器重跑。"""
+    """本 CLI 依赖 server（mcp SDK）。当前解释器缺 mcp 时自动换到带 mcp 的解释器重跑。
+
+    Windows os.execv 会破坏含双引号/特殊字符的参数（实测 '["a","b"]' 变
+    '[a,b]'）——execv 前对含引号参数做 base64 保护，main() 开头还原。"""
     try:
         import mcp  # noqa: F401
         return
@@ -70,7 +73,16 @@ def ensure_mcp_python() -> None:
                                capture_output=True, timeout=30)
             if r.returncode == 0:
                 print(f"[cli] 当前解释器缺 mcp，切换到 {py}")
-                os.execv(py, [py] + sys.argv)
+                # execv 参数保护：含引号/反斜杠参数 base64 编码，main 还原
+                import base64 as _b64
+                argv = [sys.argv[0]]
+                for a in sys.argv[1:]:
+                    if '"' in a or "'" in a or "\\" in a:
+                        argv.append("__B64__" +
+                                    _b64.b64encode(a.encode("utf-8")).decode("ascii"))
+                    else:
+                        argv.append(a)
+                os.execv(py, [py] + argv)
         except Exception:
             continue
     print("[cli] 错误：找不到带 mcp SDK 的 Python（server.py 依赖 mcp）")
@@ -364,6 +376,17 @@ def cmd_schedule(args: argparse.Namespace) -> int:
                 log_line(f"  索引失败 {root}: {exc}")
             # 2) 扫描
             issues = _collect_issues(server, root, args.min_severity)
+            # 2.5) 依赖图摘要（--deps：代码依赖跟踪）
+            deps_summary = ""
+            if getattr(args, "deps", False):
+                try:
+                    g = server._tool_dep_graph({"path": root, "max_files": 800})
+                    gd = json.loads("".join(getattr(t, "text", "") for t in g))
+                    deps_summary = (f" deps: {gd.get('files', '?')} 文件 "
+                                    f"{gd.get('edge_count', '?')} 边 "
+                                    f"{len(gd.get('cycles', []))} 环")
+                except Exception as exc:  # noqa: BLE001
+                    deps_summary = f" deps: 失败({exc})"
             # 3) 自动跟踪
             state = _load_state()
             n_new = 0
@@ -400,7 +423,7 @@ def cmd_schedule(args: argparse.Namespace) -> int:
             _save_state(state)
             dt = (time.perf_counter() - t0) * 1000
             log_line(f"  {root}: {len(issues)} 个 ≥{args.min_severity} 问题，"
-                     f"新开 {n_new}，耗时 {dt:.0f}ms")
+                     f"新开 {n_new}，耗时 {dt:.0f}ms{deps_summary}")
         time.sleep(interval)
 
 
@@ -417,7 +440,58 @@ def cmd_denoise(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── run-func（纯函数批量执行）──────────────────────────────────────────
+def cmd_run_func(args: argparse.Namespace) -> int:
+    server = _import_server()
+    call_args: dict = {"func": args.func, "arg": args.arg}
+    if args.input is not None:
+        try:
+            call_args["input"] = json.loads(args.input)
+        except json.JSONDecodeError:
+            call_args["input"] = args.input  # 非 JSON 当原始字符串
+    if args.input_file:
+        call_args["input_file"] = args.input_file
+    if args.output_file:
+        call_args["output_file"] = args.output_file
+    r = server._tool_ciopt_batch(call_args)
+    text = "".join(getattr(t, "text", str(t)) for t in r)
+    print(text)
+    return 0
+
+
+# ── deps（代码依赖图索引）──────────────────────────────────────────────
+def cmd_deps(args: argparse.Namespace) -> int:
+    server = _import_server()
+    r = server._tool_dep_graph({"path": args.path, "max_files": args.max_files,
+                                "full": args.full, "dot": args.dot})
+    text = "".join(getattr(t, "text", str(t)) for t in r)
+    print(text)
+    return 0
+
+
+# ── user-sim（用户操作模拟）────────────────────────────────────────────
+def cmd_user_sim(args: argparse.Namespace) -> int:
+    server = _import_server()
+    import json as _json
+    try:
+        actions = _json.load(open(args.script, encoding="utf-8"))
+    except (OSError, _json.JSONDecodeError) as exc:
+        print(f"[user-sim] 脚本读取失败: {exc}")
+        return 1
+    r = server._tool_user_sim({"actions": actions, "shot": args.shot})
+    text = "".join(getattr(t, "text", str(t)) for t in r)
+    print(text)
+    return 0
+
+
 def main() -> int:
+    # execv 参数还原（ensure_mcp_python 的 base64 保护——Windows execv 会
+    # 破坏含引号参数，见 ensure_mcp_python docstring）
+    import base64 as _b64
+    sys.argv = [
+        _b64.b64decode(a[6:]).decode("utf-8") if a.startswith("__B64__") else a
+        for a in sys.argv
+    ]
     ensure_mcp_python()
     ap = argparse.ArgumentParser(description="unified-rx 独立 CLI（不经模型）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -445,11 +519,30 @@ def main() -> int:
     p.add_argument("--repo", default=os.environ.get("UNIFIED_RX_REPO", "bfxh/unified-rx-mcp"))
     p.add_argument("--min-severity", default="error",
                    choices=("error", "warn", "info", "hint"))
+    p.add_argument("--deps", action="store_true",
+                   help="每轮附带依赖图摘要（nodes/edges/cycles）")
     p.set_defaults(fn=cmd_schedule)
     p = sub.add_parser("denoise", help="文本去废话（减 token）")
     p.add_argument("text", nargs="?", default="")
     p.add_argument("--aggressive", action="store_true")
     p.set_defaults(fn=cmd_denoise)
+    p = sub.add_parser("run-func", help="纯函数批量执行（ciopt_batch 自动化入口）")
+    p.add_argument("func", help="纯函数名（ciopt_xxx 或 xxx）")
+    p.add_argument("--input", default=None, help="JSON 输入（标量/数组/对象数组）")
+    p.add_argument("--arg", default="s", help="value 模式参数名（默认 s）")
+    p.add_argument("--input-file", default="", help="JSON 文件读输入（数组则批量）")
+    p.add_argument("--output-file", default="", help="结果 JSON 落盘")
+    p.set_defaults(fn=cmd_run_func)
+    p = sub.add_parser("deps", help="代码依赖图索引（dep_graph）")
+    p.add_argument("path", help="代码库根目录")
+    p.add_argument("--max-files", type=int, default=500)
+    p.add_argument("--full", action="store_true", help="返回全量 edges/dependents")
+    p.add_argument("--dot", action="store_true", help="输出 Graphviz dot")
+    p.set_defaults(fn=cmd_deps)
+    p = sub.add_parser("user-sim", help="用户操作模拟（Windows 桌面 UI）")
+    p.add_argument("--script", required=True, help="操作序列 JSON 文件")
+    p.add_argument("--shot", default="", help="收尾截图路径")
+    p.set_defaults(fn=cmd_user_sim)
     args = ap.parse_args()
     try:
         return args.fn(args)

@@ -157,7 +157,8 @@ def test_tools_count_and_schema():
     # 2026-08-19 blender 实地验证：+blender_verify → 101（100+1）
     # 2026-08-20 通用插件注册：+plugin_list/+plugin_launch → 103
     # 2026-08-23 降噪：+denoise → 104（用户点名"消除废话减 token"）
-    assert len(server._TOOLS) == 104, f"核心工具数变化: {len(server._TOOLS)}"  # +denoise
+    # 2026-08-23 第二批：+ciopt_batch/+dep_graph/+user_sim → 107
+    assert len(server._TOOLS) == 107, f"核心工具数变化: {len(server._TOOLS)}"  # +3
     assert len(defs) == len(server._TOOLS) + len(server._EXT_DEFS), "定义数≠核心+扩展"
     names = [d.name for d in defs]
     assert len(names) == len(set(names)), "工具名重复"

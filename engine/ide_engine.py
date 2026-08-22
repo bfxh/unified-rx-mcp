@@ -1673,8 +1673,9 @@ def local_run(domain: str, name: str, args: dict | None = None,
     cwd = workdir or os.getcwd()
     _t0 = time.perf_counter()
     try:
-        # 分号连接的多命令（如 release_deploy）在 PowerShell 语义下由 shell 执行
-        r = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True,
+        # 分号连接的多命令（如 release_deploy）在 PowerShell 语义下由 shell 执行；
+        # 参数已过 _SAFE_ARG 白名单（拒绝 shell 元字符）——设计性使用
+        r = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True,  # nosec B602
                            text=True, timeout=timeout, encoding="utf-8", errors="replace")
         return {"ok": r.returncode == 0,
                 "domain": domain, "name": name,

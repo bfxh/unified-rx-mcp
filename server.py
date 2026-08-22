@@ -1337,6 +1337,28 @@ def _tool_project_scan(args: dict) -> "list[types.TextContent]":
     if isinstance(_sub, dict) and isinstance(_sub.get("languages"), dict):
         results["languages"] = dict(
             sorted(_sub["languages"].items(), key=lambda kv: -kv[1]))
+    # 输出瘦身（2026-08-23：project_scan 单次输出曾达 300 万 token）——
+    # 默认截断每路 issues（error 全保留；warn 前 50；info 前 20），
+    # full=true 返回全量
+    if not args.get("full"):
+        _truncated = {}
+        for _k in ("bug_scan", "std_check", "ui_check", "cb_scan"):
+            _sub2 = results.get(_k)
+            if isinstance(_sub2, dict) and isinstance(_sub2.get("issues"), list):
+                _issues = _sub2["issues"]
+                _kept = [i for i in _issues
+                         if str(i.get("severity", "")).lower()
+                         in ("error", "critical", "warning", "warn")][:50]
+                _kept += [i for i in _issues
+                          if str(i.get("severity", "")).lower()
+                          not in ("error", "critical", "warning", "warn")][:20]
+                _truncated[_k] = len(_issues) - len(_kept)
+                _sub2["issues"] = _kept
+                _sub2["truncated"] = len(_issues) - len(_kept)
+        if _truncated:
+            results["note"] = ("输出已瘦身（默认截断 issues：error 全保留/warn 前50/"
+                               "info 前20）；full=true 返回全量。截断数: "
+                               + ", ".join(f"{k}={v}" for k, v in _truncated.items()))
     return [_tr(True, "project_scan 完成(并行 %d 路): bug=%d std=%d ui=%d cb=%d" % (
         len(jobs),
         len(results["bug_scan"]) if isinstance(results["bug_scan"], list) else 0,
@@ -1621,6 +1643,146 @@ def _tool_denoise(args: dict) -> "list[types.TextContent]":
         raise ValueError("text 不能为空")
     aggressive = bool(args.get("aggressive", False))
     return [_TC(json.dumps(_denoise_text(text, aggressive), ensure_ascii=False))]
+
+
+# ── ciopt_batch：纯函数批量执行器（2026-08-23，用户：纯函数要能自动化，
+# 不是 AI 手动推一下）──
+def _tool_ciopt_batch(args: dict) -> "list[types.TextContent]":
+    """纯函数批量执行：单值 / 数组批量 / JSON 文件输入 / 结果落盘。
+
+    模式：
+      value-batch  input 为标量或数组 + arg 指定参数名（默认 s）→ 逐元素调用
+      object-batch input 为对象数组 → 每元素直接作为 kwargs 调用
+      input_file   从 JSON 文件读输入（内容为数组则批量）；output_file 结果落盘
+    自动化场景：`cli.py run-func <func> --input-file in.json --output-file out.json`
+    批量处理数据，不再由 AI 手动逐个推。
+    """
+    func = str(args.get("func", "")).strip()
+    if not func:
+        raise ValueError("func 必填（ciopt_xxx 或去掉前缀的 xxx）")
+    if not func.startswith("ciopt_"):
+        func = "ciopt_" + func
+    if not _EXT_DEFS:
+        _ext_definitions()
+    if func not in _EXT_DEFS:
+        names = sorted(n for n in _EXT_DEFS if n.startswith("ciopt_"))
+        raise ValueError(f"未知纯函数: {func}（可用 {len(names)} 个 ciopt_*）")
+    # 输入来源
+    inputs = args.get("input")
+    input_file = args.get("input_file")
+    if input_file:
+        p = _check_path(str(input_file))
+        if not p.is_file():
+            raise ValueError(f"输入文件不存在: {p}")
+        if p.stat().st_size > _MAX_READ:
+            raise ValueError(f"输入文件过大（>{_MAX_READ}）")
+        try:
+            inputs = json.loads(p.read_text(encoding="utf-8", errors="replace"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"输入文件非 JSON: {exc}") from exc
+    if inputs is None:
+        raise ValueError("input 或 input_file 必填")
+    output_file = args.get("output_file")
+    if output_file:
+        _check_path(str(output_file))  # 路径校验（写入前置）
+    arg_name = str(args.get("arg", "s"))
+    # object 模式：输入为对象数组（每元素作 kwargs）或单 dict（作 kwargs）
+    object_mode = bool(args.get("object_mode")) or (
+        isinstance(inputs, dict) or
+        (isinstance(inputs, list) and inputs and all(isinstance(i, dict) for i in inputs)))
+    is_batch = isinstance(inputs, list) and len(inputs) > 1
+    items = inputs if isinstance(inputs, list) else [inputs]
+    t0 = time.perf_counter()
+    results: list = []
+    errors: list[dict] = []
+    for idx, item in enumerate(items):
+        try:
+            call_args = dict(item) if isinstance(item, dict) else {arg_name: item}
+            r = _call_ext(func, call_args)
+            text = "".join(getattr(t, "text", str(t)) for t in r)
+            if text.startswith("Error"):
+                # 扩展错误被包装成文本（"Error in ..."）——识别为调用错误
+                raise RuntimeError(text)
+            try:
+                results.append(json.loads(text) if text.startswith("{") else text)
+            except json.JSONDecodeError:
+                results.append(text)
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"index": idx, "error": str(exc)[:200]})
+    out = {
+        "ok": not errors,
+        "func": func,
+        "mode": "object-batch" if object_mode else
+                ("value-batch" if is_batch else "single"),
+        "count": len(items),
+        "results": results,
+        "errors": errors[:10],
+        "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
+        "hint": ("纯函数批量执行——自动化入口："
+                 "`python cli.py run-func <func> --input-file in.json --output-file out.json`"),
+    }
+    if output_file and not errors:
+        p = _check_path(str(output_file))
+        payload = json.dumps(out, ensure_ascii=False, indent=2)
+        if len(payload) > _MAX_READ:
+            raise ValueError(f"结果过大（>{_MAX_READ}），不落盘")
+        p.write_text(payload, encoding="utf-8")
+        out["output_file"] = str(p)
+    return [_TC(json.dumps(out, ensure_ascii=False))]
+
+
+def _tool_dep_graph(args: dict) -> "list[types.TextContent]":
+    """代码依赖图索引：解析 import/use/require → 文件级依赖图（谁依赖谁）。
+
+    输出：edges（file→依赖列表）+ dependents（谁依赖我）+ stats（依赖最多/
+    被依赖最多）+ cycles（环形引用提示）+ unresolved（未解析的外部引用）。
+    配合 cb_index（符号索引）做代码跟踪；schedule 常驻时可选联动。
+    """
+    p = _check_path(str(args["path"]))
+    max_files = int(args.get("max_files", 500))
+    if not 10 <= max_files <= 2000:
+        raise ValueError("max_files 须在 [10,2000]")
+    try:
+        from dep_graph import build_dep_graph, to_dot
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from dep_graph import build_dep_graph, to_dot  # noqa: F811
+    t0 = time.perf_counter()
+    g = build_dep_graph(str(p), max_files=max_files)
+    g["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    if args.get("dot"):
+        return [_TC(to_dot(g))]
+    # 输出瘦身：全量 edges 可能很大——默认只带摘要 + 可请求全量
+    if not args.get("full"):
+        g.pop("edges", None)
+        g.pop("dependents", None)
+        g["note"] = ("edges/dependents 已省略（默认摘要）；full=true 返回全量图")
+    return [_TC(json.dumps(g, ensure_ascii=False))]
+
+
+def _tool_user_sim(args: dict) -> "list[types.TextContent]":
+    """用户操作模拟（Windows 桌面应用）：窗口激活/点击/输入/组合键/等待/截图。
+
+    按操作序列真实驱动 UI（模拟用户怎么操作的）——UI 冒烟/回归常态化：
+    操作后截图 → OCR 断言界面状态（与 blender_verify 链路配合）。
+    安全：步数≤100、文本≤500、坐标须为数字；只模拟输入不执行任意代码。
+    """
+    actions = args.get("actions")
+    shot = str(args.get("shot", ""))
+    if shot:
+        _check_path(shot)  # 沙盒校验截图落盘路径
+    try:
+        from user_sim import run_actions, UserSimError
+    except ImportError:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, _dir)
+        from user_sim import run_actions, UserSimError  # noqa: F811
+    try:
+        result = run_actions(actions, shot)
+    except UserSimError as exc:
+        result = {"ok": False, "error": str(exc)}
+    return [_TC(json.dumps(result, ensure_ascii=False))]
 
 
 def _tool_scan_log(args: dict) -> "list[types.TextContent]":
@@ -5964,6 +6126,24 @@ _TOOLS: dict[str, tuple] = {
         "text": _S("string", "待精简文本"),
         "aggressive": _S("boolean", "激进模式(默认false)：额外删句首引导词短句"),
     }, ["text"]), "消除废话：去客套/重复/解释性填充，减少 token（纯规则本地执行，毫秒级）"),
+    "ciopt_batch": (_tool_ciopt_batch, _schema({
+        "func": _S("string", "纯函数名（ciopt_xxx 或去掉前缀的 xxx）"),
+        "input": _S("array", "输入：标量/数组（批量）/对象数组（object 模式）"),
+        "arg": _S("string", "value 模式参数名（默认 s）"),
+        "input_file": _S("string", "可选：JSON 文件读输入（数组则批量）"),
+        "output_file": _S("string", "可选：结果 JSON 落盘"),
+        "object_mode": _S("boolean", "强制 object 模式（每元素作 kwargs）"),
+    }, ["func"]), "纯函数批量执行器：文件输入/批量数组/结果落盘——纯函数自动化入口（不再由 AI 手动逐个推）"),
+    "dep_graph": (_tool_dep_graph, _schema({
+        "path": _S("string", "代码库根目录"),
+        "max_files": _S("integer", "文件上限(默认500，上限2000)"),
+        "full": _S("boolean", "返回全量 edges/dependents（默认摘要）"),
+        "dot": _S("boolean", "输出 Graphviz dot 文本"),
+    }, ["path"]), "代码依赖图索引：import/use/require → 文件级依赖图 + 环形引用 + 被依赖统计"),
+    "user_sim": (_tool_user_sim, _schema({
+        "actions": _S("array", "操作序列 [{action:window|move|click|type|key|wait|screenshot,...}]"),
+        "shot": _S("string", "可选：收尾截图路径"),
+    }, ["actions"]), "用户操作模拟（Windows 桌面 UI）：真实驱动窗口点击/输入/按键 + 截图——模拟用户操作冒烟/回归（高压常态化）"),
     "scan_log": (_tool_scan_log, _schema({
         "root": _S("string", "项目根路径（过滤，可选）"),
         "tool": _S("string", "工具名过滤（bug_scan/std_check/vuln_scan/ui_check/cb_scan 等，可选）"),
