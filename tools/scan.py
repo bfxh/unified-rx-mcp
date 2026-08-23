@@ -30,7 +30,7 @@ _PLACEHOLDER_WORDS = ("TODO", "FIXME", "placeholder", "占位", "待实现", "�
 
 
 def _iter_files(path, max_files):
-    """遍历文件（目录或单文件）。"""
+    """遍历文件（目录或单文件）。max_files 只计代码文件（有语言映射的）。"""
     if os.path.isfile(path):
         yield path
         return
@@ -40,8 +40,12 @@ def _iter_files(path, max_files):
     for root, dirs, files in os.walk(path):
         dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "target",
                                                 "__pycache__", "dist", "build",
-                                                ".codegraph", "backups")]
+                                                ".codegraph", "backups", "assets",
+                                                "screenshots", "images", "fonts")]
         for fn in files:
+            # 只对代码文件计数（非代码文件直接跳过，不占额度）
+            if not _LANG_BY_EXT.get(os.path.splitext(fn)[1].lower(), ""):
+                continue
             if count >= max_files:
                 return
             yield os.path.join(root, fn)
