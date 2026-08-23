@@ -1,37 +1,43 @@
-# unified-rx 工具契约（Tool Contract）
+# unified-rx-v2 工具契约（SPEC）
 
-> 本目录定义 unified-rx **工具集**的行为契约（RFC 2119 规范性规则）。
-> 定位：**这是工具集，不是智能体**——契约约束的是每个工具的行为边界
-> （输入/输出/失败语义/安全约束），不是"AI 该怎么做事"。
-> 每条规则对应 `probes/` 下的可重放验证脚本；`reports/` 汇总探针实测结果。
+> 定位：**工具箱，不是智能体**——工具产出证据与事实，不替代 LLM 推理。
+> 目标：把智能体的"查/做"类体力活全部本地化、确定性化；AI 只保留"决策"。
 
-## 目录
+## 工具面（12 域 34 工具）
 
-| 章节 | 覆盖工具族 | 契约要点 |
+| 域 | 工具 | 契约要点 |
 |---|---|---|
-| [00_overview](00_overview.md) | 全部 | 工具集定位、防幻觉、沙盒、失败语义 |
-| [01_bug_scan](01_bug_scan.md) | `bug_scan` / `bug_locate` | 静态缺陷扫描契约 |
-| [02_std_check](02_std_check.md) | `std_check` / `ui_check` | 工程标准检查契约 |
-| [03_cb_scan](03_cb_scan.md) | `cb_index` / `cb_scan` / `cb_status` | 代码库认知契约 |
-| [04_locate_edit](04_locate_edit.md) | `locate_edit` / `code_complete` | 定位与补全契约 |
-| [05_guard](05_guard.md) | `hallucination_guard` / `capability_manifest` | 防幻觉契约 |
-| [06_pure](06_pure.md) | `math_ops` / `text_ops` / 纯函数族 | 纯函数一致性契约（Python/Rust 双实现 parity） |
-| [07_net_chaos](07_net_chaos.md) | `net_chaos`（rx-net 混沌代理） | 弱网模拟契约（参数边界/生命周期/数据一致性） |
+| fs | `fs_read` `fs_write` `fs_stat` `fs_list` | 沙盒（UNIFIED_RX_SANDBOX，分号分隔）；读 ≤1MB；**fs_write 必须 `__authorized: true`**（无授权 PermissionError） |
+| scan | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` | bug_scan 多语言静态模式；std_check 占位/魔法数字；ui_check Bevy 死按钮；project_scan 三路组合 |
+| ide | `locate_edit` `code_context` `ide_edit_multi` `ide_rename` `ide_references` `code_complete` | **ide_edit_multi 内容匹配**（非行号，修复 0 应用）；rename 只建议不落盘 |
+| search | `code_search` `kb_query` | BM25 符号加权（中英通用）；零嵌入模型依赖 |
+| guard | `hallucination_guard` `capability_manifest` | 声明三分级 verified/refuted/unverifiable；能力边界清单 |
+| learn | `lesson` `chatlog_search` | 教训 JSONL 库；中英 2-gram 匹配召回 |
+| ops | `backup` `cost_report` `scan_log` | zip 快照限量 7 份；统计自动打点；扫描日志 JSONL |
+| game | `game_check` `blender_verify` | 游戏规则检查；Blender 窗口实地验证 |
+| pure | `pure_funcs` `pure_batch` | ~40 动作（math/str/json/sort/prime/stat/geo）；批量执行器 |
+| collab | `pipeline` `parallel` | 步骤链（preset 配方）；≤8 并发 |
+| meta | `cmd_cheatsheet` `local_run` | 白名单命令；subprocess+超时+PYTHONUTF8 |
+| engine | `engine_status` `engine_query` | 开源引擎探测（codegraph/codebase-memory）；不可用降级 BM25 |
 
-## 规范性词（RFC 2119）
+## 安全契约（MUST）
 
-- **MUST**：必须满足，违反即缺陷（probe 断言）
-- **SHOULD**：应满足，例外需明确理由
-- **MAY**：可选，不承诺
+1. **写操作授权**：fs_write 必须 `__authorized: true`，否则 PermissionError——防 AI 幻觉乱写
+2. **沙盒**：`UNIFIED_RX_SANDBOX` 锚定文件工具根（未设置 = 不限制，但默认从 Hermes 配置注入）
+3. **大小上限**：读/写 1MB，fs_list ≤200 项
+4. **命令白名单**：local_run 仅 `_COMMANDS` 内模板；参数安全字符校验
+5. **错误隔离**：单工具异常 → `{ok:false, error}`，不拖垮协议层
 
-## 探针与报告
+## 失败语义
 
-- `probes/probe_XX_*.py` —— 每条契约的可重放验证脚本，退出码 0=通过
-- `reports/REPORT_*.md` —— 探针实测汇总（findings 表，标注 verified/refuted/unverified）
+- 工具返回 `{"error": ...}` → 业务失败（ok:false）
+- 抛异常（PermissionError/ValueError）→ registry 捕获 → `{ok:false, error: "TypeError: ..."}`
+- MCP 层：失败 → `isError: true` + ERROR 前缀文本
 
-## 一条契约的完整生命周期
+## 验证
 
-1. 需求/缺陷 → 写进对应 spec 章节（MUST/SHOULD）
-2. 写 probe 验证当前实现是否符合契约
-3. 跑 probe → 结果记入 reports/（verified 或 refuted）
-4. refuted → 修实现 → 重跑 probe → 转 verified
+```bash
+python server.py --selftest   # 注册表自检（工具数 + schema + 抽样）
+python -m pytest tests/ -q    # 20 全量测试
+python _mcp_probe.py          # MCP 协议联通（initialize/list/call/授权）
+```

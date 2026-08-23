@@ -1,5 +1,0 @@
-# rx-core 构建配置
-# 仓库路径 D:\开发 含中文，msys2 GNU 链接器在中文 target 目录下找不到 .o
-# （rustc 1.95 gnu 工具链已知问题）——target-dir 固定到英文路径（与 rx-search/rx-net/rx-telemetry 一致）。
-[build]
-target-dir = "D:/rj/.rx-target"
