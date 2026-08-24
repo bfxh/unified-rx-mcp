@@ -4,6 +4,11 @@
 收敛自旧版 ide_complete_chain/ide_continue/ide_jump_predict/ide_open_at 等。
 重点修复旧版 0 应用问题：ide_edit_multi 用「内容匹配」而非「行号匹配」，
 行号偏移不再导致编辑静默失败。
+2026-08-25 修复（用户反馈 IDE 限制 AI）：
+- I1: ide_edit_multi 支持 occ 参数（同内容多处，指定第几次出现）
+- I2: 行数组块匹配（消除拼接字符串 find 的顺序依赖隐患）
+- I3: 写回保留原行尾（CRLF/LF 不破坏）
+- I4: locate_edit/ide_references 等 max_files 只计代码文件
 """
 import os
 import re
@@ -12,11 +17,15 @@ from registry import tool
 
 MAX_CTX = 5000
 
+_SKIP_DIRS = (".git", "node_modules", "target", "__pycache__", "dist", "build",
+              ".unified-rx-index", ".codegraph", "backups", "assets", "data", "models", "docs")
+
 
 def _read(path):
     if not os.path.isfile(path):
         return None
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
+    # newline="" 保留原始行尾（CRLF 不被转 LF），供 _detect_eol 检测
+    with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
         return f.read()
 
 
@@ -25,6 +34,31 @@ def _lang_of(path):
     return {"py": "python", "rs": "rust", "go": "go", "ts": "typescript",
             "tsx": "typescript", "js": "javascript", "jsx": "javascript",
             "gd": "gdscript", "cs": "csharp", "dart": "dart"}.get(ext.lstrip("."), "text")
+
+
+def _iter_files(root, max_files, skip_dirs=None):
+    """遍历代码文件：max_files 只计有语言的代码文件（I4 修复）。"""
+    skip = set(_SKIP_DIRS)
+    if skip_dirs:
+        skip |= set(skip_dirs)
+    count = 0
+    for r, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in skip]
+        for fn in files:
+            fp = os.path.join(r, fn)
+            if _lang_of(fp) == "text":
+                continue
+            if count >= max_files:
+                return
+            count += 1
+            yield fp
+
+
+def _detect_eol(src):
+    """检测行尾：CRLF / LF。"""
+    crlf = src.count("\r\n")
+    lf = src.count("\n") - crlf
+    return "\r\n" if crlf > lf else "\n"
 
 
 # ---------- locate_edit：自然语言/符号 → 位置 ----------
@@ -42,30 +76,18 @@ def locate_edit(path, query, max_files=100, limit=10):
         return {"error": f"不是目录: {path}"}
     query = query.strip()
     hits = []
-    count = 0
-    for root, dirs, files in os.walk(path):
-        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "target",
-                                                "__pycache__", "dist", "build", ".unified-rx-index")]
-        for fn in files:
-            if count >= max_files:
-                break
-            count += 1
-            if not _lang_of(os.path.join(root, fn)):
-                continue
-            fp = os.path.join(root, fn)
-            src = _read(fp)
-            if not src:
-                continue
-            lines = src.split("\n")
-            for idx, line in enumerate(lines, 1):
-                # 符号/关键词命中（区分大小写优先精确，其次忽略大小写）
-                if query in line or (query.lower() in line.lower() and query not in line):
-                    ctx = lines[max(0, idx - 2):idx + 3]
-                    hits.append({"file": fp, "line": idx, "snippet": "\n".join(ctx)})
-                    if len(hits) >= limit * 3:
-                        break
-            if len(hits) >= limit * 3:
-                break
+    for fp in _iter_files(path, max_files):
+        src = _read(fp)
+        if not src:
+            continue
+        lines = src.split("\n")
+        for idx, line in enumerate(lines, 1):
+            # 符号/关键词命中（区分大小写优先精确，其次忽略大小写）
+            if query in line or (query.lower() in line.lower() and query not in line):
+                ctx = lines[max(0, idx - 2):idx + 3]
+                hits.append({"file": fp, "line": idx, "snippet": "\n".join(ctx)})
+                if len(hits) >= limit * 3:
+                    break
         if len(hits) >= limit * 3:
             break
     return {"query": query, "total": len(hits), "hits": hits[:limit]}
@@ -100,13 +122,13 @@ def code_context(path, cursor_line=0, radius=30):
 
 
 # ---------- ide_edit_multi：内容匹配多行编辑（核心修复） ----------
-@tool("ide_edit_multi", "多行修改：diff 格式输入→应用（内容匹配，非行号）", "ide",
+@tool("ide_edit_multi", "多行修改：内容匹配应用（支持 occ 指定第几次出现；保留原行尾）", "ide",
       {"type": "object",
        "properties": {
            "root": {"type": "string", "description": "仓库根（可选）"},
            "file_path": {"type": "string", "description": "文件"},
            "edits": {"type": "array",
-                     "description": "[{old_lines: [...], new_lines: [...]}]——old_lines 必须与文件内容逐行精确匹配"},
+                     "description": "[{old_lines: [...], new_lines: [...], occ?: 1}]——old_lines 逐行精确匹配；occ 指定匹配第几次出现（默认 1）"},
        },
        "required": ["file_path", "edits"]})
 def ide_edit_multi(file_path, edits, root=None):
@@ -116,29 +138,40 @@ def ide_edit_multi(file_path, edits, root=None):
     src = _read(p)
     if src is None:
         return {"error": f"文件不可读: {p}"}
+    eol = _detect_eol(src)
     lines = src.split("\n")
+    # 去掉每行尾部的 \r（CRLF 时），统一成 \n 数组
+    lines = [ln[:-1] if ln.endswith("\r") else ln for ln in lines]
     applied = 0
     errors = []
     for e in edits or []:
         old = e.get("old_lines") or []
         new = e.get("new_lines") or []
-        old_text = "\n".join(old)
-        # 内容匹配（整块匹配，含行尾；兼容 CRLF）
-        src_text = "\n".join(lines)
-        idx = src_text.find(old_text)
-        if idx < 0:
-            errors.append(f"未匹配: {old_text[:60]!r}...")
+        occ = int(e.get("occ", 1) or 1)
+        if not old:
+            errors.append("old_lines 为空")
             continue
-        # 定位到行边界
-        line_start = src_text.count("\n", 0, idx)
-        line_end = line_start + len(old)
-        lines[line_start:line_end] = new
+        # 逐行块匹配（第 occ 次出现）——I1/I2 修复
+        found = -1
+        seen = 0
+        for i in range(len(lines) - len(old) + 1):
+            if lines[i:i + len(old)] == old:
+                seen += 1
+                if seen == occ:
+                    found = i
+                    break
+        if found < 0:
+            errors.append(f"未匹配(occ={occ}): {old[0][:60]!r}...")
+            continue
+        lines[found:found + len(old)] = new
         applied += 1
     if applied == 0:
         return {"error": f"0 应用: {errors[:3]}", "applied": 0, "errors": errors}
-    with open(p, "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(lines))
-    return {"applied": applied, "errors": errors, "file": p}
+    # 写回：保留原行尾（I3 修复）
+    out = eol.join(lines)
+    with open(p, "w", encoding="utf-8", newline="") as f:
+        f.write(out)
+    return {"applied": applied, "errors": errors, "file": p, "eol": "CRLF" if eol == "\r\n" else "LF"}
 
 
 # ---------- ide_references：符号引用查找 ----------
@@ -153,29 +186,19 @@ def ide_references(root, symbol):
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     defs, refs = [], []
-    count = 0
-    for r, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "target",
-                                                "__pycache__", "dist", "build")]
-        for fn in files:
-            if count >= 200:
-                break
-            count += 1
-            if not _lang_of(os.path.join(r, fn)):
+    for fp in _iter_files(root, 200):
+        src = _read(fp)
+        if not src:
+            continue
+        for idx, line in enumerate(src.split("\n"), 1):
+            if symbol not in line:
                 continue
-            fp = os.path.join(r, fn)
-            src = _read(fp)
-            if not src:
-                continue
-            for idx, line in enumerate(src.split("\n"), 1):
-                if symbol not in line:
-                    continue
-                item = {"file": fp, "line": idx, "text": line.strip()[:100]}
-                # 定义启发：def/fn/func/class/struct/const/let + 符号
-                if re.search(rf"\b(def|fn|func|class|struct|enum|const|let|pub)\s+{re.escape(symbol)}\b", line):
-                    defs.append(item)
-                else:
-                    refs.append(item)
+            item = {"file": fp, "line": idx, "text": line.strip()[:100]}
+            # 定义启发：def/fn/func/class/struct/const/let + 符号
+            if re.search(rf"\b(def|fn|func|class|struct|enum|const|let|pub)\s+{re.escape(symbol)}\b", line):
+                defs.append(item)
+            else:
+                refs.append(item)
     return {"symbol": symbol, "defs": defs[:10], "refs": refs[:30], "total": len(defs) + len(refs)}
 
 
@@ -193,22 +216,12 @@ def ide_rename(root, symbol, new_name, include_plan=False):
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     plan = []
-    count = 0
-    for r, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "target",
-                                                "__pycache__", "dist", "build")]
-        for fn in files:
-            if count >= 200:
-                break
-            count += 1
-            if not _lang_of(os.path.join(r, fn)):
-                continue
-            fp = os.path.join(r, fn)
-            src = _read(fp)
-            if not src:
-                continue
-            if symbol in src:
-                plan.append({"file": fp, "occurrences": src.count(symbol)})
+    for fp in _iter_files(root, 200):
+        src = _read(fp)
+        if not src:
+            continue
+        if symbol in src:
+            plan.append({"file": fp, "occurrences": src.count(symbol)})
     return {
         "symbol": symbol, "new_name": new_name,
         "files_affected": len(plan), "total_occurrences": sum(p["occurrences"] for p in plan),
@@ -230,26 +243,18 @@ def code_complete(root, prefix, file=None):
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     decls, others = set(), set()
-    count = 0
-    for r, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "target",
-                                                "__pycache__", "dist", "build")]
-        for fn in files:
-            if count >= 100:
-                break
-            count += 1
-            if not _lang_of(os.path.join(r, fn)):
-                continue
-            src = _read(os.path.join(r, fn))
-            if not src:
-                continue
-            for m in re.finditer(rf"\b([A-Za-z_][A-Za-z0-9_]*{re.escape(prefix)}[A-Za-z0-9_]*)\b", src):
-                name = m.group(1)
-                line = src[:m.start()].count("\n") + 1
-                line_text = src.split("\n")[line - 1]
-                if re.search(rf"\b(def|fn|func|class|struct|enum|const|let)\b.*{name}", line_text):
-                    decls.add(name)
-                else:
-                    others.add(name)
+    for fp in _iter_files(root, 100):
+        src = _read(fp)
+        if not src:
+            continue
+        # 前缀开头匹配（I5 修复：counter 匹配 count）
+        for m in re.finditer(rf"\b{re.escape(prefix)}[A-Za-z0-9_]*\b", src):
+            name = m.group(0)
+            line = src[:m.start()].count("\n") + 1
+            line_text = src.split("\n")[line - 1]
+            if re.search(rf"\b(def|fn|func|class|struct|enum|const|let)\b.*{name}", line_text):
+                decls.add(name)
+            else:
+                others.add(name)
     suggestions = sorted(decls)[:10] + sorted(others - decls)[:10]
     return {"prefix": prefix, "suggestions": suggestions, "total": len(suggestions)}
