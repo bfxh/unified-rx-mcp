@@ -5,8 +5,11 @@
 - 工具注册即声明（装饰器），零反射
 - 统一分发入口 call()，错误隔离（单工具异常 → {ok:false}，不拖垮协议层）
 - group 用于工具面收敛统计与文档生成
+- 2026-08-25: call() 自动打点（duration_ms 写入 stats.jsonl，供 cost_report/usage 统计）
 """
 import json
+import os
+import time
 
 _TOOLS = {}
 
@@ -45,16 +48,35 @@ def groups():
     return g
 
 
+def _record_stats(tool_name, duration_ms):
+    """工具调用打点（cost_report/usage_stats 的数据源）。"""
+    try:
+        home = os.path.join(os.path.expanduser("~"), ".unified-rx")
+        os.makedirs(home, exist_ok=True)
+        with open(os.path.join(home, "stats.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "tool": tool_name, "duration_ms": int(duration_ms),
+                "ts": int(time.time()),
+            }, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
 def call(name, args):
-    """统一分发。args 为 dict。返回 {ok, result} 或 {ok:false, error}。"""
+    """统一分发。args 为 dict。返回 {ok, result} 或 {ok:false, error}。
+    自动打点：每次调用记录 tool + 耗时（不阻塞、不拖垮主流程）。"""
     if name not in _TOOLS:
         return {"ok": False, "error": f"未知工具: {name}"}
+    t0 = time.time()
     try:
         result = _TOOLS[name]["handler"](**(args or {}))
+        _record_stats(name, (time.time() - t0) * 1000)
         return {"ok": True, "result": result}
     except TypeError as e:
+        _record_stats(name, (time.time() - t0) * 1000)
         return {"ok": False, "error": f"参数错误: {e}"}
     except Exception as e:
+        _record_stats(name, (time.time() - t0) * 1000)
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
 
