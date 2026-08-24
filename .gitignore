@@ -6,3 +6,8 @@ _tmp_tests/
 *.log
 _release_build*.log*
 backups/
+
+# test artifacts
+preflight-reports/
+_pytest_tmp/
+__pycache__/
