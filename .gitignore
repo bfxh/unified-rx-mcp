@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+_pytest_tmp/
+_tmp_tests/
+*.log
+_release_build*.log*
+backups/
