@@ -26,9 +26,11 @@ def _in_sandbox(path):
     roots = _sandbox_roots()
     if roots is None:
         return True
-    ap = os.path.abspath(path)
+    # P2 修复：realpath 解析符号链接/junction（防沙盒内 symlink 指向沙盒外）
+    rp = os.path.realpath(path)
     for r in roots:
-        if ap == r or ap.startswith(r + os.sep):
+        rr = os.path.realpath(r)
+        if rp == rr or rp.startswith(rr + os.sep):
             return True
     return False
 
@@ -40,7 +42,8 @@ def _resolve(path):
     ap = os.path.abspath(path)
     if not _in_sandbox(ap):
         raise ValueError(f"路径越界（沙盒外）: {path}")
-    return ap
+    # 返回 realpath（防后续 open() 走符号链接）
+    return os.path.realpath(ap)
 
 
 @tool("fs_read", "安全读取文件（≤1MB，沙盒校验）", "fs",
@@ -69,8 +72,9 @@ def fs_read(path):
 def fs_write(path, content, __authorized=False):
     if not __authorized:
         raise PermissionError("写操作需要授权：参数加 __authorized: true 确认后重试")
-    if len(content or "") > MAX_BYTES:
-        return {"error": f"内容过大（{len(content)} > {MAX_BYTES}）"}
+    content = content or ""
+    if len(content.encode("utf-8")) > MAX_BYTES:
+        return {"error": f"内容过大（{len(content.encode('utf-8'))} > {MAX_BYTES} 字节）"}
     p = _resolve(path)
     d = os.path.dirname(p)
     if d and not os.path.isdir(d):

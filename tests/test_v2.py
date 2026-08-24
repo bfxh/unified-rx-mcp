@@ -146,7 +146,7 @@ def test_ide_edit_multi(tmp_path):
     r = registry.call("ide_edit_multi", {
         "file_path": str(f),
         "edits": [{"old_lines": ["    let a = 1;"], "new_lines": ["    let b = 2;"]}],
-    })
+        "__authorized": True})
     assert r["ok"], r
     assert r["result"]["applied"] == 1
     assert "let b = 2" in f.read_text(encoding="utf-8")

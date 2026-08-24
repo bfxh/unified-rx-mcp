@@ -41,6 +41,10 @@ def _send(obj):
 
 def _handle(msg):
     """处理单条消息，返回响应（或 None 表示无需响应）。"""
+    # P3 修复：协议版本校验（非 2.0 拒绝，防协议混淆/畸形客户端）
+    if msg.get("jsonrpc") not in (None, "2.0"):
+        return {"jsonrpc": "2.0", "id": msg.get("id"),
+                "error": {"code": -32600, "message": "Invalid Request: jsonrpc must be 2.0"}}
     method = msg.get("method")
     msg_id = msg.get("id")
     params = msg.get("params") or {}
