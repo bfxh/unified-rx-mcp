@@ -9,10 +9,6 @@ import json
 import subprocess
 import urllib.request
 import urllib.error
-import re
-import subprocess
-import urllib.request
-import urllib.error
 
 from registry import tool
 
@@ -124,7 +120,8 @@ def blender_verify(ocr=False, screenshot_path=None):
     blenders = []
     try:
         out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq blender.exe"],
-                             capture_output=True, text=True, timeout=15)
+                             capture_output=True, text=True, timeout=15,
+                             encoding="gbk", errors="replace")
         for line in out.stdout.split("\n"):
             if "blender.exe" in line.lower():
                 blenders.append(line.strip())
@@ -142,7 +139,8 @@ def blender_verify(ocr=False, screenshot_path=None):
             "$g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size);"
             f"$bmp.Save('{shot}');"
         )
-        r = subprocess.run(["powershell", "-Command", ps], capture_output=True, timeout=20)
+        r = subprocess.run(["powershell", "-Command", ps], capture_output=True,
+                           timeout=20, encoding="gbk", errors="replace")
         shot_ok = r.returncode == 0
     except Exception:
         shot_ok = False

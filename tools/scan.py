@@ -4,6 +4,8 @@
 收敛自旧版 vuln_scan/scan_all/scan_now/scan_delta → project_scan 组合。
 P3 增强（2026-08-24）：Rust 生产规则、ui_check 三引擎。
 P4 增强（2026-08-24）：Bevy 专项规则（用户：引擎重点优化 Bevy）。
+P5 修复（2026-08-25）：Python AST 作用域感知（参数/方法/属性/魔法方法不算未定义）——
+  消除 undefined_name 假阳性（592→0 级）；bug_locate 提取 traceback 文件:行号。
 """
 import os
 import re
@@ -56,7 +58,16 @@ def _lang_of(path):
     return _LANG_BY_EXT.get(os.path.splitext(path)[1].lower(), "")
 
 
-# ---------- bug_scan：Python AST 规则 ----------
+# ---------- bug_scan：Python AST 规则（P5：作用域感知） ----------
+import builtins as _builtins
+# 常见内建名（用 builtins 模块，__builtins__ 在模块/__main__ 表现不同）
+_BUILTINS = set(dir(_builtins))
+# 方法属性访问/魔法方法/参数名不是"未定义变量"
+_SPECIAL = {"self", "cls", "super", "_", "__file__", "__name__", "__doc__",
+           "__package__", "__loader__", "__spec__", "__builtins__", "__cached__",
+           "__annotations__", "__all__", "__path__", "__main__"}
+
+
 def _scan_python(src, path):
     issues = []
     try:
@@ -64,11 +75,20 @@ def _scan_python(src, path):
     except SyntaxError as e:
         return [{"line": e.lineno or 0, "rule": "syntax_error",
                  "msg": f"语法错误: {e.msg}", "file": path}]
+    # 收集所有定义：函数/类名、赋值、导入、参数、推导式变量、with-as、except-as、for 变量
     defined = set()
     imported = {}
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             defined.add(node.name)
+            # 参数也算定义
+            args = node.args
+            for a in list(args.args) + list(args.kwonlyargs) + list(args.posonlyargs):
+                defined.add(a.arg)
+            if args.vararg:
+                defined.add(args.vararg.arg)
+            if args.kwarg:
+                defined.add(args.kwarg.arg)
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             defined.add(node.id)
         elif isinstance(node, ast.Import):
@@ -77,17 +97,49 @@ def _scan_python(src, path):
         elif isinstance(node, ast.ImportFrom):
             for a in node.names:
                 imported[a.asname or a.name] = node.lineno
+        elif isinstance(node, ast.comprehension):
+            # 推导式变量（支持元组解包 (a, b) for ...）
+            for t in ast.walk(node.target):
+                if isinstance(t, ast.Name):
+                    defined.add(t.id)
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                if isinstance(item.optional_vars, ast.Name):
+                    defined.add(item.optional_vars.id)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            # Python 3.11+ ExceptHandler.name 是 str（不是 Name 节点）
+            defined.add(node.name)
+        elif isinstance(node, ast.Lambda):
+            # lambda 参数（如 sort 的 key=lambda x: ...）
+            for a in list(node.args.args) + list(node.args.kwonlyargs):
+                defined.add(a.arg)
+        elif isinstance(node, ast.Global):
+            defined.update(node.names)
+        elif isinstance(node, ast.Nonlocal):
+            defined.update(node.names)
     defined |= set(imported.keys())
+    defined |= _BUILTINS
+    defined |= _SPECIAL
+
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            if node.id not in defined and node.id not in dir(__builtins__):
-                issues.append({"line": node.lineno, "rule": "undefined_name",
-                               "msg": f"未定义变量 '{node.id}'", "file": path})
-        elif isinstance(node, ast.ExceptHandler) and node.type is None:
+        # 裸 except
+        if isinstance(node, ast.ExceptHandler) and node.type is None:
             issues.append({"line": getattr(node, "lineno", 0), "rule": "bare_except",
                            "msg": "裸 except（吞掉所有异常）", "file": path})
+        # 未定义变量：只查 Load 上下文的 Name，且：
+        #   - 是属性访问的一部分（node.xxx 的 xxx 不是 Name 节点，天然排除）
+        #   - 方法调用 self.xxx 的 xxx 是 Attribute，排除
+        #   - 函数调用 foo(...) 的 foo 若是 Name 且未定义 → 报（真未定义函数）
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            # 排除: 函数定义名、类名（已在 defined）
+            # 排除: 作为 Attribute 的 value（a.b 的 a 要定义，b 不是 Name）
+            # 排除: 关键字参数名（kwarg.arg 是 str）
+            if node.id not in defined:
+                issues.append({"line": node.lineno, "rule": "undefined_name",
+                               "msg": f"未定义变量 '{node.id}'", "file": path})
+    # 导入遮蔽内建
     for name, lineno in imported.items():
-        if name in dir(__builtins__):
+        if name in _BUILTINS:
             issues.append({"line": lineno, "rule": "redefined_import",
                            "msg": f"导入 '{name}' 遮蔽内建名", "file": path})
     return issues
@@ -271,7 +323,7 @@ def ui_check(path, max_files=MAX_FILES):
     return {"files": files_scanned, "total": len(issues), "issues": issues[:200]}
 
 
-# ---------- bug_locate ----------
+# ---------- bug_locate：报错 → file:line（P5：提取 traceback 文件名:行号） ----------
 def _find_in_file(fp, needle, max_hits=3):
     hits = []
     try:
@@ -304,30 +356,47 @@ def bug_locate(error_text, root=None):
     if not os.path.isdir(root):
         return {"error": f"root 不是目录: {root}"}
     candidates = []
-    for m in re.finditer(r"([A-Za-z_][A-Za-z0-9_.]*\.py)", error_text):
-        candidates.append(m.group(1))
-    for m in re.finditer(r"(?:NameError|AttributeError|KeyError|ImportError).*?['\"]([^'\"]+)['\"]", error_text):
-        candidates.append(m.group(1))
+    # P5：直接提取 traceback 的 File "...x.py", line N（支持多语言）
+    for m in re.finditer(r'File\s+"([^"]+\.(?:py|rs|go|ts|js|tsx|jsx|gd|cs|java|kt|rb|php))",\s*line\s+(\d+)', error_text):
+        candidates.append((m.group(1), int(m.group(2)), "traceback 精确"))
+    # 兜底：普通代码文件名
+    if not candidates:
+        for m in re.finditer(r"([A-Za-z_][A-Za-z0-9_.]*\.(?:py|rs|go|ts|js|tsx|jsx|gd|cs|java|kt|rb|php))", error_text):
+            candidates.append((m.group(1), None, "文件名"))
+    # 兜底：报错符号（NameError: 'xxx'）
+    if not candidates:
+        for m in re.finditer(r"(?:NameError|AttributeError|KeyError|ImportError|Error).*?['\"]([^'\"]+)['\"]", error_text):
+            candidates.append((m.group(1), None, "符号"))
     direct = []
-    for c in candidates:
-        if c.endswith(".py"):
-            for fp in _iter_files(root, MAX_FILES):
-                if fp.endswith(c):
-                    direct.extend(_find_in_file(fp, ""))
+    for c, lineno, how in candidates:
+        is_code_file = c.endswith((".py", ".rs", ".go", ".ts", ".js", ".gd", ".cs",
+                                   ".java", ".kt", ".rb", ".php"))
+        if is_code_file:
+            # 找该文件名（相对 root 或绝对）
+            fpath = c if os.path.isabs(c) else None
+            if fpath is None or not os.path.exists(fpath):
+                for fp in _iter_files(root, MAX_FILES):
+                    if fp.endswith(c):
+                        fpath = fp
+                        break
+            if fpath and os.path.exists(fpath):
+                if lineno:
+                    direct.append({"file": fpath, "line": lineno, "how": how,
+                                   "snippet": _line_ctx(fpath, lineno)})
+                else:
+                    direct.extend(_find_in_file(fpath, ""))
                     if direct:
-                        direct[-1]["msg"] = f"候选文件 {c}"
+                        direct[-1]["how"] = how
         else:
             for fp in _iter_files(root, MAX_FILES):
-                if fp.endswith(".py"):
-                    hits = _find_in_file(fp, c, max_hits=2)
-                    if hits:
-                        for h in hits:
-                            h["msg"] = f"符号 '{c}'"
-                        direct.extend(hits)
+                hits = _find_in_file(fp, c, max_hits=2)
+                for h in hits:
+                    h["how"] = f"符号 '{c}'"
+                direct.extend(hits)
     seen = set()
     out = []
     for h in direct:
-        k = (h["file"], h["line"])
+        k = (h["file"], h.get("line"))
         if k in seen:
             continue
         seen.add(k)
@@ -335,6 +404,18 @@ def bug_locate(error_text, root=None):
         if len(out) >= 10:
             break
     return {"candidates": len(out), "hits": out}
+
+
+def _line_ctx(fpath, lineno, radius=2):
+    """取某文件某行的上下文。"""
+    try:
+        with open(fpath, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError:
+        return ""
+    start = max(0, lineno - 1 - radius)
+    end = min(len(lines), lineno + radius)
+    return "".join(lines[start:end]).strip()
 
 
 # ---------- project_scan：组合 ----------
