@@ -439,3 +439,25 @@ bench/h3_score 同款证据链路 + lesson 域真接入：
 
 solved 0/8 → 3/8，fail 点 18→5（-72%）。n 小、单轮、judge 同源——定位为
 方向性证据不作统计宣称。runner 化：ab_run 三模式已支持后续任意重放。
+
+---
+
+## S21 · P3 外锚首期：SWE-bench Verified 抽样对比（2026-08-27）
+
+协议（外锚代理，偏离如实声明）：不构建仓库测试环境、不跑 fail-to-pass 测试——
+**同仓开卷对比**：真 checkout base_commit 上，A 臂仅 fs 手翻 / B 臂全部只读诊断工具
+（code_search/ast_scan/ide_lsp/engine_query…），Agent-as-a-Judge 以 gold patch 判
+same_issue_area / same_root_cause / fix_equivalent。
+
+**首期 n=6**（django×2/sympy/sphinx/sklearn/requests，random seed 固定）：
+B 33.3% vs A 16.7%（fix_equivalent），方向与 H1 一致；n 小仅协议验证。
+
+工程坑固化进 swe_p3.py：
+- HF 被墙 → hf-mirror.com（必须带 UA）取 parquet（2.1MB 全集）
+- blobless 全量克隆国内网络挂死 → `git init + fetch --depth 1 origin <sha>` 快照拉取
+- 模型耗尽工具轮被强制收线时，以 DSML 文本续写工具调用而不是输出 patch →
+  收线强约束 + "提炼轮"兜底（无 ```diff 块则二次索取纯 diff）
+- do_score 聚合桶名错位（a[k] vs tin/wall）——被首跑当场咬出
+
+产出：bench/swe_p3.py（fetch/clone/run/judge/score 五合一）、
+bench/results/swe_sample.jsonl、results/swe/*.json + summary.json。

@@ -1,0 +1,54 @@
+{
+ "instance_id": "sympy__sympy-17318",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17318",
+ "tokens_in": 18125,
+ "tokens_out": 626,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_stat",
+   "round": 5,
+   "ms": 2
+  }
+ ],
+ "walltime_s": 8.8,
+ "answer": "```diff\ndiff --git a/sympy/simplify/radsimp.py b/sympy/simplify/radsimp.py\n--- a/sympy/simplify/radsimp.py\n+++ b/sympy/simplify/radsimp.py\n@@ -1065,7 +1065,7 @@ def _split_gcd(*a):\n     if len(a) == 0:\n         return Integer(0), Integer(0), Integer(0)\n \n-    g = a[0]\n+    g = a[0] if a else Integer(0)\n     b1 = Integer(0)\n     b2 = Integer(0)\n     for x in a:\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Gold patch prevents empty surds list by checking positivity; candidate patch only guards empty tuple in _split_gcd, not addressing root cause."
+ }
+}

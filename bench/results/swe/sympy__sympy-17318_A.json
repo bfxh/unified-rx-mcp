@@ -1,0 +1,49 @@
+{
+ "instance_id": "sympy__sympy-17318",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17318",
+ "tokens_in": 12292,
+ "tokens_out": 519,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 8.7,
+ "answer": "```diff\ndiff --git a/sympy/simplify/radsimp.py b/sympy/simplify/radsimp.py\n--- a/sympy/simplify/radsimp.py\n+++ b/sympy/simplify/radsimp.py\n@@ -1065,6 +1065,8 @@ def _split_gcd(*a):\n     if not a:\n         return Integer(0), Integer(0), Integer(0)\n \n+    if len(a) == 1:\n+        return a[0], Integer(1), Integer(1)\n+\n     g = a[0]\n     b1 = Integer(0)\n     b2 = Integer(0)\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Both fix the IndexError from empty surds, but gold patch prevents the call by checking positivity, while candidate handles single-element case, which may not fully address the root cause."
+ }
+}

@@ -1,0 +1,64 @@
+{
+ "instance_id": "django__django-11999",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11999",
+ "tokens_in": 29561,
+ "tokens_out": 919,
+ "turns": 10,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 496
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 239
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 184
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 104
+  },
+  {
+   "tool": "code_context",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "code_context",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "fs_read",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 10.8,
+ "answer": "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"code_search\">\n<｜｜DSML｜｜parameter name=\"query\" string=\"true\">setattr(cls, 'get_%s_display'</｜｜DSML｜｜parameter>\n<｜｜DSML｜｜parameter name=\"root\" string=\"true\">C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11999</｜｜DSML｜｜parameter>\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches check if the display method already exists before overriding it, preserving user-defined overrides. The candidate patch uses a similar conditional setattr approach, addressing the same root cause."
+ }
+}

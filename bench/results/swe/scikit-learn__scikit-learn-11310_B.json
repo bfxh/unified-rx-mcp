@@ -1,0 +1,54 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-11310",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-11310",
+ "tokens_in": 22404,
+ "tokens_out": 472,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 39
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 34
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_stat",
+   "round": 4,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
+  }
+ ],
+ "walltime_s": 8.6,
+ "answer": "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"fs_list\">\n<｜｜DSML｜｜parameter name=\"path\" string=\"true\">/</｜｜DSML｜｜parameter>\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches add a refit_time_ attribute to BaseSearchCV, measuring time for refitting the best estimator, with documentation updates."
+ }
+}
