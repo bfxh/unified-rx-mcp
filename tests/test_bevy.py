@@ -11,16 +11,31 @@ import tools  # noqa: F401
 
 
 def test_bevy_ui_dead_button(tmp_path):
-    """Bevy 死按钮：Button 无交互处理。"""
+    """Bevy 死按钮：Button+Marker spawn 后无任何 Query 交互处理才算死。"""
     f = Path(tmp_path) / "ui.rs"
+    # 真死按钮：无 marker 处理器
     f.write_text(
         "fn build(mut commands: Commands) {\n"
-        "    commands.spawn((Button, Node { ..default() }));\n"
+        "    commands.spawn((Button, OrphanBtn, Node { ..default() }));\n"
         "}\n", encoding="utf-8")
     r = registry.call("ui_check", {"path": str(tmp_path)})
     assert r["ok"]
     engines = {i.get("engine") for i in r["result"]["issues"]}
-    assert "bevy" in engines, f"应检出 bevy 引擎: {r['result']}"
+    msgs = " | ".join(i.get("msg", "") for i in r["result"]["issues"])
+    assert "bevy" in engines and "OrphanBtn" in msgs, f"应检出 bevy 死按钮: {r['result']}"
+
+    # 误报防线：Marker 在跨 system 被 Query<(&M, &Interaction)> 处理 → 不算死
+    f2 = Path(tmp_path / "_ok")
+    f2.mkdir()
+    (f2 / "ui.rs").write_text(
+        "fn build(mut commands: Commands) {\n"
+        "    commands.spawn((Button, GoodBtn, Node { ..default() }));\n"
+        "}\n"
+        "fn click(mut q: Query<(&GoodBtn, &Interaction), Changed<Interaction>>) {}\n",
+        encoding="utf-8")
+    r2 = registry.call("ui_check", {"path": str(f2)})
+    dead = [i for i in r2["result"]["issues"] if "GoodBtn" in i.get("msg", "")]
+    assert not dead, f"有处理器的按钮不得误报: {dead}"
 
 
 def test_bevy_old_system(tmp_path):

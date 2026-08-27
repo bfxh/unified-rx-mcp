@@ -79,7 +79,7 @@ def _scan_python(src, path):
     defined = set()
     imported = {}
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             defined.add(node.name)
             # 参数也算定义
             args = node.args
@@ -89,6 +89,13 @@ def _scan_python(src, path):
                 defined.add(args.vararg.arg)
             if args.kwarg:
                 defined.add(args.kwarg.arg)
+        elif isinstance(node, ast.ClassDef):
+            # S5 修复：ClassDef 没有 .args——此前带装饰器/类的 Python 文件直接 AttributeError 全扫崩
+            defined.add(node.name)
+            for base in node.bases:
+                for t in ast.walk(base):
+                    if isinstance(t, ast.Name):
+                        defined.add(t.id)
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             defined.add(node.id)
         elif isinstance(node, ast.Import):
@@ -410,6 +417,13 @@ def ui_check(path, max_files=MAX_FILES):
                 line = src.count("\n", 0, m.start()) + 1
                 issues.append({"file": fp, "line": line, "rule": "ui_pattern",
                                "msg": msg, "engine": engine})
+        # S6：Bevy 死按钮用结构化检测（Marker-Query 跨 system 验证，非同域正则）
+        if engine == "bevy":
+            from .bevy import find_dead_buttons
+            for ln, marker in find_dead_buttons(src):
+                issues.append({"file": fp, "line": ln, "rule": "ui_pattern",
+                               "msg": f"死按钮：{marker} spawn 后无任何 Query 交互处理",
+                               "engine": engine})
     return {"files": files_scanned, "total": len(issues), "issues": issues}
 
 
