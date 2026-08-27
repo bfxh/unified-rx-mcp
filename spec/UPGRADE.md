@@ -372,3 +372,23 @@ rename 调 textDocument/rename 但只回预案不落盘。
 
 测试：tests/fixtures/fake_lsp_server.py 协议桩驱动客户端闭环 7 例
 （含 rename 永不落盘断言、沙盒拒绝、会话回收）；基线 **128 passed / SCHEMA_BAD 0**。
+
+---
+
+## S18 · 开放优化轮：H3 上场 + LSP 尾巴债（2026-08-27）
+
+按证据挑的三件实事：
+
+**1. H3 首测真上场**——l2_score 此前只是"标签计数器"，本轮 bench/h3_score.py 加两笔
+现场复核把"无→待测"变实测：① 案底误报源复检：yan-agent 克隆 dsml-tool-call.js 的
+eval_exec 命中必须为 0（案底 FP=10），实测 0 ✓ ② panic 家族规则在 VF3 现场 ast_scan
+产出覆盖 ✓（JS/凭据域家族命中语义由合成金样 pytest 锁定，仓库级覆盖断言属口径错位，
+已修正）。H3 verdict=PASS；4 规则 precision≈1.0、其中三条 WEAK(n=1) 黄灯如实保留。
+施工自抓：第一版把 JS/凭据规则拿纯 Rust 仓验覆盖（FAIL）——口径错位当场被自己的门禁咬出。
+
+**2. LSP 尾巴债清偿**：会话回收漏关 stderr 日志句柄（fd 泄漏）→ stop() 统一关闭；
+reap_idle 此前是死代码 → ide_lsp 入口接线每次触发空闲回收。
+
+**3. B 臂武器面扩容**：ARM_B_TOOLS 加入 ide_lsp（下轮 L3 跑批生效）。
+
+基线不变 **128 passed / SCHEMA_BAD 0**；EVAL.md H3/H2 状态同步实测数字。

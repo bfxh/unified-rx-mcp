@@ -40,7 +40,7 @@ VF3_ROOT = r"D:\开发\VoxelForge-V3"
 # B 臂只读证据子集（评测配置，如实在 manifest 里记录）
 ARM_B_TOOLS = ["code_search", "engine_query", "fs_list", "fs_read",
                "fs_stat", "bug_scan", "ast_scan", "std_check", "bug_locate",
-               "code_context", "project_scan"]
+               "code_context", "project_scan", "ide_lsp"]
 PRICE_PER_MTOK = {"deepseek-chat": (0.27, 1.10)}          # (in,out) $/Mtok 近似公开价
 TEMPERATURE = 0.2
 HTTP_TIMEOUT = 180

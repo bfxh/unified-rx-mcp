@@ -1,0 +1,73 @@
+{
+ "labels": {
+  "labels_total": 20,
+  "by_rule": {
+   "api_key_sk": {
+    "tp": 6,
+    "fn_unclear": 0,
+    "excluded": 0,
+    "precision": 1.0,
+    "n_judgeable": 6,
+    "gate": "PASS"
+   },
+   "panic_family": {
+    "tp": 1,
+    "fn_unclear": 0,
+    "excluded": 0,
+    "precision": 1.0,
+    "n_judgeable": 1,
+    "gate": "WEAK(n=1)"
+   },
+   "private_key_block": {
+    "tp": 1,
+    "fn_unclear": 0,
+    "excluded": 0,
+    "precision": 1.0,
+    "n_judgeable": 1,
+    "gate": "WEAK(n=1)"
+   },
+   "secret_by_key": {
+    "tp": 1,
+    "fn_unclear": 0,
+    "excluded": 0,
+    "precision": 1.0,
+    "n_judgeable": 1,
+    "gate": "WEAK(n=1)"
+   }
+  },
+  "manual_fp": [
+   {
+    "rule": "eval_exec",
+    "fp_confirmed": 10,
+    "fp_evidence": "2026-08-27 全部 10 处均为 RegExp.prototype.exec 成员调用",
+    "status": "FAIL(pre-fix)"
+   }
+  ],
+  "excluded_items": 11
+ },
+ "live": {
+  "fp_recheck_eval_exec": {
+   "file": "D:\\开发\\audits\\repos\\yan-agent-src\\lib\\dsml-tool-call.js",
+   "expected_hits": 0,
+   "found": 0,
+   "pass": true,
+   "note": "案底 FP=10（RegExp.exec 误报），修复后必须保持 0"
+  },
+  "rule_coverage_vf3": {
+   "panic_family": {
+    "covered": true,
+    "rules_seen": [
+     "rust_panic_macro",
+     "rust_unwrap_expect"
+    ]
+   },
+   "note": "JS/凭据域家族命中语义由合成金样 pytest 锁定，不做仓库级覆盖断言"
+  },
+  "bonus_rust_reach": {
+   "prod": 164,
+   "test_only": 10,
+   "unreferenced": 8
+  },
+  "h3_live_verdict": "PASS"
+ }
+}

@@ -110,6 +110,7 @@ class _Session:
     def start(self):
         err_log = open(os.path.join(os.environ.get("TEMP", "."), f"uRX_lsp_{self.lang}.log"),
                        "ab")
+        self._err_log = err_log
         self.proc = subprocess.Popen(
             self.cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=err_log, cwd=self.root,
@@ -145,6 +146,12 @@ class _Session:
             except Exception:
                 pass
             self.proc = None
+            try:
+                if getattr(self, "_err_log", None):
+                    self._err_log.close()          # S18：会话回收必须带走日志句柄（fd 泄漏修复）
+                    self._err_log = None
+            except Exception:
+                pass
 
     def _send_frame(self, obj):
         body = json.dumps(obj).encode("utf-8")
@@ -313,6 +320,7 @@ def _call_ready(sess, method, params, waits=(1.0, 2.0, 3.0, 5.0, 8.0)):
        },
        "required": ["action"]})
 def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True):
+    reap_idle()                                        # 接线空闲回收（此前是死代码）
     if action == "status":
         out = {}
         for lang, spec in _LSP_SERVERS.items():
