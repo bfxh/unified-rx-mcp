@@ -213,6 +213,47 @@ def _scan_generic(src, path, lang):
     return issues
 
 
+# ---------- S5-C2 内容指纹缓存 ----------
+# 文件级指纹（mtime_ns + size）→ 该文件上次扫描 issues。
+# 未变文件直接复用，免重复 open+parse；指纹含 mtime_ns+size 两要素，
+# 修改后任一变化即失效（NTFS mtime 精度 100ns，无 stale 风险）。
+import threading as _threading
+
+_SCAN_CACHE = {}
+_CACHE_LOCK = _threading.Lock()
+_CACHE_MAX = 8192
+
+
+def _file_fingerprint(fp):
+    try:
+        st = os.stat(fp)
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _cached_scan(func, fp, src):
+    """单文件扫描的缓存包装。func(src, fp) → issues list。"""
+    fp_norm = os.path.normcase(os.path.abspath(fp))
+    key = (fp_norm, func.__name__)
+    with _CACHE_LOCK:
+        hit = _SCAN_CACHE.get(key)
+    if hit is not None and hit[0] == _file_fingerprint(fp):
+        return hit[1]
+    result = func(src, fp)
+    with _CACHE_LOCK:
+        if len(_SCAN_CACHE) >= _CACHE_MAX:
+            _SCAN_CACHE.clear()  # 粗暴防膨胀：工具生命周期内够用
+        _SCAN_CACHE[key] = (_file_fingerprint(fp), result)
+    return result
+
+
+def scan_cache_clear():
+    """写操作后由调用方清缓存（外部改文件走 fs_write 时 registry 不感知内容）。"""
+    with _CACHE_LOCK:
+        _SCAN_CACHE.clear()
+
+
 @tool("bug_scan", "静态扫描 bug 模式（未定义变量/裸 except/浮点比较/eval/Rust/Bevy 等）", "scan",
       {"type": "object",
        "properties": {
@@ -230,16 +271,33 @@ def bug_scan(path, max_files=MAX_FILES):
         if not lang:
             continue
         files_scanned += 1
+        # S5-C2：按 (文件指纹, 扫描函数) 查缓存——命中则跳过读取与解析
+        if lang == "python":
+            scan_fn, cache_name = _scan_python, "_scan_python"
+        elif lang == "rust":
+            scan_fn, cache_name = _scan_rust, "_scan_rust"
+        else:
+            scan_fn, cache_name = None, "_generic"
+        fp_norm = os.path.normcase(os.path.abspath(fp))
+        with _CACHE_LOCK:
+            cached = _SCAN_CACHE.get((fp_norm, cache_name))
+        if cached is not None and cached[0] == _file_fingerprint(fp):
+            issues.extend(cached[1])
+            continue
         try:
             with open(fp, "r", encoding="utf-8", errors="replace") as f:
                 src = f.read()
         except OSError:
             continue
-        if lang == "python":
-            issues.extend(_scan_python(src, fp))
-        elif lang == "rust":
-            issues.extend(_scan_rust(src, fp))
-        issues.extend(_scan_generic(src, fp, lang))
+        if scan_fn is not None:
+            file_issues = _cached_scan(scan_fn, fp, src)
+        else:
+            file_issues = _scan_generic(src, fp, lang)
+            with _CACHE_LOCK:
+                if len(_SCAN_CACHE) >= _CACHE_MAX:
+                    _SCAN_CACHE.clear()
+                _SCAN_CACHE[(fp_norm, cache_name)] = (_file_fingerprint(fp), file_issues)
+        issues.extend(file_issues)
     by_rule = {}
     by_sev = {}
     for i in issues:
@@ -253,6 +311,24 @@ def bug_scan(path, max_files=MAX_FILES):
 
 
 # ---------- std_check ----------
+def _std_check_file(src, fp, lang):
+    """单文件 std 检查（S5 缓存单元）。"""
+    findings = []
+    lines = src.split("\n")
+    for idx, line in enumerate(lines, 1):
+        low = line.lower()
+        for w in _PLACEHOLDER_WORDS:
+            if w.lower() in low and not line.strip().startswith(("#", "//", "/*", "*")):
+                findings.append({"file": fp, "line": idx, "rule": "placeholder",
+                                 "msg": f"占位/假数据文字: {w}", "text": line.strip()[:80]})
+                break
+        m = re.search(r"=\s*(-?\d{3,}|[2-9]\d{2,})\b", line)
+        if m and lang in ("rust", "python", "go", "typescript", "javascript", "gdscript"):
+            findings.append({"file": fp, "line": idx, "rule": "magic_number",
+                             "msg": f"魔法数字: {m.group(1)}", "text": line.strip()[:80]})
+    return findings
+
+
 @tool("std_check", "工程标准检查（占位文字/魔法数字/未使用导入）", "scan",
       {"type": "object",
        "properties": {
@@ -270,24 +346,26 @@ def std_check(path, max_files=MAX_FILES):
         if not lang:
             continue
         files_scanned += 1
+        key = (os.path.normcase(os.path.abspath(fp)), "_std")
+        with _CACHE_LOCK:
+            cached = _SCAN_CACHE.get(key)
+        if cached is not None and cached[0] == _file_fingerprint(fp):
+            findings.extend(cached[1])
+            continue
         try:
             with open(fp, "r", encoding="utf-8", errors="replace") as f:
                 src = f.read()
         except OSError:
             continue
-        lines = src.split("\n")
-        for idx, line in enumerate(lines, 1):
-            low = line.lower()
-            for w in _PLACEHOLDER_WORDS:
-                if w.lower() in low and not line.strip().startswith(("#", "//", "/*", "*")):
-                    findings.append({"file": fp, "line": idx, "rule": "placeholder",
-                                     "msg": f"占位/假数据文字: {w}", "text": line.strip()[:80]})
-                    break
-            m = re.search(r"=\s*(-?\d{3,}|[2-9]\d{2,})\b", line)
-            if m and lang in ("rust", "python", "go", "typescript", "javascript", "gdscript"):
-                findings.append({"file": fp, "line": idx, "rule": "magic_number",
-                                 "msg": f"魔法数字: {m.group(1)}", "text": line.strip()[:80]})
+        file_findings = _std_check_file(src, fp, lang)
+        with _CACHE_LOCK:
+            _SCAN_CACHE[key] = (_file_fingerprint(fp), file_findings)
+        findings.extend(file_findings)
     return {"files": files_scanned, "total": len(findings), "findings": findings}
+
+
+def _std_check_file_src(_unused, fp, lang):
+    raise NotImplementedError
 
 
 # ---------- ui_check：多引擎（Bevy 重点）----------

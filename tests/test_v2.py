@@ -359,3 +359,44 @@ def test_server_initialize_capabilities_s3():
     r = server._handle({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     caps = r["result"]["capabilities"]
     assert caps["tools"]["listChanged"] is True and "logging" in caps
+
+
+# ── S5-C2：扫描指纹缓存 ───────────────
+def test_scan_cache_warm_faster_and_consistent(tmp_path):
+    """二次扫描走缓存：结果一致 + 明显提速；mtime/size 变化即失效。"""
+    import time as _time
+    from tools.scan import scan_cache_clear
+    d = tmp_path / "_s5"
+    d.mkdir()
+    for i in range(30):
+        (d / f"c{i}.py").write_text("v = missing_x\n", encoding="utf-8")
+    scan_cache_clear()
+    r1 = registry.call("bug_scan", {"path": str(d)})
+    scan_cache_clear()  # 只压一次冷跑
+    r1 = registry.call("bug_scan", {"path": str(d)})  # 重建缓存
+    t0 = _time.perf_counter()
+    r2 = registry.call("bug_scan", {"path": str(d)})
+    warm_ms = (_time.perf_counter() - t0) * 1000
+    assert warm_ms < 10, f"30 文件热扫应 <10ms: {warm_ms:.1f}ms"
+    a, b = r1["result"], r2["result"]
+    assert a["total"] == b["total"] and a["by_rule"] == b["by_rule"], "缓存前后结果必须一致"
+    # 修改文件（size 变化）→ 失效重扫且反映新内容
+    f = d / "c0.py"
+    f.write_text("w = missing_y\n", encoding="utf-8")
+    r3 = registry.call("bug_scan", {"path": str(d)})
+    msgs = str(r3["result"]["issues"])
+    assert "missing_y" in msgs and "missing_x\n".strip() not in str(
+        [i for i in r3["result"]["issues"] if i.get("file", "").endswith("c0.py")]
+    ), "改后必须重扫新内容"
+
+
+def test_std_check_cached_consistent(tmp_path):
+    """std_check 同样走指纹缓存且结果一致。"""
+    from tools.scan import scan_cache_clear
+    d = tmp_path / "_s5std"
+    d.mkdir()
+    (d / "m.py").write_text("delay = 1500\n", encoding="utf-8")
+    scan_cache_clear()
+    r1 = registry.call("std_check", {"path": str(d)})
+    r2 = registry.call("std_check", {"path": str(d)})
+    assert r1["result"]["findings"] == r2["result"]["findings"]
