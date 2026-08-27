@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T18",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787818963,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n1. **移动向量坐标系错误**：玩家输入方向（如“上箭头”）被直接映射为世界坐标系的固定向量（如 `Vec3::Z`），而相机（镜头）可自由旋转。当相机朝向改变时，屏幕上的“上”与世界坐标的“上”不再一致，导致车辆沿错误方向移动（表现为“横着走”）。\n2. **转向与运动脱节**：转向逻辑使用固定角速度（如 `turn_speed`）直接修改车辆朝向，但未将转向与当前速度方向、车辆运动学模型（如阿克曼转向或滑移模型）关联，导致转向时车辆运动轨迹与视觉朝向不一致。\n3. **静止车辆下沉**：物理引擎中，静止车辆若未正确设置刚体休眠（sleep）或碰撞体与地形接触点处理不当（如接触法线计算错误、摩擦系数为零），重力会持续作用导致车辆缓慢穿透地形。\n\n【定位】\n- `src/player/input.rs:handle_keyboard_input`（推测）：输入方向直接映射为世界坐标向量，未转换为相机局部坐标。\n- `src/vehicle/control.rs:apply_steering`（推测）：使用固定角速度修改 `Transform::rotation`，未结合速度向量。\n- `src/physics/terrain_collision.rs:resolve_contact`（推测）：静止车辆与地形接触时未启用休眠或接触点法线修正。\n\n【修复方案】\n1. **统一输入坐标系**：在 `handle_keyboard_input` 中，将输入方向向量（如 `Vec2::UP`）先乘以相机 `Transform` 的旋转矩阵（取相机前方投影到水平面并归一化），得到世界空间移动方向，再传给车辆移动逻辑。\n2. **重构转向模型**：在 `apply_steering` 中，将转向输入（如左右键）转换为目标转向角（基于当前速度方向与车辆朝向的夹角），使用平滑插值（如 `Quat::slerp`）逐步调整朝向，并让移动方向始终与车辆朝向一致（或使用速度向量与朝向的夹角计算侧滑）。\n3. **修复静止下沉**：在 `resolve_contact` 中，检测车辆速度低于阈值（如 `0.1 m/s`）且持续接触时，将刚体设为休眠状态（`RigidBody::sleeping`），并确保地形碰撞体使用正确的接触法线（从地形表面指向车辆质心），同时设置合理的摩擦系数（如 `0.8`）防止滑动。若使用 `bevy_rapier`，可调用 `RigidBody::set_sleeping(true)`。",
+ "tokens_in": 163,
+ "tokens_out": 573,
+ "turns": 1,
+ "cost_usd": 0.00067,
+ "walltime_s": 6.2,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "fail",
+  "R3": "fail"
+ }
+}

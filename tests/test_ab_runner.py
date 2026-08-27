@@ -20,7 +20,7 @@ import tools  # noqa: F401,E402
 
 def test_corpus_loads_and_contract_holds():
     tasks = ab_run.load_tasks()
-    assert len(tasks) == 12
+    assert len(tasks) == 30
     for t in tasks:
         assert t["rubric"], t["id"]
         for r in t["rubric"]:

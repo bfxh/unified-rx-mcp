@@ -1,0 +1,21 @@
+{
+ "task_id": "VF3-T29",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787819170,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n当前存档系统缺乏针对恶意/畸形 RON 数据的系统性防御测试。历史缺陷（悬空边、越界索引、NaN 质量）表明反序列化与清洗逻辑存在未覆盖的边界路径，且缺少对“毒档”的主动投喂验证。测试层未建立“毒档投喂”防线，导致回归风险累积。\n\n【定位】\n- `crates/save_system/src/deserializer.rs:deserialize_save`（推测：反序列化入口，负责 RON 解析与结构校验）\n- `crates/save_system/src/sanitizer.rs:sanitize_save`（推测：清洗逻辑，处理悬空边、越界索引、NaN 质量）\n- `crates/save_system/tests/fuzz_save.rs`（推测：测试目标文件，当前不存在或未覆盖毒档场景）\n\n【修复方案】\n1. **构造毒档生成器**：在 `tests/fuzz_save.rs` 中新增 `generate_poison_saves()` 函数，基于枚举策略生成 RON 字符串，覆盖：  \n   - 悬空边：引用不存在的节点 ID（如 `Edge { from: 999, to: -1 }`）  \n   - 越界索引：数组/向量索引超出声明长度（如 `Vec<u8>` 长度 5 但索引 10）  \n   - NaN/Inf 质量：`f32::NAN`、`f32::INFINITY` 直接写入质量字段  \n   - 类型混淆：将 `u32` 字段写成字符串、布尔值或嵌套结构  \n   - 缺失字段/多余字段：删除必填字段或添加未知字段  \n   - 非法枚举值：如 `Quality::Unknown(42)` 或未定义变体  \n   - 深度嵌套：超过递归深度限制的嵌套结构（防栈溢出）  \n   - 空结构/空集合：空 `Vec`、空 `HashMap`、空 `Option` 的边界组合  \n\n2. **断言面设计**：对每个毒档执行 `deserialize_save` + `sanitize_save` 后，断言：  \n   - **无 panic**：使用 `catch_unwind` 包裹调用，断言不 panic（或 panic 被捕获并转为错误返回）  \n   - **返回结果**：反序列化失败时返回 `Err`，成功时返回 `Ok`，但清洗后必须通过 `validate_save` 校验（新增该函数，检查悬空边、越界索引、NaN 质量）  \n   - **状态纯净**：清洗后保存对象中所有边引用均指向有效节点，所有索引在范围内，所有质量值均为有限数（`is_finite()`）  \n   - **幂等性**：对清洗结果再次执行 `sanitize_save`，断言输出与首次清洗结果一致（防二次污染）  \n\n3. **测试集成**：在 `tests/fuzz_save.rs` 中新增 `#[test] fn poison_save_never_panics()`，遍历 `generate_poison_saves()` 生成的每个毒档，执行上述断言。同时，在 CI 配置中增加该测试的随机种子参数（如 `--test-threads=1` 保证确定性），并记录失败毒档的 RON 原文以便复现。",
+ "tokens_in": 173,
+ "tokens_out": 731,
+ "turns": 1,
+ "cost_usd": 0.00085,
+ "walltime_s": 7.6,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

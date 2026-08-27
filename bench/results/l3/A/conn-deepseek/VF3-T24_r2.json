@@ -1,0 +1,21 @@
+{
+ "task_id": "VF3-T24",
+ "arm": "bare_model",
+ "run_idx": 2,
+ "ts": 1787819081,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\nBlender 5.x 将渲染引擎枚举名从 `BLENDER_RENDER` / `BLENDER_EEVEE` / `BLENDER_WORKBENCH` 等旧值迁移为 `BLENDER_EEVEE_NEXT` / `BLENDER_WORKBENCH_NEXT` 等新值（或直接移除旧枚举），导致插件中硬编码的引擎名比较（如 `scene.render.engine == 'BLENDER_EEVEE'`）在 5.x 上返回 `False`，进而走错分支或触发不存在的属性访问，批量导出时因部分机器环境差异（如未启用新引擎）直接抛异常退出。\n\n【定位】\n- `addon_thumbnail_export.py:export_thumbnails`（推测，插件主导出函数，含引擎分支判断）\n- `addon_thumbnail_export.py:get_render_engine_name`（推测，若存在该辅助函数则在此处硬编码枚举）\n- `bpy.types.Scene.render.engine`（Blender 官方 API，版本变更点）\n\n【修复方案】\n1. **移除硬编码枚举比较**：在导出函数中，不再直接比较 `scene.render.engine == 'BLENDER_EEVEE'` 等字符串，改为通过 `bpy.context.scene.render.engine` 获取当前引擎名，并仅判断其是否属于已知的“支持列表”或“排除列表”，列表内容同时包含新旧枚举名（如 `{'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}`）。\n2. **增加引擎名归一化辅助函数**：新增 `_normalize_engine_name(engine_name)`，将新旧枚举名映射到统一逻辑名（如 `'EEVEE'`），内部使用 `if engine_name in ('BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'): return 'EEVEE'` 等映射，所有分支判断统一调用此函数。\n3. **异常兜底**：在导出循环中，对 `scene.render.engine` 的访问和后续渲染参数设置包裹 `try-except`，捕获 `AttributeError` / `KeyError`，并记录日志跳过该场景，避免单机异常导致整个批量任务崩溃。\n4. **版本探测**：在插件 `register()` 时，通过 `bpy.app.version` 判断主版本号，若 >= 5.0 则使用新枚举名集合，否则使用旧集合，避免运行时反复判断。\n\n（不提供完整代码，按上述步骤最小改动即可兼容 4.x/5.x）",
+ "tokens_in": 146,
+ "tokens_out": 567,
+ "turns": 1,
+ "cost_usd": 0.00066,
+ "walltime_s": 5.6,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

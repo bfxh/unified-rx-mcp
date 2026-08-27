@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T16",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787818922,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n该缺陷源于 GLB 资产管线中多个环节的坐标系与注册机制不匹配：\n1. **坐标系约定冲突**：Blender 默认使用右手系且 Y 轴向上，而 Bevy 的 GLB 加载（基于 `gltf` crate）遵循 glTF 规范，使用右手系但 Y 轴向上，但 Blender 导出时若未正确设置 `-Z` 为前向、`Y` 为向上的轴映射，会导致模型绕 X 轴旋转 90 度（即“躺倒”）。\n2. **无头环境注册缺失**：Bevy 的资产加载依赖 `AssetPlugin` 和 `RenderPlugin`，在无头（headless）模式下，若未显式启用 `RenderPlugin` 或未注册 `GltfAssetPlugin`，则 GLB 的网格/材质/场景资源无法被正确解析，导致加载失败或空资产。\n\n【定位】\n- `Blender 导出设置`：`File > Export > glTF 2.0` 中的 `Transform` 面板（`+Y Up` 选项）——此为外部工具配置，非代码符号。\n- `Bevy 资产注册`：`bevy::asset::AssetPlugin` 与 `bevy::render::RenderPlugin`（`bevy_render` crate），以及 `bevy_gltf::GltfAssetPlugin`（`bevy_gltf` crate）——需在 `App::new()` 中显式添加。\n- 模型加载代码：`AssetServer::load(\"model.glb\")` 及后续 `Gltf` 资源访问（`bevy_gltf::Gltf`）——若未注册插件，此处会返回 `Handle::default()` 或加载失败。\n\n【修复方案】\n1. **修正 Blender 导出轴映射**：在 Blender 导出 glTF 时，确保 `Transform` 面板中 `+Y Up` 被勾选（默认即如此），并检查模型在 Blender 中的前向轴是否为 `-Z`（若模型前向为 `+Y`，需在导出前旋转模型使其前向指向 `-Z`）。若已导出，可在 Bevy 中通过 `Transform::from_rotation(Quat::from_rotation_x(-PI/2))` 修正，但推荐源头修正。\n2. **无头环境注册修复**：在 `App::new()` 中，即使无头，也需添加 `RenderPlugin`（可配置为 `RenderPlugin::default()` 但禁用窗口），并显式添加 `GltfAssetPlugin`。示例：\n   ```rust\n   App::new()\n       .add_plugins(DefaultPlugins.set(WindowPlugin { primary_window: None, ..default() }))\n       .add_plugin(GltfAssetPlugin)\n       // ... 其余插件\n   ```\n   若使用 `MinimalPlugins`，则需手动添加 `AssetPlugin` 和 `GltfAssetPlugin`。\n3. **验证加载路径**：加载后通过 `Gltf` 资源获取 `GltfScene`，并检查 `scene` 的 `Transform` 是否包含预期旋转。若仍躺倒，在 `GltfScene` 的根节点上应用 `Transform::from_rotation(Quat::from_rotation_x(-PI/2))` 作为运行时补偿。",
+ "tokens_in": 163,
+ "tokens_out": 744,
+ "turns": 1,
+ "cost_usd": 0.00086,
+ "walltime_s": 7.3,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

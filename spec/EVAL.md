@@ -10,7 +10,7 @@
 
 | # | 假设 | 面向 | 证明指标 | 当前证据 |
 |---|---|---|---|---|
-| H1 | 探索下沉为本地调用 → API 模型省轮次省 token | API 成本/质量 | 同任务 A/B：解决率 Δ、平均轮次、input tokens、$、墙钟 | ✅ S14 首测 n=72：Δsolved +8.3pp；可核验性差异决定性（文件引用存在率 1% vs 72%） |
+| H1 | 探索下沉为本地调用 → API 模型省轮次省 token | API 成本/质量 | 同任务 A/B：解决率 Δ、平均轮次、input tokens、$、墙钟 | ✅ S14 双通道交叉复现：Δsolved +6.7pp(deepseek-chat, n=90/90) 与 +10pp(glm-4.5-flash)；可核验性决定性差异稳定（裸模型文件引用存在率 0%，工具组 63%/23%） |
 | H2 | hallucination_guard 拦得住假声明 | 质量 | guard 判 verified/refuted 与真实 file:line 的一致率 ≥90% | 结构在，未测一致率 |
 | H3 | bug_scan/std_check/ui_check 在扫描器层面有真查准率 | 真实项目 | 标注库上 precision ≥70%（1 FP ≤2 TP） | 无 → L2 待测 |
 | H4 | lesson 记忆复利：同型任务重复犯错率下降 | 长期 | 召回后同类错误复发计数下降 | 结构在，未测 |

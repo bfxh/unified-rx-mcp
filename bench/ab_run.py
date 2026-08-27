@@ -46,6 +46,11 @@ TEMPERATURE = 0.2
 HTTP_TIMEOUT = 180
 MAX_TOOL_EXEC = 12
 TOOL_RESULT_CAP = 3500                                     # 防上下文淹没
+BACKOFF_S = (8, 20, 40, 80)                                # 限流/瞬断退避阶梯
+
+# 节流与请求附加体（main 按通道配置；chat 统一消费——run_arm_b/judge 自动继承）
+_REQ_GAP = {"v": 0.0}
+_EXTRA = {"v": None}
 
 SYS_A = (
     "你是资深 Rust/Bevy 游戏代码诊断专家。根据用户的缺陷现象描述给出严格三段式回答：\n"
@@ -67,13 +72,20 @@ def load_channel(name):
     return {"base": p["baseUrl"].rstrip("/"), "key": p["apiKey"]}
 
 
-def chat(ch, model, messages, tools_schema=None, retries=1):
+def chat(ch, model, messages, tools_schema=None, retries=3, extra=None):
     payload = {"model": model, "messages": messages, "temperature": TEMPERATURE}
     if tools_schema:
         payload["tools"] = [{"type": "function", "function": t} for t in tools_schema]
+    if _EXTRA["v"]:
+        payload.update(_EXTRA["v"])
+    if extra:
+        payload.update(extra)
     body = json.dumps(payload).encode()
     last_err = None
+    last_detail = ""
     for attempt in range(retries + 1):
+        if _REQ_GAP["v"] and attempt == 0:
+            time.sleep(_REQ_GAP["v"])
         try:
             req = urllib.request.Request(
                 ch["base"] + "/chat/completions", data=body,
@@ -81,11 +93,23 @@ def chat(ch, model, messages, tools_schema=None, retries=1):
                          "Authorization": "Bearer " + ch["key"]})
             with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as r:
                 return json.loads(r.read().decode())
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as e:
+        except urllib.error.HTTPError as e:
+            try:
+                last_detail = e.read().decode(errors="replace")[:200]
+            except Exception:
+                last_detail = ""
             last_err = e
-            if attempt < retries:
-                time.sleep(3 * (attempt + 1))
-    raise SystemExit(f"[FAIL] API 连续失败（详情已略）：{type(last_err).__name__}")
+            retryable = e.code == 429 or e.code >= 500
+            if not retryable or attempt >= retries:
+                break
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last_err = e
+            if attempt >= retries:
+                break
+        time.sleep(BACKOFF_S[min(attempt, len(BACKOFF_S) - 1)])
+    kind = f"HTTP{last_err.code}" if isinstance(last_err, urllib.error.HTTPError) \
+        else type(last_err).__name__
+    raise SystemExit(f"[FAIL] API 连续失败（{kind}）{last_detail[:120]}")
 
 
 def usage_of(resp):
@@ -191,8 +215,8 @@ def task_prompt(task):
     return f"[缺陷报告 · 区域：{task['area']}]\n{task['issue']}\n\n请按系统要求给出三段式回答。"
 
 
-def result_path(arm, tid, idx):
-    return os.path.join(RESULTS, arm, f"{tid}_r{idx}.json")
+def result_path(arm, tid, idx, channel):
+    return os.path.join(RESULTS, arm, channel, f"{tid}_r{idx}.json")
 
 
 def run(args):
@@ -202,7 +226,7 @@ def run(args):
     t_start = time.time()
     for t in tasks:
         for idx in range(args.n):
-            fp = result_path(args.arm, t["id"], idx)
+            fp = result_path(args.arm, t["id"], idx, args.channel)
             if os.path.exists(fp):
                 old = json.load(open(fp, encoding="utf-8"))
                 if not old.get("error_run"):
@@ -311,7 +335,7 @@ def parse_verdict(txt):
 def do_judge(args):
     ch = load_channel(args.channel)
     tasks = {t["id"]: t for t in load_tasks()}
-    files = sorted(glob.glob(os.path.join(RESULTS, "*", "*.json")))
+    files = sorted(glob.glob(os.path.join(RESULTS, "*", "*", "*.json")))
     done = fails = 0
     for fp in files:
         d = json.load(open(fp, encoding="utf-8"))
@@ -351,16 +375,18 @@ def halluc_rate(answers, root=VF3_ROOT):
 
 def do_score(args):
     agg = {}
-    paths = {"bare_model": [], "model_plus_rx": []}
-    for fp in sorted(glob.glob(os.path.join(RESULTS, "*", "*.json"))):
+    paths = {}
+    for fp in sorted(glob.glob(os.path.join(RESULTS, "*", "*", "*.json"))):
         d = json.load(open(fp, encoding="utf-8"))
         if not isinstance(d.get("judge"), dict):
             continue
+        grp = (d["arm"] + "@" + str(d.get("channel", "?")) + "/" +
+               str(d.get("model", "?")))
         j = {k: v for k, v in d["judge"].items() if v == "pass"}
         solved = bool(d["judge"]) and all(v == "pass" for v in d["judge"].values())
-        a = agg.setdefault(d["arm"], {"n": 0, "solved": 0, "turns": [], "tin": [],
-                                      "tout": [], "cost": [], "wall": [],
-                                      "pass_items": 0, "items": 0, "uv": 0})
+        a = agg.setdefault(grp, {"n": 0, "solved": 0, "turns": [], "tin": [],
+                                 "tout": [], "cost": [], "wall": [],
+                                 "pass_items": 0, "items": 0, "uv": 0})
         a["n"] += 1
         a["solved"] += int(solved)
         a["pass_items"] += len(j)
@@ -371,26 +397,26 @@ def do_score(args):
             if d.get(k) is not None:
                 a[key].append(d[k])
         if d.get("answer"):
-            paths[d["arm"]].append(d["answer"])
+            paths.setdefault(grp, []).append(d["answer"])
     avg = lambda xs: sum(xs) / len(xs) if xs else float("nan")  # noqa: E731
-    print(f"{'arm':<16}{'n':>4}{'solved%':>9}{'R点通过率':>10}{'avg_turns':>11}"
+    print(f"{'arm@channel':<40}{'n':>4}{'solved%':>9}{'R点通过率':>10}{'avg_turns':>11}"
           f"{'avg_tin':>10}{'avg_cost$':>11}{'avg_wall':>10}")
     for name, s in sorted(agg.items()):
         n = max(s["n"], 1)
-        print(f"{name:<16}{s['n']:>4}{s['solved']/n*100:>8.1f}%"
+        print(f"{name:<40}{s['n']:>4}{s['solved']/n*100:>8.1f}%"
               f"{s['pass_items']/max(s['items'],1)*100:>9.1f}%"
               f"{avg(s['turns']):>11.1f}{avg(s['tin']):>10.0f}"
               f"{avg(s['cost']):>11.5f}{avg(s['wall']):>10.1f}")
-    if "bare_model" in agg and "model_plus_rx" in agg:
-        ba, bb = agg["bare_model"], agg["model_plus_rx"]
-        if ba["n"] and bb["n"]:
+    channels = sorted({n.split("@", 1)[1] for n in agg})
+    for chn in channels:
+        ba, bb = agg.get("bare_model@" + chn), agg.get("model_plus_rx@" + chn)
+        if ba and bb and ba["n"] and bb["n"]:
             gain = bb["solved"] / bb["n"] - ba["solved"] / ba["n"]
-            print(f"\nH1 Δsolved = {gain:+.1%} (B-A) | "
-                  f"H2 素材 R点通过率 B vs A = "
+            print(f"\n[{chn}] H1 Δsolved = {gain:+.1%} (B-A) | R点 B vs A = "
                   f"{bb['pass_items']/max(bb['items'],1):.2f} vs "
                   f"{ba['pass_items']/max(ba['items'],1):.2f}")
-    for name, answers in paths.items():
-        c, h = halluc_rate(answers)
+    for name in sorted(paths):
+        c, h = halluc_rate(paths[name])
         print(f"path-existence[{name}]: {hits_str(c, h)}")
     _dump(os.path.join(RESULTS, "summary.json"),
           {"generated": int(time.time()), "arms": agg,
@@ -413,6 +439,9 @@ def main():
     ap.add_argument("--tasks", help="逗号分隔 id 过滤")
     ap.add_argument("--n", type=int, default=3)
     ap.add_argument("--max-rounds", type=int, default=6)
+    ap.add_argument("--req-gap", type=float, default=0.0, help="请求间隔节流秒数")
+    ap.add_argument("--thinking", choices=["default", "disabled"], default="default",
+                    help="GLM 4.5+ 系思考开关（disabled 提速）")
     ap.add_argument("--judge", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--score", action="store_true")
@@ -420,6 +449,8 @@ def main():
 
     if args.run:
         args.arm = args.run  # 语义别名
+    _REQ_GAP["v"] = float(args.req_gap or 0.0)
+    _EXTRA["v"] = {"thinking": {"type": "disabled"}} if args.thinking == "disabled" else None
     # 触发 import 校验（tools 必须成功导入一次以完成注册）
     assert registry.tool_count() > 0
     if args.run:

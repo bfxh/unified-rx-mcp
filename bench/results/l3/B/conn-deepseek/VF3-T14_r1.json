@@ -1,0 +1,98 @@
+{
+ "task_id": "VF3-T14",
+ "arm": "model_plus_rx",
+ "run_idx": 1,
+ "ts": 1787818925,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n当前质心计算未按模块质量加权。从 `assembly.rs:780` 的 `pos.0 += center.0 * def.mass` 与 `main.rs:588` 的 `let center = if total_mass > f32::EPSILON` 可见，代码虽引用了 `def.mass` 与 `total_mass`，但缺陷报告指出实际效果是\"重舱和轻舱对质心的贡献一样\"——即实现退化为**几何中心**（各模块位置等权平均），而非物理质心 `Σ(mᵢ·pᵢ)/Σmᵢ`。这导致：重模块（如引擎舱、装甲舱）本应把质心拉向自身，却被轻模块（如空货舱）均摊抵消，整车质心偏移量失真，进而使 Avian 刚体的转动惯量、倾翻力矩与驾驶手感全部偏离物理直觉。\n\n【定位】\n- `crates/core/src/assembly.rs:780` — `pos.0 += center.0 * def.mass`（质心累加处，疑似未按质量归一化或累加逻辑错误）\n- `crates/app/src/main.rs:588` — `let center = if total_mass > f32::EPSILON`（质心最终计算分支，疑似等权平均而非加权平均）\n- `crates/core/src/module.rs:133` — 模块质量校验（`mass<=0` 拦截，说明质量字段存在但未被正确用于质心加权）\n\n【修复方案】\n1. **修正质心累加公式**（`assembly.rs:780` 附近）：将当前\"位置等权累加\"改为\"质量加权累加\"——`weighted_pos += module_center * module_mass`，同时 `total_mass += module_mass`，二者在拼接/拆卸时增量维护。\n2. **修正最终归一化**（`main.rs:588`）：将 `center = weighted_pos / total_mass`（而非除以模块数量），并保留 `total_mass > f32::EPSILON` 的除零保护；若 `total_mass` 为 0 则回退到几何中心或保持原位置。\n3. **验证与回归**：补充/运行 `crates/core/tests/stress.rs:715` 的 `vehicle_mass_center_and_damage` 测试，断言\"重舱侧质心偏移量 > 轻舱侧\"，并确认 `docs/TERRATECH_REFERENCE.md:68` 的公式 `Σ(Block_Mass × Block_Position) / Σ(Block_Mass)` 在实现中成立。",
+ "tokens_in": 27305,
+ "tokens_out": 1550,
+ "turns": 12,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_stat",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00908,
+ "walltime_s": 15.9,
+ "notes": [
+  "round0: 2 calls 3907ch (1.5s)",
+  "round1: 2 calls 357ch (1.4s)",
+  "round2: 1 calls 157ch (1.4s)",
+  "round3: 2 calls 364ch (1.3s)",
+  "round4: 2 calls 5874ch (2.4s)",
+  "round5: 2 calls 357ch (1.8s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

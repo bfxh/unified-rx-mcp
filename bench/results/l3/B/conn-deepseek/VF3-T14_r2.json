@@ -1,0 +1,108 @@
+{
+ "task_id": "VF3-T14",
+ "arm": "model_plus_rx",
+ "run_idx": 2,
+ "ts": 1787818940,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n当前质心计算实现存在**质量权重缺失**。虽然 `main.rs:572` 注释声称\"质心按模块质量加权：Σ(m·p)/Σm，每个占用格均摊所属模块的质量\"，且 `main.rs:2088` 有 `vehicle_compound_center_is_mass_weighted` 测试，但实际计算路径（`main.rs:588` 附近的 `let center = if total_mass > f32::EPSILON` 分支）与 `crates/core/src/assembly.rs:763` 的\"整车质心（世界坐标，模块 AABB 中心加权）\"存在**两套不一致的质心模型**：`assembly.rs` 侧按模块 AABB 中心加权（未按占用格逐格均摊质量），而 `main.rs` 侧虽声明逐格均摊但实际循环中可能退化为按模块数量平均（即每个模块贡献 `1/N` 而非 `m_i/Σm`）。当重舱（如引擎舱、装甲舱）与轻舱（如货舱、驾驶舱）质量差异大时，重舱对质心的贡献被低估，质心被错误拉向几何中心而非质量中心，导致驾驶手感（转向响应、悬挂载荷分配）与倾翻阈值（支撑多边形判定）失真。\n\n【定位】\n\n- `crates/app/src/main.rs:588` — `let center = if total_mass > f32::EPSILON` 质心计算分支（(推测) 实际循环未按模块质量加权，仅按占用格数量平均）\n- `crates/core/src/assembly.rs:763` — `整车质心（世界坐标，模块 AABB 中心加权）` 注释与实现（(推测) 使用 AABB 中心而非逐格质量加权，且未与 main.rs 侧统一）\n- `crates/app/src/main.rs:2088` — `vehicle_compound_center_is_mass_weighted` 测试（(推测) 测试用例仅覆盖等质量模块，未覆盖质量差异场景，故未暴露缺陷）\n\n【修复方案】\n\n1. **统一质心模型为逐格质量加权**：在 `crates/core/src/assembly.rs` 的质心计算函数中，遍历每个模块的每个占用格（`CellOffset`），以 `格心世界坐标 × 模块质量 / 模块占用格数` 作为该格的贡献，累加后除以总质量 `Σm`。确保 `center_of_mass = Σ(格心 × m_i/n_i) / Σm_i`，其中 `m_i` 为模块质量、`n_i` 为模块占用格数。\n\n2. **修正 `main.rs:588` 分支**：删除或替换当前按模块数量平均的逻辑，改为调用 `assembly.rs` 中统一的加权质心函数（或直接复用其返回值），避免两处实现漂移。保留 `total_mass > f32::EPSILON` 的除零保护，`total_mass ≤ EPSILON` 时回退到几何中心。\n\n3. **补充质量差异测试**：在 `main.rs:2088` 的 `vehicle_compound_center_is_mass_weighted` 测试中新增用例——放置一个高质量重舱（如 `mass=1000`）与一个低质量轻舱（如 `mass=100`）于对称位置，断言质心偏向重舱一侧（偏移量 ≈ `(1000-100)/(1000+100) × 间距/2`），以锁定质量加权行为。\n\n4. **同步更新文档与物理参数**：确认 `docs/TERRATECH_REFERENCE.md:68` 的 `CenterOfMass = Σ(Block_Mass × Block_Position) / Σ(Block_Mass)` 公式与实现一致，并检查 Avian 物理刚体的 `center_of_mass` 属性是否被正确设置为该加权结果（而非默认几何中心），否则驾驶手感仍会异常。",
+ "tokens_in": 30927,
+ "tokens_out": 2035,
+ "turns": 14,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_stat",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_stat",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "engine_query",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "bug_locate",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "ast_scan",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "bug_scan",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.01059,
+ "walltime_s": 18.6,
+ "notes": [
+  "round0: 2 calls 3845ch (1.7s)",
+  "round1: 2 calls 357ch (1.7s)",
+  "round2: 3 calls 556ch (1.6s)",
+  "round3: 2 calls 2063ch (2.5s)",
+  "round4: 2 calls 5566ch (1.9s)",
+  "round5: 2 calls 2183ch (2.1s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

@@ -1,0 +1,21 @@
+{
+ "task_id": "VF3-T24",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787819075,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\nBlender 5.x 对渲染引擎枚举（`bpy.context.scene.render.engine`）的取值进行了调整，旧版本中使用的字符串标识（如 `'BLENDER_RENDER'`、`'CYCLES'`）在新版本中可能被重命名或移除（例如 `'BLENDER_EEVEE_NEXT'` 变为 `'BLENDER_EEVEE'`，或新增 `'BLENDER_WORKBENCH'` 等）。插件代码若直接硬编码枚举字符串进行判断或切换，在 5.x 环境下会因找不到对应引擎而抛出 `KeyError` 或 `ValueError`，导致批量导出中断。部分机器表现不同可能因各自安装的 Blender 版本或附加组件差异导致枚举集合不一致。\n\n【定位】\n- `bpy.context.scene.render.engine` 的枚举值定义（Blender 源码 `source/blender/makesdna/DNA_scene_types.h`，非插件代码，但为根因所在）\n- 插件中所有直接比较或赋值该属性的位置，例如 `if scene.render.engine == 'CYCLES':` 或 `scene.render.engine = 'BLENDER_EEVEE'`（具体文件路径需根据插件实际代码确认，此处为通用模式）\n\n【修复方案】\n1. **使用 `bpy.types.RenderEngine` 的注册枚举**：通过 `bpy.types.RenderEngine.bl_idname` 获取当前可用引擎列表，用 `in` 判断而非硬编码字符串。\n2. **封装兼容函数**：在插件内新增一个工具函数，例如 `get_safe_engine_name()`，内部先尝试新枚举名，再回退到旧枚举名，最后使用 `bpy.types.RenderEngine` 中实际存在的引擎名。\n3. **切换引擎时使用 try/except**：对 `scene.render.engine = ...` 赋值操作包裹 `try/except`，捕获 `KeyError` 或 `ValueError`，并回退到默认引擎（如 `'BLENDER_RENDER'` 或 `'BLENDER_EEVEE'`）。\n4. **批量导出前统一校验**：在导出循环开始前，检查当前场景引擎是否在可用列表中，若不在则自动切换到第一个可用引擎，避免中途异常。\n5. **避免直接比较字符串**：改用 `bpy.types.RenderEngine` 的 `bl_idname` 属性进行能力判断（如是否支持 GPU），而不是依赖引擎名称。\n\n以上改动仅涉及插件内部逻辑，不修改 Blender 核心，且能同时兼容 4.x 与 5.x。",
+ "tokens_in": 146,
+ "tokens_out": 576,
+ "turns": 1,
+ "cost_usd": 0.00067,
+ "walltime_s": 5.9,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}
