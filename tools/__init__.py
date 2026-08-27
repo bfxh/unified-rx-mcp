@@ -17,6 +17,7 @@ from . import ops       # noqa: F401,E402
 from . import search    # noqa: F401,E402
 from . import game      # noqa: F401,E402
 from . import meta      # noqa: F401,E402
+from . import lsp       # noqa: F401,E402  S17：真 LSP 客户端（rust-analyzer/pylsp）
 from . import engine    # noqa: F401,E402
 from . import bevy      # noqa: F401,E402
 from . import attack    # noqa: F401,E402  S7 默认化：攻击面工具随包常驻

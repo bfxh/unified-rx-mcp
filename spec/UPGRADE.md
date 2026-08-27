@@ -344,3 +344,31 @@ cfg(test)/tests 目录定义不参与归类。同名歧义跨 crate 不解析（
 
 工具数不变（35），纯存量增强；tests/test_astscan.py +5 例锁语义，基线 **121 passed**。
 vf3_battery 接入 rust_reach 汇总，后续每轮电池自动跟踪。
+
+---
+
+## S17 · 真 LSP 客户端域（2026-08-27）
+
+S15 判了"文本级伪 LSP"死刑，本轮补上真的：`tools/lsp.py` 内嵌标准 LSP 客户端
+（stdio Content-Length JSON-RPC 帧），单工具 `ide_lsp` 多动作：
+status / definition / references / hover / document_symbols / diagnostics /
+rename_plan / shutdown。**工具面 35 → 36**。
+
+接线（engine.py 同款"单点接开源最强"哲学）：Rust→rust-analyzer、Python→pylsp(jedi)；
+其它语言如实报 not wired 不装支持。安全沿用 fs 沙盒 fail-closed 复用校验；
+rename 调 textDocument/rename 但只回预案不落盘。
+
+**真机验收（工具级端到端）**：
+- rust-analyzer @ VoxelForge-V3：`Assembly::rotate_vehicle_y` 全仓 4 处引用逐行
+  （3 测试 + 1 生产声明）——与 S16 可达性 test_only 判定交叉印证 ✓；冷启动首响 ~17s
+- pylsp @ 本仓：`_as_uri` 7 处引用（45 定义 + 全部调用点）、hover 签名、159 符号，2.0s
+
+**协议层踩坑实录（测试桩 + 真机双闭环逼出）**：
+1. 帧头解析只认单 `\r\n` → 首帧侥幸次帧崩；改为先找 `\r\n\r\n` 再取长度
+2. ra 冷启动语义请求返 null 是规范行为 → 空结果退避重试阶梯 (1/2/3/5/8s)
+3. 未就绪时 references 直接抛 error "file not found" → 归类瞬态错误重试，
+   非瞬时错立即上浮不吞
+4. 服务器→客户端请求（registerCapability/configuration）必须应答否则管线挂住
+
+测试：tests/fixtures/fake_lsp_server.py 协议桩驱动客户端闭环 7 例
+（含 rename 永不落盘断言、沙盒拒绝、会话回收）；基线 **128 passed / SCHEMA_BAD 0**。
