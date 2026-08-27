@@ -32,11 +32,14 @@ BEVY_CODE_PATTERNS = [
 
 
 def bevy_rules():
-    """返回 (name, pattern, msg, severity) 列表，供 bug_scan/ui_check 使用。"""
+    """返回 (name, pattern, msg, severity) 列表，供 bug_scan/ui_check 使用。
+
+    S4-D1：文本 API 迁移类全是线索（kind 由 scan.py 补），确定性崩溃才 high。
+    """
     return [
-        ("bevy_old_system", r"\.add_system\(", "add_system 旧 API——Bevy 0.13+ 用 .add_systems", "medium"),
-        ("bevy_old_startup", r"\.add_startup_system\(", "add_startup_system 旧 API——用 .add_systems(Startup, ...)", "medium"),
-        ("bevy_event_iter", r"EventReader<[^>]+>\.iter\(", "EventReader.iter 旧 API——用 .read()", "medium"),
-        ("bevy_text_old", r"TextBundle\s*\{", "TextBundle 旧式——用 Text::new", "medium"),
-        ("bevy_query_single", r"\.single\(\)", "query.single() 多实体 panic——用 iter", "low"),
+        ("bevy_old_system", r"\.add_system\(", "add_system 旧 API——用 .add_systems（迁移线索）", "info"),
+        ("bevy_old_startup", r"\.add_startup_system\(", "add_startup_system 旧 API——用 .add_systems(Startup, ...)（迁移线索）", "info"),
+        ("bevy_event_iter", r"EventReader<[^>]+>\.iter\(", "EventReader.iter 旧 API——用 .read()（迁移线索）", "info"),
+        ("bevy_text_old", r"TextBundle\s*\{", "TextBundle 旧式——用 Text::new（迁移线索）", "info"),
+        ("bevy_query_single", r"\.single\(\)", "query.single() 多实体 panic——用 iter（线索）", "low"),
     ]

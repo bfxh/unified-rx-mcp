@@ -98,7 +98,7 @@ def test_scan_bug_scan(tmp_path):
 
 
 def test_scan_rust_rules(tmp_path):
-    """P3: Rust 生产规则（unwrap/panic 分级）。"""
+    """S4-D1: Rust 规则分级——崩溃类 high，线索类 info+kind=clue。"""
     f = Path(tmp_path) / "main.rs"
     f.write_text(
         "fn main() {\n"
@@ -110,14 +110,31 @@ def test_scan_rust_rules(tmp_path):
     r = registry.call("bug_scan", {"path": str(f)})  # 单文件扫，绕开目录遍历
     assert r["ok"]
     rules = {i["rule"]: i.get("severity") for i in r["result"]["issues"]}
-    assert rules.get("unwrap") == "high", f"unwrap 应为 high: {rules}"
-    assert rules.get("expect") == "medium", f"expect 应为 medium: {rules}"
-    rules = {i["rule"]: i.get("severity") for i in r["result"]["issues"]}
-    assert rules.get("unwrap") == "high", f"unwrap 应为 high: {rules}"
-    assert rules.get("expect") == "medium", f"expect 应为 medium: {rules}"
-    assert rules.get("panic") == "high", f"panic 应为 high: {rules}"
-    assert rules.get("as_cast") == "medium", f"as_cast 应为 medium: {rules}"
-    assert r["result"]["by_severity"].get("high", 0) >= 2
+    kinds = {i["rule"]: i.get("kind") for i in r["result"]["issues"]}
+    assert rules.get("unwrap") == "info" and kinds.get("unwrap") == "clue", f"unwrap 应为 info/clue: {rules}"
+    assert rules.get("expect") == "info", f"expect 应为 info（线索）: {rules}"
+    assert rules.get("panic") == "high", f"panic 应为 high（确定性）: {rules}"
+    assert rules.get("as_cast") == "info", f"as_cast 应为 info（线索）: {rules}"
+    assert r["result"]["by_severity"].get("high", 0) == 1, "仅 panic 一条 high"
+
+
+def test_scan_rust_test_mod_downgrade(tmp_path):
+    """S4-D1: #[cfg(test)] mod 内的 unwrap 行级降级为 low；mod 外保持 info。"""
+    f = Path(tmp_path) / "mixed.rs"
+    f.write_text(
+        "pub fn prod() -> u32 { maybe().unwrap() }\n"
+        "#[cfg(test)]\n"
+        "mod tests {\n"
+        "    #[test]\n"
+        "    fn t() { assert_eq!(maybe().unwrap(), 1); }\n"
+        "}\n", encoding="utf-8")
+    r = registry.call("bug_scan", {"path": str(f)})
+    assert r["ok"]
+    by_line = {i["line"]: i for i in r["result"]["issues"] if i["rule"] == "unwrap"}
+    assert len(by_line) == 2, f"应有两处 unwrap: {by_line}"
+    prod = by_line[1]; test = by_line[5]
+    assert prod["severity"] == "info" and prod.get("kind") == "clue", f"L1 生产区应为 info/clue: {prod}"
+    assert test["severity"] == "low" and "降级" in test["msg"], f"L5 测试 mod 应降级: {test}"
 
 
 def test_scan_rust_test_dir_downgrade(tmp_path):

@@ -24,7 +24,7 @@ def test_bevy_ui_dead_button(tmp_path):
 
 
 def test_bevy_old_system(tmp_path):
-    """Bevy 旧 API：add_system 检出。"""
+    """Bevy 旧 API：add_system 检出（S4-D1 分级后为 info 线索 + kind=clue）。"""
     f = Path(tmp_path) / "main.rs"
     f.write_text(
         "fn main() {\n"
@@ -32,8 +32,9 @@ def test_bevy_old_system(tmp_path):
         "}\n", encoding="utf-8")
     r = registry.call("bug_scan", {"path": str(tmp_path)})
     assert r["ok"]
-    rules = {i["rule"]: i.get("severity") for i in r["result"]["issues"]}
-    assert rules.get("bevy_old_system") == "medium", f"add_system 应检出: {rules}"
+    issues = [i for i in r["result"]["issues"] if i["rule"] == "bevy_old_system"]
+    assert issues, f"add_system 应检出: {r['result']}"
+    assert issues[0]["severity"] == "info" and issues[0].get("kind") == "clue"
 
 
 def test_bevy_text_old(tmp_path):

@@ -146,42 +146,52 @@ def _scan_python(src, path):
 
 
 # ---------- bug_scan：Rust 生产规则 ----------
+# S4-D1 分级重构（L2 实测依据：文本密度与真缺陷修复无正相关）：
+#   - 文本线索类（unwrap/expect/as_cast/indexing）降为 info/clue——只当"可能有雷的位置"
+#   - 跨函数可判定/确定崩溃类保留 high（todo!/unimplemented!/panic!/unreachable!）
+#   - 新增 kind 字段：clue=线索流（不当质量分数用），definite=确定性风险
 _RUST_RULES = [
-    ("unwrap", r"\.unwrap\(\)", "unwrap()——None/Err 时直接 panic（生产代码应改为 ? / expect / match）", "high"),
-    ("expect", r"\.expect\(\s*\"", "expect()——带消息 panic（仍会崩溃；生产应返回 Result）", "medium"),
-    ("panic", r"\bpanic!\(", "panic!()——直接崩溃（生产代码应避免）", "high"),
-    ("unreachable", r"\bunreachable!\(", "unreachable!()——到达即 bug（生产代码应避免）", "high"),
-    ("todo_unimplemented", r"\b(todo!|unimplemented!)\(", "todo!/unimplemented!()——未实现即崩溃", "high"),
-    ("as_cast", r"\bas\s+(i64|i32|u64|u32|f64|f32|usize|isize)\b", "as 类型转换——截断/精度丢失风险（建议 try_from）", "medium"),
-    ("indexing", r"\[[a-zA-Z_][a-zA-Z0-9_]*\]", "索引访问——越界即 panic（建议 .get()）", "medium"),
+    ("unwrap", r"\.unwrap\(\)", "unwrap()——None/Err 时 panic（线索：确认有 ?/match 兜底即可忽略）", "info", "clue"),
+    ("expect", r"\.expect\(\s*\"", "expect()——带消息 panic（线索）", "info", "clue"),
+    ("panic", r"\bpanic!\(", "panic!()——直接崩溃", "high", "definite"),
+    ("unreachable", r"\bunreachable!\(", "unreachable!()——到达即 bug", "high", "definite"),
+    ("todo_unimplemented", r"\b(todo!|unimplemented!)\(", "todo!/unimplemented!()——未实现即崩溃", "high", "definite"),
+    ("as_cast", r"\bas\s+(i64|i32|u64|u32|f64|f32|usize|isize)\b", "as 类型转换——截断/精度丢失（线索：建议 try_from）", "info", "clue"),
+    ("indexing", r"\[[a-zA-Z_][a-zA-Z0-9_]*\]", "索引访问——越界即 panic（线索：建议 .get()）", "info", "clue"),
 ]
 
 
 def _scan_rust(src, path):
     issues = []
-    for rule, pat, msg, sev in _RUST_RULES:
+    for rule, pat, msg, sev, kind in _RUST_RULES:
         for m in re.finditer(pat, src):
             line = src.count("\n", 0, m.start()) + 1
             line_text = src.split("\n")[line - 1].strip()
             if line_text.startswith("//"):
                 continue
             issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
-                           "severity": sev})
-    # Bevy 代码规则（Rust 文件里也扫）
+                           "severity": sev, "kind": kind})
+    # Bevy 代码规则（Rust 文件里也扫；kind 统一补 clue——迁移类文本规则不当质量分数）
     for rule, pat, msg, sev in bevy.bevy_rules():
         for m in re.finditer(pat, src):
             line = src.count("\n", 0, m.start()) + 1
             issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
-                           "severity": sev})
-    # 测试目录降级
-    norm = path.replace("\\", "/")
-    norm_clean = norm.replace("_tmp/", "")
-    is_test = norm_clean.endswith("_test.rs") or re.search(r"/tests(?:/|$)", norm_clean)
-    if is_test:
-        for i in issues:
-            if i["rule"] in ("unwrap", "expect"):
-                i["severity"] = "low"
-                i["msg"] += "（测试代码，降级）"
+                           "severity": sev, "kind": "clue"})
+    # S4-D1 测试代码降级：tests 目录/文件名 *_test.rs 整个降；
+    # 文件内 #[cfg(test)] mod 之后（tests mod 起）的 clue 类命中按行号逐条降级
+    norm = path.replace("\\", "/").replace("_tmp/", "")
+    is_test_file = norm.endswith("_test.rs") or re.search(r"/tests(?:/|$)", norm)
+    m_test_mod = re.search(r"^#\[\s*cfg\s*\(\s*test\s*\)\s*\]", src, re.MULTILINE)
+    test_start_line = None
+    if not is_test_file and m_test_mod is not None:
+        # cfg(test) 属性行起（mod tests 紧随其后）视为测试区起点
+        test_start_line = src.count("\n", 0, m_test_mod.start()) + 1
+    for i in issues:
+        in_test = is_test_file or (test_start_line is not None and i["line"] >= test_start_line)
+        if in_test and i["rule"] in ("unwrap", "expect", "as_cast", "indexing"):
+            i["severity"] = "low"
+            i["kind"] = "clue"
+            i["msg"] += "（测试代码，降级）"
     return issues
 
 
@@ -198,7 +208,8 @@ def _scan_generic(src, path, lang):
     for rule, pat, msg in _RE_RULES:
         for m in re.finditer(pat, src):
             line = src.count("\n", 0, m.start()) + 1
-            issues.append({"line": line, "rule": rule, "msg": msg, "file": path})
+            issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
+                           "severity": "medium", "kind": "clue"})
     return issues
 
 
