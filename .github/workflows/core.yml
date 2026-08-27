@@ -23,7 +23,7 @@ jobs:
       - name: Install LSP backends (pylsp 系)
         run: |
           python -m pip install --upgrade pip
-          python -m pip install python-lsp-server jedi pycodestyle pyflakes
+          python -m pip install pytest python-lsp-server jedi pycodestyle pyflakes
 
       - name: Install rust-analyzer (pylsp 同理：能力探测失败须如实降级)
         shell: pwsh

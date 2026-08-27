@@ -51,6 +51,7 @@ BACKOFF_S = (8, 20, 40, 80)                                # 限流/瞬断退避
 # 节流与请求附加体（main 按通道配置；chat 统一消费——run_arm_b/judge 自动继承）
 _REQ_GAP = {"v": 0.0}
 _EXTRA = {"v": None}
+_LESSONS_DIR = {"v": None}          # H4：B 臂系统提示注入 lesson recall（默认关闭）
 
 SYS_A = (
     "你是资深 Rust/Bevy 游戏代码诊断专家。根据用户的缺陷现象描述给出严格三段式回答：\n"
@@ -164,8 +165,26 @@ def exec_tool(name, args):
     return txt, round((time.time() - t0) * 1000)
 
 
+def _lesson_block(issue_text):
+    """H4 复利缩影：从教训库召回相关经验注入 B 臂系统提示（无命中返回空串）。"""
+    if not _LESSONS_DIR["v"]:
+        return ""
+    r = registry.call("lesson", {"action": "recall",
+                                 "task_description": issue_text,
+                                 "lessons_dir": _LESSONS_DIR["v"]})
+    if not (r.get("ok") and r.get("result", {}).get("matched")):
+        return ""
+    texts = [m.get("text") or m.get("lesson") or "" for m in
+             (r.get("result", {}).get("lessons") or [])[:3]]
+    if not any(texts):
+        return ""
+    joined = "\n".join("- " + t for t in texts if t)
+    return ("\n\n[本仓历史经验（来自此前失败任务沉淀的教训，供参考）]\n" + joined)
+
+
 def run_arm_b(ch, model, task, max_rounds, trace_out):
-    msgs = [{"role": "system", "content": SYS_B},
+    sys_prompt = SYS_B + _lesson_block(task["issue"])
+    msgs = [{"role": "system", "content": sys_prompt},
             {"role": "user", "content": task_prompt(task)}]
     schemas = arm_b_schemas()
     usage_in = usage_out = 0
@@ -217,8 +236,9 @@ def task_prompt(task):
     return f"[缺陷报告 · 区域：{task['area']}]\n{task['issue']}\n\n请按系统要求给出三段式回答。"
 
 
-def result_path(arm, tid, idx, channel):
-    return os.path.join(RESULTS, arm, channel, f"{tid}_r{idx}.json")
+def result_path(arm, tid, idx, channel, tag=None):
+    sub = channel + (("-" + tag) if tag else "")
+    return os.path.join(RESULTS, arm, sub, f"{tid}_r{idx}.json")
 
 
 def run(args):
@@ -228,7 +248,8 @@ def run(args):
     t_start = time.time()
     for t in tasks:
         for idx in range(args.n):
-            fp = result_path(args.arm, t["id"], idx, args.channel)
+            fp = result_path(args.arm, t["id"], idx, args.channel,
+                             getattr(args, "tag", None))
             if os.path.exists(fp):
                 old = json.load(open(fp, encoding="utf-8"))
                 if not old.get("error_run"):
@@ -444,6 +465,9 @@ def main():
     ap.add_argument("--req-gap", type=float, default=0.0, help="请求间隔节流秒数")
     ap.add_argument("--thinking", choices=["default", "disabled"], default="default",
                     help="GLM 4.5+ 系思考开关（disabled 提速）")
+    ap.add_argument("--tag", default=None, help="结果子目录变体标签（如 h4）")
+    ap.add_argument("--use-lessons", default=None, metavar="DIR",
+                    help="B 臂系统提示注入 lesson recall 的教训库 jsonl 路径")
     ap.add_argument("--judge", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--score", action="store_true")
@@ -453,6 +477,7 @@ def main():
         args.arm = args.run  # 语义别名
     _REQ_GAP["v"] = float(args.req_gap or 0.0)
     _EXTRA["v"] = {"thinking": {"type": "disabled"}} if args.thinking == "disabled" else None
+    _LESSONS_DIR["v"] = args.use_lessons
     # 触发 import 校验（tools 必须成功导入一次以完成注册）
     assert registry.tool_count() > 0
     if args.run:

@@ -415,3 +415,27 @@ replay_ab 语料 dry-run → ab_run 自检；UNIFIED_RX_SANDBOX=workspace 复刻
 
 **4. B 臂 × ide_lsp 实战冒烟**：模型在 VF3-T03 上自主选择 code_search 深挖而非语义跳转
 ——LSP 在 B 面可用但非首选，行为数据如实入库（不做硬推）。
+
+---
+
+## S20 · CI 首跑修复 + H4 缩影实测（2026-08-27）
+
+**1. CI 首跑红了当场修**：core.yml 第一跑 failure——安装清单里有语言服务器却漏了
+pytest 本体。补装后待远端第二跑验证；借 git credential 的 token 拉取了 actions 日志
+完成诊断闭环（无凭据时 logs API 不可用）。
+
+**2. H4 缩影实测落地**（五假设最后一个"结构在未测"项）：
+bench/h3_score 同款证据链路 + lesson 域真接入：
+- 从 B 臂 judge=fail 条目提炼教训 41 条入库（requirement+gold 转经验句——
+  如实声明：这是"外部化经验回喂"，证明记忆层链路效用，非模型泛化）
+- ab_run 加 --tag（结果隔离子目录）与 --use-lessons（B 臂系统提示注入 recall Top3）
+- 重灾区 8 任务（原 solved=0/8）带教训复跑：
+
+| 任务 | 原 fail 点 | 复跑后 |
+|---|---|---|
+| VF3-T21 / T11 / T30 | 有 fail | **全部翻盘 pass** |
+| T19/T10/T01/T13 | 合计 10 fail | 剩 5 fail |
+| T05 | 3 fail | 转 unverifiable |
+
+solved 0/8 → 3/8，fail 点 18→5（-72%）。n 小、单轮、judge 同源——定位为
+方向性证据不作统计宣称。runner 化：ab_run 三模式已支持后续任意重放。
