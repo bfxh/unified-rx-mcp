@@ -169,8 +169,10 @@ manifest 增加 `revision` 字段与生成时间戳；ROADMAP/SPEC/EVAL 三文�
 | S2 | C1 出口裁剪+游标分页 | pytest 3 例；MCP stdio 端到端：593 命中 → 200+393 分页，伪造授权经协议层被拒 | ✅ PR#15 (c634e53) |
 | S3 | B1+B2+B3 协议通知三件套 | capabilities 声明 listChanged+logging；降级发 notifications/message；cancelled→cancel_flag 登记（完成即清）；pytest 4 例 + stdio 实测 | ✅ PR#15 (7bcfac5) |
 | S4 | D1 规则分级重构 | clue/definite 双字段，确定性崩溃才 high；#[cfg(test)] 行级降级。VoxelForge: high 88→21（唯一 high=panic!） | ✅ PR#15 (3772dfb) |
-| S5 | C2 扫描指纹缓存 | 二次调用 <10ms 断言 | 待做 |
-| S6 | E1 bench 骨架 + D2 引用计数 + 标注库30条 | bench/replay_ab.py dry-run 打印双臂配置；run_l2.ps1 出 P/R 基线 | 待做 |
+| S5 | C2 扫描指纹缓存 | bug_scan 77ms→2.7ms、std_check 16ms→1.8ms；mtime_ns+size 失效验证 | ✅ PR#16 (34fc149) |
+| S6 | E1 bench 骨架 + D2 引用计数 + 标注库 | replay_ab.py dry-run 入 CI 门禁；labeled_bugs.jsonl（9/10 诚实标注"文本规则不可判"） | ✅ PR#16 (210ea54) |
+| S7 | 攻击域默认化 input_fuzz/path_probe/big_input | locate_edit 空查询噪音 FAIL-noise 暴露并修复；错误语义统一 `{ok:false}` | ✅ PR#16 (f4a8951) |
+| S8 | appaudit 域：智能体/桌面应用 克隆→隔离审计→清理 三件套 | 见下方 H 节实测；asar 自标定提取器在真实 Electron 包上跑通 | ✅ 本轮 |
 
 **S4 施工追加**：bevy 迁移类规则同步降为 info/clue；通用规则补 severity/kind
 字段（equal_float 此前缺 severity，by_severity 统计漏计）。
@@ -180,5 +182,25 @@ manifest 增加 `revision` 字段与生成时间戳；ROADMAP/SPEC/EVAL 三文�
 请求传 `cursor` 续读（传输层参数，工具签名不含它）；坏游标按第 0 页、越界空页。
 末页不带 truncated/next_cursor —— 消费方循环条件：`next_cursor` 存在。
 
+**S8 施工追加（克隆隔离三保证）**：
+1. 副本唯一落点 `%TEMP%\unified-rx-appaudit\<ts>-<sha256前12>-<净化名>`，目录名哈希派生不吃原始路径注入
+2. `app_audit` 结构性拒绝沙箱外路径——审原件必须先 `app_clone`，没有旁路
+3. `app_clean` 同样限内 + requires_auth；秘密只回掩码（前6字符+长度），原值不落审计输出
+
+**S8 实测自证（对本机真实安装的 Yan Agent，v2.2.0）**：
+
+| 面 | 结果 |
+|---|---|
+| 程序目录克隆 | 3311 files / 1.21GB / verified=True |
+| 用户数据克隆 | plan=disk=4303（4332−29 锁定缓存文件显式 read_fails）/ verified=True |
+| asar 提取 | 真实 27MB app.asar 自标定成功，329 条目重扫；main.js openExternal=4 与上轮人工审计互证 |
+| 发现 | definite=0；clue 92 条全部有文件行号与掩码。要点：config.json 内成组 sk-key（6 行，两种长度）；eval 全部来自 effect npm 库内部实现 |
+
+施工中当场被抓的两个真缺陷（都被测试锁死）：
+- `.pem/.key/.crt` 不在可扫扩展集 → 私钥规则对真实凭据文件全盲（合成 mini-app 测试暴露）
+- `shutil.copyfile` 先建目标再开源 → 锁定源留下 **0 字节残桩**污染克隆（verified 计数差暴露）；改先开源句柄，失败即清理放弃
+
 每个 S 完成即跑全套：`--selftest` + `pytest tests/ -q` + `_mcp_probe.py`，三者任一红即停线回查。
-当前基线：61 passed / selftest 39 工具 SCHEMA_BAD 0 / 协议探针含分页与授权用例全过。
+当前基线：**82 passed / selftest 45 工具 SCHEMA_BAD 0 / server v2.2.0**。
+复用入口：`python bench/agent_selfcheck.py <安装目录> [--data-dir <用户数据>] [--clean]`
+返回码 0 干净 / 1 调用失败 / 2 有 definite 待人工确认 —— 以后"遇到智能体自己查自己"的默认动作。
