@@ -52,11 +52,20 @@ def test_fs_write_requires_auth(tmp_path):
 
 
 def test_fs_sandbox():
-    """沙盒越界必须拒绝（设置 UNIFIED_RX_SANDBOX 时）。"""
-    os.environ["UNIFIED_RX_SANDBOX"] = r"D:\开发"
-    r = registry.call("fs_read", {"path": r"C:\Windows\win.ini"})
-    assert not r["ok"], "沙盒外不应可读"
-    del os.environ["UNIFIED_RX_SANDBOX"]
+    """fail-closed：越界拒绝；未配置 = 拒绝一切文件访问。"""
+    old = os.environ.pop("UNIFIED_RX_SANDBOX", None)
+    try:
+        os.environ["UNIFIED_RX_SANDBOX"] = ""
+        r = registry.call("fs_read", {"path": str(Path(__file__))})
+        assert not r["ok"], "未配置沙盒时应一律拒绝（fail-closed）"
+        os.environ["UNIFIED_RX_SANDBOX"] = r"D:\开发"
+        r2 = registry.call("fs_read", {"path": r"C:\Windows\win.ini"})
+        assert not r2["ok"], "沙盒外不应可读"
+        r3 = registry.call("fs_stat", {"path": __file__})
+        assert r3["ok"], "沙盒内应可访问"
+    finally:
+        if old is not None:
+            os.environ["UNIFIED_RX_SANDBOX"] = old
 
 
 def test_pure_actions():
@@ -230,3 +239,54 @@ def test_engine_query_vf():
     assert r["result"]["total"] >= 1, f"应命中 place_free: {r['result']}"
     first = r["result"]["hits"][0]
     assert "place_free" in (first.get("name") or ""), f"首命中应为 place_free: {first}"
+
+
+# ── UPGRADE-C1：出口裁剪 + 游标分页 ───────────────
+def _corpus(tmp_path, n_files=120):
+    """bug_scan 专用语料：n_files × 2 未定义名 = 2n 命中。"""
+    d = tmp_path / "_c1"
+    d.mkdir()
+    for i in range(n_files):
+        (d / f"b{i}.py").write_text("print(missing_a + missing_b)\n", encoding="utf-8")
+    return d
+
+
+def test_clamp_pagination_roundtrip(tmp_path):
+    """列表超 200 项 → 截断 + next_cursor 续读，跨页合计等于全量且不重不漏。"""
+    d = _corpus(tmp_path)
+    r = registry.call("bug_scan", {"path": str(d), "max_files": 400})
+    out = r["result"]
+    assert out["truncated"] is True and out["total_items"] == 240
+    assert len(out["issues"]) == registry.MAX_RESULT_ITEMS == 200
+    r2 = registry.call("bug_scan", {"path": str(d), "max_files": 400,
+                                    "cursor": out["next_cursor"]})
+    o2 = r2["result"]
+    assert "truncated" not in o2, "末页不得再带 truncated（还有更多才有）"
+    assert len(o2["issues"]) == 40 and "next_cursor" not in o2
+    # 跨页计数守恒：P1(200) + P2(40) = 全量 240（slice 保序，不重复交付）
+    assert len(out["issues"]) + len(o2["issues"]) == o2["total_items"] == 240
+
+
+def test_clamp_bad_and_far_cursor(tmp_path):
+    """cursor 垃圾值 → 按第 0 页；越界远游标 → 空页；均结构化成功。"""
+    d = tmp_path / "_far"
+    d.mkdir()
+    for i in range(250):  # >200 才会进入分页逻辑
+        (d / f"d{i}").mkdir()
+    r_bad = registry.call("fs_list", {"path": str(d), "depth": 1, "cursor": "xyz"})
+    assert r_bad["ok"] and len(r_bad["result"]["entries"]) == registry.MAX_RESULT_ITEMS
+    r_far = registry.call("fs_list", {"path": str(d), "depth": 1, "cursor": 10 ** 9})
+    assert r_far["ok"] and r_far["result"]["entries"] == []
+
+
+def test_small_results_untouched():
+    """未超限结果不得附加 truncated/next_cursor 字段。"""
+    import tempfile
+    from pathlib import Path
+    d = Path(tempfile.gettempdir()) / "unified-rx-pytest" / "_clamp_probe"
+    if not d.exists():
+        d.mkdir(parents=True)
+        (d / "a.py").write_text("x = 1\n", encoding="utf-8")
+    r = registry.call("fs_list", {"path": str(d), "depth": 1})
+    out = r["result"]
+    assert "truncated" not in out and "next_cursor" not in out

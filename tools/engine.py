@@ -28,7 +28,8 @@ def _cg_available():
 
 def _cg_run(args, timeout=60):
     """跑 codegraph CLI，返回 (rc, stdout, stderr)。"""
-    r = subprocess.run([NODE, CG_JS] + args, capture_output=True, text=True, timeout=timeout,
+    r = subprocess.run([NODE, CG_JS] + args, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=timeout,
                        env={**os.environ, "PYTHONUTF8": "1", "CODEGRAPH_TELEMETRY": "0"},
                        cwd=r"D:\开发")
     return r.returncode, r.stdout, r.stderr

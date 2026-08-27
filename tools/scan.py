@@ -235,9 +235,10 @@ def bug_scan(path, max_files=MAX_FILES):
         by_rule[i["rule"]] = by_rule.get(i["rule"], 0) + 1
         sev = i.get("severity", "info")
         by_sev[sev] = by_sev.get(sev, 0) + 1
+    # UPGRADE-C1：全量保留交给 registry._clamp 统一分页（tool 内不再私自截断丢信息）
     return {"files": files_scanned, "total": len(issues),
             "by_rule": by_rule, "by_severity": by_sev,
-            "issues": issues[:200]}
+            "issues": issues}
 
 
 # ---------- std_check ----------
@@ -275,7 +276,7 @@ def std_check(path, max_files=MAX_FILES):
             if m and lang in ("rust", "python", "go", "typescript", "javascript", "gdscript"):
                 findings.append({"file": fp, "line": idx, "rule": "magic_number",
                                  "msg": f"魔法数字: {m.group(1)}", "text": line.strip()[:80]})
-    return {"files": files_scanned, "total": len(findings), "findings": findings[:200]}
+    return {"files": files_scanned, "total": len(findings), "findings": findings}
 
 
 # ---------- ui_check：多引擎（Bevy 重点）----------
@@ -320,7 +321,7 @@ def ui_check(path, max_files=MAX_FILES):
                 line = src.count("\n", 0, m.start()) + 1
                 issues.append({"file": fp, "line": line, "rule": "ui_pattern",
                                "msg": msg, "engine": engine})
-    return {"files": files_scanned, "total": len(issues), "issues": issues[:200]}
+    return {"files": files_scanned, "total": len(issues), "issues": issues}
 
 
 # ---------- bug_locate：报错 → file:line（P5：提取 traceback 文件名:行号） ----------

@@ -104,7 +104,7 @@ def cmd_cheatsheet(domain=None):
             "by_domain": out}
 
 
-@tool("local_run", "执行内建命令模板（白名单，subprocess+超时；长驻命令用 background=true）", "meta",
+@tool("local_run", "执行内建命令模板（白名单，subprocess+超时；需 __authorized=True；长驻命令用 background=true）", "meta",
       {"type": "object",
        "properties": {
            "domain": {"type": "string", "description": "命令域（查 cmd_cheatsheet）"},
@@ -114,8 +114,10 @@ def cmd_cheatsheet(domain=None):
            "timeout": {"type": "integer", "description": "超时秒（默认 60）"},
            "background": {"type": "boolean", "description": "后台运行（Popen 立即返回 PID，不阻塞；适合 cargo run 等长驻命令）"},
        },
-       "required": ["domain", "name"]})
+       "required": ["domain", "name"]},
+      requires_auth=True)
 def local_run(domain, name, args=None, workdir=None, timeout=60, background=False, __authorized=False):
+    del __authorized  # 执行授权由 registry.call 的 requires_auth 统一强制
     cmds = _COMMANDS.get(domain, {})
     template = cmds.get(name)
     if not template:

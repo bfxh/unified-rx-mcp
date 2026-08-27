@@ -139,12 +139,15 @@ def code_context(path, cursor_line=0, radius=30):
            "file_path": {"type": "string", "description": "文件"},
            "edits": {"type": "array",
                      "description": "[{old_lines: [...], new_lines: [...], occ?: 1}]——old_lines 逐行精确匹配；occ 指定匹配第几次出现（默认 1）"},
+           "old_lines": {"type": "array", "description": "兼容写法：单处修改的旧行（等价于 edits 里的一项 old_lines）"},
+           "new_lines": {"type": "array", "description": "兼容写法：单处修改的新行（等价于 edits 里的一项 new_lines）"},
        },
-       "required": ["file_path", "edits"]})
-def ide_edit_multi(file_path, edits, root=None, __authorized=False):
-    # P0 修复：写操作需显式授权（与 fs_write 一致）+ 沙盒校验
-    if not __authorized:
-        return {"error": "写操作需要授权：参数加 __authorized: true 确认后重试"}
+       "required": ["file_path", "edits"]},
+      requires_auth=True)
+def ide_edit_multi(file_path, edits, root=None, __authorized=False, old_lines=None, new_lines=None):
+    # 授权已由 registry.call 的 requires_auth 强制；此处信任进入即已授权
+    if old_lines or new_lines:
+        edits = (edits or []) + [{"old_lines": old_lines, "new_lines": new_lines or []}]
     p = file_path
     if root and not os.path.isabs(p):
         p = os.path.join(root, p)

@@ -14,6 +14,8 @@
 import sys
 import json
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import registry
 
@@ -23,6 +25,9 @@ import tools  # noqa: F401
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
 SERVER_VERSION = "2.0.0"
+
+# 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
+_SEND_LOCK = threading.Lock()
 
 
 def _read_line():
@@ -35,8 +40,9 @@ def _read_line():
 
 def _send(obj):
     """写一行 JSON 到 stdout 并 flush。"""
-    sys.stdout.write(json.dumps(obj, ensure_ascii=False) + "\n")
-    sys.stdout.flush()
+    with _SEND_LOCK:
+        sys.stdout.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
 
 
 def _handle(msg):
@@ -72,10 +78,7 @@ def _handle(msg):
     if method == "tools/call":
         name = params.get("name", "")
         args = params.get("arguments") or {}
-        # __authorized 支持：透传授权字段（fs_write 等写工具用）
-        if "__authorized" in args:
-            authorized = args.pop("__authorized")
-            args["__authorized"] = authorized
+        # __authorized 授权由 registry.call 的 requires_auth 统一强制（UPGRADE-A1）
         result = registry.call(name, args)
         if result.get("ok"):
             content = [{"type": "text", "text": json.dumps(result["result"], ensure_ascii=False)}]
@@ -95,6 +98,8 @@ def _handle(msg):
 
 def selftest():
     """注册表自检：工具数 + 每个工具 schema 合法 + 抽样调用。"""
+    # fail-closed 下自检自身也会被拦：未显式配沙盒时临时放开（仅本进程）
+    os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
     n = registry.tool_count()
     print(f"SELFTEST tools={n}")
     groups = registry.groups()
@@ -110,7 +115,10 @@ def selftest():
 def main():
     if "--selftest" in sys.argv:
         sys.exit(selftest())
-    # 协议主循环
+    # 协议主循环：tools/call 交给线程池执行，主循环继续读 stdin。
+    # 慢工具（local_run/fs_list/engine_query）不再阻塞 ping/keepalive，
+    # 否则 Hermes 会判定服务器失联并重连，最终把 in-flight 调用掐成 300s 超时。
+    executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="rxmcp")
     while True:
         line = _read_line()
         if line is None:
@@ -120,6 +128,20 @@ def main():
         try:
             msg = json.loads(line)
         except json.JSONDecodeError:
+            continue
+        if msg.get("method") == "tools/call":
+            msg_id = msg.get("id")
+
+            def _done(fut, _id=msg_id):
+                try:
+                    resp = fut.result()
+                except Exception as e:
+                    resp = {"jsonrpc": "2.0", "id": _id,
+                            "error": {"code": -32603, "message": str(e)}}
+                if resp is not None:
+                    _send(resp)
+
+            executor.submit(_handle, msg).add_done_callback(_done)
             continue
         resp = _handle(msg)
         if resp is not None:
