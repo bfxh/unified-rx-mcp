@@ -63,7 +63,8 @@ def test_fs_sandbox():
         os.environ["UNIFIED_RX_SANDBOX"] = ""
         r = registry.call("fs_read", {"path": str(Path(__file__))})
         assert not r["ok"], "未配置沙盒时应一律拒绝（fail-closed）"
-        os.environ["UNIFIED_RX_SANDBOX"] = r"D:\开发"
+        os.environ["UNIFIED_RX_SANDBOX"] = os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__)))   # 自指仓库根（平台无关）
         r2 = registry.call("fs_read", {"path": r"C:\Windows\win.ini"})
         assert not r2["ok"], "沙盒外不应可读"
         r3 = registry.call("fs_stat", {"path": __file__})
