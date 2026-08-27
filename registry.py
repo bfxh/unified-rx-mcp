@@ -15,6 +15,26 @@ import time
 MAX_RESULT_ITEMS = 200
 _MAX_BYTES = 50 * 1024
 
+# S3-B2：logging 通知出口（server.main 注入；直跑 pytest 时为 None → 静默跳过）
+_NOTIFIER = None
+
+
+def set_notifier(fn):
+    """注入 logging 出口（server 主循环调用）。fn(level, message)。"""
+    global _NOTIFIER
+    _NOTIFIER = fn
+
+
+def notify(level, message):
+    """工具内部发协议日志（本地_run 后台启动/引擎降级等）。永不抛错。"""
+    fn = _NOTIFIER
+    if fn is not None:
+        try:
+            fn(level, message)
+        except Exception:
+            pass
+
+
 _TOOLS = {}
 
 

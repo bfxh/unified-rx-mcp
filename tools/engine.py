@@ -120,14 +120,13 @@ def engine_query(query, root, limit=10):
                 # rc != 0 或解析失败 → 降级
             except subprocess.TimeoutExpired:
                 pass
-    # 2. 降级 BM25
+    # 2. 降级 BM25（S3-B2：降级发协议日志，宿主可见）
     from .search import code_search
+    from registry import notify
+    notify("info", "engine_query: codegraph 不可用/无命中，降级 BM25")
     r = code_search(query, root, limit)
     hits = [{"file": h["file"], "line": h.get("line"), "score": h.get("score"),
              "snippet": h.get("snippet", "")[:200]}
             for h in r.get("hits", [])]
     return {"engine": "bm25_fallback", "query": query, "total": len(hits),
             "hits": hits, "note": "codegraph 无命中/未索引，降级 BM25"}
-    from .search import code_search
-    r = code_search(query, root, limit)
-    return {"engine": "bm25_fallback", "note": "codegraph 不可用/未索引，降级 BM25", **r}

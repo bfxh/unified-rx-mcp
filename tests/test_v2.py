@@ -6,11 +6,13 @@
 """
 import os
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import registry
+import server  # noqa: F401 (S3 协议层测试用)
 import tools  # noqa: F401
 
 
@@ -290,3 +292,53 @@ def test_small_results_untouched():
     r = registry.call("fs_list", {"path": str(d), "depth": 1})
     out = r["result"]
     assert "truncated" not in out and "next_cursor" not in out
+
+
+# ── S3-B2/B3：logging 通知 + 取消登记 ───────────────
+def test_registry_notifier_hook():
+    """notify() 走注入出口；未注入时静默不抛。"""
+    import registry as reg
+    got = []
+    reg.set_notifier(lambda level, msg: got.append((level, msg)))
+    try:
+        from tools.engine import engine_query  # noqa: F401 触发注册
+        registry.call("engine_query", {"query": "sandbox roots",
+                                       "root": os.path.dirname(os.path.dirname(os.path.abspath(__file__)))})
+        assert any("BM25" in m for _, m in got), f"降级应发通知: {got}"
+    finally:
+        reg.set_notifier(None)
+    # 未注入：不应抛
+    registry.call("engine_query", {"query": "sandbox roots",
+                                   "root": os.path.dirname(os.path.dirname(os.path.abspath(__file__)))})
+
+
+def test_server_cancel_flag_lifecycle():
+    """server.cancel_flag: 登记后可取，cancelled 后置位，完成后清理。"""
+    import server
+    ev = threading.Event()
+    with server._CANCEL_LOCK:
+        server._CANCELS[999] = ev
+    try:
+        assert server.cancel_flag(999) is not None and not server.cancel_flag(999).is_set()
+        ev.set()
+        assert server.cancel_flag(999).is_set()
+        with server._CANCEL_LOCK:
+            server._CANCELS.pop(999, None)
+        assert server.cancel_flag(999) is None, "完成/取消后应清理登记"
+    finally:
+        with server._CANCEL_LOCK:
+            server._CANCELS.pop(999, None)
+
+
+def test_server_handle_logging_setlevel():
+    """logging/setLevel 有应答（S3 能力协商）。"""
+    r = server._handle({"jsonrpc": "2.0", "id": 7, "method": "logging/setLevel",
+                        "params": {"level": "info"}})
+    assert r["id"] == 7 and r["result"] == {}
+
+
+def test_server_initialize_capabilities_s3():
+    """initialize capabilities 声明 listChanged + logging。"""
+    r = server._handle({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+    caps = r["result"]["capabilities"]
+    assert caps["tools"]["listChanged"] is True and "logging" in caps

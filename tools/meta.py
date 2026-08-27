@@ -134,6 +134,8 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
     try:
         if background:
             # P3：后台运行，立即返回 PID（长驻命令专用）
+            from registry import notify
+            notify("info", f"local_run 后台启动: {cmd[:80]}")
             p = subprocess.Popen(cmd, shell=True, cwd=workdir, env=env,
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
