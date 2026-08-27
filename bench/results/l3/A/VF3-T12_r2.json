@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T12",
+ "arm": "bare_model",
+ "run_idx": 2,
+ "ts": 1787817256,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n当前 `modules.ron` 数据缺少启动期 schema 级校验，导致三类缺陷：\n1. **几何重叠**：轮子模块的 `attach_points` 未检查与其他模块的 `collision_shape` 或 `attach_points` 的空间交集，重叠时物理引擎静默合并或忽略，无报错。\n2. **挂点语义错误**：顶面挂点（如 `top` 方向）被错误标记为 `available: true`，但实际该面是封闭面或承载面，装配系统未校验挂点方向与模块几何法线的一致性。\n3. **数值无约束**：`health` 字段无最小值/上限/类型约束，允许 0、负数或超大值，导致战斗系统出现异常行为（如瞬间死亡或无敌）。\n\n【定位】\n- `assets/modules.ron`（数据定义，无符号，属数据文件）\n- `src/systems/validation.rs`（推测，若存在则包含 `validate_module` 函数；若不存在则需新建）\n- `src/systems/assembly.rs`（推测，`attach_point` 方向与几何法线校验逻辑缺失）\n- `src/components/module.rs`（推测，`Module` 结构体 `health` 字段无 `#[validate]` 属性）\n\n【修复方案】\n1. **新增启动期校验模块** `src/systems/validation.rs`，在 `App::new()` 的 `Startup` 阶段注册 `validate_all_modules` 系统，读取 `modules.ron` 后执行以下规则，任一失败则 `panic!` 并输出模块名+字段+错误原因。\n2. **几何重叠规则**：对每个模块的 `attach_points` 坐标，检查是否与其他模块的 `collision_shape`（AABB 或圆）发生交集。若交集面积 > 阈值（如 0.01），报错 `\"attach point overlaps collision shape\"`。\n3. **挂点方向规则**：每个 `attach_point` 必须声明 `normal` 向量（如 `(0,1,0)` 表示顶面），校验该向量与模块网格对应面的法线点积 > 0.9。若 `available: true` 但法线指向内部或封闭面，报错 `\"invalid attach direction\"`。\n4. **数值约束规则**：`health` 必须为 `f32` 且满足 `0.0 < health <= 1000.0`（可配置上限）。若缺失、为负数或超限，报错 `\"health out of range\"`。\n5. **错误输出格式**：统一为 `\"[模块名] [字段] [具体错误] (建议值/坐标)\"`，例如 `\"[wheel_front] attach_point[2] overlaps collision_shape at (1.0, 0.5, 0.0)\"`，确保玩家可直接定位并修改。\n6. **测试**：在 `tests/validation_test.rs` 中添加三个用例（重叠、错误挂点、非法血量），确保校验逻辑在 CI 中生效。",
+ "tokens_in": 182,
+ "tokens_out": 667,
+ "turns": 1,
+ "cost_usd": 0.00078,
+ "walltime_s": 6.9,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "fail",
+  "R3": "pass"
+ }
+}

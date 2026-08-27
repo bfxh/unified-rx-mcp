@@ -1,0 +1,89 @@
+{
+ "task_id": "VF3-T04",
+ "arm": "model_plus_rx",
+ "run_idx": 0,
+ "ts": 1787817412,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n四项缺陷均源于同一物理子系统（`crates/app/src/vehicle_physics.rs` 与 `crates/app/src/main.rs` 的悬挂/放置逻辑）的四个独立设计缺陷：\n\n1. **悬挂射线打到自身车体**：悬挂射线起点（`WHEEL_RAY_START_OFFSET`）位于轮轴上方，射线向下探测时未排除载具自身刚体（未设置 `QueryFilter` 排除自身实体），当车体倾斜或模块凸起时射线命中自身碰撞体，产生虚假压缩量 → 弹簧力瞬间爆表 → 抖动/爆炸。\n\n2. **轻车悬浮重车压死**：弹簧刚度（`spring`，文档记录默认 900）与阻尼系数是全局常量，对所有载具一视同仁。弹簧支撑力 = `spring * compression`，与车重无关。轻车压缩量小但弹簧力仍偏大 → 悬浮；重车压缩量被行程硬限截断 → 支撑力不足 → 压死。正确做法是弹簧刚度应随载具总质量缩放（`k = m * g / rest_compression`）。\n\n3. **拿起模块带残余速度一放就飞**：拿起模块时未清零刚体线速度/角速度（`LinearVelocity`/`AngularVelocity`），放下时直接恢复物理模拟，残余速度被保留 → 模块飞出。应在拿起瞬间将速度置零。\n\n4. **斜坡放置嵌进地表一半**：`geom.rs` 的格坐标计算采用\"Y 向上取整保证模块底面不低于坡面\"（注释明确写了 floor 会嵌进地形），但取整只对**单格**生效；多格模块或斜坡上放置时，模块底面中心对齐格点，而斜坡两侧格点高度差导致模块一半悬空一半嵌入。放置逻辑未做\"按模块包围盒最低点对齐地表\"的补偿。\n\n【定位】\n\n- `crates/app/src/vehicle_physics.rs:SuspensionResult`（弹簧力计算，`force: (spring + damping).max(0.0)`）— 弹簧参数全局常量，未按质量缩放\n- `crates/app/src/main.rs:1781`（轮子悬挂系统，`/// 轮子悬挂：每个轮子独立向下探测地面`）— 射线未排除自身刚体\n- `crates/app/src/main.rs`（拿起/放下模块逻辑，`/// B1 修复：放置失败不丢模块` 附近）— 拿起时未清零速度\n- `crates/app/src/geom.rs:11`（`/// XZ 向下取整；Y 向上取整保证模块底面不低于起伏坡面`）— 单格取整，未处理多格/斜坡包围盒对齐\n\n【修复方案】\n\n1. **悬挂射线排除自身**：在 `main.rs:1781` 的射线查询中，为 `RayCast3d` 设置 `QueryFilter::exclude_entities([vehicle_entity])`（或使用 `filter.exclude_self()`），确保射线只命中地形层（`Terrain`），不命中载具自身刚体。同时将 `WHEEL_RAY_START_OFFSET` 下移贴近轮底，减少误触概率。\n\n2. **弹簧参数按质量缩放**：在 `vehicle_physics.rs` 的 `SuspensionResult` 计算前，读取载具总质量 `m`，将弹簧刚度改为 `k = m * GRAVITY / REST_COMPRESSION`（`REST_COMPRESSION` 为设计静载压缩量，如 0.1m），阻尼按 `2 * sqrt(k * m)` 取临界阻尼。这样轻车重车在静载下压缩量一致，消除悬浮/压死。\n\n3. **拿起时清零速度**：在拿起模块的代码路径（`main.rs` 中 `picked=true` 分支）中，对目标模块实体执行 `commands.entity(e).remove::<LinearVelocity>().remove::<AngularVelocity>()`（或插入零速度组件），放下时再恢复物理模拟。确保拿起瞬间速度归零。\n\n4. **斜坡放置按包围盒最低点对齐**：在 `geom.rs` 的格坐标计算中，将\"Y 向上取整\"改为\"按模块 AABB 最低角点采样地形高度\"：取模块底面四角（或包围盒最低点）的地形高度，取最大值作为放置 Y，使整个模块底面不低于坡面最高点，避免嵌进地表。对多格模块需遍历所有占用格。\n\n以上四项均为最小改动，互不依赖，可独立合入。",
+ "tokens_in": 33291,
+ "tokens_out": 1642,
+ "turns": 10,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.01079,
+ "walltime_s": 19.6,
+ "notes": [
+  "round0: 3 calls 6227ch (2.1s)",
+  "round1: 2 calls 2246ch (2.4s)",
+  "round2: 1 calls 192ch (1.2s)",
+  "round3: 1 calls 157ch (1.3s)",
+  "round4: 1 calls 133ch (0.9s)",
+  "round5: 1 calls 140ch (1.2s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T09",
+ "arm": "bare_model",
+ "run_idx": 2,
+ "ts": 1787817197,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n每个模块实例克隆 mesh 和材质句柄，导致 GPU 侧资源重复上传与驻留。Bevy 中 `Mesh` 和 `Material` 是 `Asset`，克隆句柄（`Handle<Mesh>`）本身是轻量引用计数，但若代码中直接克隆了 `Mesh` 数据（如 `mesh.clone()` 而非 `handle.clone()`），则每个实例都会在 GPU 上创建独立的顶点/索引缓冲区和材质参数块。几百个模块即产生几百份冗余 GPU 资源，显存线性增长；CPU 侧内存也因重复的 CPU 侧资产数据（`Assets<Mesh>` 中每个克隆项）而上涨。\n\n【定位】\n- `path:module_spawn_system.rs`（推测，实际为生成模块实例的系统）: `Mesh::clone()` 或 `Material::clone()` 调用点（推测符号：`spawn_module` 或 `setup_module_mesh`）\n- `path:module_plugin.rs`（推测）: 模块初始化时对 `Assets<Mesh>` 和 `Assets<StandardMaterial>` 的插入逻辑（推测符号：`ModulePlugin::build`）\n\n【修复方案】\n1. **共享资产**：在模块初始化时，仅创建一次 `Mesh` 和 `Material` 资产，存入 `Assets` 资源。每个模块实例只持有 `Handle<Mesh>` 和 `Handle<StandardMaterial>` 的克隆（引用计数增加，不复制数据）。\n2. **使用实例化渲染**：若模块是相同几何体（如立方体、管道），改用 `InstancedMesh`（Bevy 0.14+）或 `Meshlet`（Bevy 0.15+），将几百个实例的变换矩阵打包进一个 GPU 缓冲区，仅上传一次网格数据。\n3. **材质批处理**：若材质参数（颜色、纹理）不同，使用 `Material` 的 `per-instance` 数据（如 `StandardMaterial` 的 `base_color` 通过 `InstanceData` 传递），避免为每个实例克隆材质资产。\n\n**收益量级**：\n- 显存：从 O(N) 份网格数据降为 O(1) 份（共享）或 O(1) 份 + 实例变换缓冲区（实例化），显存占用减少约 90%~99%（取决于网格复杂度）。\n- CPU 内存：从 O(N) 份资产数据降为 O(1) 份，内存占用减少约 90% 以上。\n- 渲染性能：Draw call 数从 N 次降为 1 次（实例化），CPU 提交开销显著下降，帧率提升在低端 GPU 上可达 2~5 倍。",
+ "tokens_in": 133,
+ "tokens_out": 595,
+ "turns": 1,
+ "cost_usd": 0.00069,
+ "walltime_s": 5.7,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass",
+  "R3": "fail"
+ }
+}

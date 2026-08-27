@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T08",
+ "arm": "bare_model",
+ "run_idx": 0,
+ "ts": 1787817161,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n内存泄漏的直接诱因是碰撞伤害系统每帧向伤害表（如 `HashMap<Entity, DamageEntry>`）追加条目，但从未执行清除或过期回收。由于每帧碰撞事件都会产生新条目，且键（Entity）可能因实体销毁而不再有效，但旧条目仍驻留内存，导致表无限增长。此外，若伤害表使用 `Vec` 或 `HashMap` 且未在 `Update` 阶段清理，则每帧分配的内存不会释放，最终累积为持续上涨的常驻内存。\n\n【定位】\n- `collision_damage.rs:apply_collision_damage`（推测：碰撞伤害系统主函数，每帧遍历碰撞事件并写入伤害表）\n- `collision_damage.rs:DamageTable`（推测：存储伤害条目的容器，可能为 `HashMap<Entity, DamageEntry>` 或 `Vec<DamageEntry>`）\n- `collision_damage.rs:damage_system`（推测：系统调度入口，未包含清理逻辑）\n\n【修复方案】\n1. **诊断步骤**：\n   - 使用 `cargo instruments` 或 `heaptrack` 采样运行 30 分钟，对比 `DamageTable` 的 `len()` 与内存曲线，确认增长与伤害表条目数线性相关。\n   - 在 `damage_system` 末尾添加临时日志：每 1000 帧打印 `DamageTable.len()` 与 `total_allocated_bytes`（通过 `GlobalAlloc` 包装统计），验证泄漏源。\n   - 检查 `Entity` 是否在销毁时触发 `RemovedComponents<Entity>` 事件，若未监听则确认旧条目无法被回收。\n\n2. **修复策略**（最小改动）：\n   - **方案A（推荐）**：在 `damage_system` 的 `Update` 阶段末尾，调用 `damage_table.retain(|_, entry| entry.last_hit_frame + 60 > current_frame)`，仅保留最近 1 秒内的条目（假设 60 FPS）。同时监听 `RemovedComponents<Entity>` 事件，在实体销毁时立即移除对应键。\n   - **方案B（若伤害表为 `Vec`）**：改为 `HashMap<Entity, DamageEntry>`，并在每次写入前检查 `entry.last_hit_frame`，若超过阈值则覆盖旧条目而非追加。\n   - **方案C（若伤害表仅用于单帧）**：将伤害表改为 `Local<HashMap>`，并在系统末尾调用 `.clear()`，确保每帧结束后清空。\n\n3. **基线数据佐证**：\n   - 修复前：记录运行 10 分钟后的 `DamageTable.len()` 与 `process_mem`（通过 `/proc/self/status` 的 `VmRSS`），得到基线值 A。\n   - 修复后：相同运行时长下，`DamageTable.len()` 应稳定在阈值内（如 ≤ 60），`VmRSS` 增长曲线趋于平缓，与基线 A 相比内存增量下降 ≥ 90%。\n   - 使用 `criterion` 基准测试对比修复前后每帧分配次数，确认修复后每帧分配次数恒定（不再随运行时间增长）。",
+ "tokens_in": 146,
+ "tokens_out": 702,
+ "turns": 1,
+ "cost_usd": 0.00081,
+ "walltime_s": 6.5,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "fail",
+  "R3": "unverifiable"
+ }
+}

@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T04",
+ "arm": "bare_model",
+ "run_idx": 0,
+ "ts": 1787817084,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n1. **悬挂射线打到自身车体**：射线检测未排除载具自身的碰撞体，或射线起点位于车体包围盒内部，导致射线与自身碰撞体相交，产生异常弹簧力反馈，引发抖动甚至爆炸。\n2. **轻车悬浮重车压死**：弹簧刚度与阻尼参数为全局常量，未根据载具质量动态计算（如 `k = m * ω²`），导致轻车过冲、重车支撑不足。\n3. **拿起的模块带残余速度**：拾取时未清零刚体线速度/角速度，或未在放置时重置物理状态，导致模块释放后继承旧动量。\n4. **斜坡放置嵌地**：放置逻辑仅做水平投影或未执行向下射线/形状扫描，未将模块底面贴合地形表面，导致穿透。\n\n【定位】\n- `physics/suspension.rs:suspension_raycast`（推测：悬挂射线检测函数，未过滤自身实体）\n- `physics/vehicle.rs:spring_params`（推测：弹簧参数常量定义处）\n- `interaction/pickup.rs:pickup_entity` / `interaction/pickup.rs:place_entity`（推测：拾取/放置逻辑，未重置速度）\n- `placement/snap.rs:snap_to_ground`（推测：放置对齐函数，未处理斜坡法线）\n\n【修复方案】\n1. **悬挂射线**：在射线检测前，将载具自身实体从过滤列表中排除（如 `QueryFilter::exclude_self` 或手动跳过 `self_entity`）；同时将射线起点上移至悬挂点上方，避免起点在包围盒内。\n2. **弹簧参数**：将弹簧刚度与阻尼改为基于载具质量动态计算（如 `k = m * target_frequency²`，`c = 2 * m * target_frequency * damping_ratio`），在载具初始化或质量变化时更新。\n3. **拾取/放置速度**：在 `pickup_entity` 中调用 `linear_velocity = Vec3::ZERO`、`angular_velocity = Vec3::ZERO`；在 `place_entity` 中再次强制重置，并可选地冻结物理一帧。\n4. **斜坡放置**：在 `snap_to_ground` 中，从模块中心向下发射射线（或使用形状投射），获取地形法线与命中点，将模块底面旋转对齐法线，并沿法线方向偏移半个模块高度，确保完全贴合。",
+ "tokens_in": 161,
+ "tokens_out": 541,
+ "turns": 1,
+ "cost_usd": 0.00064,
+ "walltime_s": 5.6,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "fail"
+ }
+}

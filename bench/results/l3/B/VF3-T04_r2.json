@@ -1,0 +1,104 @@
+{
+ "task_id": "VF3-T04",
+ "arm": "model_plus_rx",
+ "run_idx": 2,
+ "ts": 1787817450,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n1. **悬挂射线打到自身车体**：悬挂射线（raycast）未做自车体排除。载具是单刚体（所有模块合并为一个 RigidBody3D），射线从轮位向下发射时，若碰撞层未隔离载具自身刚体，射线会命中自身车体模块（尤其车体底部有凸起模块时），产生虚假压缩量 → 弹簧力瞬间爆炸 → 抖动/爆炸。`vehicle_physics.rs` 的 `suspension_force` 只计算力，不负责射线过滤；射线过滤逻辑在 `main.rs` 的物理回调中，未排除 `VehicleId` 所属刚体。\n\n2. **轻车悬浮重车压死（弹簧参数对所有车一样）**：弹簧刚度（spring stiffness）与阻尼是全局常量（`MAX_SUSPENSION_DISTANCE`、弹簧刚度、阻尼比在 `vehicle_physics.rs` 顶部硬编码）。悬挂力公式 `F = k·compression + c·velocity` 未按载具质量（簧上质量）归一化。轻车质量小 → 弹簧力相对过大 → 悬浮；重车质量大 → 弹簧力不足以支撑 → 压死。正确做法是弹簧刚度应随载具总质量缩放（如 `k = m·ω²`，ω 为目标固有频率），或至少按质量比例分配。\n\n3. **拿起的模块带残余速度一放就飞**：拾取/放置模块时，模块刚体在拿起时被设为 `Static`（由装配控制，见 `main.rs:636` 注释“只同步载具模块（Static，由装配控制）；散落模块交给物理引擎”），但放置时重新激活为动态刚体时，未清零 `LinearVelocity`/`AngularVelocity`。物理引擎保留刚体休眠前的残余速度，一激活就带着旧速度飞出。\n\n4. **放置到斜坡时模块嵌进地表一半**：放置逻辑只做射线命中点定位（`main.rs` 拾取放置的射线精确拾取），未做斜坡法线对齐与穿透修正。模块刚体激活时直接放在命中点，未沿法线抬升模块半高/半厚，也未检查与 HeightField 地形的初始穿透量。物理引擎对初始穿透的修正（depenetration）方向不稳定，导致模块一半埋入地表。\n\n【定位】\n\n- `crates/app/src/vehicle_physics.rs:suspension_force` — 弹簧力计算，刚度/阻尼为全局常量，未按质量归一化（问题2）\n- `crates/app/src/vehicle_physics.rs:MAX_SUSPENSION_DISTANCE` — 悬挂行程常量（问题2）\n- `crates/app/src/main.rs`（物理回调/射线过滤处，约 line 636 附近）— 悬挂射线未排除自身刚体（问题1）；放置时未清零速度（问题3）；放置未做法线对齐与穿透修正（问题4）\n- `docs/STANDARDS.md:48` — “只有每列最下方的轮胎参与悬挂/驱动”规则，暗示射线过滤逻辑缺失（问题1佐证）\n\n【修复方案】\n\n1. **悬挂射线自排除**（问题1）：在 `main.rs` 物理回调中，对悬挂射线命中结果增加过滤——若命中刚体的 `VehicleId` 与当前载具相同，则忽略该命中并继续沿射线向下搜索（或直接跳过该刚体）。最小改动：射线查询时设置 `ExcludeCollider` 过滤器，排除载具自身刚体实体。\n\n2. **弹簧参数按质量归一化**（问题2）：在 `vehicle_physics.rs` 中，将 `suspension_force` 的刚度参数从全局常量改为按载具总质量计算：`k = mass · (2π·target_freq)²`，`c = 2·ζ·√(k·mass)`（ζ 为目标阻尼比，如 0.3~0.5）。在载具装配完成时（`main.rs` 装配控制处）计算一次并存入载具组件，悬挂力计算时读取该值。这样轻车重车固有频率一致，不再悬浮/压死。\n\n3. **放置清零速度**（问题3）：在 `main.rs` 放置模块逻辑中，将模块从 `Static` 切回动态刚体时，显式调用 `set_linear_velocity(Vec3::ZERO)` 与 `set_angular_velocity(Vec3::ZERO)`，并重置 `sleeping` 状态为清醒。最小改动：在激活刚体的同一处加两行清零调用。\n\n4. **斜坡放置对齐与穿透修正**（问题4）：在 `main.rs` 放置逻辑中，取射线命中点的法线（HeightField 可提供法线），将模块位置沿法线方向抬升模块包围盒半高（`half_extents.y`），使模块底面贴合地表；同时将模块旋转对齐到法线（若允许斜坡放置）。若模块为立方体且不允许旋转，则至少沿法线抬升半高，避免初始穿透。最小改动：放置位置 = 命中点 + 法线 × 半高，并设置初始速度为零。\n\n以上四项均为局部最小改动，不涉及架构重构。",
+ "tokens_in": 23548,
+ "tokens_out": 1902,
+ "turns": 13,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_stat",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00845,
+ "walltime_s": 18.9,
+ "notes": [
+  "round0: 3 calls 4034ch (1.7s)",
+  "round1: 2 calls 419ch (1.2s)",
+  "round2: 2 calls 311ch (1.1s)",
+  "round3: 2 calls 266ch (0.9s)",
+  "round4: 2 calls 318ch (1.2s)",
+  "round5: 1 calls 187ch (1.7s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "fail"
+ }
+}

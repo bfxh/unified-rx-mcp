@@ -1,0 +1,104 @@
+{
+ "task_id": "VF3-T12",
+ "arm": "model_plus_rx",
+ "run_idx": 2,
+ "ts": 1787817823,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n`modules.ron` 数据质量问题源于**缺少启动期强制标准校验层**。当前系统仅在运行时对部分规则做软性检查（如 `crates/core/src/module.rs:192` 的\"轮胎标准: 轮子只接受 结构/驾驶舱 连接\"），且 `tools/blender_mount_points.py` 中的校验仅存在于 Blender 导出工具链，不覆盖游戏启动路径。`docs/bench/README.md:31` 已明确 PRD 要求\"modules.ron 中任何违反 docs/STANDARDS.md 分类标准（轮胎单格/无 Top 挂点/只接结构舱；驾驶舱 HP≥200 等）的定义必须在启动时被拒绝入库并打印诊断\"，但该 PRD 未落地为代码。由此导致：① 叠放轮子（多格轮胎）被静默接受；② 顶面挂点（Top face）被当作合法连接位；③ 驾驶舱 HP 无下限约束——三类缺陷均因**数据定义与分类标准之间缺少启动期硬校验**而漏过。\n\n【定位】\n\n- `crates/core/src/module.rs:ModuleDef`（推测）——模块数据结构定义处，应承载校验入口\n- `crates/core/src/module.rs:192`——现有运行时软校验（\"轮胎标准\"），需提升为启动期硬校验\n- `docs/STANDARDS.md:26`——驾驶舱分类标准（HP 下限等），校验规则的权威来源\n- `docs/bench/README.md:31`——已声明的 PRD 校验要求，待实现\n- `tools/blender_mount_points.py:208-211`——Blender 侧已有轮胎校验逻辑，可参考移植\n\n【修复方案】\n\n1. **新增启动期校验模块**：在 `crates/core/src/module.rs` 中新增 `validate_module_defs(&[ModuleDef]) -> Result<(), Vec<String>>` 函数，在模块注册/加载入口（`ModuleRegistry::load_mod_directory` 或等价入口）调用，任何违规直接返回错误并拒绝启动。\n\n2. **校验规则集**（按 `docs/STANDARDS.md` 分类标准逐条实现）：\n   - **轮胎（Wheel）**：① 占格数必须为 1（单格）；② 禁止 Top 面挂点；③ 挂点 `accepts` 仅允许 Structure/Cab 类别。\n   - **驾驶舱（Cab）**：① HP 必须 ≥ 200（下限硬约束）；② 建议同时校验 HP 上限（如 ≤ 3500）防止数值溢出。\n   - **通用**：① 每个模块至少有一个挂点（否则无法装配）；② 挂点坐标必须在模块占格范围内；③ 挂点 `accepts` 类别必须存在于 `Category` 枚举中。\n\n3. **错误输出格式**：每个违规输出 `模块名 → 规则名 → 实际值 → 期望值` 的可操作诊断（如 `wheel_dual → 占格数=2 → 必须=1`），聚合所有错误一次性打印，避免用户反复重启。\n\n4. **测试覆盖**：在 `crates/core/tests/` 下新增 `validation_test.rs`，构造违规样本（多格轮胎、带 Top 挂点轮胎、HP=50 驾驶舱）断言校验函数拒绝，并确保合法样本通过。",
+ "tokens_in": 28356,
+ "tokens_out": 1610,
+ "turns": 13,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00943,
+ "walltime_s": 16.7,
+ "notes": [
+  "round0: 2 calls 2235ch (1.8s)",
+  "round1: 2 calls 2107ch (1.4s)",
+  "round2: 2 calls 376ch (1.3s)",
+  "round3: 2 calls 2055ch (1.5s)",
+  "round4: 2 calls 4050ch (2.3s)",
+  "round5: 2 calls 358ch (1.4s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "fail"
+ }
+}

@@ -229,3 +229,30 @@ python -X utf8 -m pytest tests/ -q                           # 106 passed
 当前基线：**82 passed / selftest 45 工具 SCHEMA_BAD 0 / server v2.2.0**。
 复用入口：`python bench/agent_selfcheck.py <安装目录> [--data-dir <用户数据>] [--clean]`
 返回码 0 干净 / 1 调用失败 / 2 有 definite 待人工确认 —— 以后"遇到智能体自己查自己"的默认动作。
+
+---
+
+## S14 · L3 双臂增益首测（EVAL-P2 落地，2026-08-27）
+
+骨架 → 实跑器：`bench/ab_run.py`（--run A/B / --judge / --score），语料 `bench/l3_tasks.jsonl`
+（VF3 真实历史缺陷 12 条 × rubric，金标自 commit 对账）。通道 conn-deepseek / deepseek-chat，
+temperature=0.2 双臂同参；凭据运行时直读 Yan 配置，**全程零明文回显**。
+
+**结果（12 任务 × n=3 = 72 run，全判）**
+
+| 指标 | A 裸模型 | B 模型+12 只读工具 |
+|---|---|---|
+| 解决率（rubric 全 pass） | 13.9% | **22.2%（Δ+8.3pp）** |
+| R 点通过率 | 47.6% | 47.6% |
+| 文件引用存在率 | **1%**（174 处几乎全编造） | **72%**（196 处） |
+| avg turns / input tok / cost | 1.0 / 167 / $0.0008 | 12.6 / 26957 / $0.0089 |
+
+结论：解决率方向支持 H1（n 小不外推）；决定性差异在**可核验性**——A 臂定位近乎纯幻觉，
+B 臂七成引用真实存在。部分得分打平说明 judge 对机制描述给分宽松；成本 ~11× 是买证据的价。
+
+诚实声明：judge=同模型自评（Agent-as-a-Judge），金标提炼自 commit message，10% 人工抽检未做；
+B 臂走进程内 registry.call（同一工具面/裁剪/门禁），非 stdio 子进程，协议级已另有探针背书。
+
+施工中自抓：judge_one 重构丢函数尾 `return verdict` → 静默写 None 进结果文件
+（聚合数对不上暴露，测试 test_judge_one_returns_dict_not_none 锁死）；judge 格式漂移 6/72 加纠偏重试归零。
+基线推进：123 passed / selftest 46 工具 SCHEMA_BAD 0 / v2.6.0。

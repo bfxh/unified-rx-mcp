@@ -1,0 +1,109 @@
+{
+ "task_id": "VF3-T04",
+ "arm": "model_plus_rx",
+ "run_idx": 1,
+ "ts": 1787817432,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n1. **悬挂射线打到自身车体导致抖动爆炸**：悬挂射线（raycast）未做碰撞层/自车体过滤，射线从轮位向下发射时可能命中载具自身的碰撞体（尤其车体底部凸起或模块堆叠时），产生极短压缩距离 → 弹簧力瞬间爆表 → 抖动/爆炸。这是典型的\"射线自碰撞\"缺陷。\n\n2. **轻车悬浮重车压死（弹簧参数对所有车一样）**：`suspension_force(compression, vertical_speed, per_wheel_weight)` 虽接收 `per_wheel_weight` 参数，但弹簧刚度/阻尼比是全局常量（`MAX_SUSPENSION_DISTANCE = 1.6` 等），未按载具质量/轮数动态缩放。轻车弹簧力过大 → 悬浮；重车弹簧力不足以支撑 → 压死触底。\n\n3. **拿起的模块带残余速度一放就飞**：拾取时仅移除/冻结刚体，未清零 `LinearVelocity`/`AngularVelocity`；放置时重新激活刚体，残余速度被保留，模块一放即飞。\n\n4. **放置到斜坡时模块嵌进地表一半**：放置逻辑按网格吸附计算位置，但未做\"地表穿透检测/上移修正\"。斜坡上网格格点低于地表高度，模块直接嵌入地形。\n\n【定位】\n\n- `crates/app/src/vehicle_physics.rs:suspension_force` — 弹簧力计算，刚度/阻尼为全局常量，未按质量缩放（证据：`MAX_SUSPENSION_DISTANCE: f32 = 1.6` 为 `pub const`，`suspension_force(compression, vertical_speed, per_wheel_weight)` 中 `per_wheel_weight` 未参与刚度缩放）。\n- `crates/app/src/main.rs:20` — `use vehicle_physics::{suspension_force, MAX_SUSPENSION_DISTANCE}`，悬挂射线调用点，射线未过滤自车体碰撞层。\n- `crates/app/src/main.rs`（拾取/放置逻辑，约 636 行附近\"只同步载具模块（Static，由装配控制）；散落模块交给物理引擎\"）— 拾取时未清零刚体速度，放置时未做地表穿透修正。\n\n【修复方案】\n\n1. **悬挂射线自碰撞**：在射线查询中设置 `QueryFilter`，排除载具自身实体（`exclude_self` 或按碰撞层过滤，将车体碰撞层与射线检测层分离）；若射线命中距离 < 最小阈值（如 0.05m）则视为无效，跳过该轮弹簧力。\n\n2. **弹簧参数按质量缩放**：将弹簧刚度/阻尼比改为按载具总质量与轮数动态计算——`stiffness = base_stiffness * (total_mass / (num_wheels * reference_mass))`，阻尼比同理；或在 `suspension_force` 内用 `per_wheel_weight` 反推刚度，使静平衡压缩量恒定（如目标压缩 30% 行程）。\n\n3. **拾取清零速度**：在拾取模块时，对刚体执行 `LinearVelocity = 0`、`AngularVelocity = 0`（或直接 `Sleeping` 冻结）；放置时保持零速激活，避免残余速度。\n\n4. **斜坡放置防嵌入**：放置位置计算后，沿重力方向做一次短射线/碰撞检测，若目标格点低于地表，则将模块位置上移至地表之上（偏移量为模块半高 + 地表法向修正），确保不嵌入地形。\n\n按此四项最小改动即可覆盖全部缺陷，无需重构物理架构。",
+ "tokens_in": 32036,
+ "tokens_out": 1798,
+ "turns": 14,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_stat",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "bug_locate",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "engine_query",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "ast_scan",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.01063,
+ "walltime_s": 18.3,
+ "notes": [
+  "round0: 3 calls 4316ch (1.8s)",
+  "round1: 2 calls 2104ch (1.5s)",
+  "round2: 2 calls 311ch (1.3s)",
+  "round3: 2 calls 323ch (1.6s)",
+  "round4: 2 calls 4504ch (2.1s)",
+  "round5: 2 calls 336ch (1.6s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

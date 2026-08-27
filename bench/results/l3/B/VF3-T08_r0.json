@@ -1,0 +1,79 @@
+{
+ "task_id": "VF3-T08",
+ "arm": "model_plus_rx",
+ "run_idx": 0,
+ "ts": 1787817585,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n碰撞伤害系统使用跨帧累积表（`HashMap` 或类似键值结构）记录每对碰撞体的伤害累积值，每帧按碰撞对写入并乘以 0.9 衰减。但该表**只增不删**——当碰撞对不再发生接触（车辆驶离、碎片消失、实体销毁）时，对应条目永远不会被移除。长时间游玩后，碰撞对组合不断产生新键（不同车辆、碎片、地面区块的组合），表持续膨胀，导致内存缓慢上涨不回落。这是典型的**无界缓存泄漏**模式。\n\n---\n\n【定位】\n\n- `crates/app/src/main.rs:collision_damage_system` — 碰撞伤害累积表所在系统，每帧写入累积值并衰减，但无清除逻辑（证据：代码搜索命中 `main.rs:34` 注释“跨帧碰撞伤害累积：每帧按碰撞对累积并衰减 0.9”，且 `main.rs:215` 注册了 `collision_damage_system`）。\n- `crates/app/src/main.rs:34` — 累积表的数据结构声明处（推测：`HashMap<(Entity, Entity), f32>` 或类似键值对），该表生命周期与系统同长，无清理机制。\n\n---\n\n【修复方案】\n\n**第一步：诊断验证（先确认泄漏源）**\n\n1. 在 `collision_damage_system` 入口和出口各打印一次累积表 `len()`，运行 10 分钟，观察条目数是否持续增长且不回落。\n2. 用 `cargo run --release` 启动，配合 `--features trace` 或 `RUST_LOG=debug` 输出每帧表大小，绘制曲线确认单调递增。\n3. 若确认增长，用 `heaptrack` 或 `valgrind --tool=massif` 抓取内存快照，定位到 `HashMap` 的分配增长。\n\n**第二步：最小修复（三处改动）**\n\n1. **每帧清理失效键**：在系统末尾遍历累积表，删除满足以下任一条件的条目：\n   - 碰撞对中任一实体已不存在（`!world.get_entity(e).is_some()`）；\n   - 该帧未发生碰撞且累积值已衰减到阈值以下（如 `< 0.01`）。\n2. **限制表大小上限**：若表长度超过预设阈值（如 1024），强制清空所有低于阈值的条目，防止极端情况下表无限膨胀。\n3. **定期全量清理**：每 600 帧（10 秒）执行一次全表扫描，删除所有衰减后低于阈值的条目，确保长期运行后表大小收敛到活跃碰撞对数量。\n\n**第三步：基线数据佐证**\n\n1. **修复前基线**：记录 30 分钟游玩后累积表 `len()` 和进程 RSS 内存值，每 5 分钟采样一次，绘制增长曲线。\n2. **修复后对比**：同样运行 30 分钟，记录相同指标。预期表大小稳定在活跃碰撞对数量级（通常 < 50），RSS 曲线趋于水平。\n3. **量化指标**：修复后 30 分钟内存增量应 < 修复前的 10%，且表大小波动范围不超过活跃碰撞对数的 2 倍。\n4. **回归测试**：在 `crates/core/tests/stress.rs` 中新增压力测试——模拟 1000 次随机碰撞对创建/销毁循环，断言表大小在循环结束后回落到初始水平。",
+ "tokens_in": 21034,
+ "tokens_out": 1144,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00694,
+ "walltime_s": 14.8,
+ "notes": [
+  "round0: 2 calls 4014ch (1.8s)",
+  "round1: 1 calls 192ch (1.0s)",
+  "round2: 1 calls 157ch (1.0s)",
+  "round3: 1 calls 133ch (0.8s)",
+  "round4: 1 calls 140ch (1.0s)",
+  "round5: 1 calls 133ch (0.8s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

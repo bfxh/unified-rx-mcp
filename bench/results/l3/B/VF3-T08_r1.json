@@ -1,0 +1,99 @@
+{
+ "task_id": "VF3-T08",
+ "arm": "model_plus_rx",
+ "run_idx": 1,
+ "ts": 1787817600,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n碰撞伤害系统采用跨帧累积器设计（`crates/app/src/main.rs:34` 注释明确“每帧按碰撞对累积并衰减 0.9”），但累积表只做 `insert`/`get_mut` 写入，从未对已不存在的碰撞对执行 `remove` 或清理。当车辆与不同物体（地面、墙体、碎片、其他车辆）反复碰撞时，每个碰撞对 `(entity_a, entity_b)` 都会在表中留下一个永久条目。即使该碰撞对已不再发生碰撞，条目仍保留在 HashMap 中，且每帧仍被遍历做 0.9 衰减——衰减只降低数值不删除键。长时间游玩后，碰撞对组合数量持续增长，HashMap 条目数单调递增，内存缓慢上涨且永不回落。这是典型的“只增不删”累积器泄漏模式。\n\n【定位】\n\n- `crates/app/src/main.rs:collision_damage_system` — 碰撞伤害系统主函数，累积表在此读写，缺少清理逻辑\n- `crates/app/src/main.rs:34` — 跨帧碰撞伤害累积的注释与数据结构声明，确认“每帧按碰撞对累积并衰减 0.9”的设计\n\n【修复方案】\n\n1. **诊断步骤**（先验证再修）：\n   - 在 `collision_damage_system` 入口/出口处打印累积表 `len()`，每 100 帧输出一次到日志。\n   - 运行 10 分钟固定场景（反复碰撞同一面墙），观察 `len()` 是否稳定在 1（单一碰撞对）还是持续增长。\n   - 用 `cargo run --release` 配合 `--features trace` 或 `tracing` 观察内存曲线（`/proc/self/status` 的 VmRSS 或 Windows 任务管理器工作集）。\n\n2. **修复策略**（最小改动）：\n   - **方案 A（推荐）**：在 `collision_damage_system` 每帧末尾，遍历累积表，删除所有值已衰减至低于阈值（如 `< 1.0`）的条目。因为 0.9 衰减下，任何停止碰撞的条目约 44 帧（0.7 秒）后衰减到 1% 以下，可安全清除。\n   - **方案 B（更精确）**：维护一个“本帧活跃碰撞对”集合（从 Avian 碰撞事件中收集），每帧结束后对累积表执行 `retain`，仅保留本帧活跃的碰撞对。代价是额外一次集合构建，但语义最准确。\n   - **方案 C（兜底）**：在累积表写入时检查条目数，超过上限（如 1024）时强制清理最旧条目。\n\n3. **基线数据佐证**：\n   - 修复前：记录 0 分钟、5 分钟、10 分钟、20 分钟时累积表 `len()` 与进程 RSS 内存，绘制增长曲线。\n   - 修复后：同样时间点采集相同指标，`len()` 应稳定在活跃碰撞对数量（通常 ≤ 10），RSS 曲线应趋于水平。\n   - 对比修复前后 20 分钟时 RSS 差值，若修复后增长 < 修复前的 10%，且 `len()` 不再单调递增，即可确认修复有效。",
+ "tokens_in": 28042,
+ "tokens_out": 1535,
+ "turns": 12,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00926,
+ "walltime_s": 18.7,
+ "notes": [
+  "round0: 3 calls 4171ch (2.2s)",
+  "round1: 1 calls 192ch (1.3s)",
+  "round2: 1 calls 157ch (1.2s)",
+  "round3: 2 calls 2261ch (2.1s)",
+  "round4: 2 calls 4299ch (2.7s)",
+  "round5: 2 calls 352ch (1.6s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "unverifiable"
+ }
+}

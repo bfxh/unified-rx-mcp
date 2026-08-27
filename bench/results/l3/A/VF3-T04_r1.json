@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T04",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787817090,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n1. **悬挂射线自击**：射线检测未排除载具自身碰撞体，或射线起点位于车体包围盒内，导致射线命中自身部件产生虚假接触力。\n2. **弹簧参数统一**：悬挂刚度/阻尼为全局常量，未按载具质量动态计算，导致轻车过冲、重车塌陷。\n3. **模块残余速度**：拿起/放下模块时未清零刚体线速度与角速度，物理引擎保留旧动量。\n4. **斜坡嵌入**：放置时仅做射线向下检测，未考虑斜坡法线方向，且未执行穿透修正（position correction）。\n\n【定位】\n- `physics/suspension.rs:raycast_filter`（推测，射线过滤逻辑）\n- `physics/suspension.rs:spring_force`（弹簧力计算）\n- `physics/grabbing.rs:release_module`（模块释放逻辑）\n- `physics/placement.rs:place_on_slope`（斜坡放置逻辑）\n\n【修复方案】\n1. **射线自击**：在射线过滤回调中排除载具自身实体ID（`Entity`），并确保射线起点偏移至悬挂点上方至少0.1m，避免起点接触自身碰撞体。\n2. **弹簧参数**：将刚度设为 `mass * base_stiffness`，阻尼设为 `2 * sqrt(mass * stiffness)`（临界阻尼），在载具初始化时按质量计算并缓存。\n3. **残余速度**：在 `release_module` 中调用 `RigidBody::set_linvel(Vec3::ZERO)` 和 `set_angvel(Vec3::ZERO)`，同时清除 `ExternalImpulse` 组件。\n4. **斜坡嵌入**：放置时先沿地表法线方向做穿透检测，若穿透深度>0，则沿法线反向平移模块至表面；若斜坡角度>45°，改为沿重力方向投影放置，并禁用模块刚体碰撞响应一帧（`CollisionResponse::Disabled`）避免瞬间弹飞。",
+ "tokens_in": 161,
+ "tokens_out": 435,
+ "turns": 1,
+ "cost_usd": 0.00052,
+ "walltime_s": 4.6,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "fail"
+ }
+}

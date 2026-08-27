@@ -1,0 +1,104 @@
+{
+ "task_id": "VF3-T12",
+ "arm": "model_plus_rx",
+ "run_idx": 1,
+ "ts": 1787817804,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n当前 `modules.ron` 数据加载路径**缺少启动期语义校验层**。Rust 侧 `ModuleDef` 结构体（`crates/core/src/module.rs:108`）仅提供 RON 反序列化时的**语法/类型检查**（字段缺失、类型错误），但以下三类**语义违规**不会触发任何错误，直接进入游戏运行时：\n\n1. **轮子叠放不转**：轮子（`category: Wheel`）的 `mount_points` 中，顶面（`face: Top`）挂点被声明为可用连接位。游戏内放置逻辑（`crates/core/src/placement.rs`）只校验挂点是否匹配，不校验\"轮子顶面是否允许承载其他模块\"这一物理语义，导致两个轮子上下叠放时静默通过，但运行时轮子旋转逻辑（`assembly.rs` 中 `RuntimeHitPoints` 与轮子驱动分离）不驱动叠放轮，表现为\"不转也不报错\"。\n2. **顶面挂点被误用**：`mount_points` 的 `face` 字段与 `accepts` 掩码之间缺乏一致性约束——顶面挂点若 `accepts` 包含 `Any` 或 `Wheel`，就会被放置系统当作合法连接位，装配出悬挂式轮子等奇怪结构。\n3. **驾驶舱血量无下限**：`ModuleDef.hp` 字段没有范围约束（如 `hp > 0`），数据作者可写 `hp: 0` 或 `hp: -5`，反序列化不报错，运行时 `assembly.rs:57` 的 `RuntimeHitPoints` 直接继承该值，导致驾驶舱一碰即碎或负数血量引发未定义行为。\n\n【定位】\n\n- `crates/core/src/module.rs:108` — `ModuleDef` 结构体定义，缺少字段级语义约束（hp 范围、mount_points 合法性）\n- `crates/core/src/assembly.rs:57` — `RuntimeHitPoints` 直接继承 `ModuleDef.hp`，无运行时兜底\n- `crates/app/src/main.rs:407` — 启动期加载 `data/modules.ron` 的入口，仅做 RON 反序列化，无语义校验\n- `crates/core/src/placement.rs` — 放置校验逻辑，仅检查挂点匹配，不检查轮子顶面承载合法性\n- `data/modules.ron` — 数据文件，存在轮子顶面挂点、hp 无下限等违规定义（(推测) 具体违规条目需扫描数据确认）\n\n【修复方案】\n\n在启动期新增**语义校验层**，于 `crates/app/src/main.rs:407` 加载 RON 后、注册模块前强制执行，违规直接 `panic!` 并输出可操作错误（含模块 id、字段名、违规值、修复建议）。具体规则如下：\n\n1. **血量范围规则**：所有 `ModuleDef` 的 `hp` 必须满足 `hp >= 1`（驾驶舱建议 `hp >= 50`，可配置阈值）。违规报错：`模块 {id} 的 hp={value} 非法，必须 ≥ 1`。\n2. **轮子挂点规则**：`category == Wheel` 的模块，其 `mount_points` 中**禁止**声明 `face: Top` 的挂点（轮子只能通过侧面/轴心连接）。违规报错：`模块 {id} 是轮子，但声明了顶面挂点 {mount_point_id}，轮子顶面不允许承载其他模块`。\n3. **挂点面-类别一致性规则**：每个 `mount_point` 的 `accepts` 掩码必须与其 `face` 语义兼容——顶面挂点 `accepts` 不得包含 `Wheel` 类别；底面挂点不得包含 `Engine` 类别（引擎只能侧挂）。违规报错：`模块 {id} 的挂点 {mp_id}（face={face}）accepts 包含 {category}，该类别不允许挂在此面`。\n4. **挂点唯一性规则**：同一模块内 `mount_points` 的 `id` 必须唯一，且 `face` + `offset` 组合不得重复（防止同一物理位置声明两个挂点）。违规报错：`模块 {id} 存在重复挂点 {mp_id}`。\n5. **质量规则**：`mass` 必须 `> 0` 且 `≤ 1000`（kg）。违规报错：`模块 {id} 的 mass={value} 非法，必须在 (0, 1000] 区间`。\n6. **id 唯一性规则**：全局模块 `id` 必须唯一（跨文件）。违规报错：`模块 id={id} 重复定义，请检查 {file1} 和 {file2}`。\n\n实现方式：在 `crates/core/src/module.rs` 中新增 `pub fn validate_module_defs(defs: &[ModuleDef]) -> Result<(), Vec<String>>` 函数，收集所有违规项一次性返回；在 `crates/app/src/main.rs:407` 加载完成后调用，若返回 Err 则打印全部违规项并以非零退出码终止启动。",
+ "tokens_in": 27396,
+ "tokens_out": 1961,
+ "turns": 13,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00955,
+ "walltime_s": 19.5,
+ "notes": [
+  "round0: 2 calls 2235ch (1.3s)",
+  "round1: 2 calls 2455ch (2.1s)",
+  "round2: 2 calls 2465ch (1.5s)",
+  "round3: 2 calls 370ch (1.4s)",
+  "round4: 2 calls 387ch (1.4s)",
+  "round5: 2 calls 2478ch (2.0s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "fail",
+  "R3": "pass"
+ }
+}

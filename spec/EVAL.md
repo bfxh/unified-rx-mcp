@@ -10,7 +10,7 @@
 
 | # | 假设 | 面向 | 证明指标 | 当前证据 |
 |---|---|---|---|---|
-| H1 | 探索下沉为本地调用 → API 模型省轮次省 token | API 成本/质量 | 同任务 A/B：解决率 Δ、平均轮次、input tokens、$、墙钟 | 无 → L3 待测 |
+| H1 | 探索下沉为本地调用 → API 模型省轮次省 token | API 成本/质量 | 同任务 A/B：解决率 Δ、平均轮次、input tokens、$、墙钟 | ✅ S14 首测 n=72：Δsolved +8.3pp；可核验性差异决定性（文件引用存在率 1% vs 72%） |
 | H2 | hallucination_guard 拦得住假声明 | 质量 | guard 判 verified/refuted 与真实 file:line 的一致率 ≥90% | 结构在，未测一致率 |
 | H3 | bug_scan/std_check/ui_check 在扫描器层面有真查准率 | 真实项目 | 标注库上 precision ≥70%（1 FP ≤2 TP） | 无 → L2 待测 |
 | H4 | lesson 记忆复利：同型任务重复犯错率下降 | 长期 | 召回后同类错误复发计数下降 | 结构在，未测 |
@@ -88,7 +88,7 @@ unified-rx 是工具箱，不能直接跑 SWE-bench——要测的是**它给模
 |---|---|---|
 | P0 | 安全模糊集入库 pytest；本评分卡/EVAL 定稿 | ✅ 本轮完成 |
 | P1 | 从 VoxelForge 系 git log 固化 30 条标注 bug 库（含干净样本）；bug_scan P/R 首测 | 待做 |
-| P2 | replay-A/B runner（复用 server.py 的 stdio 协议 + `_mcp_probe` 思路），出第一份增益报告 | 待做 |
+| P2 | replay-A/B runner（复用 server.py 的 stdio 协议 + `_mcp_probe` 思路），出第一份增益报告 | ✅ S14 完成：ab_run.py 实跑 12×3 双臂 72 run 全判，报告见 UPGRADE.md S14 / bench/results/l3/summary.json |
 | P3 | 外锚：SWE-bench Verified 抽样 / GitTaskBench 子集 | 重仓可选 |
 
 ## 附：A/B 判分 rubric 模板
