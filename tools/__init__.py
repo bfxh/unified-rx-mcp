@@ -23,6 +23,8 @@ from . import engine    # noqa: F401,E402
 from . import bevy      # noqa: F401,E402
 from . import attack    # noqa: F401,E402  S7 默认化：攻击面工具随包常驻
 from . import appaudit  # noqa: F401,E402  S8：智能体/桌面应用自查域（克隆→隔离审计→清理）
+from . import astscan   # noqa: F401,E402  S9：结构化扫描域（Python AST / JS 词法-括号管线）
 
 __all__ = ["fs", "pure", "scan", "ide", "guard", "learn", "ops",
-           "search", "game", "collab", "meta", "engine", "bevy", "attack", "appaudit"]
+           "search", "game", "collab", "meta", "engine", "bevy", "attack",
+           "appaudit", "astscan"]

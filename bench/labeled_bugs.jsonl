@@ -5,6 +5,6 @@
 {"id": "VF-005", "commit": "3f8ae16", "file": "crates/app/src/main.rs", "symptom": "悬挂残留驱动力与新速度驱动双重作用打架（W/S 转向窗口内互斥失败）", "pattern_hint": "state_leak", "rule_expect": null, "note": "排除"}
 {"id": "VF-006", "commit": "3f8ae16", "file": "crates/app/src/main.rs", "symptom": "冻结解冻全局误伤：开 A 车 B 车跟着 Dynamic 下陷漂移", "pattern_hint": "scope_error", "rule_expect": null, "note": "排除"}
 {"id": "VF-007", "commit": "d7a8c1b", "file": "crates/app/src/main.rs", "symptom": "初始载具埋进山体：startup 碰撞体与地形模式不一致", "pattern_hint": "init_mismatch", "rule_expect": null, "note": "排除"}
-{"id": "VF-008", "commit": "7cdc1cf", "file": "crates/app/src/main.rs", "symptom": "load 坏存档清洗不净：悬空 root 边 + next_vehicle 越界", "pattern_hint": "input_validation", "rule_expect": "panic_family", "note": "坏 RON 反序列化路径上 unwrap/panic 家族可命中（生产区 unwrap = clue 命中正确）"}
+{"id": "VF-008", "commit": "7cdc1cf", "file": "crates/app/src/main.rs", "symptom": "load 坏存档清洗不净：悬空 root 边 + next_vehicle 越界", "pattern_hint": "input_validation", "rule_expect": "panic_family", "note": "坏 RON 反序列化路径上 unwrap/panic 家族可命中（生产区 unwrap = clue 命中正确）", "verdict": "tp"}
 {"id": "VF-009", "commit": "ebafe80", "file": "crates/app/src/main.rs", "symptom": "M3 碎片检测失效：root 移除后 vehicle 归属判定悬空", "pattern_hint": "dangling_ref", "rule_expect": null, "note": "图语义；排除"}
 {"id": "VF-010", "commit": "c9aacd7", "file": "crates/app/src/terrain.rs", "symptom": "heightfield 渲染/碰撞两套采样不一致 → 视觉与物理地面错位", "pattern_hint": "dual_source_drift", "rule_expect": null, "note": "排除"}
