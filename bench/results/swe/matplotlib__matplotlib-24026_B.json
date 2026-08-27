@@ -1,0 +1,49 @@
+{
+ "instance_id": "matplotlib__matplotlib-24026",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-24026",
+ "tokens_in": 17842,
+ "tokens_out": 625,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 27
+  },
+  {
+   "tool": "fs_stat",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 7.5,
+ "answer": "```diff\ndiff --git a/lib/matplotlib/stackplot.py b/lib/matplotlib/stackplot.py\nindex 8f4f2a1..3a5c9d7 100644\n--- a/lib/matplotlib/stackplot.py\n+++ b/lib/matplotlib/stackplot.py\n@@ -1,6 +1,7 @@\n \"\"\"\n Stacked area plot for 1D arrays inspired by Douglas Y. Cornette.\n \"\"\"\n \n+import cycler\n import numpy as np\n \n from matplotlib import _api\n@@ -70,7 +71,7 @@ def stackplot(axes, x, *args,\n     if colors is not None:\n         if len(colors) != len(labels):\n             raise ValueError(\"If colors are specified, they must match the \"\n                              \"number of labels\")\n-        axes.set_prop_cycle(color=colors)\n+        axes.set_prop_cycle(cycler.cycler(color=colors))\n     else:\n         # If no colors are specified, use the current prop cycle\n         # to get the colors\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "The candidate patch wraps colors in cycler but still calls set_prop_cycle, which rejects CN aliases. The gold patch avoids set_prop_cycle entirely, using itertools.cycle to handle CN colors correctly."
+ }
+}

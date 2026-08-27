@@ -1,0 +1,49 @@
+{
+ "instance_id": "pylint-dev__pylint-7277",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277",
+ "tokens_in": 14216,
+ "tokens_out": 667,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 39
+  },
+  {
+   "tool": "bug_locate",
+   "round": 5,
+   "ms": 2
+  }
+ ],
+ "walltime_s": 8.7,
+ "answer": "```diff\ndiff --git a/pylint/__init__.py b/pylint/__init__.py\nindex 5a0b1a2..c3d4e5f 100644\n--- a/pylint/__init__.py\n+++ b/pylint/__init__.py\n@@ -1,6 +1,7 @@\n # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html\n # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE\n # Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt\n \n+import os\n import sys\n \n from pylint.__pkginfo__ import __version__\n@@ -96,7 +97,10 @@ def run_pylint():\n     from pylint.lint.run import Run\n \n     try:\n-        sys.path.pop(0)\n+        # Only remove the first path entry if it's the script directory\n+        # (empty string, \".\", or the current working directory) to avoid\n+        # removing user-added paths when running via runpy.\n+        if sys.path and sys.path[0] in (\"\", \".\", os.getcwd()):\n+            sys.path.pop(0)\n     except (IndexError, TypeError):\n         pass\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches conditionally remove sys.path[0] only when it's empty, '.', or cwd, preventing removal of user-added paths. Candidate adds import os and exception handling, but logic matches gold."
+ }
+}

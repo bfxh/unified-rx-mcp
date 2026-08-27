@@ -1,0 +1,49 @@
+{
+ "instance_id": "pylint-dev__pylint-7277",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277",
+ "tokens_in": 8117,
+ "tokens_out": 581,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_stat",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 7.8,
+ "answer": "```diff\ndiff --git a/pylint/__init__.py b/pylint/__init__.py\nindex 4a1b2c3..d5e6f7a 100644\n--- a/pylint/__init__.py\n+++ b/pylint/__init__.py\n@@ -96,7 +96,10 @@ def run_pylint():\n     from pylint.lint import Run as PylintRun\n \n     try:\n-        sys.path.remove(\"\")\n+        # Only remove the first entry if it's the current directory marker\n+        # (empty string, \".\", or the current working directory) to avoid\n+        # removing user-provided paths when running via runpy.\n+        if sys.path and sys.path[0] in (\"\", \".\", os.getcwd()):\n+            sys.path.pop(0)\n     except ValueError:\n         pass\n \n*** End of diff ***\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches check if the first sys.path entry is empty, '.', or cwd before removing it, addressing the same root cause and providing equivalent fixes."
+ }
+}

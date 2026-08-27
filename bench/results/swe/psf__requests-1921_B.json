@@ -1,0 +1,69 @@
+{
+ "instance_id": "psf__requests-1921",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1921",
+ "tokens_in": 21657,
+ "tokens_out": 1051,
+ "turns": 11,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 146
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "code_context",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 44
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 40
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": 1
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 10.1,
+ "answer": "```diff\ndiff --git a/requests/sessions.py b/requests/sessions.py\nindex 1234567..abcdefg 100644\n--- a/requests/sessions.py\n+++ b/requests/sessions.py\n@@ -34,6 +34,12 @@ def merge_setting(request_setting, session_setting, dict_class=OrderedDict):\n     if session_setting is not None:\n         merged_setting.update(session_setting)\n     if request_setting is not None:\n         merged_setting.update(request_setting)\n+\n+    # Remove keys that are set to None in either setting\n+    for k in list(merged_setting.keys()):\n+        if merged_setting[k] is None:\n+            del merged_setting[k]\n+\n     return merged_setting\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches remove None-valued headers from merged settings, addressing the same issue. Candidate achieves equivalent behavior by deleting None keys directly."
+ }
+}

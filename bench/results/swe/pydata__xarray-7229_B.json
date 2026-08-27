@@ -1,0 +1,54 @@
+{
+ "instance_id": "pydata__xarray-7229",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pydata__xarray-7229",
+ "tokens_in": 28643,
+ "tokens_out": 941,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 1251
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 62
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_read",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "code_context",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 12.6,
+ "answer": "```diff\ndiff --git a/xarray/core/computation.py b/xarray/core/computation.py\n--- a/xarray/core/computation.py\n+++ b/xarray/core/computation.py\n@@ -1775,6 +1775,7 @@ def where(cond, x, y, keep_attrs=None):\n     if keep_attrs is None:\n         keep_attrs = _get_keep_attrs(default=False)\n \n+    # Preserve coordinate attributes from the original objects\n     if keep_attrs:\n-        return apply_ufunc(\n-            duck_array_ops.where,\n-            cond,\n-            x,\n-            y,\n-            join=\"exact\",\n-            dataset_join=\"exact\",\n-            dask=\"allowed\",\n-            keep_attrs=keep_attrs,\n-        )\n+        result = apply_ufunc(\n+            duck_array_ops.where,\n+            cond,\n+            x,\n+            y,\n+            join=\"exact\",\n+            dataset_join=\"exact\",\n+            dask=\"allowed\",\n+            keep_attrs=keep_attrs,\n+        )\n+        # apply_ufunc with keep_attrs=True copies variable attrs onto\n+        # coordinates as well. Restore the original coordinate attrs.\n+        if isinstance(x, (Dataset, DataArray)) and isinstance(y, (Dataset, DataArray)):\n+            for coord_name, coord in x.coords.items():\n+                if coord_name in result.coords:\n+                    result.coords[coord_name].attrs = coord.attrs\n+        return result\n     else:\n         return apply_ufunc(\n             duck_array_ops.where,\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches address coordinate attribute preservation in xr.where with keep_attrs=True by restoring original coord attrs after apply_ufunc. Candidate is simpler but functionally equivalent for the reported issue."
+ }
+}

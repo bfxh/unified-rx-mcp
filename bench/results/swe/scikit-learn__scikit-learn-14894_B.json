@@ -1,0 +1,49 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-14894",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-14894",
+ "tokens_in": 18913,
+ "tokens_out": 734,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 26
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": 444
+  }
+ ],
+ "walltime_s": 10.9,
+ "answer": "```diff\ndiff --git a/sklearn/svm/base.py b/sklearn/svm/base.py\n--- a/sklearn/svm/base.py\n+++ b/sklearn/svm/base.py\n@@ -296,7 +296,7 @@ def _sparse_fit(self, X, y, sample_weight, solver_type, kernel,\n         self.support_ = np.zeros(n_SV, dtype=np.int32)\n         self.support_vectors_ = sp.csr_matrix((0, n_features))\n \n-        if self._sparse:\n+        if self._sparse and n_class > 0:\n             dual_coef_indices = np.zeros(n_class * n_SV, dtype=np.int32)\n             dual_coef_indptr = np.zeros(n_class + 1, dtype=np.int32)\n             for i in range(n_class):\n@@ -305,7 +305,7 @@ def _sparse_fit(self, X, y, sample_weight, solver_type, kernel,\n             self.dual_coef_ = sp.csr_matrix(\n                 (dual_coef_data, dual_coef_indices, dual_coef_indptr),\n                 (n_class, n_SV))\n-        else:\n+        elif n_class > 0:\n             self.dual_coef_ = np.empty((1, n_SV), dtype=np.float64)\n             self.support_ = np.zeros(n_SV, dtype=np.int32)\n             self.support_vectors_ = sp.csr_matrix((0, n_features))\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Both handle empty support vectors, but candidate changes condition to n_class>0, which may not trigger for n_class=0, and doesn't set dual_coef_ to empty csr_matrix as gold does."
+ }
+}

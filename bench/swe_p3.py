@@ -11,7 +11,7 @@
   变量 = 工具强度，而不是"有没有代码"。
 
 用法：
-  python bench/swe_p3.py --fetch           # 抽样 6 条 + 克隆/checkout
+  python bench/swe_p3.py --fetch           # 抽样 + 克隆/checkout（幂等，对齐 SAMPLE_PLAN）
   python bench/swe_p3.py --run             # 双臂求解
   python bench/swe_p3.py --judge           # gold 对照判分
   python bench/swe_p3.py --score           # 汇总
@@ -22,6 +22,7 @@ import argparse
 import json
 import os
 import random
+import shutil
 import subprocess
 import sys
 import time
@@ -42,9 +43,11 @@ SAMPLE = os.path.join(HERE, "results", "swe_sample.jsonl")
 RESULTS_DIR = os.path.join(HERE, "results", "swe")
 MIRROR = "https://hf-mirror.com/datasets/princeton-nlp/SWE-bench_Verified/resolve/main/data/test-00000-of-00001.parquet"
 
-SAMPLE_PLAN = [  # (repo, n) 首轮 6 条均衡跨仓
-    ("django/django", 2), ("sympy/sympy", 1), ("sphinx-doc/sphinx", 1),
-    ("scikit-learn/scikit-learn", 1), ("psf/requests", 1),
+SAMPLE_PLAN = [  # (repo, n) —— S22 扩到 ~50 档（47 条）；n = 每仓目标总量，fetch 幂等
+    ("django/django", 8), ("sympy/sympy", 7), ("scikit-learn/scikit-learn", 7),
+    ("psf/requests", 5), ("sphinx-doc/sphinx", 5), ("matplotlib/matplotlib", 4),
+    ("astropy/astropy", 2), ("pydata/xarray", 2), ("pytest-dev/pytest", 2),
+    ("pylint-dev/pylint", 2), ("mwaskom/seaborn", 2), ("pallets/flask", 1),
 ]
 MAX_PATCH = 4000
 MAX_ISSUE = 3500
@@ -78,45 +81,79 @@ def fetch(parquet_exists_ok=True):
         WHERE ({conds}) AND length(patch) < {MAX_PATCH}
           AND length(problem_statement) < {MAX_ISSUE}
     """).fetchall()
+    # n = 每仓目标总量（不是增量）：存量超目标按文件序裁掉、不足则补抽 → fetch 幂等。
+    # （S22 教训：此前把 n 当增量连跑三次攒出 47 条，语义已修正，存量全数保留）
+    old = []
+    if os.path.exists(SAMPLE):
+        with open(SAMPLE, encoding="utf-8") as f:
+            old = [json.loads(l) for l in f if l.strip()]
     random.seed(20260827)
-    picked = []
+    final, seen = [], set()
     for repo, n in SAMPLE_PLAN:
-        pool = [x for x in rows if x[1] == repo]
+        keep = [d for d in old if d["repo"] == repo][:n]
+        final += keep
+        seen |= {d["instance_id"] for d in keep}
+    for repo, n in SAMPLE_PLAN:
+        cur = sum(1 for d in final if d["repo"] == repo)
+        pool = [x for x in rows if x[1] == repo and x[0] not in seen]
         random.shuffle(pool)
-        picked += pool[:n]
-    os.makedirs(os.path.dirname(SAMPLE), exist_ok=True)
+        take = pool[:max(0, n - cur)]
+        seen |= {x[0] for x in take}
+        final += [{"instance_id": x[0], "repo": x[1], "base_commit": x[2],
+                   "issue": x[3], "gold_patch": x[4]} for x in take]
     with open(SAMPLE, "w", encoding="utf-8") as f:
-        for iid, repo, commit, issue, patch in picked:
-            f.write(json.dumps({"instance_id": iid, "repo": repo,
-                                "base_commit": commit,
-                                "issue": issue, "gold_patch": patch},
-                               ensure_ascii=False) + "\n")
-    print(f"[OK] {len(picked)} 条抽样 -> {os.path.relpath(SAMPLE, ROOT)}", flush=True)
-    clone_all(picked)
+        for d in final:
+            f.write(json.dumps(d, ensure_ascii=False) + "\n")
+    print(f"[OK] {len(final)} 条抽样（新增 {len(final)-len(old)}）"
+          f" -> {os.path.relpath(SAMPLE, ROOT)}", flush=True)
+    clone_all([(d["instance_id"], d["repo"], d["base_commit"]) for d in final])
 
 
 def _clone_checkout(repo, commit, dst):
     """快照级拉取：init + fetch --depth 1 <sha> + checkout FETCH_HEAD。
-    秒级~分钟级；blobless 全量克隆在国内网络上会挂到天荒地老（S19 实测）。"""
-    if not os.path.exists(os.path.join(dst, ".git")):
-        os.makedirs(dst, exist_ok=True)
-        url = f"https://github.com/{repo}.git"
-        subprocess.run(["git", "init", dst], check=True, timeout=60,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(["git", "-C", dst, "remote", "add", "origin", url],
-                       check=True, timeout=60)
-        subprocess.run(["git", "-C", dst, "config", "core.longpaths", "true"],
-                       timeout=60)
-        r = subprocess.run(["git", "-C", dst, "fetch", "--depth", "1", "origin",
-                            commit], timeout=420)
-        if r.returncode != 0:
-            raise RuntimeError(f"fetch sha 失败 rc={r.returncode}")
+    秒级~分钟级；blobless 全量克隆在国内网络上会挂到天荒地老（S19 实测）。
+    已有 .git 先试直接 checkout；失败（半初始化/FETCH_HEAD 缺失）推倒重来 ——
+    S22 教训：仅凭 .git 存在就跳过 fetch，会把坏仓永久卡死在 checkout 上。"""
+    if os.path.exists(os.path.join(dst, ".git")):
+        try:
+            subprocess.run(["git", "-C", dst, "checkout", "FETCH_HEAD"], check=True,
+                           timeout=240, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+            return dst
+        except Exception:                                 # noqa: BLE001
+            shutil.rmtree(dst, ignore_errors=True)
+    os.makedirs(dst, exist_ok=True)
+    url = f"https://github.com/{repo}.git"
+    subprocess.run(["git", "init", dst], check=True, timeout=60,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", dst, "remote", "add", "origin", url],
+                   check=True, timeout=60)
+    subprocess.run(["git", "-C", dst, "config", "core.longpaths", "true"],
+                   timeout=60)
+    r = subprocess.run(["git", "-C", dst, "fetch", "--depth", "1", "origin",
+                        commit], timeout=1500)
+    if r.returncode != 0:
+        raise RuntimeError(f"fetch sha 失败 rc={r.returncode}")
     subprocess.run(["git", "-C", dst, "checkout", "FETCH_HEAD"], check=True,
                    timeout=240, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return dst
 
 
-def clone_all(picked=None):
+def _clear_locks(dst):
+    """被 timeout 杀掉的 git 可能留下 .lock，重试前清掉（S22 实测无锁也能秒败，纯保险）。"""
+    gd = os.path.join(dst, ".git")
+    if not os.path.isdir(gd):
+        return
+    for root, _, files in os.walk(gd):
+        for f in files:
+            if f.endswith(".lock"):
+                try:
+                    os.remove(os.path.join(root, f))
+                except OSError:
+                    pass
+
+
+def clone_all(picked=None, workers=4):
     if picked is None:
         picked = []
         with open(SAMPLE, encoding="utf-8") as f:
@@ -125,14 +162,29 @@ def clone_all(picked=None):
                     d = json.loads(line)
                     picked.append((d["instance_id"], d["repo"], d["base_commit"],
                                    d.get("issue", ""), d.get("gold_patch", "")))
-    for iid, repo, commit, *_ in picked:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def job(item):
+        iid, repo, commit = item[0], item[1], item[2]
         dst = os.path.join(WORK, iid.replace("/", "__"))
         t0 = time.time()
-        try:
-            _clone_checkout(repo, commit, dst)
-            print(f"[OK] checkout {iid} @ {commit[:8]} ({time.time()-t0:.0f}s) -> {dst}")
-        except Exception as e:                                # noqa: BLE001
-            print(f"[WARN] {iid}: {type(e).__name__} {str(e)[:120]}")
+        for attempt in (1, 2, 3):
+            try:
+                _clear_locks(dst)
+                _clone_checkout(repo, commit, dst)
+                print(f"[OK] checkout {iid} @ {commit[:8]} "
+                      f"({time.time()-t0:.0f}s) -> {dst}", flush=True)
+                return True
+            except Exception as e:                # noqa: BLE001
+                print(f"[WARN] {iid} attempt{attempt}: {type(e).__name__} "
+                      f"{str(e)[:100]}", flush=True)
+                time.sleep(3 * attempt)
+        print(f"[FAIL] {iid} 放弃（三轮超时）", flush=True)
+        return False
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        oks = list(ex.map(job, picked))
+    print(f"[OK] checkout 完成 {sum(oks)}/{len(picked)}", flush=True)
 
 
 # ---------------- run ----------------

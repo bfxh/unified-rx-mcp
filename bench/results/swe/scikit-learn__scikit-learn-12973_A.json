@@ -1,0 +1,49 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-12973",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-12973",
+ "tokens_in": 8933,
+ "tokens_out": 743,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_stat",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 10.1,
+ "answer": "```diff\ndiff --git a/sklearn/linear_model/least_angle.py b/sklearn/linear_model/least_angle.py\nindex 3f0b2a1..8a1c4e2 100644\n--- a/sklearn/linear_model/least_angle.py\n+++ b/sklearn/linear_model/least_angle.py\n@@ -1487,7 +1487,7 @@ class LassoLarsIC(LassoLars):\n         self.noise_variance = noise_variance\n         self.copy_X = copy_X\n \n-    def fit(self, X, y, copy_X=True):\n+    def fit(self, X, y, copy_X=None):\n         \"\"\"Fit the model using X, y as training data.\n \n         Parameters\n@@ -1495,7 +1495,7 @@ class LassoLarsIC(LassoLars):\n         X : array-like, shape (n_samples, n_features)\n             Training data.\n \n-        y : array-like, shape (n_samples,)\n+        y : array-like, shape (n_samples,)\n             Target values.\n \n         copy_X : bool, optional\n@@ -1505,6 +1505,9 @@ class LassoLarsIC(LassoLars):\n             If None, the value passed to the constructor is used.\n \n         \"\"\"\n+        if copy_X is None:\n+            copy_X = self.copy_X\n+\n         X, y = check_X_y(X, y, y_numeric=True)\n \n         X, y, Xmean, ymean, Xnorm = center_data(\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches change fit's copy_X default to None and use self.copy_X when None, resolving the duplication issue equivalently."
+ }
+}

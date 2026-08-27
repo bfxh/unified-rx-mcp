@@ -1,0 +1,49 @@
+{
+ "instance_id": "mwaskom__seaborn-3187",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\mwaskom__seaborn-3187",
+ "tokens_in": 16184,
+ "tokens_out": 523,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 22
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
+  }
+ ],
+ "walltime_s": 8.2,
+ "answer": "```diff\ndiff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py\n--- a/seaborn/_core/scales.py\n+++ b/seaborn/_core/scales.py\n@@ -374,7 +374,7 @@ class ContinuousBase(Scale):\n         if new_ticklabels is None:\n             new_ticklabels = []\n             for val in new_ticks:\n-                new_ticklabels.append(formatter.format_ticks([val])[0])\n+                new_ticklabels.append(formatter.format_data(val))\n             new_ticklabels = [l.get_text() for l in new_ticklabels]\n \n         return new_ticks, new_ticklabels\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Both address offset/scientific notation in legends, but candidate uses format_data which may not match tick labels and doesn't disable offset globally, potentially still showing incorrect values."
+ }
+}

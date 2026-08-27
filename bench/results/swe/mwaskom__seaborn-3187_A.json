@@ -1,0 +1,49 @@
+{
+ "instance_id": "mwaskom__seaborn-3187",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\mwaskom__seaborn-3187",
+ "tokens_in": 9047,
+ "tokens_out": 763,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 8.7,
+ "answer": "```diff\ndiff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py\n--- a/seaborn/_core/scales.py\n+++ b/seaborn/_core/scales.py\n@@ -374,7 +374,7 @@ class ContinuousBase(Scale):\n         if formatter is None:\n             formatter = mpl.ticker.ScalarFormatter()\n         else:\n-            formatter = formatter()\n+            formatter = formatter()\n \n         # Convert formatter to a class\n         if isinstance(formatter, mpl.ticker.Formatter):\n@@ -382,7 +382,7 @@ class ContinuousBase(Scale):\n             formatter = formatter()\n \n         # Set the formatter to use scientific notation\n-        formatter.set_scientific(True)\n+        formatter.set_scientific(True)\n         formatter.set_useOffset(True)\n \n         # Get the offset value from the formatter\n-        offset = formatter.get_offset()\n+        offset = formatter.get_offset()\n \n         # Create the legend title\n         if offset:\n-            title = f\"{title} ({offset})\"\n+            title = f\"{title} ({offset})\"\n \n         # Create the legend labels\n         labels = [formatter.format_data_short(value) for value in values]\n@@ -390,7 +390,7 @@ class ContinuousBase(Scale):\n         # Create the legend\n         legend = mpl.legend.Legend(\n             ax, handles, labels, title=title, loc=\"center left\",\n-            bbox_to_anchor=(1.0, 0.5), frameon=False,\n+            bbox_to_anchor=(1.0, 0.5), frameon=False,\n         )\n \n         return legend\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate patch only adds cosmetic changes and doesn't address the offset/scientific notation issue in legend formatting, unlike gold patch which disables offset and scientific notation."
+ }
+}

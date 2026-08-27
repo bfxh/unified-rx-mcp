@@ -1,0 +1,49 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-14894",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-14894",
+ "tokens_in": 10698,
+ "tokens_out": 748,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 9.4,
+ "answer": "```diff\ndiff --git a/sklearn/svm/base.py b/sklearn/svm/base.py\n--- a/sklearn/svm/base.py\n+++ b/sklearn/svm/base.py\n@@ -299,7 +299,10 @@ def _sparse_fit(self, X, y, sample_weight, solver_type, kernel,\n         dual_coef_indices = np.nonzero(dual_coef)[0]\n         if dual_coef_indices.size > 0:\n             self._dual_coef_ = dual_coef[:, dual_coef_indices]\n             self.support_ = self._sparse_kernel.reshape(-1)[dual_coef_indices]\n             self.support_vectors_ = X[support_indices[dual_coef_indices]]\n             self.n_support_ = np.bincount(support_indices[dual_coef_indices],\n                                           minlength=n_class)\n         else:\n-            # no support vectors\n+            # no support vectors\n             self._dual_coef_ = None\n             self.support_ = None\n             self.support_vectors_ = None\n             self.n_support_ = np.zeros(n_class, dtype=np.int32)\n \n         # solve primal problem\n         if self._dual_coef_ is not None:\n             self.dual_coef_ = self._dual_coef_.T\n             self._gamma = self._compute_gamma()\n         else:\n-            self.dual_coef_ = sp.csr_matrix([])\n+            self.dual_coef_ = sp.csr_matrix((0, 0))\n             self._gamma = 0\n \n         self._sparse = True\n         return self\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches handle the empty support_vectors_ case in sparse SVM fitting, preventing ZeroDivisionError by setting dual_coef_ appropriately."
+ }
+}

@@ -1,0 +1,49 @@
+{
+ "instance_id": "sympy__sympy-17630",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17630",
+ "tokens_in": 20870,
+ "tokens_out": 716,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_stat",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": 25
+  }
+ ],
+ "walltime_s": 8.3,
+ "answer": "```diff\ndiff --git a/sympy/matrices/expressions/blockmatrix.py b/sympy/matrices/expressions/blockmatrix.py\n--- a/sympy/matrices/expressions/blockmatrix.py\n+++ b/sympy/matrices/expressions/blockmatrix.py\n@@ -76,10 +76,10 @@ def blocks(self):\n     @property\n     def rowblocksizes(self):\n         return [self.blocks[i, 0].rows for i in range(self.blockshape[0])]\n \n     @property\n     def colblocksizes(self):\n-        return [self.blocks[0, i].cols for i in range(self.blockshape[1])]\n+        return [self.blocks[0, i].shape[1] for i in range(self.blockshape[1])]\n \n     @property\n     def blockshape(self):\n         return self.blocks.shape\n@@ -88,7 +88,7 @@ def blockshape(self):\n     def shape(self):\n         numrows = sum(self.rowblocksizes)\n         numcols = sum(self.colblocksizes)\n         return (numrows, numcols)\n \n     def _blockmul(self, other):\n-        if (isinstance(other, BlockMatrix) and\n-                self.colblocksizes == other.rowblocksizes):\n+        if (isinstance(other, BlockMatrix) and\n+                self.colblocksizes == other.rowblocksizes):\n             return BlockMatrix(self.blocks * other.blocks)\n \n         return self * other\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate patch only handles Zero objects in blocksizes, but gold patch fixes MatAdd postprocessor to preserve ZeroMatrix, addressing the root cause of Zero replacing ZeroMatrix."
+ }
+}

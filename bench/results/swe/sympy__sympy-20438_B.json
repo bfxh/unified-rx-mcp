@@ -1,0 +1,54 @@
+{
+ "instance_id": "sympy__sympy-20438",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-20438",
+ "tokens_in": 23263,
+ "tokens_out": 1255,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 200
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 45
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 13.6,
+ "answer": "```diff\ndiff --git a/sympy/sets/sets.py b/sympy/sets/sets.py\n--- a/sympy/sets/sets.py\n+++ b/sympy/sets/sets.py\n@@ -1090,6 +1090,9 @@ def is_subset(self, other):\n         if self is other:\n             return True\n         if isinstance(other, Set) and other.is_FiniteSet:\n+            # If self is a ProductSet and other is a FiniteSet, we can\n+            # check by rewriting self as a FiniteSet (if possible) and\n+            # then comparing.\n             return fuzzy_bool(self._eval_is_subset(other))\n \n         if isinstance(other, Set) and other.is_ProductSet:\n@@ -1110,6 +1113,9 @@ def is_subset(self, other):\n         if isinstance(other, Set) and other.is_FiniteSet:\n             return fuzzy_bool(self._eval_is_subset(other))\n \n+        if isinstance(self, ProductSet) and isinstance(other, FiniteSet):\n+            return fuzzy_bool(self._eval_is_subset(other))\n+\n         if isinstance(self, FiniteSet) and isinstance(other, ProductSet):\n             return fuzzy_bool(self._eval_is_subset(other))\n \ndiff --git a/sympy/sets/fancysets.py b/sympy/sets/fancysets.py\n--- a/sympy/sets/fancysets.py\n+++ b/sympy/sets/fancysets.py\n@@ -1542,6 +1542,15 @@ def _eval_is_subset(self, other):\n         if isinstance(other, Interval):\n             return False\n \n+        if isinstance(other, FiniteSet):\n+            # A ProductSet is a subset of a FiniteSet only if the\n+            # ProductSet is finite and all its elements are in the\n+            # FiniteSet.  We can check this by rewriting the ProductSet\n+            # as a FiniteSet (if it is finite) and comparing.\n+            if self.is_finite_set:\n+                return self.rewrite(FiniteSet).is_subset(other)\n+            return False\n+\n         return None\n \n     def _eval_is_superset(self, other):\ndiff --git a/sympy/sets/tests/test_sets.py b/sympy/sets/tests/test_sets.py\n--- a/sympy/sets/tests/test_sets.py\n+++ b/sympy/sets/tests/test_sets.py\n@@ -1940,6 +1940,16 @@ def test_ProductSet():\n     assert ProductSet(Interval(0, 1), Interval(0, 1)).is_subset(Interval(0, 1)) is False\n     assert ProductSet(Interval(0, 1), Interval(0, 1)).is_subset(ProductSet(Interval(0, 1), Interval(0, 1))) is True\n \n+    # Test that ProductSet.is_subset(FiniteSet) works correctly\n+    a = FiniteSet(1, 2)\n+    b = ProductSet(a, a)\n+    c = FiniteSet((1, 1), (1, 2), (2, 1), (2, 2))\n+    assert b.is_subset(c) is True\n+    assert c.is_subset(b) is True\n+\n+    d = FiniteSet((1, 1), (1, 2))\n+    assert b.is_subset(d) is False\n+\n \n def test_ProductSet_of_single_arg_is_not_arg():\n     assert ProductSet(FiniteSet(1, 2)) != FiniteSet(1, 2)\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches fix ProductSet.is_subset(FiniteSet) by checking membership of ProductSet elements in the FiniteSet, yielding correct results."
+ }
+}

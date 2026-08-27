@@ -1,0 +1,49 @@
+{
+ "instance_id": "psf__requests-1142",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142",
+ "tokens_in": 13637,
+ "tokens_out": 583,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "engine_query",
+   "round": 3,
+   "ms": 130
+  },
+  {
+   "tool": "fs_read",
+   "round": 4,
+   "ms": 2
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 8.6,
+ "answer": "```diff\ndiff --git a/requests/models.py b/requests/models.py\nindex 5c1f2a4..8e3b9c1 100644\n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -377,7 +377,7 @@ class PreparedRequest(object):\n         if body:\n             self.body = body\n \n-        if 'Content-Length' not in self.headers:\n+        if 'Content-Length' not in self.headers and self.method not in ('GET', 'HEAD'):\n             self.prepare_content_length(body)\n \n     def prepare_auth(self, auth, url=''):\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Both avoid Content-Length for GET/HEAD, but gold removes default '0' for all methods without body, while candidate only skips setting when absent, potentially leaving existing header."
+ }
+}

@@ -1,0 +1,49 @@
+{
+ "instance_id": "sympy__sympy-23262",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-23262",
+ "tokens_in": 8130,
+ "tokens_out": 618,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 9.6,
+ "answer": "```diff\ndiff --git a/sympy/printing/pycode.py b/sympy/printing/pycode.py\n--- a/sympy/printing/pycode.py\n+++ b/sympy/printing/pycode.py\n@@ -1,6 +1,7 @@\n \"\"\"\n Python code printer\n \"\"\"\n+from sympy.core.containers import Tuple\n from sympy.core import S\n from sympy.core.numbers import Integer, Rational, Float\n from sympy.printing.codeprinter import CodePrinter\n@@ -358,6 +359,12 @@ def _print_Relational(self, expr):\n         return '{} {} {}'.format(code, self._relationals[expr.rel_op], code)\n \n     def _print_Tuple(self, expr):\n+        if len(expr) == 1:\n+            return '({},)'.format(self._print(expr[0]))\n         return '({})'.format(', '.join(self._print(arg) for arg in expr))\n+\n+    def _print_ImmutableDenseMatrix(self, expr):\n+        return self._print_Tuple(expr)\n+\n+    def _print_ImmutableSparseMatrix(self, expr):\n+        return self._print_Tuple(expr)\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Gold patch fixes tuple printing in lambdify's recursive_to_string, while candidate modifies pycode printer for Tuple and matrices, addressing different code path and root cause."
+ }
+}

@@ -1,0 +1,49 @@
+{
+ "instance_id": "django__django-12039",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12039",
+ "tokens_in": 14280,
+ "tokens_out": 712,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 163
+  },
+  {
+   "tool": "engine_query",
+   "round": 5,
+   "ms": 556
+  }
+ ],
+ "walltime_s": 8.9,
+ "answer": "```diff\ndiff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py\n--- a/django/db/backends/ddl_references.py\n+++ b/django/db/backends/ddl_references.py\n@@ -84,7 +84,7 @@ class Columns(TableColumns):\n         self.col_suffixes = col_suffixes\n \n     def __str__(self):\n-        def col_str(column, idx):\n+        def col_str(column, idx):\n             try:\n                 return self.quote_name(column) + self.col_suffixes[idx]\n             except IndexError:\n                 return self.quote_name(column)\n \n         return ', '.join(col_str(column, idx) for idx, column in enumerate(self.columns))\n+\n+        # Fix: ensure proper whitespace between column name and suffix.\n+        # The col_suffixes may contain empty strings for ascending order,\n+        # which previously caused an extra space before the closing parenthesis.\n+        def col_str(column, idx):\n+            try:\n+                suffix = self.col_suffixes[idx]\n+            except IndexError:\n+                return self.quote_name(column)\n+            if suffix:\n+                return self.quote_name(column) + ' ' + suffix\n+            return self.quote_name(column)\n+\n+        return ', '.join(col_str(column, idx) for idx, column in enumerate(self.columns))\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate patch adds unreachable duplicate code after return and doesn't modify the opclasses branch, so it fails to fix the reported opclass whitespace issue."
+ }
+}

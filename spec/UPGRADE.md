@@ -461,3 +461,26 @@ B 33.3% vs A 16.7%（fix_equivalent），方向与 H1 一致；n 小仅协议验
 
 产出：bench/swe_p3.py（fetch/clone/run/judge/score 五合一）、
 bench/results/swe_sample.jsonl、results/swe/*.json + summary.json。
+
+---
+
+## S22 · P3 扩容 n=47：显著性档位 + checkout 幂等修复（2026-08-28）
+**扩样 6 → 47**（12 仓均衡：django8/sympy7/sklearn7/requests5/sphinx5/matplotlib4
+/astropy2/xarray2/pytest2/pylint2/seaborn2/flask1，seed 固定；fetch 语义修正为
+"n=每仓目标总量"幂等）。94 run 双臂全判零失败：
+
+| 臂 | n | fix_equivalent | same_root | avg_tin |
+|---|---|---|---|---|
+| A fs 手翻 | 47 | 17.0% | 68.1% | 9.1k |
+| B 诊断工具 | 47 | **34.0%（+17pp）** | **80.9%** | 22.5k（2.5×） |
+
+McNemar 配对精确检验 p=0.057（B 独赢 11 vs A 独赢 3）——**边缘显著**，如实
+定档：不是 p<0.05 的强宣称，但 2 倍效应量 + 双轮方向一致 + 配对结构支持
+H1 外锚复现。分仓看 B 靠 django/sympy/sphinx 拉开（合计 7:0），sklearn 反向
+（A 4:2）是唯一 A 优仓，留作后续个案分析不做解读。
+
+**checkout 幂等修复（本轮工程主坑）**：半初始化仓库（.git 已建、fetch 未成）
+被 `.git` 存在性检查永久跳过 fetch，重试全卡 checkout FETCH_HEAD 秒败。改为
+"能 checkout 则复用，否则推倒重来"（rmtree 重建）+ 清 .lock + 3 次退避重试 +
+4 并发。实测 matplotlib-22865（630s 重拉）与 47/47 全过、HEAD 对账零 mismatch。
+附带发现：3.14 默认环境无 duckdb，runner 显式 py -3.11。

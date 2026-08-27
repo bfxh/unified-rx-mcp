@@ -1,0 +1,54 @@
+{
+ "instance_id": "sphinx-doc__sphinx-9698",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698",
+ "tokens_in": 28334,
+ "tokens_out": 599,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 27
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 27
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 9.0,
+ "answer": "```diff\ndiff --git a/sphinx/domains/python.py b/sphinx/domains/python.py\n--- a/sphinx/domains/python.py\n+++ b/sphinx/domains/python.py\n@@ -330,7 +330,7 @@ class PyMethod(PyObject):\n     def handle_signature(self, sig: str, signode: desc_signature) -> Tuple[str, str]:\n         fullname, prefix = super().handle_signature(sig, signode)\n         signode['all'] = True\n-        signode['parens'] = True\n+        signode['parens'] = not self.options.get('property', False)\n         return fullname, prefix\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches prevent parentheses in index entries for py:method with :property: option, addressing the same root cause and producing equivalent behavior."
+ }
+}

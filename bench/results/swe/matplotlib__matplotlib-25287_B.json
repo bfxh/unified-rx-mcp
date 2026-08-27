@@ -1,0 +1,64 @@
+{
+ "instance_id": "matplotlib__matplotlib-25287",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-25287",
+ "tokens_in": 35850,
+ "tokens_out": 1171,
+ "turns": 10,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 229
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 35
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 1190
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 247
+  },
+  {
+   "tool": "code_context",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "code_context",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_read",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 11.3,
+ "answer": "```diff\ndiff --git a/lib/matplotlib/axis.py b/lib/matplotlib/axis.py\n--- a/lib/matplotlib/axis.py\n+++ b/lib/matplotlib/axis.py\n@@ -2255,7 +2255,8 @@ class XAxis(Axis):\n             transform=mtransforms.blended_transform_factory(\n                 self.axes.transAxes, mtransforms.IdentityTransform()),\n             fontsize=mpl.rcParams['xtick.labelsize'],\n-            color=mpl.rcParams['xtick.color'],\n+            color=(mpl.rcParams['xtick.labelcolor']\n+                   if mpl.rcParams['xtick.labelcolor'] != 'inherit'\n+                   else mpl.rcParams['xtick.color']),\n         )\n         self.offset_text_position = 'bottom'\n \n@@ -2508,7 +2509,8 @@ class YAxis(Axis):\n             transform=mtransforms.blended_transform_factory(\n                 self.axes.transAxes, mtransforms.IdentityTransform()),\n             fontsize=mpl.rcParams['ytick.labelsize'],\n-            color=mpl.rcParams['ytick.color'],\n+            color=(mpl.rcParams['ytick.labelcolor']\n+                   if mpl.rcParams['ytick.labelcolor'] != 'inherit'\n+                   else mpl.rcParams['ytick.color']),\n         )\n         self.offset_text_position = 'left'\n \n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches change offsetText color to use labelcolor unless 'inherit', then fallback to tick.color. Functionally identical."
+ }
+}

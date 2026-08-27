@@ -1,0 +1,49 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-26323",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-26323",
+ "tokens_in": 19726,
+ "tokens_out": 874,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 32
+  },
+  {
+   "tool": "bug_locate",
+   "round": 5,
+   "ms": 2
+  }
+ ],
+ "walltime_s": 9.9,
+ "answer": "```diff\ndiff --git a/sklearn/compose/_column_transformer.py b/sklearn/compose/_column_transformer.py\nindex 1234567..abcdefg 100644\n--- a/sklearn/compose/_column_transformer.py\n+++ b/sklearn/compose/_column_transformer.py\n@@ -853,7 +853,7 @@ def _hstack(self, Xs):\n         if self.verbose_feature_names_out:\n             # reorder columns to match the order of transformers\n             names = []\n             for name, _, _, _ in self._iter(fitted=True):\n                 if name is None:\n                     continue\n                 names.extend(_get_feature_name_out(name, self._columns[name]))\n             if len(names) != Xs[0].shape[1]:\n                 raise ValueError(\"Output feature names missing or duplicated\")\n             return Xs[0].reindex(columns=names)\n         else:\n             return Xs[0]\n \n     def _sk_visual_block_(self):\n         ...\n \n     def set_output(self, *, transform=None):\n         \"\"\"Set the output container when `\"transform\"` and `\"inverse_transform\"` are called.\n \n         Calling `set_output` will set the output of all estimators in `transformers`\n-        and `transformers_`.\n+        and `transformers_`, as well as the `remainder` estimator if it is not\n+        `\"drop\"` or `\"passthrough\"`.\n \n         Parameters\n         ----------\n         transform : {\"default\", \"pandas\", \"polars\"}, default=None\n             Configure output of `transform` and `inverse_transform`.\n \n         Returns\n         -------\n         self : estimator instance\n             Estimator instance.\n         \"\"\"\n         super().set_output(transform=transform)\n         transformers = self.transformers\n         if self.remainder != \"drop\" and self.remainder != \"passthrough\":\n-            transformers = list(transformers) + [(\"remainder\", self.remainder, None)]\n+            transformers = list(transformers) + [(\"remainder\", self.remainder, None)]\n         for _, _, _ in transformers:\n             _, _, _ = _\n         # Actually set output on each transformer\n         for _, transformer, _ in transformers:\n             if hasattr(transformer, \"set_output\"):\n                 transformer.set_output(transform=transform)\n         return self\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches address the remainder estimator not getting set_output, ensuring proper pandas output. Candidate uses a slightly different implementation but achieves the same fix."
+ }
+}

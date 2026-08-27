@@ -1,0 +1,54 @@
+{
+ "instance_id": "pylint-dev__pylint-4661",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661",
+ "tokens_in": 24524,
+ "tokens_out": 996,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 27
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 24
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_stat",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": 446
+  }
+ ],
+ "walltime_s": 11.8,
+ "answer": "```diff\ndiff --git a/pylint/config/__init__.py b/pylint/config/__init__.py\n--- a/pylint/config/__init__.py\n+++ b/pylint/config/__init__.py\n@@ -1,6 +1,7 @@\n # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html\n # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE\n # Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt\n \n+import os\n import sys\n import warnings\n from pathlib import Path\n@@ -11,6 +12,7 @@ from pylint.config.option_manager_mixin import OptionsManagerMixIn\n from pylint.config.options_provider_mixin import OptionsProviderMixIn\n from pylint.config.utils import _parse_rich_type_value\n \n+try:\n+    import appdirs\n+except ImportError:\n+    appdirs = None\n+\n if sys.version_info >= (3, 8):\n     from typing import Literal\n else:\n     from typing_extensions import Literal\n@@ -20,7 +24,7 @@ if sys.version_info >= (3, 8):\n     from typing import TypedDict\n else:\n     from typing_extensions import TypedDict\n \n-PYLINT_HOME = Path.home() / \".pylint.d\"\n+if appdirs:\n+    PYLINT_HOME = Path(appdirs.user_data_dir(\"pylint\"))\n+else:\n+    # Fallback to XDG data dir if appdirs is not available\n+    xdg_data_home = os.environ.get(\"XDG_DATA_HOME\")\n+    if xdg_data_home:\n+        PYLINT_HOME = Path(xdg_data_home) / \"pylint\"\n+    else:\n+        PYLINT_HOME = Path.home() / \".local\" / \"share\" / \"pylint\"\n \n DEFAULT_PYLINT_HOME = PYLINT_HOME\n```\n",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Both address XDG compliance, but candidate uses data dir instead of cache dir, and lacks migration warning. Not equivalent to gold patch."
+ }
+}

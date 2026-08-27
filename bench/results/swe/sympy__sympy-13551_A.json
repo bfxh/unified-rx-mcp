@@ -1,0 +1,49 @@
+{
+ "instance_id": "sympy__sympy-13551",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-13551",
+ "tokens_in": 7397,
+ "tokens_out": 1207,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_stat",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 13.1,
+ "answer": "```diff\ndiff --git a/sympy/concrete/products.py b/sympy/concrete/products.py\n--- a/sympy/concrete/products.py\n+++ b/sympy/concrete/products.py\n@@ -1,6 +1,7 @@\n from __future__ import print_function, division\n \n from sympy.concrete.expr_with_intlimits import ExprWithIntLimits\n+from sympy.concrete.expr_with_limits import AddWithLimits\n from sympy.core.function import diff\n from sympy.core.expr import Expr\n from sympy.core.mul import Mul\n@@ -10,6 +11,7 @@\n from sympy.core.symbol import Dummy, symbols\n from sympy.functions.elementary.exponential import log\n from sympy.functions.elementary.integers import floor\n+from sympy.functions.elementary.miscellaneous import sqrt\n from sympy.functions.elementary.piecewise import piecewise_fold\n from sympy.functions.special.gamma_functions import gamma\n from sympy.functions.special.zeta_functions import zeta\n@@ -17,6 +19,7 @@\n from sympy.polys.polytools import parallel_poly_from_expr\n from sympy.simplify.simplify import powsimp\n from sympy.simplify.radsimp import fraction\n+from sympy.simplify.simplify import simplify\n from sympy.solvers.solvers import solve\n from sympy.utilities.iterables import sift\n from sympy.utilities.misc import filldedent\n@@ -25,6 +28,7 @@\n from sympy.core.compatibility import range\n from sympy.core.logic import fuzzy_bool\n from sympy.core.relational import Eq\n+from sympy.functions.special.q_functions import q_pochhammer\n \n \n class Product(ExprWithIntLimits):\n@@ -236,6 +240,26 @@ def _eval_product(self, term, limits):\n             return self._eval_product_linear(term, (x, a, b))\n         elif term.is_polynomial(x):\n             return self._eval_product_poly(term, (x, a, b))\n+\n+        # Handle products of the form (n + c**k) or (n + c**(-k))\n+        # which can be expressed in terms of q-Pochhammer symbols.\n+        if term.is_Add and len(term.args) == 2:\n+            c, d = term.args\n+            if c.is_Symbol and d.is_Pow:\n+                base, exp = d.as_base_exp()\n+                if base.is_Integer and exp.is_linear(x):\n+                    coeff, shift = exp.as_coefficient(x), exp.subs(x, 0)\n+                    if coeff == 1 and shift == 0:\n+                        # term = c + base**x\n+                        n = c\n+                        q = 1/base\n+                        return q_pochhammer(n*q, q, b - a + 1) * q**(-(b-a+1)*(b-a)/2)\n+            elif c.is_Pow and d.is_Symbol:\n+                base, exp = c.as_base_exp()\n+                if base.is_Integer and exp.is_linear(x):\n+                    coeff, shift = exp.as_coefficient(x), exp.subs(x, 0)\n+                    if coeff == -1 and shift == 0:\n+                        # term = base**(-x) + n\n+                        n = d\n+                        q = 1/base\n+                        return q_pochhammer(n*q, q, b - a + 1) * q**(-(b-a+1)*(b-a)/2)\n \n         if term.has(x):\n             return self\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Both address incorrect product evaluation, but candidate uses q-Pochhammer for specific forms while gold uses log-sum transformation, which is more general and correct."
+ }
+}

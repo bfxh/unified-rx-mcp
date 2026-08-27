@@ -1,0 +1,49 @@
+{
+ "instance_id": "pytest-dev__pytest-5631",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-5631",
+ "tokens_in": 17217,
+ "tokens_out": 613,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 39
+  },
+  {
+   "tool": "fs_stat",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 8.0,
+ "answer": "```diff\n--- a/src/_pytest/compat.py\n+++ b/src/_pytest/compat.py\n@@ -90,7 +90,7 @@ def num_mock_patch_args(function):\n     patchings = getattr(function, \"patchings\", None)\n     if not patchings:\n         return 0\n-    return len([p for p in patchings if not p.attribute_name and p.new in sentinels])\n+    return len(\n+        [\n+            p\n+            for p in patchings\n+            if not p.attribute_name and _is_sentinel(p.new)\n+        ]\n+    )\n+\n+\n+def _is_sentinel(value):\n+    \"\"\"Check if value is a sentinel, avoiding ambiguous truth values for arrays.\"\"\"\n+    try:\n+        return value in sentinels\n+    except (TypeError, ValueError):\n+        # numpy arrays and other objects with ambiguous truth values\n+        # will raise ValueError on `in` checks; treat them as non-sentinels.\n+        return False\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate catches ValueError but doesn't fix root cause: using `in` on arrays still ambiguous. Gold uses identity check, which is correct and robust."
+ }
+}

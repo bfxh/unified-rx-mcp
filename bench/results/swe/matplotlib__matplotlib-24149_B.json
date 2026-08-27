@@ -1,0 +1,54 @@
+{
+ "instance_id": "matplotlib__matplotlib-24149",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-24149",
+ "tokens_in": 19058,
+ "tokens_out": 768,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 2
+  },
+  {
+   "tool": "code_context",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 9.1,
+ "answer": "```diff\ndiff --git a/lib/matplotlib/cbook/__init__.py b/lib/matplotlib/cbook/__init__.py\n--- a/lib/matplotlib/cbook/__init__.py\n+++ b/lib/matplotlib/cbook/__init__.py\n@@ -1743,7 +1743,7 @@ def _safe_first_finite(obj, skip_nonfinite=True):\n     if isinstance(obj, np.ma.MaskedArray):\n         return obj.compressed()[0]\n     if isinstance(obj, np.ndarray):\n-        return obj[np.isfinite(obj)][0]\n+        return obj[np.isfinite(obj)][0] if np.any(np.isfinite(obj)) else obj[0]\n     elif isinstance(obj, (list, tuple, deque)):\n         for val in obj:\n             if safe_isfinite(val):\n                 return val\n+        # If no finite values, return the first element (which may be NaN)\n+        return obj[0]\n     elif isinstance(obj, collections.abc.Iterator):\n         raise RuntimeError(\"matplotlib does not \"\n                            \"support generators as input\")\n     else:\n-        return next(val for val in obj if safe_isfinite(val))\n+        for val in obj:\n+            if safe_isfinite(val):\n+                return val\n+        # If no finite values, return the first element (which may be NaN)\n+        return next(iter(obj))\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches handle the StopIteration from _safe_first_finite when all values are NaN, falling back to the first element. The candidate modifies the helper function directly, achieving the same fix."
+ }
+}

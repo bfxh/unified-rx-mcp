@@ -1,0 +1,49 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-10908",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-10908",
+ "tokens_in": 10268,
+ "tokens_out": 511,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 8.1,
+ "answer": "```diff\ndiff --git a/sklearn/feature_extraction/text.py b/sklearn/feature_extraction/text.py\n--- a/sklearn/feature_extraction/text.py\n+++ b/sklearn/feature_extraction/text.py\n@@ -1257,7 +1257,7 @@ class CountVectorizer(BaseVectorizer):\n         Returns\n         -------\n         feature_names : list\n-            A list of length n_features\n+            A list of length n_features\n \n         \"\"\"\n-        self._check_vocabulary()\n+        if not hasattr(self, 'vocabulary_'):\n+            self._validate_vocabulary()\n         return self._get_feature_names()\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches call _validate_vocabulary when vocabulary_ is missing before checking, resolving the NotFittedError for provided vocabulary."
+ }
+}

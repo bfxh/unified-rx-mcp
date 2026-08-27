@@ -1,0 +1,49 @@
+{
+ "instance_id": "pytest-dev__pytest-5631",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-5631",
+ "tokens_in": 11113,
+ "tokens_out": 542,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_stat",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 7.5,
+ "answer": "```diff\ndiff --git a/src/_pytest/compat.py b/src/_pytest/compat.py\n--- a/src/_pytest/compat.py\n+++ b/src/_pytest/compat.py\n@@ -90,7 +90,7 @@ def num_mock_patch_args(function):\n     patchings = getattr(function, \"patchings\", None)\n     if not patchings:\n         return 0\n-    return len([p for p in patchings\n-                if not p.attribute_name and p.new in sentinels])\n+    return len([p for p in patchings\n+                if not p.attribute_name and p.new is not None\n+                and p.new in sentinels])\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate adds a None check but still uses 'in sentinels', which fails for arrays. Gold uses identity comparison, correctly avoiding the ambiguous truth value error."
+ }
+}

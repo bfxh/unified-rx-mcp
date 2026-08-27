@@ -1,0 +1,54 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-10908",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-10908",
+ "tokens_in": 26588,
+ "tokens_out": 848,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 41
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 28
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 9.4,
+ "answer": "```diff\ndiff --git a/sklearn/feature_extraction/text.py b/sklearn/feature_extraction/text.py\n--- a/sklearn/feature_extraction/text.py\n+++ b/sklearn/feature_extraction/text.py\n@@ -1204,6 +1204,9 @@ class CountVectorizer(BaseEstimator, VectorizerMixin):\n         self\n         \"\"\"\n         self._validate_vocabulary()\n+        if self.vocabulary_ is None:\n+            raise NotFittedError(\n+                \"%s - Vocabulary wasn't fitted.\" % self.__class__.__name__)\n         return self\n \n     def _count_vocab(self, raw_documents, fixed_vocab):\n@@ -1290,6 +1293,9 @@ class CountVectorizer(BaseEstimator, VectorizerMixin):\n         self\n         \"\"\"\n         self._validate_vocabulary()\n+        if self.vocabulary_ is None:\n+            raise NotFittedError(\n+                \"%s - Vocabulary wasn't fitted.\" % self.__class__.__name__)\n         return self\n \n     def _validate_vocabulary(self):\n@@ -1300,7 +1306,7 @@ class CountVectorizer(BaseEstimator, VectorizerMixin):\n         \"\"\"\n         vocabulary = self.vocabulary\n         if vocabulary is not None:\n-            if isinstance(vocabulary, set):\n+            if isinstance(vocabulary, set):\n                 vocabulary = sorted(vocabulary)\n             if not isinstance(vocabulary, Mapping):\n                 vocab = {}\n@@ -1311,6 +1317,8 @@ class CountVectorizer(BaseEstimator, VectorizerMixin):\n                     vocab[v] = i\n                 vocabulary = vocab\n             else:\n-                vocabulary = dict(vocabulary)\n-            if not vocabulary:\n-                raise ValueError(\"empty vocabulary passed to fit\")\n-            self.vocabulary_ = vocabulary\n+                vocabulary = dict(vocabulary)\n+            if not vocabulary:\n+                raise ValueError(\"empty vocabulary passed to fit\")\n+            self.vocabulary_ = vocabulary\n+        else:\n+            self.vocabulary_ = None\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate patch modifies fit/transform validation and sets vocabulary_ to None, but doesn't fix get_feature_names to validate vocabulary when provided, so issue remains."
+ }
+}

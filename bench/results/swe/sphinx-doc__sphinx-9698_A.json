@@ -1,0 +1,49 @@
+{
+ "instance_id": "sphinx-doc__sphinx-9698",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698",
+ "tokens_in": 7356,
+ "tokens_out": 572,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
+  }
+ ],
+ "walltime_s": 8.0,
+ "answer": "```diff\ndiff --git a/sphinx/domains/python.py b/sphinx/domains/python.py\n--- a/sphinx/domains/python.py\n+++ b/sphinx/domains/python.py\n@@ -351,7 +351,7 @@ class PyObject(ObjectDescription):\n         if node_id:\n             # ``node_id`` and ``node`` are None if object name is not given\n             indextext = self.get_index_text(modname, name)\n-            if indextext:\n+            if indextext and not self.options.get('property'):\n                 self.indexnode['entries'].append(('single', indextext, node_id, '', None))\n \n         return ret\n@@ -367,7 +367,7 @@ class PyObject(ObjectDescription):\n         if node_id:\n             # ``node_id`` and ``node`` are None if object name is not given\n             indextext = self.get_index_text(modname, name)\n-            if indextext:\n+            if indextext and not self.options.get('property'):\n                 self.indexnode['entries'].append(('single', indextext, node_id, '', None))\n \n         return ret\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Gold patch removes parens from index text for properties; candidate suppresses all index entries for properties, which is broader and not equivalent."
+ }
+}

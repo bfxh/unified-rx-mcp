@@ -1,0 +1,49 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-26323",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-26323",
+ "tokens_in": 13009,
+ "tokens_out": 801,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 9.9,
+ "answer": "```diff\ndiff --git a/sklearn/compose/_column_transformer.py b/sklearn/compose/_column_transformer.py\nindex 4a3f2b1..8c5e9a7 100644\n--- a/sklearn/compose/_column_transformer.py\n+++ b/sklearn/compose/_column_transformer.py\n@@ -853,7 +853,7 @@ class ColumnTransformer(_TransformerMixin, _BaseComposition):\n \n         # If we have a pandas dataframe as output, we need to check if the\n         # columns are unique or not.\n-        if all(hasattr(X, \"columns\") for X in Xs):\n+        if all(hasattr(X, \"columns\") for X in Xs if X is not None):\n             # raise if any of the columns are duplicated\n             columns = [\n                 column for X in Xs for column in X.columns\n@@ -862,7 +862,7 @@ class ColumnTransformer(_TransformerMixin, _BaseComposition):\n                 raise ValueError(\n                     \"Output column names are not unique. \"\n                     \"Please set `verbose_feature_names_out=True`.\"\n                 )\n-            if all(isinstance(X, (pd.DataFrame, pd.Series)) for X in Xs):\n+            if all(isinstance(X, (pd.DataFrame, pd.Series)) for X in Xs if X is not None):\n                 return pd.concat(Xs, axis=1)\n \n         return np.hstack(Xs)\n@@ -1018,6 +1018,7 @@ class ColumnTransformer(_TransformerMixin, _BaseComposition):\n         if self.remainder == \"passthrough\":\n             return _RemainderColsList(self._columns)\n         elif hasattr(self.remainder, \"set_output\"):\n-            return self.remainder.set_output(transform=transform)\n+            self.remainder.set_output(transform=transform)\n+            return self\n         else:\n             return self\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate patch modifies output handling but doesn't call set_output on remainder estimator in set_output method, so remainder still ignores pandas output configuration."
+ }
+}

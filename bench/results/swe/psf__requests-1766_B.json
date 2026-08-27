@@ -1,0 +1,54 @@
+{
+ "instance_id": "psf__requests-1766",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766",
+ "tokens_in": 17265,
+ "tokens_out": 594,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 193
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 19
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 9.8,
+ "answer": "```diff\ndiff --git a/requests/auth.py b/requests/auth.py\n--- a/requests/auth.py\n+++ b/requests/auth.py\n@@ -110,7 +110,7 @@ class HTTPDigestAuth(AuthBase):\n         # If auth-int is not requested, fall back to auth\n         if 'auth' not in qop:\n             qop = 'auth'\n-        self._qop_header = qop\n+        self._qop_header = '\"%s\"' % qop\n \n         # We can setup the challenge\n         self._charset = 'utf-8'\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Both address quoting qop, but candidate modifies internal state while gold modifies header output. Candidate may not affect final header if used elsewhere."
+ }
+}
