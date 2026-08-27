@@ -17,9 +17,9 @@ import tools  # noqa: F401
 
 
 def test_registry_tool_count():
-    """工具面收敛：≤40 组合工具（183 → 35 目标）。"""
+    """工具面收敛：attack 域加入后 42（39+3），上限放宽到 50。"""
     n = registry.tool_count()
-    assert 20 <= n <= 40, f"工具数 {n} 超出收敛范围（目标 35±5）"
+    assert 20 <= n <= 50, f"工具数 {n} 超出收敛范围"
 
 
 def test_registry_groups():

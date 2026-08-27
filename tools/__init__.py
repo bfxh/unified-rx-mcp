@@ -21,6 +21,7 @@ from . import collab    # noqa: F401,E402
 from . import meta      # noqa: F401,E402
 from . import engine    # noqa: F401,E402
 from . import bevy      # noqa: F401,E402
+from . import attack    # noqa: F401,E402  S7 默认化：攻击面工具随包常驻
 
 __all__ = ["fs", "pure", "scan", "ide", "guard", "learn", "ops",
-           "search", "game", "collab", "meta", "engine", "bevy"]
+           "search", "game", "collab", "meta", "engine", "bevy", "attack"]
