@@ -131,5 +131,7 @@ def test_h2_file_re_parses_claim_with_symbol_suffix():
     assert m and m.group(1).endswith(".rs")
     m2 = h2.FILE_RE.fullmatch("src/physics/terrain.rs:build_collider")
     assert m2 and m2.group(2) == "build_collider"     # :符号 不冒充行号
+    if not os.path.isdir(h2.VF3_ROOT):
+        pytest.skip("需要本机 VoxelForge-V3（外部资产）")
     assert h2.truth_exists("crates/app/src/main.rs") is True
     assert h2.truth_exists("src/physics/terrain.rs") is False

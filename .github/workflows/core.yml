@@ -9,8 +9,7 @@ jobs:
   tests:
     runs-on: windows-latest
     env:
-      # 沙盒与仓库同根（fail-closed：未配置 = 拒绝一切）
-      UNIFIED_RX_SANDBOX: ${{ github.workspace }}
+      # 沙盒由 conftest.py 自举：checkout 根 + pytest 专用 tmp 前缀
       PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
