@@ -165,12 +165,15 @@ manifest 增加 `revision` 字段与生成时间戳；ROADMAP/SPEC/EVAL 三文�
 
 | 步骤 | 内容 | 验收命令 | 状态 |
 |---|---|---|---|
-| S1 | A1+A2+A4 授权收口/夹具隔离/清死代码 | pytest 新增 4 例绿（requires_auth 声明校验/registry 层拦伪造/local_run 拦截/夹具不在仓库根） | ✅ 2026-08-27 |
-| S2 | C1 出口裁剪+游标分页 | pytest 3 例（roundtrip/坏远游标/未超限不污染）；MCP stdio 端到端实测：593 命中 → 200+393 分页，伪造授权经协议层被拒 | ✅ 2026-08-27 |
-| S3 | B1+B2+B3 协议通知三件套 | _mcp_probe.py 扩 cancel/logging 用例 | 待做 |
-| S4 | D1 规则分级+30 条标注库初版 | run_l2.ps1 输出 P/R ≥0.7/0.5 基线报告 | 待做 |
+| S1 | A1+A2+A4 授权收口/夹具隔离/清死代码 | pytest 新增 4 例绿（requires_auth 声明校验/registry 层拦伪造/local_run 拦截/夹具不在仓库根） | ✅ PR#15 (c634e53) |
+| S2 | C1 出口裁剪+游标分页 | pytest 3 例；MCP stdio 端到端：593 命中 → 200+393 分页，伪造授权经协议层被拒 | ✅ PR#15 (c634e53) |
+| S3 | B1+B2+B3 协议通知三件套 | capabilities 声明 listChanged+logging；降级发 notifications/message；cancelled→cancel_flag 登记（完成即清）；pytest 4 例 + stdio 实测 | ✅ PR#15 (7bcfac5) |
+| S4 | D1 规则分级重构 | clue/definite 双字段，确定性崩溃才 high；#[cfg(test)] 行级降级。VoxelForge: high 88→21（唯一 high=panic!） | ✅ PR#15 (3772dfb) |
 | S5 | C2 扫描指纹缓存 | 二次调用 <10ms 断言 | 待做 |
-| S6 | E1 bench 骨架 + D2 引用计数 | bench/replay_ab.py dry-run 打印双臂配置 | 待做 |
+| S6 | E1 bench 骨架 + D2 引用计数 + 标注库30条 | bench/replay_ab.py dry-run 打印双臂配置；run_l2.ps1 出 P/R 基线 | 待做 |
+
+**S4 施工追加**：bevy 迁移类规则同步降为 info/clue；通用规则补 severity/kind
+字段（equal_float 此前缺 severity，by_severity 统计漏计）。
 
 **C1 分页契约（定稿）**：列表字段超 `MAX_RESULT_ITEMS(200)` 时截断；响应附
 `total_items` / `truncated`（仅当还有下一页）/ `next_cursor`（仅当还有下一页）；
