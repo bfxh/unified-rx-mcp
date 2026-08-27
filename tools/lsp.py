@@ -115,6 +115,14 @@ class _Session:
             self.cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=err_log, cwd=self.root,
             env={**os.environ, "PYTHONUTF8": "1"})
+        # 常驻读取线程：stdout 阻塞读永不设防（publish 推送类消息没有请求伴随），
+        # 队列化后 _read_msg 才能拥有真实的超时语义。
+        import queue
+        import threading as _th
+        self._q = queue.Queue()
+        self._alive = True
+        t = _th.Thread(target=self._reader, daemon=True)
+        t.start()
         resp = self._request_raw("initialize", {
             "processId": os.getpid(),
             "rootUri": _as_uri(self.root),
@@ -127,10 +135,41 @@ class _Session:
             raise RuntimeError(f"{self.lang} server initialize 超时")
         self._notify("initialized", {})
 
+    def _reader(self):
+        """后台线程：LSP 帧 → 队列。EOF/损坏即退出并压入哨兵。"""
+        rd = self.proc.stdout
+        try:
+            while self._alive:
+                header = b""
+                while b"\r\n\r\n" not in header:
+                    ch = rd.read(1)
+                    if not ch:
+                        self._q.put(None)
+                        return
+                    header += ch
+                    if len(header) > 4096:
+                        raise ConnectionError("bad header")
+                n = None
+                for hl in header.split(b"\r\n"):
+                    if hl.lower().startswith(b"content-length:"):
+                        n = int(hl.split(b":")[1].strip())
+                if n is None:
+                    raise ConnectionError("missing Content-Length")
+                body = b""
+                while len(body) < n:
+                    chunk = rd.read(n - len(body))
+                    if not chunk:
+                        raise ConnectionError("server closed mid-body")
+                    body += chunk
+                self._q.put(json.loads(body.decode("utf-8")))
+        except Exception:
+            self._q.put(None)
+
     def alive(self):
         return bool(self.proc and self.proc.poll() is None)
 
     def stop(self):
+        self._alive = False
         try:
             if self.alive():
                 try:
@@ -159,32 +198,31 @@ class _Session:
         self.proc.stdin.flush()
 
     def _read_msg(self, timeout_deadline):
-        rd = self.proc.stdout
-        buf = b""
-        while b"\r\n\r\n" not in buf:
-            ch = rd.read(1)
-            if not ch:
-                raise ConnectionError("server closed")
-            buf += ch
-            if time.monotonic() > timeout_deadline:
-                return None
-            if len(buf) > 4096:
-                raise ConnectionError("bad header")
-        head = buf.split(b"\r\n\r\n", 1)[0]
-        m = re.search(rb"Content-Length:\s*(\d+)", head, re.I)
-        if not m:
-            raise ConnectionError("missing Content-Length")
-        n = int(m.group(1))
-        body = b""
-        while len(body) < n:
-            chunk = rd.read(n - len(body))
-            if not chunk:
-                raise ConnectionError("server closed mid-body")
-            body += chunk
-        return json.loads(body.decode("utf-8"))
+        """从队列取下一条消息；真·超时（deadline 由调用方决定）。"""
+        import queue as _queue
+        remaining = max(0.05, timeout_deadline - time.monotonic())
+        try:
+            msg = self._q.get(timeout=remaining)
+        except _queue.Empty:
+            return None                                     # 超时
+        if msg is None:                                     # reader 线程哨兵
+            raise ConnectionError("server closed")
+        return msg
 
     def _notify(self, method, params):
         self._send_frame({"jsonrpc": "2.0", "method": method, "params": params})
+
+    def _dispatch(self, msg):
+        """下行消息统一归属：服务器请求必答；诊断入缓冲；其余通知忽略。"""
+        m = msg.get("method")
+        if m and msg.get("id") is not None:
+            ans = []
+            if m == "workspace/configuration":
+                ans = [{}] * len(msg.get("params", {}).get("items") or [1])
+            self._send_frame({"jsonrpc": "2.0", "id": msg["id"], "result": ans})
+        elif m == "textDocument/publishDiagnostics":
+            diags = msg.get("params") or {}
+            self.diagnostics[diags.get("uri")] = diags.get("diagnostics") or []
 
     def _request_raw(self, method, params, timeout=_REQ_TIMEOUT):
         rid = next(self.next_id)
@@ -198,17 +236,7 @@ class _Session:
                 if "error" in msg:
                     raise RuntimeError(f"{method}: {msg['error'].get('message')}")
                 return msg.get("result")
-            m = msg.get("method")
-            if m and msg.get("id") is not None:
-                # 服务器→客户端请求必须应答，否则 rust-analyzer 会挂住内部管线
-                ans = []
-                if m == "workspace/configuration":
-                    ans = [{}] * len(msg.get("params", {}).get("items") or [1])
-                self._send_frame({"jsonrpc": "2.0", "id": msg["id"], "result": ans})
-            elif m == "textDocument/publishDiagnostics":
-                diags = msg.get("params") or {}
-                self.diagnostics[diags.get("uri")] = diags.get("diagnostics") or []
-            # 其余通知（$/progress、flycheck…）一律丢弃
+            self._dispatch(msg)
 
     def ensure_open(self, path):
         if path in self.opened:
@@ -220,6 +248,18 @@ class _Session:
             "textDocument": {"uri": _as_uri(path), "languageId": self.lang,
                              "version": 1, "text": text}})
         self.opened.add(path)
+
+    def pump(self, seconds):
+        """无上行请求地接收下行推送（publishDiagnostics 靠推不靠拉）。"""
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            try:
+                msg = self._read_msg(deadline)
+            except (ConnectionError, json.JSONDecodeError):
+                break
+            if msg is None:
+                break
+            self._dispatch(msg)
 
     def call(self, method, params, path=None, timeout=_REQ_TIMEOUT):
         with self.lock:
@@ -372,9 +412,8 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True):
         if action == "diagnostics":
             sess = _get_session(lang, root)
             sess.ensure_open(real)
-            deadline = time.time() + 6
-            while time.time() < deadline and _as_uri(real) not in sess.diagnostics:
-                time.sleep(0.25)
+            # 发布式诊断靠推不靠拉：必须持续泵管道才收得到通知
+            sess.pump(6.0)
             items = sess.diagnostics.get(_as_uri(real), [])
             ds = [{"severity": {1: "error", 2: "warning", 3: "info", 4: "hint"}.get(
                        d.get("severity"), str(d.get("severity"))),

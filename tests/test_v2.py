@@ -237,8 +237,12 @@ def test_engine_status():
 
 
 def test_engine_query_vf():
-    """P2: codegraph 真实查询（VoxelForge 已索引）。"""
-    r = registry.call("engine_query", {"query": "place_free", "root": r"D:\开发\VoxelForge",
+    """P2: codegraph 真实查询（VoxelForge 已索引）。环境无关仓自动跳过。"""
+    vf_root = r"D:\开发\VoxelForge"
+    if not (os.path.isdir(vf_root) and
+            os.path.exists(os.path.join(vf_root, ".codegraph"))):
+        pytest.skip("需要本机 VoxelForge+codegraph 索引（外部资产）")
+    r = registry.call("engine_query", {"query": "place_free", "root": vf_root,
                                        "limit": 3})
     assert r["ok"], r
     assert r["result"]["engine"] == "codegraph", f"应走 codegraph: {r['result'].get('engine')}"

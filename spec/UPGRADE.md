@@ -392,3 +392,26 @@ reap_idle 此前是死代码 → ide_lsp 入口接线每次触发空闲回收。
 **3. B 臂武器面扩容**：ARM_B_TOOLS 加入 ide_lsp（下轮 L3 跑批生效）。
 
 基线不变 **128 passed / SCHEMA_BAD 0**；EVAL.md H3/H2 状态同步实测数字。
+
+---
+
+## S19 · 优化轮二：管道重构 + CI + 门面对账（2026-08-27）
+
+**1. LSP 会话内核重构（真机逼出的架构债）**：publishDiagnostics 是推送式——
+此前没有任何上行请求时 stdout 阻塞读永远无人流动，诊断永为空、pump 轮询直接挂死
+（stdin read(1) 无超时语义）。重构为**常驻读取线程 + 队列**：帧解析后台化，
+_read_msg 从队列取消息获得真实 deadline；下行分发抽成 _dispatch（服务器请求应答 /
+诊断入缓冲）供请求循环与 pump 共用。pylsp 真机验证：broken.py 语法错+风格告警
+4 条分级清晰（diagnostics 动作首次拿到非空真实数据）。
+
+**2. GitHub Actions CI 建立**（此前基线全靠本地 pre-commit）：windows-latest +
+Python3.11 + pylsp 系/rust-analyzer 组件，四道闸：selftest schema 门禁 → 全量 pytest →
+replay_ab 语料 dry-run → ab_run 自检；UNIFIED_RX_SANDBOX=workspace 复刻本机约定。
+外部资产用例（VF+codegraph）加 skipif 守卫。
+
+**3. README 对外门面重写对齐 S18 现状**：旧版还在宣传已删的 pure/collab 域与
+"34 工具"；新版 = 12 域 36 工具实表 + 五假设评测数字表 + LSP 使用前提说明 +
+施工史指针。名实相符是对工具箱最基本的能力幻觉防御。
+
+**4. B 臂 × ide_lsp 实战冒烟**：模型在 VF3-T03 上自主选择 code_search 深挖而非语义跳转
+——LSP 在 B 面可用但非首选，行为数据如实入库（不做硬推）。

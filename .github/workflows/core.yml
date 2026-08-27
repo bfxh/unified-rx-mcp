@@ -1,0 +1,45 @@
+name: core
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    env:
+      # 沙盒与仓库同根（fail-closed：未配置 = 拒绝一切）
+      UNIFIED_RX_SANDBOX: ${{ github.workspace }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install LSP backends (pylsp 系)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install python-lsp-server jedi pycodestyle pyflakes
+
+      - name: Install rust-analyzer (pylsp 同理：能力探测失败须如实降级)
+        shell: pwsh
+        run: rustup component add rust-analyzer
+
+      - name: Codegraph-free sanity（engine 降级路径必须带原因）
+        shell: pwsh
+        run: echo "runner 无外部索引/克隆——相关用例自动 skip 或走 BM25 降级"
+
+      - name: Selftest (schema gate)
+        run: python -X utf8 server.py --selftest
+
+      - name: Full test suite
+        run: python -X utf8 -m pytest tests/ -q
+
+      - name: Bench dry-run gates (语料/双臂配置契约)
+        run: |
+          python -X utf8 bench/replay_ab.py --dry-run
+          python -X utf8 bench/ab_run.py
