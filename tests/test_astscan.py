@@ -99,6 +99,47 @@ def test_py_syntax_error_reported_not_crash(tmp_path):
     assert rules == ["syntax_error"]
 
 
+# ---------- Rust 结构化层（VoxelForge 主语言） ----------
+
+def test_rust_comment_and_string_never_flagged(tmp_path):
+    f = tmp_path / "t.rs"
+    f.write_text('// unwrap() in comment\nlet s = "expect(x)";\n', encoding="utf-8")
+    r = registry.call("ast_scan", {"path": str(f)})
+    assert r["result"]["total"] == 0, r
+
+
+def test_rust_unwrap_flagged_outside_test(tmp_path):
+    f = tmp_path / "t.rs"
+    f.write_text("fn load() {\n    let v = x.unwrap();\n}\n", encoding="utf-8")
+    r = registry.call("ast_scan", {"path": str(f)})
+    assert any(i["rule"] == "rust_unwrap_expect" for i in r["result"]["issues"])
+
+
+def test_rust_cfg_test_module_suppressed(tmp_path):
+    f = tmp_path / "t.rs"
+    f.write_text("#[cfg(test)]\nmod tests {\n    fn it() { let v = x.unwrap(); }\n}\n",
+                 encoding="utf-8")
+    r = registry.call("ast_scan", {"path": str(f)})
+    assert not [i for i in r["result"]["issues"] if i["rule"] == "rust_unwrap_expect"], r
+
+
+def test_rust_unsafe_block_detected_with_fn_inventory(tmp_path):
+    f = tmp_path / "t.rs"
+    f.write_text("fn spawn() {\n    unsafe { raw_ptr() }\n}\n", encoding="utf-8")
+    r = registry.call("ast_scan", {"path": str(f)})
+    res = r["result"]
+    assert any(i["rule"] == "rust_unsafe" for i in res["issues"])
+    assert res["units"][0]["fn_count"] == 1 and res["units"][0]["unsafe_count"] == 1
+
+
+def test_rust_lifetime_not_masked_as_char(tmp_path):
+    """生命周期 'a 不破坏后续解析：unsafe 仍被检出。"""
+    f = tmp_path / "t.rs"
+    f.write_text("fn foo<'a>(x: &'a str) -> &'a str {\n    unsafe { x }\n}\n", encoding="utf-8")
+    r = registry.call("ast_scan", {"path": str(f)})
+    assert any(i["rule"] == "rust_unsafe" for i in r["result"]["issues"])
+
+
 # ---------- 分层声明：掩码状态机单测 ----------
 
 def test_mask_preserves_length():

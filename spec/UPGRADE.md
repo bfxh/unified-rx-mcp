@@ -174,6 +174,7 @@ manifest 增加 `revision` 字段与生成时间戳；ROADMAP/SPEC/EVAL 三文�
 | S7 | 攻击域默认化 input_fuzz/path_probe/big_input | locate_edit 空查询噪音 FAIL-noise 暴露并修复；错误语义统一 `{ok:false}` | ✅ PR#16 (f4a8951) |
 | S8 | appaudit 域：智能体/桌面应用 克隆→隔离审计→清理 三件套 | 见下方 H 节实测；asar 自标定提取器在真实 Electron 包上跑通 | ✅ 本轮 |
 | S10 | 强度包 v2.3.0：入口 schema 门禁 + 取消唯一事实源下沉 registry + 出口大字符串截断 | 见下方 I 节实测（E2E 取消 1.62s）；106 passed / SCHEMA_BAD 0 | ✅ 本轮 |
+| S11 | VoxelForge-V3 基线化：ast_scan 加 Rust 结构化层 + 全工具面电池脚本入库 | bench/vf3_battery.py → bench/vf3_baseline.json；111 passed；电池当场抓出 big_input 自身 bug（err_len 切片）| ✅ 本轮 |
 
 ## I. S10 强度包实测（2026-08-27 晚）
 

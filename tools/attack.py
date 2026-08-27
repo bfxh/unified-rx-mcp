@@ -144,12 +144,13 @@ def big_input(tool_name, base_args, fuzz_field):
         try:
             r = rx_call(tool_name, args)
             verdict = "PASS" if isinstance(r.get("ok"), bool) else "FAIL"
-            err_len = len(str(r.get("error", "")))[:3]
+            err_preview = str(r.get("error", ""))[:80]
         except RecursionError:
-            r, verdict = {"ok": False}, "FAIL-recursion"
+            r, verdict, err_preview = {"ok": False}, "FAIL-recursion", ""
         except Exception as e:
-            r, verdict = {"ok": False, "error": str(e)}, "PASS-catchall"
+            r, verdict = {"ok": False}, "PASS-catchall"
+            err_preview = str(e)[:80]
         cases.append({"case": label, "ok": r.get("ok"), "verdict": verdict,
-                      "err_preview": str(r.get("error", ""))[:80]})
+                      "err_preview": err_preview})
     return {"tool": tool_name, "cases": cases,
             "all_pass": all(c["verdict"].startswith("PASS") for c in cases)}

@@ -123,10 +123,14 @@ def engine_query(query, root, limit=10):
     # 2. 降级 BM25（S3-B2：降级发协议日志，宿主可见）
     from .search import code_search
     from registry import notify
-    notify("info", "engine_query: codegraph 不可用/无命中，降级 BM25")
+    # S11：降级必须给原因——否则调用方不知道是"没索引"还是"运行时缺失"
+    reason = ("无 .codegraph 索引" if not os.path.exists(os.path.join(root or "", ".codegraph"))
+              else "codegraph 运行时未检出/查询无命中/超时")
+    notify("info", f"engine_query: 降级 BM25（{reason}）")
     r = code_search(query, root, limit)
     hits = [{"file": h["file"], "line": h.get("line"), "score": h.get("score"),
              "snippet": h.get("snippet", "")[:200]}
             for h in r.get("hits", [])]
     return {"engine": "bm25_fallback", "query": query, "total": len(hits),
+            "reason": reason,
             "hits": hits, "note": "codegraph 无命中/未索引，降级 BM25"}

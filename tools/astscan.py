@@ -196,7 +196,136 @@ def _scan_js_calls(masked, fp):
     return issues, {"calls_total": len(match_iter)}
 
 
-@tool("ast_scan", "结构化扫描（S9）：Python 真 AST / JS 词法掩码+括号平衡；输出最小单元条目，先小后大", "scan",
+# ---------------- Rust：词法掩码 + 结构化信号（VoxelForge 主语言）----------------
+
+_PANIC_CALL_RE = re.compile(r"\b(?:\.\s*)?(unwrap|expect|panic!|unreachable!|todo!|unimplemented!)\s*[(!]", )
+_SAFE_IDENT = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
+_MOD_TEST_ATTR = re.compile(r"#\[cfg\s*\(\s*test\s*\)\s*\]")
+
+
+def _mask_rust(src):
+    """Rust 词法掩码：// 与 /* */ 注释、'...' 字符串、"..." 字符串、r".." 原始字符串
+    内容置空格（长度不变）。char 字面量 'a' 与生命周期 'a 靠后随字符区分：短闭合视为 char。"""
+    out = list(src)
+    n = len(src)
+    i = 0
+    strings = comments = 0
+    while i < n:
+        c = src[i]
+        nxt = src[i + 1] if i + 1 < n else ""
+        if c == "/" and nxt == "/":
+            j = src.find("\n", i)
+            j = n if j < 0 else j
+            out[i:j] = " " * (j - i)
+            comments += 1
+            i = j
+        elif c == "/" and nxt == "*":
+            j = src.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            out[i:j] = " " * (j - i)
+            comments += 1
+            i = j
+        elif c == "r" and nxt in ('"', "#"):
+            # 原始字符串 r"..." / r#"..."#：跳过引号计数（简易，含 # 前缀）
+            j = i + 1
+            hashes = 0
+            while j < n and src[j] == "#":
+                hashes += 1
+                j += 1
+            if j < n and src[j] == '"':
+                j += 1
+                while j < n:
+                    if src[j] == '"':
+                        k = j + 1
+                        if all(k + h < n and src[k + h] == "#" for h in range(hashes)):
+                            break
+                    j += 1
+                j = min(j + 1, n)
+                out[i:j] = " " * (j - i)
+                strings += 1
+                i = j
+                continue
+        elif c == '"':
+            q, j = c, i + 1
+            while j < n:
+                if src[j] == "\\":
+                    j += 2
+                    continue
+                if src[j] == q or src[j] == "\n":
+                    break
+                j += 1
+            j = min(j + 1, n)
+            out[i:j] = " " * (j - i)
+            strings += 1
+            i = j
+        elif c == "'":
+            # char 字面量 'x'（短闭合）——生命周期 'a 后无紧跟闭合引号则跳过
+            j = i + 1
+            closed = False
+            while j < n and j < i + 5:
+                if src[j] == "'":
+                    closed = True
+                    break
+                if src[j] == "\\":
+                    j += 2
+                    continue
+                j += 1
+            if closed:
+                out[i:j + 1] = " " * (j + 1 - i)
+                strings += 1
+                i = j + 1
+            else:
+                i += 1
+        else:
+            i += 1
+    return "".join(out), {"strings_masked": strings, "comments_masked": comments}
+
+
+def _scan_rust_struct(masked, src, fp):
+    """结构化信号：fn 清单 / unsafe 块 / panic 家族调用 / #[cfg(test)] 内抑制。"""
+    lines = masked.split("\n")
+    issues = []
+    fn_names = []
+    unsafe_blocks = []
+    in_test_mod = False
+    test_mod_depth = -1
+    brace_depth = 0
+
+    def emit(ln, rule, detail):
+        issues.append({"file": fp, "line": ln, "col": 0, "rule": rule,
+                       "detail": detail, "unit": "call"})
+
+    for idx, ln in enumerate(lines, 1):
+        s = ln.strip()
+        if not in_test_mod and _MOD_TEST_ATTR.search(s):
+            in_test_mod = True
+            test_mod_depth = brace_depth
+        elif in_test_mod and s.startswith("}") and brace_depth <= test_mod_depth:
+            in_test_mod = False
+        if not in_test_mod:
+            for m in _SAFE_IDENT.finditer(ln):
+                tok = m.group(0)
+                if tok == "fn":
+                    nxt = _SAFE_IDENT.search(ln, m.end())
+                    if nxt:
+                        fn_names.append(nxt.group(0))
+                elif tok == "unsafe":
+                    unsafe_blocks.append(idx)
+            for m in _PANIC_CALL_RE.finditer(ln):
+                name = m.group(1)
+                rule = ("rust_panic_macro" if name in ("panic!", "unreachable!", "todo!", "unimplemented!")
+                        else "rust_unwrap_expect")
+                emit(idx, rule, m.group(0)[:40])
+        brace_depth += ln.count("{") - ln.count("}")
+
+    for u in unsafe_blocks:
+        emit(u, "rust_unsafe", "unsafe 块（设计信号，需人工评估不变量）")
+
+    return issues, {"fn_count": len(fn_names), "unsafe_count": len(unsafe_blocks),
+                    "unsafe_lines": unsafe_blocks[:20], "fns": fn_names[:40]}
+
+
+@tool("ast_scan", "结构化扫描（S9）：Python 真 AST / JS 词法掩码+括号平衡 / Rust 结构化信号；输出最小单元条目，先小后大", "scan",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "文件或目录"},
@@ -218,10 +347,10 @@ def ast_scan(path, max_files=200):
                       ("node_modules", ".git", "__pycache__", ".venv", "target")]
             for fn in fns:
                 ext = os.path.splitext(fn)[1].lower()
-                if ext in (".py", ".js", ".mjs", ".cjs") and len(targets) < max_files:
+                if ext in (".py", ".js", ".mjs", ".cjs", ".rs") and len(targets) < max_files:
                     targets.append(os.path.join(dp, fn))
     if not targets:
-        return {"error": "无可扫目标（仅支持 .py/.js/.mjs/.cjs）"}
+        return {"error": "无可扫目标（仅支持 .py/.js/.mjs/.cjs/.rs）"}
 
     all_issues = []
     per_unit = []
@@ -235,6 +364,10 @@ def ast_scan(path, max_files=200):
         if fp.endswith(".py"):
             issues = _scan_python_ast(src, fp_rel)
             meta = {"lang": "python", "lines": src.count("\n") + 1}
+        elif fp.endswith(".rs"):
+            masked, mstat = _mask_rust(src)
+            issues, rmeta = _scan_rust_struct(masked, src, fp_rel)
+            meta = {"lang": "rust", "lines": src.count("\n") + 1, **mstat, **rmeta}
         else:
             masked, mstat = _mask_js(src)
             issues, cstat = _scan_js_calls(masked, fp_rel)
