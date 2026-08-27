@@ -14,6 +14,7 @@ import os
 import re
 
 from registry import tool
+from tools.fs import _resolve as _fs_resolve  # P0: 复用 fs 域沙盒校验
 
 MAX_CTX = 5000
 
@@ -22,6 +23,11 @@ _SKIP_DIRS = (".git", "node_modules", "target", "__pycache__", "dist", "build",
 
 
 def _read(path):
+    # P0 修复：读路径也过沙盒（防读任意盘文件）
+    try:
+        path = _fs_resolve(path)
+    except ValueError:
+        return None
     if not os.path.isfile(path):
         return None
     # newline="" 保留原始行尾（CRLF 不被转 LF），供 _detect_eol 检测
@@ -72,6 +78,10 @@ def _detect_eol(src):
        },
        "required": ["path", "query"]})
 def locate_edit(path, query, max_files=100, limit=10):
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(path):
         return {"error": f"不是目录: {path}"}
     query = query.strip()
@@ -129,12 +139,22 @@ def code_context(path, cursor_line=0, radius=30):
            "file_path": {"type": "string", "description": "文件"},
            "edits": {"type": "array",
                      "description": "[{old_lines: [...], new_lines: [...], occ?: 1}]——old_lines 逐行精确匹配；occ 指定匹配第几次出现（默认 1）"},
+           "old_lines": {"type": "array", "description": "兼容写法：单处修改的旧行（等价于 edits 里的一项 old_lines）"},
+           "new_lines": {"type": "array", "description": "兼容写法：单处修改的新行（等价于 edits 里的一项 new_lines）"},
        },
-       "required": ["file_path", "edits"]})
-def ide_edit_multi(file_path, edits, root=None):
+       "required": ["file_path", "edits"]},
+      requires_auth=True)
+def ide_edit_multi(file_path, edits, root=None, __authorized=False, old_lines=None, new_lines=None):
+    # 授权已由 registry.call 的 requires_auth 强制；此处信任进入即已授权
+    if old_lines or new_lines:
+        edits = (edits or []) + [{"old_lines": old_lines, "new_lines": new_lines or []}]
     p = file_path
     if root and not os.path.isabs(p):
         p = os.path.join(root, p)
+    try:
+        p = _fs_resolve(p)
+    except ValueError as e:
+        return {"error": str(e)}
     src = _read(p)
     if src is None:
         return {"error": f"文件不可读: {p}"}
@@ -183,6 +203,10 @@ def ide_edit_multi(file_path, edits, root=None):
        },
        "required": ["root", "symbol"]})
 def ide_references(root, symbol):
+    try:
+        root = _fs_resolve(root)
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     defs, refs = [], []
@@ -213,6 +237,10 @@ def ide_references(root, symbol):
        },
        "required": ["root", "symbol", "new_name"]})
 def ide_rename(root, symbol, new_name, include_plan=False):
+    try:
+        root = _fs_resolve(root)
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     plan = []
@@ -240,6 +268,10 @@ def ide_rename(root, symbol, new_name, include_plan=False):
        },
        "required": ["root", "prefix"]})
 def code_complete(root, prefix, file=None):
+    try:
+        root = _fs_resolve(root)
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     decls, others = set(), set()

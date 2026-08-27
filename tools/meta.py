@@ -104,7 +104,7 @@ def cmd_cheatsheet(domain=None):
             "by_domain": out}
 
 
-@tool("local_run", "执行内建命令模板（白名单，subprocess+超时；长驻命令用 background=true）", "meta",
+@tool("local_run", "执行内建命令模板（白名单，subprocess+超时；需 __authorized=True；长驻命令用 background=true）", "meta",
       {"type": "object",
        "properties": {
            "domain": {"type": "string", "description": "命令域（查 cmd_cheatsheet）"},
@@ -114,8 +114,10 @@ def cmd_cheatsheet(domain=None):
            "timeout": {"type": "integer", "description": "超时秒（默认 60）"},
            "background": {"type": "boolean", "description": "后台运行（Popen 立即返回 PID，不阻塞；适合 cargo run 等长驻命令）"},
        },
-       "required": ["domain", "name"]})
+       "required": ["domain", "name"]},
+      requires_auth=True)
 def local_run(domain, name, args=None, workdir=None, timeout=60, background=False, __authorized=False):
+    del __authorized  # 执行授权由 registry.call 的 requires_auth 统一强制
     cmds = _COMMANDS.get(domain, {})
     template = cmds.get(name)
     if not template:
@@ -137,27 +139,35 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             return {"ok": True, "background": True, "pid": p.pid,
                     "cmd": cmd, "note": "后台运行中；用 process/list_filter 或 process/kill_pid 管理"}
-        # 同步运行（默认）
-        r = subprocess.run(cmd, shell=True, cwd=workdir,
-                           capture_output=True, text=True,
-                           timeout=max(5, min(int(timeout), 600)),
-                           env=env, encoding="gbk", errors="replace")
-        return {
-            "ok": r.returncode == 0,
-            "exit": r.returncode,
-            "stdout_tail": r.stdout[-3000:],
-            "stderr_tail": r.stderr[-1000:],
-            "cmd": cmd,
-        }
-    except subprocess.TimeoutExpired:
-        # P2：超时后必须杀进程树（cmd→cargo→vxl_app 全链），防残留卡死
+        # 同步运行（默认）——P1 修复：独立进程组，超时只杀自己进程树
+        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        proc = subprocess.Popen(cmd, shell=True, cwd=workdir,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                env=env, creationflags=flags)
         try:
-            subprocess.run(["taskkill", "/F", "/T", "/FI", "IMAGENAME eq cmd.exe"],
-                           capture_output=True, timeout=10, env=env)
-        except Exception:
-            pass
-        return {"ok": False, "error": f"超时（>{timeout}s），已尝试清理进程树；长驻命令（如 cargo run）请用 background=true",
-                "cmd": cmd}
+            out_b, err_b = proc.communicate(timeout=max(5, min(int(timeout), 600)))
+            out = out_b.decode("gbk", errors="replace") if out_b else ""
+            err = err_b.decode("gbk", errors="replace") if err_b else ""
+            return {
+                "ok": proc.returncode == 0,
+                "exit": proc.returncode,
+                "stdout_tail": out[-3000:],
+                "stderr_tail": err[-1000:],
+                "cmd": cmd,
+            }
+        except subprocess.TimeoutExpired:
+            # 只杀自己 spawn 的进程树（/T 含子进程），绝不碰其他 cmd.exe
+            try:
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                               capture_output=True, timeout=10, env=env)
+            except Exception:
+                pass
+            try:
+                proc.kill()
+            except Exception:
+                pass
+            return {"ok": False, "error": f"超时（>{timeout}s），已清理本次进程树；长驻命令请用 background=true",
+                    "cmd": cmd}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

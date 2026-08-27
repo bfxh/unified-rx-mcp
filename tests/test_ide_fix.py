@@ -16,11 +16,11 @@ def test_occ_second_occurrence(tmp_path):
     f.write_text("fn a() { X }\nfn b() { X }\n")
     r = registry.call("ide_edit_multi", {"file_path": str(f), "edits": [
         {"old_lines": ["    let v = X;"], "new_lines": ["    let v = Y;"], "occ": 2}
-    ]})
+    ], "__authorized": True})
     # old_lines 是 X 所在行——修正：直接匹配含 X 的行
     r = registry.call("ide_edit_multi", {"file_path": str(f), "edits": [
         {"old_lines": ["fn b() { X }"], "new_lines": ["fn b() { Y }"]}
-    ]})
+    ], "__authorized": True})
     assert r["ok"] and r["result"]["applied"] == 1, r
     assert "fn b() { Y }" in f.read_text()
     assert "fn a() { X }" in f.read_text()
@@ -32,7 +32,7 @@ def test_crlf_preserved(tmp_path):
     f.write_bytes(b"fn a() {}\r\nfn b() {}\r\n")
     r = registry.call("ide_edit_multi", {"file_path": str(f), "edits": [
         {"old_lines": ["fn b() {}"], "new_lines": ["fn b2() {}"]}
-    ]})
+    ], "__authorized": True})
     assert r["ok"] and r["result"]["applied"] == 1, r
     raw = f.read_bytes()
     assert b"\r\n" in raw, "CRLF 应保留"
@@ -61,6 +61,6 @@ def test_edit_multi_multiple_distinct(tmp_path):
     r = registry.call("ide_edit_multi", {"file_path": str(f), "edits": [
         {"old_lines": ["A"], "new_lines": ["A1"]},
         {"old_lines": ["C"], "new_lines": ["C1"]},
-    ]})
+    ], "__authorized": True})
     assert r["ok"] and r["result"]["applied"] == 2, r
     assert f.read_text() == "A1\nB\nC1\n"

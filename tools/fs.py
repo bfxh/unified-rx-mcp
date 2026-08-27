@@ -2,7 +2,8 @@
 """tools/fs.py —— 文件层（4 工具）：fs_read / fs_write / fs_stat / fs_list
 
 安全设计（吸取旧版教训）：
-- 沙盒：UNIFIED_RX_SANDBOX 环境变量（分号分隔多个根）；未设置 = 不限制
+- 沙盒：UNIFIED_RX_SANDBOX 环境变量（分号分隔多个根）
+- fail-closed：未设置 = 一律拒绝；"*" = 显式放开（自检/可信宿主用）
 - 写保护：fs_write 需 __authorized=True（显式授权，防 AI 幻觉乱写）
 - 大小上限：读 ≤1MB，写 ≤1MB
 - 路径校验：解析绝对路径后校验沙盒前缀（防 ../ 逃逸）
@@ -18,17 +19,29 @@ MAX_BYTES = 1_000_000
 def _sandbox_roots():
     env = os.environ.get(SANDBOX_ENV, "")
     if not env:
-        return None  # 未设置 = 不限制
-    return [os.path.abspath(p) for p in env.split(";") if p]
+        return []  # fail-closed：未配置 = 一律拒绝，杜绝忘配 env 导致裸奔
+    if env.strip() == "*":
+        return None  # 显式放开（自检/明确可信的宿主）
+    roots = []
+    for p in env.split(";"):
+        p = p.strip()
+        if p:
+            # 仅收非空条目：防空白/垃圾值经 normpath 落到 cwd 意外放大沙盒
+            roots.append(os.path.abspath(p))
+    return roots  # 全垃圾 = 空列表 = 一律拒绝
 
 
 def _in_sandbox(path):
     roots = _sandbox_roots()
     if roots is None:
         return True
-    ap = os.path.abspath(path)
+    if not roots:
+        return False
+    # P2 修复：realpath 解析符号链接/junction（防沙盒内 symlink 指向沙盒外）
+    rp = os.path.realpath(path)
     for r in roots:
-        if ap == r or ap.startswith(r + os.sep):
+        rr = os.path.realpath(r)
+        if rp == rr or rp.startswith(rr + os.sep):
             return True
     return False
 
@@ -40,7 +53,8 @@ def _resolve(path):
     ap = os.path.abspath(path)
     if not _in_sandbox(ap):
         raise ValueError(f"路径越界（沙盒外）: {path}")
-    return ap
+    # 返回 realpath（防后续 open() 走符号链接）
+    return os.path.realpath(ap)
 
 
 @tool("fs_read", "安全读取文件（≤1MB，沙盒校验）", "fs",
@@ -65,12 +79,14 @@ def fs_read(path):
            "content": {"type": "string", "description": "内容"},
            "__authorized": {"type": "boolean", "description": "写操作授权（必须 true）"},
        },
-       "required": ["path", "content"]})
+        "required": ["path", "content"]},
+      requires_auth=True)
 def fs_write(path, content, __authorized=False):
-    if not __authorized:
-        raise PermissionError("写操作需要授权：参数加 __authorized: true 确认后重试")
-    if len(content or "") > MAX_BYTES:
-        return {"error": f"内容过大（{len(content)} > {MAX_BYTES}）"}
+    # requires_auth=True 在 registry.call 层强制校验；此处保留 __authorized 形参仅为签名兼容
+    del __authorized
+    content = content or ""
+    if len(content.encode("utf-8")) > MAX_BYTES:
+        return {"error": f"内容过大（{len(content.encode('utf-8'))} > {MAX_BYTES} 字节）"}
     p = _resolve(path)
     d = os.path.dirname(p)
     if d and not os.path.isdir(d):
@@ -135,4 +151,4 @@ def fs_list(path, depth=1):
                 entries.append({"name": rel, "type": "file", "size": sz})
 
     walk(p, 0)
-    return {"path": p, "total": len(entries), "entries": entries[:200]}
+    return {"path": p, "total": len(entries), "entries": entries}
