@@ -131,6 +131,9 @@ def _bm25(idx, doc_len, doc_paths, query, k=1.5, b=0.75):
     q_toks = _tokenize(query)
     if not q_toks:
         return []
+    # S13 准确率：查询的原始词形（连续符号，如 load_module_defs）——用于命中行加权重排
+    raw_terms = {w.lower() for w in re.findall(r"[A-Za-z_][A-Za-z0-9_]{3,}", query)}
+    raw_terms |= set(re.findall(r"[\u4e00-\u9fff]{2,}", query))
     N = max(1, len(doc_paths))
     avgdl = sum(doc_len.values()) / max(1, len(doc_len))
     scores = {}
@@ -143,7 +146,7 @@ def _bm25(idx, doc_len, doc_paths, query, k=1.5, b=0.75):
             denom = tf + k * (1 - b + b * dl / max(1, avgdl))
             scores[fp] = scores.get(fp, 0) + idf * tf / denom
     ranked = sorted(scores.items(), key=lambda x: -x[1])
-    return [(fp, s) for fp, s in ranked if s > 0]
+    return [(fp, s) for fp, s in ranked if s > 0], raw_terms
 
 
 @tool("code_search", "语义代码检索（BM25 符号加权：中文/英文/标识符 → 文件:行）", "search",
@@ -159,13 +162,16 @@ def code_search(query, root=None, k=10):
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     idx, doc_len, doc_paths = _get_index(root)
-    ranked = _bm25(idx, doc_len, doc_paths, query)
+    ranked, raw_terms = _bm25(idx, doc_len, doc_paths, query)
     hits = []
-    for fp, score in ranked[:k]:
-        # 找命中行
+    cache = {}      # S13：fp→lines 复用（同一文件多命中免重复读盘）
+    for fp, score in ranked[:k * 2]:
         try:
-            with open(fp, "r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
+            lines = cache.get(fp)
+            if lines is None:
+                with open(fp, "r", encoding="utf-8", errors="replace") as f:
+                    lines = f.readlines()
+                cache[fp] = lines
         except OSError:
             continue
         best_line, best_score = 1, 0
@@ -173,10 +179,20 @@ def code_search(query, root=None, k=10):
         for i, line in enumerate(lines, 1):
             lt = set(_tokenize(line))
             hit = len(lt & q_toks)
+            low = line.lower()
+            # 连续符号精确出现（raw term 原文在行内）给足额加分 → 精确符号置顶
+            for rt in raw_terms:
+                if rt in low:
+                    hit += 6
+                    break
             if hit > best_score:
                 best_score, best_line = hit, i
+        if best_score == 0 and len(hits) >= k:
+            continue
         hits.append({"file": fp, "line": best_line, "score": round(score, 3),
                      "snippet": lines[best_line - 1].strip()[:120] if lines else ""})
+        if len(hits) >= k:
+            break
     return {"query": query, "total": len(hits), "hits": hits}
 
 
@@ -192,7 +208,7 @@ def kb_query(index_dir, query, limit=10):
     if not os.path.isdir(index_dir):
         return {"error": f"不是目录: {index_dir}"}
     idx, doc_len, doc_paths = _get_index(os.path.abspath(index_dir))
-    ranked = _bm25(idx, doc_len, doc_paths, query)
+    ranked, _raw = _bm25(idx, doc_len, doc_paths, query)
     hits = []
     for fp, score in ranked[:limit]:
         try:

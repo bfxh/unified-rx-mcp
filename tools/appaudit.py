@@ -223,16 +223,56 @@ def _extract_asar(asar_path, out_dir):
     基址自标定：候选内容基址逐个用首个带 integrity 的叶节点验 SHA256。
     返回 {"extracted": n, "bytes": n, "error": str|None, "entries": n}
     """
-    buf = Path(asar_path).read_bytes()[:8 * 1024 * 1024]
-    txt = buf.decode("utf-8", "replace")
-    jstart = txt.find('{"files"')
-    if jstart < 0:
-        raise _AsarError("未找到 files 头")
-    obj, jend_str = json.JSONDecoder().raw_decode(txt[jstart:])
-    json_real_len = jend_str - jstart   # utf-8 下头几乎全 ASCII，str 长度≈字节长
-    preamble = []
-    if jstart >= 16:
-        preamble = list(struct.unpack_from("<4I", buf, jstart - 16))
+    # S13 内存修复（两轮）：
+    # ① 不再 read_bytes() 整个文件——头窗口流式读，句柄复用做标定与提取；
+    # ② 不再对二进制窗口 decode('utf-8','replace')——替换符会把 8MB 二进制
+    #    涨成 16-32MB 的宽字符串（实测 30MB 文件峰值 32MB 的真凶）。
+    # 现在按"前导 u32 给出的候选长度"逐个 json.loads(bytes)：解析成功即定长，
+    # 文件名保持原始 UTF-8 语义；全失败再扩窗重试（ pathology 头 >8MB 兜底）。
+    fh = open(asar_path, "rb")          # noqa: SIM115 生命周期函数内闭合
+    buf = fh.read(8 * 1024 * 1024)
+    jstart = buf.find(b'{"files"')
+    obj = None
+
+    def _preamble_of(js):
+        if js >= 16:
+            return list(struct.unpack("<4I", buf[js - 16:js]))
+        return [0, 0, 0]
+
+    for round_no in range(3):
+        if jstart >= 0:
+            preamble = _preamble_of(jstart)
+            # 候选头长度：前导三个 u32 与常量组合；升序试
+            # （截断 JSON 在结尾解析失败极快，小候选先试省拷贝）
+            lens = set()
+            for v in preamble[-3:] + [4]:
+                for dv in (0, -4, -8):
+                    if v + dv > 0:
+                        lens.add(v + dv)
+            lens.add(len(buf) - jstart)
+            for L in sorted(lens):
+                if jstart + L > len(buf):
+                    continue
+                try:
+                    obj = json.loads(buf[jstart:jstart + L])
+                    break
+                except Exception:
+                    continue
+        if obj is not None:
+            break
+        grow = fh.read(8 * 1024 * 1024)
+        if not grow:
+            break
+        jstart_new = grow.find(b'{"files"')
+        if jstart >= 0 or jstart_new < 0:
+            buf += grow                  # 同窗续扫（跨窗边界截断的头）
+        else:
+            jstart = len(buf) + jstart_new
+            buf += grow
+    if jstart < 0 or obj is None:
+        fh.close()
+        raise _AsarError("未找到或未解析出 files 头")
+    preamble = _preamble_of(jstart)
     cands = set()
     # 候选基址：JSON 起点前三个 u32 与常量 4 的组合偏移
     # （真实 asar 是三层 pickle 封装，手工算差值易错——所以全列出来让 SHA256 挑真值）
@@ -240,7 +280,7 @@ def _extract_asar(asar_path, out_dir):
     for v in vals:
         for dv in (0, 4, 8, -4):
             cand = jstart + v + dv
-            if cand >= jstart + json_real_len:
+            if cand > jstart:          # 内容区必然在 JSON 之后；真值交由 SHA256 裁决
                 cands.add(cand)
 
     leaves = []  # (rel, offset:int, size:int, hash:str|None)
@@ -256,7 +296,7 @@ def _extract_asar(asar_path, out_dir):
 
     walk(obj.get("root", obj.get("top", obj)), "")
 
-    fh = open(asar_path, "rb")          # noqa: SIM115 生命周期函数内闭合
+    # fh 已在函数头打开（流式复用，不再二次 open）
 
     def _hash_ok(cand, off, size, want):
         fh.seek(cand + off)

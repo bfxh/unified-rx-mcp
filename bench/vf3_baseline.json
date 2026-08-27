@@ -1,6 +1,6 @@
 {
  "root": "D:\\开发\\VoxelForge-V3",
- "ts": 1787815188,
+ "ts": 1787815949,
  "bug_scan": {
   "files": 19,
   "total": 597,
@@ -16,7 +16,7 @@
    "panic": 21,
    "bevy_query_single": 3
   },
-  "elapsed_s": 0.1
+  "elapsed_s": 0.11
  },
  "std_check": {
   "files": 19,
@@ -40,7 +40,7 @@
    "rust": 15,
    "python": 4
   },
-  "elapsed_s": 0.09,
+  "elapsed_s": 0.1,
   "rust_units": [
    {
     "file": "crates\\app\\src\\geom.rs",
