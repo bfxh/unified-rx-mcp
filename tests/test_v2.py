@@ -344,21 +344,18 @@ def test_registry_notifier_hook():
 
 
 def test_server_cancel_flag_lifecycle():
-    """server.cancel_flag: 登记后可取，cancelled 后置位，完成后清理。"""
+    """S10 后登记表唯一事实源=registry：登记后可取，cancelled 置位，完成后清理。
+    server.cancel_flag 仅是委托薄出口。"""
     import server
-    ev = threading.Event()
-    with server._CANCEL_LOCK:
-        server._CANCELS[999] = ev
+    ev = registry.register_cancel(999)
     try:
-        assert server.cancel_flag(999) is not None and not server.cancel_flag(999).is_set()
-        ev.set()
+        assert server.cancel_flag(999) is ev and not ev.is_set()
+        assert server.registry.set_cancelled(999) is True
         assert server.cancel_flag(999).is_set()
-        with server._CANCEL_LOCK:
-            server._CANCELS.pop(999, None)
+        registry.release_cancel(999)
         assert server.cancel_flag(999) is None, "完成/取消后应清理登记"
     finally:
-        with server._CANCEL_LOCK:
-            server._CANCELS.pop(999, None)
+        registry.release_cancel(999)
 
 
 def test_server_handle_logging_setlevel():

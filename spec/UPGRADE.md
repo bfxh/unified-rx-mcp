@@ -173,6 +173,28 @@ manifest 增加 `revision` 字段与生成时间戳；ROADMAP/SPEC/EVAL 三文�
 | S6 | E1 bench 骨架 + D2 引用计数 + 标注库 | replay_ab.py dry-run 入 CI 门禁；labeled_bugs.jsonl（9/10 诚实标注"文本规则不可判"） | ✅ PR#16 (210ea54) |
 | S7 | 攻击域默认化 input_fuzz/path_probe/big_input | locate_edit 空查询噪音 FAIL-noise 暴露并修复；错误语义统一 `{ok:false}` | ✅ PR#16 (f4a8951) |
 | S8 | appaudit 域：智能体/桌面应用 克隆→隔离审计→清理 三件套 | 见下方 H 节实测；asar 自标定提取器在真实 Electron 包上跑通 | ✅ 本轮 |
+| S10 | 强度包 v2.3.0：入口 schema 门禁 + 取消唯一事实源下沉 registry + 出口大字符串截断 | 见下方 I 节实测（E2E 取消 1.62s）；106 passed / SCHEMA_BAD 0 | ✅ 本轮 |
+
+## I. S10 强度包实测（2026-08-27 晚）
+
+| 项 | 内容 | 验收证据 |
+|---|---|---|
+| D0 schema 入口门禁 | tools/list 声明的 JSON Schema 从此真的校验：required 缺失/显式 type 违型在分发层拒绝；bool≠integer 坑挡住 | `path=dict`/`required 缺失`/`edits=str` 三类全部 SchemaError 结构化拒绝；input_fuzz 对 locate_edit 12 例 FAIL-noise=0 |
+| B3 取消收线 | 登记表迁入 registry（唯一事实源）：register/set_cancelled/release/cancel_flag 四函数；server 只留委托薄出口；local_run 同步段重写为读者线程收流+0.25s 节拍轮询取消/超时，命中即 taskkill 进程树 | **MCP stdio 端到端探针 PASS**：真实协议 notifications/cancelled → 1.62s 内进程树清理 + cancelled 响应（bench/_cancel_e2e_probe.py） |
+| C1 出口扩展 | 超 64K 字符串值截断附 `…[truncated N chars / M total]` 标记（单结果单字段裁剪契约不变） | 测试断言 marker 与 small 字段无损 |
+| 错误语义补口 | 工具显式 `ok:false`（带详情的失败）上浮顶层 {ok:false,error,result:详情}——调用方只看一个字段的 S7 承诺补完 | local_run 取消路径 outer ok=false 实证 |
+
+**施工中端到端探针抓到的架构级陷阱（已固化为注释与测试）**：server 以
+`__main__` 运行时，工具内 `import server` 会二次执行模块得到全新的空 `_CANCELS`
+——单元测试里两边都 import server 所以完全看不出来。教训：**跨层可变状态必须
+住在被所有方共享的底层模块（registry），而非协议壳层**。
+
+复现命令：
+```
+python -X utf8 bench/_cancel_e2e_probe.py %TEMP%\sleep.py   # 需要 ASCII 路径脚本
+python -X utf8 server.py --selftest                          # 46 工具 SCHEMA_BAD 0
+python -X utf8 -m pytest tests/ -q                           # 106 passed
+```
 
 **S4 施工追加**：bevy 迁移类规则同步降为 info/clue；通用规则补 severity/kind
 字段（equal_float 此前缺 severity，by_severity 统计漏计）。

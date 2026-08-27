@@ -24,20 +24,15 @@ import tools  # noqa: F401
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.2.0"
+SERVER_VERSION = "2.3.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
 
-# S3-B3 取消登记：request_id → Event（notifications/cancelled 时置位，长任务协作式中断）
-_CANCELS = {}
-_CANCEL_LOCK = threading.Lock()
-
-
+# S3-B3+S10：取消登记唯一事实源迁移至 registry（__main__/import 双世界陷阱见 registry 注释）
 def cancel_flag(msg_id):
-    """返回该请求的取消 Event（不存在则 None）。工具长循环可轮询它协作退出。"""
-    with _CANCEL_LOCK:
-        return _CANCELS.get(msg_id)
+    """兼容出口：等价 registry.cancel_flag。"""
+    return registry.cancel_flag(msg_id)
 
 
 def _notify(method, params):
@@ -94,12 +89,9 @@ def _handle(msg):
     if method == "notifications/initialized":
         return None
     if method == "notifications/cancelled":
-        # S3-B3：客户端取消请求 → 置位取消旗标，长任务（local_run/engine_query/parallel）轮询退出
+        # S3-B3/S10：客户端取消请求 → 置位 registry 层旗标，长任务（local_run 等）轮询退出
         rid = (params or {}).get("requestId")
-        with _CANCEL_LOCK:
-            ev = _CANCELS.get(rid)
-            if ev is not None:
-                ev.set()
+        registry.set_cancelled(rid)
         return None
     if method == "logging/setLevel":
         # S3-B2：级别协商（实现为全部放行，过滤留给 log_msg 调用方）
@@ -116,7 +108,12 @@ def _handle(msg):
         name = params.get("name", "")
         args = params.get("arguments") or {}
         # __authorized 授权由 registry.call 的 requires_auth 统一强制（UPGRADE-A1）
-        result = registry.call(name, args)
+        # S10：绑定请求上下文——工具内部（local_run 取消轮询）可查 cancel_flag(request_id)
+        registry.set_request_context(msg_id)
+        try:
+            result = registry.call(name, args)
+        finally:
+            registry.clear_request_context()
         if result.get("ok"):
             content = [{"type": "text", "text": json.dumps(result["result"], ensure_ascii=False)}]
         else:
@@ -170,12 +167,10 @@ def main():
             continue
         if msg.get("method") == "tools/call":
             msg_id = msg.get("id")
-            # S3-B3：登记可取消旗标；完成/取消后清理
-            ev = threading.Event()
-            with _CANCEL_LOCK:
-                _CANCELS[msg_id] = ev
+            # S3-B3/S10：登记可取消旗标；完成/取消后清理（实现已迁至 registry）
+            ev = registry.register_cancel(msg_id)
 
-            def _done(fut, _id=msg_id, _ev=ev):
+            def _done(fut, _id=msg_id):
                 try:
                     resp = fut.result()
                 except Exception as e:
@@ -183,8 +178,7 @@ def main():
                             "error": {"code": -32603, "message": str(e)}}
                 if resp is not None:
                     _send(resp)
-                with _CANCEL_LOCK:
-                    _CANCELS.pop(_id, None)
+                registry.release_cancel(_id)
 
             executor.submit(_handle, msg).add_done_callback(_done)
             continue

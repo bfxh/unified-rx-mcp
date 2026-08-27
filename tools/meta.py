@@ -12,8 +12,11 @@ local_run：白名单命令执行（收敛自旧版 local_run + local_tools）�
 """
 import os
 import subprocess
+import threading
+import time
 
 from registry import tool
+from registry import current_request_id  # S10：取消轮询用（经 server.cancel_flag 查 Event）
 
 # Blender 默认路径（Windows）
 _BLENDER = r"D:\rj\GJ\Blender 5.2\blender.exe"
@@ -89,6 +92,15 @@ def _fill_defaults(domain, name, cmd, args):
     return cmd
 
 
+def _cancel_event():
+    """S10-B3 收线：当前请求的取消 Event（登记实现在 registry，双模块世界免疫）。"""
+    mid = current_request_id()
+    if mid is None:
+        return None
+    from registry import cancel_flag
+    return cancel_flag(mid)
+
+
 @tool("cmd_cheatsheet", "内建命令手册（省 token，不用试错找命令）", "meta",
       {"type": "object",
        "properties": {"domain": {"type": "string", "description": "cargo/git/python/blender/process/unifiedrx（缺省全部）"}},
@@ -141,24 +153,27 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             return {"ok": True, "background": True, "pid": p.pid,
                     "cmd": cmd, "note": "后台运行中；用 process/list_filter 或 process/kill_pid 管理"}
-        # 同步运行（默认）——P1 修复：独立进程组，超时只杀自己进程树
+        # 同步运行（S10 重写）：读者线程收流不丢输出；主循环节拍轮询【取消/超时】，
+        # 命中即 taskkill 进程树。P1 修复的独立进程组保留。
         flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
         proc = subprocess.Popen(cmd, shell=True, cwd=workdir,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 env=env, creationflags=flags)
-        try:
-            out_b, err_b = proc.communicate(timeout=max(5, min(int(timeout), 600)))
-            out = out_b.decode("gbk", errors="replace") if out_b else ""
-            err = err_b.decode("gbk", errors="replace") if err_b else ""
-            return {
-                "ok": proc.returncode == 0,
-                "exit": proc.returncode,
-                "stdout_tail": out[-3000:],
-                "stderr_tail": err[-1000:],
-                "cmd": cmd,
-            }
-        except subprocess.TimeoutExpired:
-            # 只杀自己 spawn 的进程树（/T 含子进程），绝不碰其他 cmd.exe
+
+        def _pump(dst, src):
+            try:
+                for chunk in iter(lambda: src.read(4096), b""):
+                    dst.append(chunk)
+            except Exception:
+                pass
+
+        out_buf, err_buf = [], []
+        t_out = threading.Thread(target=_pump, args=(out_buf, proc.stdout), daemon=True)
+        t_err = threading.Thread(target=_pump, args=(err_buf, proc.stderr), daemon=True)
+        t_out.start()
+        t_err.start()
+
+        def _kill_tree():
             try:
                 subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
                                capture_output=True, timeout=10, env=env)
@@ -168,8 +183,42 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
                 proc.kill()
             except Exception:
                 pass
-            return {"ok": False, "error": f"超时（>{timeout}s），已清理本次进程树；长驻命令请用 background=true",
-                    "cmd": cmd}
+
+        cancel_ev = _cancel_event()
+        from registry import notify
+        notify("info", f"S10 cancel-watch rid={current_request_id()} armed={cancel_ev is not None}")
+        deadline = time.monotonic() + max(5, min(int(timeout), 600))
+        cancelled = timed_out = False
+        while proc.poll() is None:
+            if cancel_ev is not None and cancel_ev.is_set():
+                cancelled = True
+                break
+            if time.monotonic() >= deadline:
+                timed_out = True
+                break
+            time.sleep(0.25)
+        if proc.poll() is None or cancelled or timed_out:
+            _kill_tree()
+        try:
+            proc.wait(timeout=3)
+        except Exception:
+            pass
+        try:
+            t_out.join(timeout=2)
+            t_err.join(timeout=2)
+        except Exception:
+            pass
+        out = b"".join(out_buf).decode("gbk", errors="replace")[-3000:]
+        err = b"".join(err_buf).decode("gbk", errors="replace")[-1000:]
+        base = {"exit": proc.returncode, "stdout_tail": out,
+                "stderr_tail": err, "cmd": cmd}
+        if cancelled:
+            return {**base, "ok": False, "cancelled": True,
+                    "error": "运行已被取消（notifications/cancelled），进程树已清理"}
+        if timed_out:
+            return {**base, "ok": False,
+                    "error": f"超时（>{timeout}s），已清理本次进程树；长驻命令请用 background=true"}
+        return {**base, "ok": proc.returncode == 0}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
