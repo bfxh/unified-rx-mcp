@@ -47,6 +47,11 @@ _SECRET_RULES = [
     ("api_key_sk", re.compile(r"\bsk-[A-Za-z0-9_\-]{20,}\b"), "clue"),
     ("github_pat", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{30,}\b"), "clue"),
     ("aws_access_key", re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "clue"),
+    # 键名指认型（实测教训：df110257….5fn4 这类无前缀凭据靠值形状抓不到；
+    # config.json 走查曾因只按值匹配漏掩码 → 键名与值同行的情形必须独立成规则）
+    ("secret_by_key",
+     re.compile(r"""["'](?:api_?key|apikey|secret|access_?token|refresh_?token|password|private_?key)["']\s*[:=]\s*["']([^"']{8,200})["']""", re.I),
+     "clue"),
 ]
 
 # JS 危险面线索（Electron 场景 child_process/openExternal 合法常见 → 全部 clue 级给证据行）

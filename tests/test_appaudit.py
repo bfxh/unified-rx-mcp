@@ -28,6 +28,8 @@ MAIN_JS = (
 )
 
 CFG_JSON = f'{{"awsKey": "{AWS}", "pat": "{GH}"}}'
+# 无前缀凭据：值形状不匹配任何 sk-/AKIA 规则，只有键名能指认它（2026-08-27 实测教训）
+NAMED_SECRET = '{"serviceName": "relay", "apiKey": "df11025779574a2abd2aa2aedc306fab.ZzzQQwwEE"}'
 
 
 @pytest.fixture
@@ -47,6 +49,7 @@ def mini_app(tmp_path):
                                      encoding="utf-8")
     (src / "urls.md").write_text("[a](https://api.anthropic.com/v1/x) [b](https://example.com/a)\n",
                                  encoding="utf-8")
+    (src / "settings.json").write_text(NAMED_SECRET, encoding="utf-8")
     (src / "deep" / "node_modules" / "pkg" / "index.js").write_text('require("child_process")\n',
                                                                     encoding="utf-8")
     return src
@@ -63,9 +66,9 @@ def _clone(mini_app, sandbox):
 def test_clone_happy_isolated(mini_app, sandbox):
     snap = _clone(mini_app, sandbox)
     assert snap["verified"] is True
-    assert snap["files"] == 5 and snap["truncated_by"] is None
+    assert snap["files"] == 6 and snap["truncated_by"] is None  # 5 文本 + node_modules 内 1 js
     # 内容级失败/元数据警告分离计数（实测大目录锁定文件暴露的错误分类契约）
-    assert snap["read_fails"] == 0 and snap["meta_warns"] >= 0 and "errors" in snap  # 4 文本 + node_modules 内 1 js
+    assert snap["read_fails"] == 0 and snap["meta_warns"] >= 0 and "errors" in snap
     sp = Path(snap["snapshot"])
     assert str(sp).startswith(str(sandbox))
     assert os.path.normcase(sp) != os.path.normcase(mini_app)
@@ -114,9 +117,11 @@ def test_audit_findings_and_masking(mini_app, sandbox):
         and ("clue", "child_process") in labels
     assert ("clue", "api_key_sk") in labels and ("clue", "github_pat") in labels \
         and ("clue", "aws_access_key") in labels
-    # 核心安全契约：原值绝不回显，只有掩码
+    # 键名指认型：无前缀凭据也必须被抓到
+    assert ("clue", "secret_by_key") in labels
     dumped = json.dumps(res, ensure_ascii=False)
-    for raw in (SK, GH, AWS, "-----BEGIN PRIVATE KEY-----"):
+    for raw in (SK, GH, AWS, "-----BEGIN PRIVATE KEY-----",
+                "df11025779574a2abd2aa2aedc306fab.ZzzQQwwEE"):
         assert raw not in dumped, f"原值泄漏: {raw[:10]}"
     assert dump_masked(res)
 
