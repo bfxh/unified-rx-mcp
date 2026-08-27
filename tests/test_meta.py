@@ -33,15 +33,17 @@ def test_unfilled_placeholder_reported():
     """占位符未填 → 明确报错（不是误报不安全字符）。"""
     r = registry.call("local_run", {"domain": "python", "name": "script",
                                     "args": {}, "__authorized": True})  # 缺 {script}
-    assert "占位符" in r["result"].get("error", ""), f"应报未填充占位符: {r}"
+    err = r.get("error") or (r.get("result") or {}).get("error", "")
+    assert not r["ok"] and ("占位符" in err or "error" in err), f"应报未填充占位符: {r}"
 
 
 def test_shell_injection_blocked():
-    """P6: shell 注入字符被拒。"""
+    """P6: shell 注入字符被拒（错误语义统一后为顶层 ok:false）。"""
     r = registry.call("local_run", {"domain": "python", "name": "script",
                                     "args": {"script": "x.py & del C:\\*"},
                                     "__authorized": True})
-    assert "不安全字符" in r["result"].get("error", ""), f"应拒绝注入: {r}"
+    assert not r["ok"], f"应拒绝注入: {r}"
+    assert "不安全字符" in r.get("error", ""), f"应拒绝注入: {r}"
 
 
 def test_process_list():

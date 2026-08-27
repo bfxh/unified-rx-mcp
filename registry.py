@@ -135,6 +135,11 @@ def call(name, args):
     t0 = time.time()
     try:
         result = entry["handler"](**a)
+        # S7 错误语义统一：工具返回 {"error": ...}（成功形状里的错误）→ 转 ok:false，
+        # 调用方只看 ok 一个字段即可，不必二次探测 result.error
+        if isinstance(result, dict) and isinstance(result.get("error"), str) and len(result) <= 2:
+            _record_stats(name, (time.time() - t0) * 1000)
+            return {"ok": False, "error": result["error"]}
         result = _clamp(result, {"cursor": cursor_arg})
         _record_stats(name, (time.time() - t0) * 1000)
         return {"ok": True, "result": result}

@@ -32,10 +32,10 @@ def test_scan_log_trend_compat():
 
 
 def test_backup_requires_root():
-    """T3: backup 无 root 明确报错。"""
+    """T3: backup 无 root 正确拒绝（错误语义统一后为顶层 ok:false）。"""
     r = registry.call("backup", {})
-    assert r["ok"]  # 函数正常返回（error 在 result 里）
-    assert "root" in r["result"].get("error", "")
+    assert not r["ok"], f"缺 root 应拒绝: {r}"
+    assert "root" in r.get("error", "")
 
 
 def test_usage_stats():

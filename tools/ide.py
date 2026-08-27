@@ -85,6 +85,10 @@ def locate_edit(path, query, max_files=100, limit=10):
     if not os.path.isdir(path):
         return {"error": f"不是目录: {path}"}
     query = query.strip()
+    if not query:
+        # S7 攻击修复：空/纯空白查询会把全库前 N 行当"命中"返回（total=15/refs=12424 纯噪音）
+        # 结构化失败（错误进 result.error 而非 ok 层），调用方语义一致
+        return {"error": "query 为空——请提供符号或关键词"}
     hits = []
     all_sources = {}  # S6-D2: 引用计数需要全量文件内容（max_files 范围内）
     for fp in _iter_files(path, max_files):
