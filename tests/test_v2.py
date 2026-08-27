@@ -157,6 +157,20 @@ def test_scan_std_check(tmp_path):
     assert r["ok"] and r["result"]["total"] >= 1
 
 
+def test_scan_eval_exec_member_call_not_flagged(tmp_path):
+    """源码审计实测教训：RegExp.prototype.exec(/x/) 不是动态执行，不得报 eval_exec。"""
+    import json
+    safe = Path(tmp_path) / "safe.js"
+    safe.write_text('const m = /a(b)c/.exec(text); const t = re.test(x);\n', encoding="utf-8")
+    r = registry.call("bug_scan", {"path": str(safe)})
+    hits = [h for h in r["result"]["issues"] if h["rule"] == "eval_exec"]
+    assert not hits, f"成员调用被误报: {json.dumps(hits, ensure_ascii=False)}"
+    evil = Path(tmp_path) / "evil.js"
+    evil.write_text("eval(userInput);\nexecSync(cmd);\n", encoding="utf-8")
+    r2 = registry.call("bug_scan", {"path": str(evil)})
+    assert any(h["rule"] == "eval_exec" for h in r2["result"]["issues"])
+
+
 def test_ui_check_godot(tmp_path):
     """P3: Godot 死按钮检测。"""
     f = Path(tmp_path) / "ui.gd"

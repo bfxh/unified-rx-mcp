@@ -206,7 +206,9 @@ def _scan_rust(src, path):
 _RE_RULES = [
     ("assert_always_true", r"assert\s+True\b", "恒真断言（永远通过，无意义）"),
     ("equal_float", r"==\s*\d+\.\d+", "浮点相等比较（精度风险）"),
-    ("eval_exec", r"\b(eval|exec)\s*\(", "eval/exec 动态执行（安全风险）"),
+    # (?<![.\w]) 排除成员调用：RegExp.prototype.exec(/x/) 是正则方法不是动态执行
+    # （源码审计实测误报：lib/dsml-tool-call.js 的 10 处全是 regex.exec）
+    ("eval_exec", r"(?<![.\w])(eval|exec|execSync)\s*\(", "eval/exec 动态执行（安全风险）"),
 ]
 
 
