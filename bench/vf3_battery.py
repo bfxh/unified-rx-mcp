@@ -36,6 +36,8 @@ report["ast_scan"] = {
     "files": r["files"], "total": r["total"], "by_rule": dict(rules),
     "by_lang": dict(langs), "elapsed_s": round(time.time() - t0, 2),
     "rust_units": [u for u in r["units"] if u["lang"] == "rust"][:60],
+    "rust_reach": (r.get("rust_reach") or {}).get("by_reach"),
+    "test_only_helpers": (r.get("rust_reach") or {}).get("test_only_helpers", [])[:20],
 }
 
 r = registry.call("path_probe", {})["result"]

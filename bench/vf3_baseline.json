@@ -1,6 +1,6 @@
 {
  "root": "D:\\开发\\VoxelForge-V3",
- "ts": 1787815949,
+ "ts": 1787835432,
  "bug_scan": {
   "files": 19,
   "total": 597,
@@ -40,7 +40,7 @@
    "rust": 15,
    "python": 4
   },
-  "elapsed_s": 0.1,
+  "elapsed_s": 0.29,
   "rust_units": [
    {
     "file": "crates\\app\\src\\geom.rs",
@@ -607,6 +607,63 @@
      "m7_island_vehicle_survives_foreign_events",
      "m6_save_load_matrix"
     ]
+   }
+  ],
+  "rust_reach": {
+   "prod": 164,
+   "test_only": 10,
+   "unreferenced": 8
+  },
+  "test_only_helpers": [
+   {
+    "fn": "drive_mode",
+    "file": "crates\\app\\src\\vehicle_physics.rs",
+    "line": 37
+   },
+   {
+    "fn": "drive_command",
+    "file": "crates\\app\\src\\vehicle_physics.rs",
+    "line": 56
+   },
+   {
+    "fn": "set_root",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 118
+   },
+   {
+    "fn": "peek_next_vehicle",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 177
+   },
+   {
+    "fn": "place_free",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 180
+   },
+   {
+    "fn": "apply_damage",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 457
+   },
+   {
+    "fn": "rotate_vehicle_y",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 675
+   },
+   {
+    "fn": "exposed_faces",
+    "file": "crates\\core\\src\\connect.rs",
+    "line": 13
+   },
+   {
+    "fn": "resolve_cell",
+    "file": "crates\\core\\src\\placement.rs",
+    "line": 8
+   },
+   {
+    "fn": "inverse",
+    "file": "crates\\core\\src\\rotation.rs",
+    "line": 30
    }
   ]
  },

@@ -343,6 +343,92 @@ def _scan_rust_struct(masked, src, fp):
                     "risky_fns": risky, "fns": fn_names[:40]}
 
 
+# ---------------- Rust 跨文件引用可达性（S16）----------------
+
+_RUST_IDENT_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\b")
+_RUST_KEYWORDS = {
+    "fn", "let", "if", "else", "match", "return", "mod", "pub", "use", "impl",
+    "self", "Self", "struct", "enum", "trait", "for", "in", "while", "loop",
+    "const", "static", "type", "where", "as", "mut", "ref", "move", "dyn",
+    "unsafe", "crate", "super", "true", "false", "assert", "assert_eq",
+    "unsafe_fn", "async", "await", "box", "extern", "macro_rules",
+}
+
+
+def _rust_defs_and_refs(masked, fp, is_test_file):
+    """单文件：fn 定义清单 + 每个标识符的 prod/test 引用计数（排除定义处 'fn NAME'）。"""
+    defs = []                       # [{"fn","file","line","test"}]
+    refs = {}                       # name -> {"prod": n, "test": n}
+    lines = masked.split("\n")
+    in_test_mod = False
+    test_mod_depth = -1
+    brace_depth = 0
+    for idx, ln in enumerate(lines, 1):
+        s = ln.strip()
+        if not in_test_mod and _MOD_TEST_ATTR.search(s):
+            in_test_mod = True
+            test_mod_depth = brace_depth
+        elif in_test_mod and s.startswith("}") and brace_depth <= test_mod_depth:
+            in_test_mod = False
+        ctx = "test" if (is_test_file or in_test_mod) else "prod"
+        # 定义
+        for m in re.finditer(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)", ln):
+            defs.append({"fn": m.group(1), "file": fp, "line": idx, "test": ctx == "test"})
+        # 引用（跳过定义名本身；简单法：先记 fn 名占位再扣除定义命中）
+        for m in _RUST_IDENT_RE.finditer(ln):
+            name = m.group(1)
+            if name in _RUST_KEYWORDS:
+                continue
+            is_def_here = re.match(r".*\bfn\s+" + re.escape(name) + r"\b", ln) and \
+                m.start() > ln.rfind("fn ", 0, m.start())
+            if is_def_here:
+                continue
+            slot = refs.setdefault(name, {"prod": 0, "test": 0})
+            slot[ctx] += 1
+        brace_depth += ln.count("{") - ln.count("}")
+    return defs, refs
+
+
+def rust_reach(rs_sources):
+    """跨文件 Rust 可达性归档。
+
+    输入 rs_sources: [(rel_fp, src, is_test_dir)]。
+    策略（保守，宁可多报不可漏报）：
+      prod          —— 存在 ≥1 处生产上下文引用（含 bevy add_systems 的裸标识符注册）
+      test_only     —— 0 生产引用 且 ≥1 测试引用：src 里被测试专属使用的辅助函数
+      unreferenced  —— 全仓零文本引用：死代码候选信号，只标不降
+    已在 tests/ 目录或 cfg(test) 内的定义不参与 helper 归类（它们本来就是测试体）。
+    局限如实声明：同名歧义跨 crate 不解析；宏生成调用可能漏计 → 归 unreferenced/
+    test_only 前 ≥1 测试引用的要求把误降风险压到最低。
+    """
+    all_defs = []
+    merged = {}
+    for fp, src, is_test_dir in rs_sources:
+        masked, _ = _mask_rust(src)
+        defs, refs = _rust_defs_and_refs(masked, fp, is_test_dir)
+        all_defs.extend(defs)
+        for name, cnt in refs.items():
+            slot = merged.setdefault(name, {"prod": 0, "test": 0})
+            slot["prod"] += cnt["prod"]
+            slot["test"] += cnt["test"]
+    reach = {}
+    helpers = []
+    for d in all_defs:
+        if d["test"]:
+            continue
+        c = merged.get(d["fn"], {"prod": 0, "test": 0})
+        if c["prod"] > 0:
+            v = "prod"
+        elif c["test"] > 0:
+            v = "test_only"
+            helpers.append({"fn": d["fn"], "file": d["file"], "line": d["line"]})
+        else:
+            v = "unreferenced"
+        reach.setdefault(d["fn"], []).append({"file": d["file"], "line": d["line"],
+                                              "reach": v})
+    return reach, helpers
+
+
 @tool("ast_scan", "结构化扫描（S9）：Python 真 AST / JS 词法掩码+括号平衡 / Rust 结构化信号；输出最小单元条目，先小后大", "scan",
       {"type": "object",
        "properties": {
@@ -372,6 +458,7 @@ def ast_scan(path, max_files=200):
 
     all_issues = []
     per_unit = []
+    rs_sources = []
     for fp in targets:
         try:
             with open(fp, "r", encoding="utf-8", errors="replace") as f:
@@ -385,6 +472,10 @@ def ast_scan(path, max_files=200):
         elif fp.endswith(".rs"):
             masked, mstat = _mask_rust(src)
             issues, rmeta = _scan_rust_struct(masked, src, fp_rel)
+            is_test_dir = any(p == "tests" or p.startswith("tests.")
+                              for p in fp_rel.replace("\\", "/").split("/")[:-1]) \
+                or "\\tests\\" in fp or "/tests/" in fp
+            rs_sources.append((fp_rel, src, is_test_dir))
             meta = {"lang": "rust", "lines": src.count("\n") + 1, **mstat, **rmeta}
         else:
             masked, mstat = _mask_js(src)
@@ -394,6 +485,29 @@ def ast_scan(path, max_files=200):
             it["file"] = fp_rel
         all_issues.extend(issues)
         per_unit.append({"file": fp_rel, **meta})
+
+    reach_summary = None
+    if rs_sources:
+        lmap, helpers = rust_reach(rs_sources)
+        keyed = {(v["file"], k): v["reach"] for k, lst in lmap.items() for v in lst}
+        for it in all_issues:
+            r = keyed.get((it["file"], it.get("fn")))
+            if r and it["rule"] in ("rust_unwrap_expect", "rust_panic_macro", "rust_unsafe"):
+                it["reach"] = r
+        c = {"prod": 0, "test_only": len(helpers), "unreferenced": 0}
+        for lst in lmap.values():
+            for v in lst:
+                if v["reach"] == "prod":
+                    c["prod"] += 1
+                elif v["reach"] == "unreferenced":
+                    c["unreferenced"] += 1
+        reach_summary = {"defs_evaluated": sum(len(v) for v in lmap.values()),
+                         "by_reach": c,
+                         "test_only_helpers": helpers[:30],
+                         "entries": sorted(
+                             ({"fn": k, **v} for k, lst in lmap.items() for v in lst),
+                             key=lambda d: (d["reach"] != "test_only",
+                                            d["reach"] != "unreferenced", d["file"]))[:60]}
 
     by_rule = {}
     for it in all_issues:
@@ -405,4 +519,5 @@ def ast_scan(path, max_files=200):
         "issues": all_issues,          # 最小单元层（file/line/col/unit）
         "units": per_unit[:200],       # 每 token/调用层面的统计
         "layer_note": "layer=structural（token/call 级）；上层聚合请基于 issues 自行收敛",
+        "rust_reach": reach_summary,   # S16：None=无 .rs 输入；否则含 test_only_helpers
     }

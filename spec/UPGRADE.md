@@ -320,3 +320,27 @@ H2 门槛 ≥90%，实测满分达标。如实备注：本口径只考核文件�
 unverifiable 不计分、行号越界用例在语料中稀少），即 guard 在其强项上的满分；
 工具名判定另有既有测试锁定。runner 顺修两处 trace 质量债：tool_trace.ms 由恒 None 改为
 实测毫秒、turns 由 calls+1 修正为真实请求轮次。
+
+---
+
+## S16 · Rust 生产/测试可达性归档（2026-08-27）
+
+上一轮挂账的硬骨头落地：`tools/astscan.py` 新增跨文件引用图——每条 Rust risky issue
+带 `reach ∈ {prod, test_only, unreferenced}` 字段；`rust_reach` 汇总含
+test_only_helpers 清单与死代码候选 entries（限 60）。
+
+**算法与保守边界**：词法掩码后逐文件提取 fn 定义 + 标识符引用计数（排除定义处、
+关键字过滤）；裸标识符覆盖 bevy add_systems 注册形态。降级只认正证据——
+「0 生产引用 且 ≥1 测试引用」才标 test_only；零引用只标 unreferenced 信号不动严重度；
+cfg(test)/tests 目录定义不参与归类。同名歧义跨 crate 不解析（如实声明为局限，
+≥1 测试引用的前置把误降风险压到最低）。
+
+**VF3 实测（182 defs / 0.28s）**：prod=164 · test_only=10 · unreferenced=8；
+4 条 unwrap 打上 test_only。三例人工复核全部属实：
+- `place_free`（assembly.rs:180）唯一调用方=stress 测试台，生产面只留注释 ✓
+- `drive_mode/drive_command`（vehicle_physics.rs）断言全在同文件 cfg(test) ✓
+- `apply_damage` 第二引用位于文件尾测试区 ✓
+另证 `unreferenced` 只信号不降级的必要性：`main` 因 bevy 入口宏生成自然落此桶。
+
+工具数不变（35），纯存量增强；tests/test_astscan.py +5 例锁语义，基线 **121 passed**。
+vf3_battery 接入 rust_reach 汇总，后续每轮电池自动跟踪。

@@ -176,3 +176,74 @@ def test_node_modules_skipped_in_dir_mode(tmp_path):
     (tmp_path / "top.js").write_text("foo()\n", encoding="utf-8")
     r = registry.call("ast_scan", {"path": str(tmp_path)})
     assert r["result"]["files"] == 1
+
+
+# ── S16：Rust 跨文件引用可达性 ───────────────
+def _reach_call(tmp_path):
+    """跑目录级 ast_scan，返回 (issues, rust_reach)。"""
+    r = registry.call("ast_scan", {"path": str(tmp_path)})
+    assert r["ok"], r
+    return r["result"]["issues"], r["result"]["rust_reach"]
+
+
+def test_reach_test_only_helper_flagged(tmp_path):
+    """src 辅助函数只被 tests/ 引用 → test_only；其 unwrap 打上 reach 标记。"""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "helper.rs").write_text(
+        "pub fn calc_bonus() -> u32 {\n"
+        "    let x = maybe().unwrap();\n"
+        "    x + 1\n"
+        "}\n", encoding="utf-8")
+    tdir = tmp_path / "tests"
+    tdir.mkdir()
+    (tdir / "t.rs").write_text("mod it { use super::*; #[test] fn a() { assert!(calc_bonus() >= 0); } }\n",
+                               encoding="utf-8")
+    issues, reach = _reach_call(tmp_path)
+    u = [i for i in issues if i["rule"] == "rust_unwrap_expect"]
+    assert u and all(i["fn"] == "calc_bonus" and i.get("reach") == "test_only" for i in u), u
+    names = {h["fn"] for h in reach["test_only_helpers"]}
+    assert "calc_bonus" in names, reach
+
+
+def test_reach_bare_ident_registration_counts_as_prod(tmp_path):
+    """bevy 风格 add_systems(Tick, system_fn) 的裸标识符注册 = 生产引用，不降级。"""
+    f = tmp_path / "sys.rs"
+    f.write_text(
+        "pub fn system_fn(mut q: Query<&mut Pos>) { let p = q.single_mut().unwrap(); }\n"
+        "pub fn setup(app: &mut App) { app.add_systems(Update, system_fn); }\n", encoding="utf-8")
+    issues, reach = _reach_call(tmp_path)
+    u = [i for i in issues if i["rule"] == "rust_unwrap_expect"]
+    assert u and all(i["fn"] == "system_fn" and i["reach"] == "prod" for i in u), u
+
+
+def test_reach_unreferenced_is_signal_not_downgrade(tmp_path):
+    """零引用函数只标 unreferenced（死代码信号）；issue 保留 reach 字段与计数。"""
+    f = tmp_path / "dead.rs"
+    f.write_text('fn orphan_helper() -> u32 { maybe().expect("x") }\n', encoding="utf-8")
+    issues, reach = _reach_call(tmp_path)
+    u = [i for i in issues if i["rule"] == "rust_unwrap_expect"]
+    assert u and u[0]["fn"] == "orphan_helper" and u[0]["reach"] == "unreferenced", u
+    assert reach["by_reach"]["unreferenced"] >= 1
+
+
+def test_reach_no_rs_input_returns_none(tmp_path):
+    (tmp_path / "a.py").write_text("eval('1+1')\n", encoding="utf-8")
+    _, reach = _reach_call(tmp_path)
+    assert reach is None
+
+
+def test_reach_same_name_two_files_distinct_verdicts(tmp_path):
+    """同名 fn 分属 prod/test 文件：prod 定义参与归类，test 定义跳过。"""
+    s = tmp_path / "src"
+    s.mkdir()
+    (s / "lib.rs").write_text(
+        "fn shared() -> u32 { 1 }\n"
+        "pub fn caller_prod() -> u32 { shared() + shared() }\n", encoding="utf-8")
+    t = tmp_path / "tests"
+    t.mkdir()
+    (t / "t2.rs").write_text("#[test]\nfn use_shared() { shared(); }\n", encoding="utf-8")
+    issues, reach = _reach_call(tmp_path)
+    # shared 在 src 有定义且被 prod(caller_prod) 与 test 双方引用 → prod
+    sh = [e["reach"] for e in reach.get("entries", []) if e["fn"] == "shared"]
+    assert any(r == "prod" for r in sh), sh
