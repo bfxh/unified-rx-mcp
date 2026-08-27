@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-"""tools/ops.py —— 运维域（7 工具）：backup / cost_report / scan_log / usage_stats / trend_analysis / project_health / lesson_stats
+"""tools/ops.py —— 运维域（5 工具）：backup / scan_log / usage_stats / project_health / lesson_stats
 
-收敛自旧版 backup/rollback + cost_report + stats/telemetry/alarm/scan_log。
+收敛自旧版 backup/rollback + stats/telemetry/alarm/scan_log。
+S15：cost_report 并入 usage_stats（同数据源重复投影）、trend_analysis 并入 scan_log 的
+trend action——一个数据源只留一个读出口。
 纯 stdlib：zip 备份 + JSONL 统计 + 扫描日志。
 2026-08-25 增强（用户：增加大量收集统计）：
 - T1: registry.call 自动打点 stats.jsonl（cost_report 不再恒为 0）
@@ -132,41 +134,6 @@ def backup(root=None, action="list", keep=7, date=None):
     return {"error": f"未知 action: {action}"}
 
 
-@tool("cost_report", "成本核算（调用次数+耗时，按工具汇总）", "ops",
-      {"type": "object",
-       "properties": {
-           "action": {"type": "string", "description": "summary/status（默认 summary）"},
-           "model": {"type": "string", "description": "模型单价键（估算用，默认 deepseek-chat）"},
-       },
-       "required": []})
-def cost_report(action="summary", model="deepseek-chat"):
-    prices = {"deepseek-chat": 0.002, "deepseek-reasoner": 0.004,
-              "gpt-4o": 0.01, "claude-3.5-sonnet": 0.015}
-    price = prices.get(model, 0.001)
-    if action == "status":
-        return {"stats_file": _STATS_FILE,
-                "exists": os.path.exists(_STATS_FILE),
-                "note": "registry.call 自动打点（每次调用写 stats.jsonl）"}
-    recs = _load_jsonl(_STATS_FILE)
-    by_tool = {}
-    total_ms = 0
-    for r in recs:
-        t = r.get("tool", "?")
-        by_tool.setdefault(t, {"calls": 0, "ms": 0})
-        by_tool[t]["calls"] += 1
-        by_tool[t]["ms"] += r.get("duration_ms", 0)
-        total_ms += r.get("duration_ms", 0)
-    rows = [{"tool": t, **v} for t, v in sorted(by_tool.items(), key=lambda x: -x[1]["calls"])]
-    total_calls = len(recs)
-    est_cost = total_calls * price * 0.001
-    return {
-        "total_calls": total_calls, "total_ms": total_ms,
-        "est_cost_usd": round(est_cost, 4),
-        "by_tool": rows[:30],
-        "model_price": price,
-    }
-
-
 @tool("scan_log", "扫描日志（查询/趋势，JSONL 落盘）", "ops",
       {"type": "object",
        "properties": {
@@ -238,53 +205,6 @@ def usage_stats(top=10, days=0):
         "hourly_distribution": hours,
         "days": days or "全部",
     }
-
-
-@tool("trend_analysis", "扫描趋势（按项目/按日 bug 数量变化）", "ops",
-      {"type": "object",
-       "properties": {
-           "root": {"type": "string", "description": "按项目过滤（可选）"},
-           "days": {"type": "integer", "description": "最近 N 天（默认 14）"},
-       },
-       "required": []})
-def trend_analysis(root=None, days=14):
-    """T5：扫描记录的趋势分析（bug 数量随时间的增减）。"""
-    recs = _load_jsonl(_SCANLOG_FILE)
-    cutoff = int(time.time()) - int(days) * 86400
-    by_day = collections.defaultdict(lambda: {"scans": 0, "issues": 0, "ok": 0, "fail": 0})
-    for r in recs:
-        ts = _norm_ts(r.get("ts"))
-        if ts is None or ts < cutoff:
-            continue
-        if root and root not in str(r.get("root", "")):
-            continue
-        d = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
-        by_day[d]["scans"] += 1
-        # 尝试解析 issues 数（summary 里 "issues=N" 或 record 里 issues 字段）
-        sm = str(r.get("summary", ""))
-        m = re_search_issues(sm)
-        if m:
-            by_day[d]["issues"] += int(m.group(1))
-        if r.get("ok"):
-            by_day[d]["ok"] += 1
-        else:
-            by_day[d]["fail"] += 1
-    series = [{"day": d, **v} for d, v in sorted(by_day.items())]
-    # 趋势判断：最后 3 天 vs 前 3 天
-    trend = "stable"
-    if len(series) >= 6:
-        recent = sum(s["issues"] for s in series[-3:])
-        prev = sum(s["issues"] for s in series[-6:-3])
-        if recent < prev:
-            trend = "improving"
-        elif recent > prev:
-            trend = "worsening"
-    return {"days": days, "trend": trend, "series": series, "total_scans": sum(s["scans"] for s in series)}
-
-
-def re_search_issues(text):
-    """从 summary 提取 issues=N。"""
-    return _re.search(r"issues=(\d+)", text)
 
 
 @tool("project_health", "项目健康度评分（bug/std/ui 综合 0-100）", "ops",

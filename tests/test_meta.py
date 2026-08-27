@@ -58,11 +58,3 @@ def test_process_list_filter():
     r = registry.call("process", {"action": "list", "name": "python.exe"})
     assert r["ok"], r
 
-
-def test_cheatsheet_has_blender_process():
-    """P4/P5: cheatsheet 补 blender/process 域。"""
-    r = registry.call("cmd_cheatsheet", {})
-    assert r["ok"]
-    domains = r["result"]["domains"]
-    assert "blender" in domains, f"应含 blender: {domains}"
-    assert "process" in domains, f"应含 process: {domains}"

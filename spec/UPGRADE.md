@@ -285,3 +285,38 @@ H1 Δ 按通道成对输出；HTTPError 状态码回显 + 429/5xx 阶梯退避(8
 
 如实挂账：GLM 价格列无可靠公开价故留空不编；judge 统一 deepseek-chat 单判官；
 GLM B 臂 n 未补满前 Δ+10pp 是方向性证据。
+
+---
+
+## S15 · 工具面废物清理 + H2 首测（2026-08-27）
+
+**清理原则：证据先行**。三路取证——① L3 实战 trace（100+ 真实智能体会话的工具调用计数）；
+② 全仓引用面扫描；③ 实现级依赖图。46 → **35 工具**，删除 11：
+
+| 删除 | 证据 | 归宿 |
+|---|---|---|
+| kb_query | 与 code_search 同 BM25 引擎；L3 暴露百次会话 **0 调用** | code_search 已覆盖 |
+| chatlog_search | 除定义外全仓零引用、无宿主数据源——提供不了证据的工具=能力幻觉 | 移除 |
+| cmd_cheatsheet | 静态手册，模型侧自有知识 | 移除 |
+| code_complete / ide_references | 文本级伪 LSP，零测试覆盖，与 code_search 重叠 | locate_edit/code_context 足够 |
+| cost_report / trend_analysis | 与 usage_stats / scan_log 的 trend action 同数据源重复投影 | 各留唯一读出口 |
+| pipeline / parallel（collab.py 整域） | 编排是智能体本职——"工具箱不抢活"边界第 4 条 | 移除整模块 |
+| pure_funcs / pure_batch（pure.py 整域） | 全仓无内部消费者，孤儿域 | 移除整模块 |
+
+同步：capability_manifest 能力清单更新；local_run 报错文案去 cheatsheet 引用；
+ab_run ARM_B_TOOLS 去 kb_query；usage_stats 成为调用统计唯一出口（测试固化）。
+基线推进：**115→116 passed / selftest 35 工具·12 域 / SCHEMA_BAD 0**。
+
+## H2 首测：hallucination_guard 判定 vs 路径存在性真值
+
+数据源=L3 双臂实验已收集答案（零 API 成本），`bench/h2_guard_eval.py` 双口径一致率：
+
+| 臂 | 文件声明数 | wide 一致率 | strict 一致率 |
+|---|---|---|---|
+| A 裸模型 | 652 | **100%** | **100%** |
+| B 模型+工具 | 727 | **100%** | **100%** |
+
+H2 门槛 ≥90%，实测满分达标。如实备注：本口径只考核文件声明维度（guard 对符号只给
+unverifiable 不计分、行号越界用例在语料中稀少），即 guard 在其强项上的满分；
+工具名判定另有既有测试锁定。runner 顺修两处 trace 质量债：tool_trace.ms 由恒 None 改为
+实测毫秒、turns 由 calls+1 修正为真实请求轮次。

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""tools/meta.py —— 元域（3 工具）：local_run / cmd_cheatsheet / process
+"""tools/meta.py —— 元域（2 工具）：local_run / process
 
 local_run：白名单命令执行（收敛自旧版 local_run + local_tools）。
 2026-08-24 修复（用户实测暴露）：
@@ -101,25 +101,10 @@ def _cancel_event():
     return cancel_flag(mid)
 
 
-@tool("cmd_cheatsheet", "内建命令手册（省 token，不用试错找命令）", "meta",
-      {"type": "object",
-       "properties": {"domain": {"type": "string", "description": "cargo/git/python/blender/process/unifiedrx（缺省全部）"}},
-       "required": []})
-def cmd_cheatsheet(domain=None):
-    if domain:
-        cmds = _CHEATSHEET.get(domain, [])
-        return {"domain": domain, "commands": [{"name": n, "cmd": c, "desc": d} for n, c, d in cmds]}
-    out = {}
-    for d, cmds in _CHEATSHEET.items():
-        out[d] = [n for n, _, _ in cmds]
-    return {"domains": list(_CHEATSHEET), "total": sum(len(v) for v in _CHEATSHEET.values()),
-            "by_domain": out}
-
-
 @tool("local_run", "执行内建命令模板（白名单，subprocess+超时；需 __authorized=True；长驻命令用 background=true）", "meta",
       {"type": "object",
        "properties": {
-           "domain": {"type": "string", "description": "命令域（查 cmd_cheatsheet）"},
+            "domain": {"type": "string", "description": "命令域（python/git/fs 等内建模板）"},
            "name": {"type": "string", "description": "命令名"},
            "args": {"type": "object", "description": "占位符参数 {pkg}/{script} 等"},
            "workdir": {"type": "string", "description": "工作目录（默认当前）"},
@@ -133,7 +118,7 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
     cmds = _COMMANDS.get(domain, {})
     template = cmds.get(name)
     if not template:
-        return {"error": f"未知命令: {domain}/{name}；查 cmd_cheatsheet"}
+        return {"error": f"未知命令: {domain}/{name}；可用模板以内建白名单为准"}
     # 填充占位符（P1：内置默认值，blender 无需传路径）
     cmd = _fill_defaults(domain, name, template, args)
     # 残留未填充占位符 → 明确报错（不误报"不安全字符"）

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""tools/search.py —— 语义检索域（2 工具）：code_search / kb_query
+"""tools/search.py —— 语义检索域（1 工具）：code_search
 
-收敛自旧版 code_search(BM25) + explore_code/semantic_search/dep_graph/kb_query。
+收敛自旧版 code_search(BM25) + explore_code/semantic_search/dep_graph/kb_query；
+kb_query 于 S15 移除（同引擎重复面，L3 实战 100+ 会话零调用）。
 纯 stdlib BM25（无 Rust 依赖，零嵌入模型）——检索质量够用且本地秒级。
 """
 import os
@@ -196,25 +197,3 @@ def code_search(query, root=None, k=10):
     return {"query": query, "total": len(hits), "hits": hits}
 
 
-@tool("kb_query", "知识库/文档混合检索（同 BM25 引擎，懒建索引）", "search",
-      {"type": "object",
-       "properties": {
-           "index_dir": {"type": "string", "description": "源码/知识库目录"},
-           "query": {"type": "string", "description": "检索词"},
-           "limit": {"type": "integer", "description": "返回条数（默认 10）"},
-       },
-       "required": ["index_dir", "query"]})
-def kb_query(index_dir, query, limit=10):
-    if not os.path.isdir(index_dir):
-        return {"error": f"不是目录: {index_dir}"}
-    idx, doc_len, doc_paths = _get_index(os.path.abspath(index_dir))
-    ranked, _raw = _bm25(idx, doc_len, doc_paths, query)
-    hits = []
-    for fp, score in ranked[:limit]:
-        try:
-            with open(fp, "r", encoding="utf-8", errors="replace") as f:
-                head = f.read(400)
-        except OSError:
-            head = ""
-        hits.append({"file": fp, "score": round(score, 3), "head": head.strip()[:120]})
-    return {"query": query, "total": len(hits), "hits": hits}

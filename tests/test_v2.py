@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """tests/test_v2.py —— unified-rx-v2 全量测试（P3 增强后）
 
-覆盖：注册表/协议/fs/pure/scan/ide/guard/learn/ops/search/collab/engine。
+覆盖：注册表/协议/fs/scan/ide/guard/learn/ops/search/engine。
+S15 起移除 pure/collab 域与 cmd_cheatsheet（废物清理，见 UPGRADE.md S15）。
 运行：python -m pytest tests/ -q
 """
 import os
@@ -68,23 +69,6 @@ def test_fs_sandbox():
     finally:
         if old is not None:
             os.environ["UNIFIED_RX_SANDBOX"] = old
-
-
-def test_pure_actions():
-    """纯函数关键动作。"""
-    r = registry.call("pure_funcs", {"action": "add", "a": 2, "b": 3})
-    assert r["ok"] and r["result"]["value"] == 5
-    r = registry.call("pure_funcs", {"action": "upper", "s": "abc"})
-    assert r["result"]["value"] == "ABC"
-    r = registry.call("pure_funcs", {"action": "is_prime", "n": 17})
-    assert r["result"]["value"] is True
-    r = registry.call("pure_funcs", {"action": "div", "a": 1, "b": 0})
-    assert not r["ok"], "除零应报错"
-
-
-def test_pure_batch():
-    r = registry.call("pure_batch", {"action": "add", "inputs": [{"a": 1, "b": 2}, {"a": 3, "b": 4}]})
-    assert r["ok"] and r["result"]["count"] == 2
 
 
 def test_scan_bug_scan(tmp_path):
@@ -240,33 +224,11 @@ def test_lesson_add_recall(tmp_path):
     assert r2["result"]["matched"] >= 1, f"应匹配到教训: {r2}"
 
 
-def test_ops_cost():
-    r = registry.call("cost_report", {})
-    assert r["ok"] and "total_calls" in r["result"]
-
-
 def test_search_code(tmp_path):
     f = Path(tmp_path) / "demo.rs"
     f.write_text("fn compute_damage() -> i32 { 42 }\n", encoding="utf-8")
     r = registry.call("code_search", {"query": "damage 计算", "root": str(tmp_path)})
     assert r["ok"] and r["result"]["total"] >= 1
-
-
-def test_collab_pipeline(tmp_path):
-    f = Path(tmp_path) / "t.py"
-    f.write_text("print('hi')\n", encoding="utf-8")
-    r = registry.call("pipeline", {"preset": "audit_repo", "path": str(tmp_path)})
-    assert r["ok"] and r["result"]["steps"] == 2
-
-
-def test_collab_parallel(tmp_path):
-    f = Path(tmp_path) / "t.py"
-    f.write_text("print('hi')\n", encoding="utf-8")
-    r = registry.call("parallel", {"tasks": [
-        {"tool": "bug_scan", "args": {"path": str(tmp_path)}},
-        {"tool": "std_check", "args": {"path": str(tmp_path)}},
-    ]})
-    assert r["ok"] and r["result"]["count"] == 2
 
 
 def test_engine_status():

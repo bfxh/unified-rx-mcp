@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""tools/learn.py —— 记忆域（2 工具）：lesson / chatlog_search
+"""tools/learn.py —— 记忆域（1 工具）：lesson
 
-收敛自旧版 lesson_recall_lse/lesson_feedback/rule_feedback + chatlog_search。
+收敛自旧版 lesson_recall_lse/lesson_feedback/rule_feedback；chatlog_search 已于 S15 移除
+（无宿主数据源、零外部引用——提供不了证据的工具就是能力幻觉）。
 本地 JSONL 教训库（无 LSE Rust 引擎依赖，纯 stdlib）。
 """
 import os
@@ -99,37 +100,3 @@ def lesson(action, task_description=None, text=None, lessons_dir=None):
     return {"error": f"未知 action: {action}"}
 
 
-@tool("chatlog_search", "跨智能体聊天记录检索（统一索引）", "learn",
-      {"type": "object",
-       "properties": {
-           "query": {"type": "string", "description": "关键词"},
-           "agent": {"type": "string", "description": "智能体过滤（hermes/trae/qoder/marvis）"},
-           "limit": {"type": "integer", "description": "结果上限（默认 20）"},
-           "index_file": {"type": "string", "description": "索引文件（默认 ~/.unified-rx/chatlog.jsonl）"},
-       },
-       "required": ["query"]})
-def chatlog_search(query, agent=None, limit=20, index_file=None):
-    path = index_file or os.path.join(os.path.expanduser("~"), ".unified-rx", "chatlog.jsonl")
-    if not os.path.exists(path):
-        return {"ok": True, "hits": [], "total": 0, "note": "索引未建"}
-    hits = []
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except Exception:
-                    continue
-                if agent and rec.get("agent") != agent:
-                    continue
-                text = f"{rec.get('title', '')} {rec.get('text', '')}"
-                if query.lower() in text.lower():
-                    hits.append(rec)
-                    if len(hits) >= limit:
-                        break
-    except OSError:
-        pass
-    return {"ok": True, "hits": hits, "total": len(hits)}

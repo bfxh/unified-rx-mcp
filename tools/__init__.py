@@ -9,7 +9,6 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from . import fs        # noqa: F401,E402
-from . import pure      # noqa: F401,E402
 from . import scan      # noqa: F401,E402
 from . import ide       # noqa: F401,E402
 from . import guard     # noqa: F401,E402
@@ -17,7 +16,6 @@ from . import learn     # noqa: F401,E402
 from . import ops       # noqa: F401,E402
 from . import search    # noqa: F401,E402
 from . import game      # noqa: F401,E402
-from . import collab    # noqa: F401,E402
 from . import meta      # noqa: F401,E402
 from . import engine    # noqa: F401,E402
 from . import bevy      # noqa: F401,E402

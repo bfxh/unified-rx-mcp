@@ -8,7 +8,7 @@
 - I1: ide_edit_multi 支持 occ 参数（同内容多处，指定第几次出现）
 - I2: 行数组块匹配（消除拼接字符串 find 的顺序依赖隐患）
 - I3: 写回保留原行尾（CRLF/LF 不破坏）
-- I4: locate_edit/ide_references 等 max_files 只计代码文件
+- I4: locate_edit 等 max_files 只计代码文件
 """
 import os
 import re
@@ -204,36 +204,6 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False, old_lines=No
     return {"applied": applied, "errors": errors, "file": p, "eol": "CRLF" if eol == "\r\n" else "LF"}
 
 
-# ---------- ide_references：符号引用查找 ----------
-@tool("ide_references", "查找符号定义与引用（文本级）", "ide",
-      {"type": "object",
-       "properties": {
-           "root": {"type": "string", "description": "代码库根目录"},
-           "symbol": {"type": "string"},
-       },
-       "required": ["root", "symbol"]})
-def ide_references(root, symbol):
-    try:
-        root = _fs_resolve(root)
-    except ValueError as e:
-        return {"error": str(e)}
-    if not os.path.isdir(root):
-        return {"error": f"不是目录: {root}"}
-    defs, refs = [], []
-    for fp in _iter_files(root, 200):
-        src = _read(fp)
-        if not src:
-            continue
-        for idx, line in enumerate(src.split("\n"), 1):
-            if symbol not in line:
-                continue
-            item = {"file": fp, "line": idx, "text": line.strip()[:100]}
-            # 定义启发：def/fn/func/class/struct/const/let + 符号
-            if re.search(rf"\b(def|fn|func|class|struct|enum|const|let|pub)\s+{re.escape(symbol)}\b", line):
-                defs.append(item)
-            else:
-                refs.append(item)
-    return {"symbol": symbol, "defs": defs[:10], "refs": refs[:30], "total": len(defs) + len(refs)}
 
 
 # ---------- ide_rename：安全重命名（建议不落盘） ----------
@@ -268,35 +238,3 @@ def ide_rename(root, symbol, new_name, include_plan=False):
     }
 
 
-# ---------- code_complete：符号补全（文本级） ----------
-@tool("code_complete", "符号补全：声明优先（文本级，无 LSP）", "ide",
-      {"type": "object",
-       "properties": {
-           "root": {"type": "string"},
-           "file": {"type": "string", "description": "当前文件"},
-           "prefix": {"type": "string", "description": "补全前缀"},
-       },
-       "required": ["root", "prefix"]})
-def code_complete(root, prefix, file=None):
-    try:
-        root = _fs_resolve(root)
-    except ValueError as e:
-        return {"error": str(e)}
-    if not os.path.isdir(root):
-        return {"error": f"不是目录: {root}"}
-    decls, others = set(), set()
-    for fp in _iter_files(root, 100):
-        src = _read(fp)
-        if not src:
-            continue
-        # 前缀开头匹配（I5 修复：counter 匹配 count）
-        for m in re.finditer(rf"\b{re.escape(prefix)}[A-Za-z0-9_]*\b", src):
-            name = m.group(0)
-            line = src[:m.start()].count("\n") + 1
-            line_text = src.split("\n")[line - 1]
-            if re.search(rf"\b(def|fn|func|class|struct|enum|const|let)\b.*{name}", line_text):
-                decls.add(name)
-            else:
-                others.add(name)
-    suggestions = sorted(decls)[:10] + sorted(others - decls)[:10]
-    return {"prefix": prefix, "suggestions": suggestions, "total": len(suggestions)}

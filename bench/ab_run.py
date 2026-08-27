@@ -38,7 +38,7 @@ YAN_CONFIG = os.environ.get("YAN_CONFIG",
 VF3_ROOT = r"D:\开发\VoxelForge-V3"
 
 # B 臂只读证据子集（评测配置，如实在 manifest 里记录）
-ARM_B_TOOLS = ["code_search", "engine_query", "kb_query", "fs_list", "fs_read",
+ARM_B_TOOLS = ["code_search", "engine_query", "fs_list", "fs_read",
                "fs_stat", "bug_scan", "ast_scan", "std_check", "bug_locate",
                "code_context", "project_scan"]
 PRICE_PER_MTOK = {"deepseek-chat": (0.27, 1.10)}          # (in,out) $/Mtok 近似公开价
@@ -156,11 +156,12 @@ def arm_b_schemas():
 # ---------- B 臂工具循环 ----------
 
 def exec_tool(name, args):
+    t0 = time.time()
     r = registry.call_with_context(name, args, request_id=f"ab-{int(time.time()*1000)}")
     txt = json.dumps(r, ensure_ascii=False)
     if len(txt) > TOOL_RESULT_CAP:
         txt = txt[:TOOL_RESULT_CAP] + f"\n…[runner truncated {len(txt)-TOOL_RESULT_CAP} chars]"
-    return txt
+    return txt, round((time.time() - t0) * 1000)
 
 
 def run_arm_b(ch, model, task, max_rounds, trace_out):
@@ -170,7 +171,9 @@ def run_arm_b(ch, model, task, max_rounds, trace_out):
     usage_in = usage_out = 0
     tool_trace = []
     answer = None
+    rounds_used = 0
     for rnd in range(max_rounds):
+        rounds_used = rnd + 1
         active_tools = schemas if len(tool_trace) < MAX_TOOL_EXEC else None
         t0 = time.time()
         resp = chat(ch, model, msgs, tools_schema=active_tools)
@@ -191,9 +194,8 @@ def run_arm_b(ch, model, task, max_rounds, trace_out):
                 args = json.loads(fn.get("arguments") or "{}")
             except json.JSONDecodeError:
                 args = {}
-            tr = exec_tool(fn.get("name", ""), args)
-            tool_trace.append({"tool": fn.get("name"), "round": rnd,
-                               "ms": None})
+            tr, ms = exec_tool(fn.get("name", ""), args)
+            tool_trace.append({"tool": fn.get("name"), "round": rnd, "ms": ms})
             msgs.append({"role": "tool", "tool_call_id": c.get("id"),
                          "content": tr})
         trace_out.append(f"round{rnd}: {len(calls)} calls "
@@ -206,7 +208,7 @@ def run_arm_b(ch, model, task, max_rounds, trace_out):
         usage_in += i
         usage_out += o
         answer = (resp.get("choices") or [{}])[0].get("message", {}).get("content") or ""
-    return answer, usage_in, usage_out, tool_trace
+    return answer, usage_in, usage_out, tool_trace, rounds_used
 
 
 # ---------- 运行 / 记录 ----------
@@ -250,11 +252,11 @@ def run(args):
                     rec["tokens_in"], rec["tokens_out"] = usage_of(resp)
                     rec["turns"] = 1
                 else:
-                    ans, tin, tout, tr = run_arm_b(ch, args.model, t,
-                                                   args.max_rounds, notes)
+                    ans, tin, tout, tr, rnds = run_arm_b(ch, args.model, t,
+                                                         args.max_rounds, notes)
                     rec["answer"] = ans
                     rec["tokens_in"], rec["tokens_out"] = tin, tout
-                    rec["turns"] = len(tr) + 1
+                    rec["turns"] = rnds
                     rec["tool_trace"] = tr
             except SystemExit as e:
                 rec.update({"answer": "", "error_run": str(e), "notes": notes})

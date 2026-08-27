@@ -5,7 +5,7 @@
 - 工具注册即声明（装饰器），零反射
 - 统一分发入口 call()，错误隔离（单工具异常 → {ok:false}，不拖垮协议层）
 - group 用于工具面收敛统计与文档生成
-- 2026-08-25: call() 自动打点（duration_ms 写入 stats.jsonl，供 cost_report/usage 统计）
+  - 2026-08-25: call() 自动打点（duration_ms 写入 stats.jsonl，供 usage_stats 统计；S15 起 cost_report 已并入 usage_stats）
 """
 import json
 import os
@@ -209,7 +209,7 @@ def groups():
 
 
 def _record_stats(tool_name, duration_ms):
-    """工具调用打点（cost_report/usage_stats 的数据源）。"""
+    """工具调用打点（usage_stats 的数据源）。"""
     try:
         home = os.path.join(os.path.expanduser("~"), ".unified-rx")
         os.makedirs(home, exist_ok=True)

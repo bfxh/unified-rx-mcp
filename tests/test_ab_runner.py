@@ -119,5 +119,17 @@ def s_param_ok(entry):
 
 
 def test_exec_tool_unknown_tool_is_structured_error():
-    txt = ab_run.exec_tool("__no_such_tool__", {})
-    assert '"ok": false' in txt.replace(" ", "").replace('"ok":false', '"ok": false') or "未知工具" in txt
+    txt, ms = ab_run.exec_tool("__no_such_tool__", {})
+    assert "未知工具" in txt and isinstance(ms, int) and ms >= 0
+
+
+# ---------- H2 guard 评测脚手架 ----------
+
+def test_h2_file_re_parses_claim_with_symbol_suffix():
+    import h2_guard_eval as h2
+    m = h2.FILE_RE.fullmatch("crates/app/src/terrain.rs".strip("`"))
+    assert m and m.group(1).endswith(".rs")
+    m2 = h2.FILE_RE.fullmatch("src/physics/terrain.rs:build_collider")
+    assert m2 and m2.group(2) == "build_collider"     # :符号 不冒充行号
+    assert h2.truth_exists("crates/app/src/main.rs") is True
+    assert h2.truth_exists("src/physics/terrain.rs") is False
