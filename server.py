@@ -110,6 +110,9 @@ def _handle(msg):
         # __authorized 授权由 registry.call 的 requires_auth 统一强制（UPGRADE-A1）
         # S10：绑定请求上下文——工具内部（local_run 取消轮询）可查 cancel_flag(request_id)
         registry.set_request_context(msg_id)
+        # S12：progressToken 透传（MCP 规范 notifications/progress）
+        ptoken = (params.get("_meta") or {}).get("progressToken")
+        registry.set_progress_context(ptoken)
         try:
             result = registry.call(name, args)
         finally:
@@ -151,6 +154,14 @@ def main():
         sys.exit(selftest())
     # 通知 stdout 由 main 持有；log_msg 从任意线程安全发送
     registry.set_notifier(lambda level, msg: log_msg(level, msg))
+
+    def _send_progress(token, progress, message=None):
+        p = {"progressToken": token, "progress": progress}
+        if message:
+            p["message"] = str(message)[:120]
+        _send({"jsonrpc": "2.0", "method": "notifications/progress", "params": p})
+
+    registry.set_progress_sender(_send_progress)
     # 协议主循环：tools/call 交给线程池执行，主循环继续读 stdin。
     # 慢工具（local_run/fs_list/engine_query）不再阻塞 ping/keepalive，
     # 否则 Hermes 会判定服务器失联并重连，最终把 in-flight 调用掐成 300s 超时。

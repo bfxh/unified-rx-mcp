@@ -1,13 +1,12 @@
 {
  "root": "D:\\开发\\VoxelForge-V3",
- "ts": 1787813568,
+ "ts": 1787815188,
  "bug_scan": {
   "files": 19,
   "total": 597,
   "by_severity": {
-   "low": 367,
-   "info": 209,
-   "high": 21
+   "low": 388,
+   "info": 209
   },
   "by_rule": {
    "unwrap": 210,
@@ -17,7 +16,7 @@
    "panic": 21,
    "bevy_query_single": 3
   },
-  "elapsed_s": 0.11
+  "elapsed_s": 0.1
  },
  "std_check": {
   "files": 19,
@@ -41,7 +40,7 @@
    "rust": 15,
    "python": 4
   },
-  "elapsed_s": 0.08,
+  "elapsed_s": 0.09,
   "rust_units": [
    {
     "file": "crates\\app\\src\\geom.rs",
@@ -49,9 +48,9 @@
     "lines": 323,
     "strings_masked": 1,
     "comments_masked": 32,
-    "fn_count": 20,
+    "fn_count": 23,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [],
     "fns": [
      "ground_cell",
      "lift_above_ground",
@@ -62,7 +61,6 @@
      "ray_hit_module_face",
      "surface_place_cell",
      "ground_point",
-     "ray_hit_rendered_module",
      "cells_aabb",
      "module_aabb",
      "rotated_cells",
@@ -72,7 +70,11 @@
      "boxes_mesh",
      "cells_mesh",
      "corner_frame_mesh",
-     "edge_frame_mesh"
+     "edge_frame_mesh",
+     "ray",
+     "ray_aabb_face_top_hit_returns_up_normal",
+     "ray_aabb_face_side_hit_returns_side_normal",
+     "surface_place_cell_sticks_to_faced_surface"
     ]
    },
    {
@@ -81,50 +83,49 @@
     "lines": 2140,
     "strings_masked": 100,
     "comments_masked": 204,
-    "fn_count": 37,
+    "fn_count": 23,
     "unsafe_count": 2,
-    "unsafe_lines": [
-     387,
-     392
+    "risky_fns": [
+     {
+      "fn": "alert_already_running",
+      "unwrap": 0,
+      "unsafe": 2
+     },
+     {
+      "fn": "build_sky_and_light",
+      "unwrap": 1,
+      "unsafe": 0
+     },
+     {
+      "fn": "<toplevel>",
+      "unwrap": 1,
+      "unsafe": 0
+     }
     ],
     "fns": [
      "default",
-     "cells_hit_rocks",
      "main",
      "setup_scene",
-     "refresh_rock_terrain",
      "build_sky_and_light",
      "def",
      "build_demo_assembly",
      "drop",
      "acquire_instance_lock",
      "alert_already_running",
-     "MessageBoxW",
      "alert_already_running",
      "setup_assembly",
      "load_module_defs",
      "cursor_pos_system",
      "held_reference",
-     "pick_snap_feedback",
-     "nearby_target_mounts",
      "vehicle_compound_parts",
-     "sync_entities",
-     "pick_place",
      "rotate_picked",
-     "preview_follow",
-     "sync_vehicle_bodies",
-     "vehicle_freeze_system",
      "rock_top_y",
-     "mount_highlight",
-     "connected_module_ripple",
-     "selection_system",
-     "save_load_system",
-     "vehicle_move_system",
-     "wheel_suspension_system",
-     "save_with_physics",
-     "collision_damage_system",
-     "camera_control",
-     "debug_log_system"
+     "module_library_ron_parses",
+     "terrain_height_is_flat_ground",
+     "vehicle_compound_contains_all_vehicle_cells",
+     "vehicle_compound_center_is_mass_weighted",
+     "save_load_roundtrip_preserves_modules_and_edges",
+     "demo_assembly_contains_cab_structure_and_wheels"
     ]
    },
    {
@@ -135,7 +136,7 @@
     "comments_masked": 45,
     "fn_count": 12,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [],
     "fns": [
      "terrain_height",
      "rolling_height",
@@ -143,12 +144,12 @@
      "rock_cells",
      "rock_shape",
      "terrain_color",
-     "build_terrain",
      "height",
      "current_terrain_mode",
      "ground_collider_for_mode",
-     "terrain_switch_system",
-     "heightfield_data"
+     "heightfield_data",
+     "heightfield_samples_match_render_terrain",
+     "terrain_mesh_winding_faces_up"
     ]
    },
    {
@@ -157,9 +158,9 @@
     "lines": 1183,
     "strings_masked": 48,
     "comments_masked": 100,
-    "fn_count": 27,
+    "fn_count": 10,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [],
     "fns": [
      "ui_rect",
      "panel_bg",
@@ -168,25 +169,8 @@
      "category_name",
      "spawn_ui",
      "spawn_inventory_panel",
-     "ui_search_system",
-     "ui_search_focus_system",
-     "ui_classify_switch_system",
-     "ui_category_list_system",
      "spawn_category_slots",
      "spawn_corp_slots",
-     "ui_corp_system",
-     "ui_inventory_system",
-     "spawn_item_slot",
-     "ui_item_click_system",
-     "ui_category_system",
-     "ui_item_scroll_system",
-     "ui_tooltip_system",
-     "ui_status_system",
-     "ui_vehicle_system",
-     "ui_toast_system",
-     "ui_vehicle_menu_system",
-     "ui_settings_system",
-     "ui_terrain_buttons_system",
      "show_toast"
     ]
    },
@@ -196,16 +180,21 @@
     "lines": 133,
     "strings_masked": 0,
     "comments_masked": 9,
-    "fn_count": 6,
+    "fn_count": 11,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [],
     "fns": [
      "drive_mode",
      "drive_fraction",
-     "drive_command",
      "steering_angle",
      "suspension_response",
-     "suspension_force"
+     "suspension_force",
+     "four_wheels_are_all_drive",
+     "wheel_count_defaults_are_sensible",
+     "input_is_clamped_and_brake_opposes_motion",
+     "steering_respects_custom_limit",
+     "spring_force_has_damping",
+     "suspension_compression_and_damping_are_bounded"
     ]
    },
    {
@@ -216,7 +205,18 @@
     "comments_masked": 14,
     "fn_count": 4,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [
+     {
+      "fn": "m3_remove_keeps_vehicle_connected_and_regroups_fragments",
+      "unwrap": 7,
+      "unsafe": 0
+     },
+     {
+      "fn": "m3_two_vehicles_coexist_after_detach",
+      "unwrap": 5,
+      "unsafe": 0
+     }
+    ],
     "fns": [
      "demo_defs",
      "m3_w_drive_semantics_move_root_vehicle",
@@ -230,11 +230,31 @@
     "lines": 1306,
     "strings_masked": 53,
     "comments_masked": 102,
-    "fn_count": 48,
+    "fn_count": 61,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [
+     {
+      "fn": "rotate_vehicle_y",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "translate_vehicle",
+      "unwrap": 2,
+      "unsafe": 0
+     },
+     {
+      "fn": "set_root",
+      "unwrap": 1,
+      "unsafe": 0
+     },
+     {
+      "fn": "set_module_origin",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
     "fns": [
-     "mount_edge_strength",
      "new",
      "register",
      "place_root",
@@ -247,9 +267,7 @@
      "place_free",
      "place_free_with_vehicle",
      "place_attach",
-     "place_inner",
      "compute_world_mounts",
-     "connection_matches",
      "compute_connections",
      "remove",
      "damage_module",
@@ -264,7 +282,6 @@
      "snap_candidates",
      "snap_candidates_uncached",
      "invalidate_candidates",
-     "contact_connects",
      "connected_components",
      "detect_fragments",
      "len",
@@ -273,7 +290,11 @@
      "rotate_vehicle_y",
      "set_module_origin",
      "vehicle_mass",
-     "vehicle_center"
+     "vehicle_center",
+     "impact_damage",
+     "rebuild_edges_for_vehicle",
+     "save",
+     "load"
     ]
    },
    {
@@ -282,12 +303,15 @@
     "lines": 47,
     "strings_masked": 0,
     "comments_masked": 5,
-    "fn_count": 2,
+    "fn_count": 5,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [],
     "fns": [
      "is_exposed",
-     "exposed_faces"
+     "exposed_faces",
+     "single_cube_all_faces_exposed",
+     "two_cubes_hide_shared_face",
+     "l_shape_exposed"
     ]
    },
    {
@@ -298,7 +322,7 @@
     "comments_masked": 1,
     "fn_count": 0,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [],
     "fns": []
    },
    {
@@ -307,9 +331,15 @@
     "lines": 328,
     "strings_masked": 45,
     "comments_masked": 17,
-    "fn_count": 14,
+    "fn_count": 21,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [
+     {
+      "fn": "check_connected",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
     "fns": [
      "add",
      "sub",
@@ -324,7 +354,14 @@
      "check_global",
      "check_category",
      "check_standards",
-     "check_connected"
+     "check_connected",
+     "block",
+     "block_local_cells",
+     "cells_shape_various",
+     "validate_rejects_bad",
+     "validate_rejects_internal_mount",
+     "face_neighbor_opposite",
+     "chinese_names_ron_roundtrip"
     ]
    },
    {
@@ -333,12 +370,14 @@
     "lines": 73,
     "strings_masked": 7,
     "comments_masked": 5,
-    "fn_count": 2,
+    "fn_count": 4,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [],
     "fns": [
-     "resolve_cell",
-     "try_place"
+     "try_place",
+     "def",
+     "resolve_overlap_outward",
+     "resolve_no_overlap_unchanged"
     ]
    },
    {
@@ -347,9 +386,15 @@
     "lines": 188,
     "strings_masked": 3,
     "comments_masked": 8,
-    "fn_count": 14,
+    "fn_count": 19,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [
+     {
+      "fn": "apply_to_face",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
     "fns": [
      "apply_to_coord",
      "apply_to_face",
@@ -364,7 +409,12 @@
      "rotate_y_90_idx",
      "rotate_x_90_idx",
      "rotate_z_90_idx",
-     "rotate_idx"
+     "rotate_idx",
+     "rotations_24_orthonormal_distinct",
+     "apply_to_face_roundtrip",
+     "coord_rotate_roundtrip",
+     "rotate_y_90_idx_four_times_identity",
+     "multi_cell_rotation_keeps_local_min_at_zero"
     ]
    },
    {
@@ -375,7 +425,7 @@
     "comments_masked": 7,
     "fn_count": 8,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [],
     "fns": [
      "defn",
      "asm",
@@ -393,9 +443,70 @@
     "lines": 1042,
     "strings_masked": 259,
     "comments_masked": 96,
-    "fn_count": 56,
+    "fn_count": 54,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [
+     {
+      "fn": "pick_place_roundtrip_100x",
+      "unwrap": 5,
+      "unsafe": 0
+     },
+     {
+      "fn": "bridge_remove_and_reconnect",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "chain_100_integrity",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "save_load_roundtrip",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "pick_place_roundtrip_l_shape_100x",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "rotate_vehicle_rebuilds_edge_faces",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "all_rotations_connect_6dirs",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "vehicle_group_same_vehicle_snaps",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "different_vehicle_not_snap",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "vehicle_translate_moves_all_members",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "vehicle_translate_rejected_on_collision",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "vehicle_rotate_y_keeps_structure",
+      "unwrap": 3,
+      "unsafe": 0
+     }
+    ],
     "fns": [
      "def",
      "def_l",
@@ -447,7 +558,43 @@
     "comments_masked": 34,
     "fn_count": 10,
     "unsafe_count": 0,
-    "unsafe_lines": [],
+    "risky_fns": [
+     {
+      "fn": "m7_island_vehicle_survives_foreign_events",
+      "unwrap": 9,
+      "unsafe": 0
+     },
+     {
+      "fn": "m4_removal_order_closure_and_rebuild",
+      "unwrap": 7,
+      "unsafe": 0
+     },
+     {
+      "fn": "m6_save_load_matrix",
+      "unwrap": 7,
+      "unsafe": 0
+     },
+     {
+      "fn": "m3_multi_cell_rotations_no_overlap",
+      "unwrap": 5,
+      "unsafe": 0
+     },
+     {
+      "fn": "m2_rotation_matrix_24_orientations",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "m1_snap_candidates_all_defs_all_placeable",
+      "unwrap": 2,
+      "unsafe": 0
+     },
+     {
+      "fn": "m5_two_cars_and_cross_attach",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
     "fns": [
      "def",
      "std_assembly",

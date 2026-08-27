@@ -41,13 +41,15 @@ send({"jsonrpc": "2.0", "id": call_id, "method": "tools/call",
       "params": {"name": "local_run",
                  "arguments": {"domain": "python", "name": "script",
                                "args": {"script": str(sleep_py)},
-                               "timeout": 40, "__authorized": True}}})
-time.sleep(1.5)                      # 让进程先跑起来
+                               "timeout": 40, "__authorized": True},
+                 "_meta": {"progressToken": "pt-42"}}})
+time.sleep(3.0)                      # 让进程跑起来并至少发一次 1.5s 心跳
 send({"jsonrpc": "2.0", "method": "notifications/cancelled",
       "params": {"requestId": call_id}})
 
 resp = None
 notes = []
+progress_notes = []
 deadline = time.monotonic() + 20
 while time.monotonic() < deadline:
     line = proc.stdout.readline()
@@ -62,6 +64,8 @@ while time.monotonic() < deadline:
         break
     if m.get("method") == "notifications/message":
         notes.append(m["params"]["data"][:80])
+    if m.get("method") == "notifications/progress":
+        progress_notes.append(m["params"].get("progress"))
 
 wall = time.monotonic() - t0
 proc.terminate()
@@ -72,10 +76,11 @@ print(json.dumps({
     "wall_seconds": round(wall, 2),
     "isError": resp["result"].get("isError") if resp else None,
     "cancelled_in_payload": ("cancelled" in txt) or ("取消" in txt),
-    "payload_preview": txt[:220],
+    "progress_notes": progress_notes,
+    "payload_preview": txt[:200],
     "log_notes": notes[:3],
 }, ensure_ascii=False))
 ok = bool(resp and resp["result"].get("isError") and wall < 10
-          and (("cancelled" in txt) or ("取消" in txt)))
-print("E2E-CANCEL:", "PASS" if ok else "FAIL")
+          and (("cancelled" in txt) or ("取消" in txt)) and len(progress_notes) >= 1)
+print("E2E-CANCEL+PROGRESS:", "PASS" if ok else "FAIL")
 sys.exit(0 if ok else 1)

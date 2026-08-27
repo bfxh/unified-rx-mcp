@@ -150,6 +150,17 @@ def test_scan_rust_test_dir_downgrade(tmp_path):
             assert i["severity"] == "low", f"tests 里 unwrap 应 low: {i}"
 
 
+def test_bug_scan_panic_in_test_downgraded(tmp_path):
+    """S12 语境诚实化：panic! 在 tests 目录/cfg(test) 内降级为 clue（VF3 实证 21/21 在测试区）。"""
+    d = tmp_path / "src" / "tests"
+    d.mkdir(parents=True)
+    f = d / "t.rs"
+    f.write_text('fn x() { panic!("boom"); }\n', encoding="utf-8")
+    r = registry.call("bug_scan", {"path": str(tmp_path)})
+    hits = [i for i in r["result"]["issues"] if i["rule"] == "panic"]
+    assert hits and all(h["severity"] == "low" and "测试上下文" in h["msg"] for h in hits)
+
+
 def test_scan_std_check(tmp_path):
     f = Path(tmp_path) / "a.py"
     f.write_text("TODO: finish this\n", encoding="utf-8")

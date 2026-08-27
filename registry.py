@@ -58,6 +58,31 @@ def clear_request_context():
         del _REQ_LOCAL.msg_id
     except AttributeError:
         pass
+    try:
+        del _REQ_LOCAL.progress_token
+    except AttributeError:
+        pass
+
+
+def set_progress_context(token):
+    """带 progressToken 的 tools/call 绑定（S12：local_run 等长任务心跳）。"""
+    _REQ_LOCAL.progress_token = token
+
+
+# 进度发送器由 server 注入（stdout 归属协议层）
+_PROGRESS_SENDER = [None]
+
+
+def set_progress_sender(fn):
+    _PROGRESS_SENDER[0] = fn
+
+
+def notify_progress(progress, message=None):
+    """工具内调用；无 token/无 sender 时静默 no-op——直调测试不受影响。"""
+    tok = getattr(_REQ_LOCAL, "progress_token", None)
+    fn = _PROGRESS_SENDER[0]
+    if tok is not None and fn is not None:
+        fn(tok, progress, message)
 
 
 def current_request_id():

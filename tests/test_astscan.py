@@ -140,6 +140,24 @@ def test_rust_lifetime_not_masked_as_char(tmp_path):
     assert any(i["rule"] == "rust_unsafe" for i in r["result"]["issues"])
 
 
+# ---------- S12 函数级切片归属 ----------
+
+def test_rust_fn_attribution_and_risky_fns(tmp_path):
+    f = tmp_path / "t.rs"
+    f.write_text(
+        "fn clean() { let a = 1; }\n"
+        "fn dirty() {\n    x.unwrap();\n    y.unwrap();\n}\n"
+        "fn tricky() {\n    unsafe { z() }\n}\n", encoding="utf-8")
+    r = registry.call("ast_scan", {"path": str(f)})
+    res = r["result"]
+    owners = {(i["rule"], i["fn"]) for i in res["issues"]}
+    assert ("rust_unwrap_expect", "dirty") in owners
+    assert ("rust_unsafe", "tricky") in owners
+    risky = {d["fn"]: d for d in res["units"][0]["risky_fns"]}
+    assert risky["dirty"]["unwrap"] == 2
+    assert "clean" not in risky
+
+
 # ---------- 分层声明：掩码状态机单测 ----------
 
 def test_mask_preserves_length():

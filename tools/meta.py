@@ -185,9 +185,11 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
                 pass
 
         cancel_ev = _cancel_event()
-        from registry import notify
+        from registry import notify, notify_progress
         notify("info", f"S10 cancel-watch rid={current_request_id()} armed={cancel_ev is not None}")
         deadline = time.monotonic() + max(5, min(int(timeout), 600))
+        started = time.monotonic()
+        last_beat = started
         cancelled = timed_out = False
         while proc.poll() is None:
             if cancel_ev is not None and cancel_ev.is_set():
@@ -196,6 +198,10 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
             if time.monotonic() >= deadline:
                 timed_out = True
                 break
+            now = time.monotonic()
+            if now - last_beat >= 1.5:      # S12：1.5s 心跳（无 token 时 no-op）
+                notify_progress(round(now - started, 1), f"running {cmd[:60]}")
+                last_beat = now
             time.sleep(0.25)
         if proc.poll() is None or cancelled or timed_out:
             _kill_tree()

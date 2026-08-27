@@ -199,6 +199,12 @@ def _scan_rust(src, path):
             i["severity"] = "low"
             i["kind"] = "clue"
             i["msg"] += "（测试代码，降级）"
+        elif in_test and i["rule"] == "panic":
+            # S12 语境诚实化：panic! 在测试内通常就是断言/should_panic 用途。
+            # VF3 实证：21/21 个 high panic 全在测试区——高危分被测试打爆即失真。
+            i["severity"] = "low"
+            i["kind"] = "clue"
+            i["msg"] += "（测试上下文，通常为断言用途，降级）"
     return issues
 
 

@@ -175,6 +175,7 @@ manifest 增加 `revision` 字段与生成时间戳；ROADMAP/SPEC/EVAL 三文�
 | S8 | appaudit 域：智能体/桌面应用 克隆→隔离审计→清理 三件套 | 见下方 H 节实测；asar 自标定提取器在真实 Electron 包上跑通 | ✅ 本轮 |
 | S10 | 强度包 v2.3.0：入口 schema 门禁 + 取消唯一事实源下沉 registry + 出口大字符串截断 | 见下方 I 节实测（E2E 取消 1.62s）；106 passed / SCHEMA_BAD 0 | ✅ 本轮 |
 | S11 | VoxelForge-V3 基线化：ast_scan 加 Rust 结构化层 + 全工具面电池脚本入库 | bench/vf3_battery.py → bench/vf3_baseline.json；111 passed；电池当场抓出 big_input 自身 bug（err_len 切片）| ✅ 本轮 |
+| S12 | 分析深化 v2.4.0：Rust fn 级切片归属（risky_fns）+ panic 测试语境降级 + BM25 指纹缓存 + local_run progress 心跳 | VF3 基线：bug_scan high 21→0（21/21 panic 实证在测试区）；risk top1=alert_already_running(unsafe×2)；BM25 冷 1.18s→热 0.075s；e2e 取消+心跳 3.16s PASS | ✅ 本轮 |
 
 ## I. S10 强度包实测（2026-08-27 晚）
 

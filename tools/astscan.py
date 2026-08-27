@@ -282,7 +282,10 @@ def _mask_rust(src):
 
 
 def _scan_rust_struct(masked, src, fp):
-    """结构化信号：fn 清单 / unsafe 块 / panic 家族调用 / #[cfg(test)] 内抑制。"""
+    """结构化信号 + S12 函数级切片归属：
+    - 每条 issue 归属到所在 fn（花括号深度追踪）
+    - risky_fns 聚合（unwrap/unsafe 计数排序）——定位从"158 行平铺"变成"top 风险函数"
+    """
     lines = masked.split("\n")
     issues = []
     fn_names = []
@@ -290,10 +293,19 @@ def _scan_rust_struct(masked, src, fp):
     in_test_mod = False
     test_mod_depth = -1
     brace_depth = 0
+    fn_stack = []          # (depth_at_open, name)
+    fn_risk = {}           # name -> {"unwrap": n, "unsafe": n}
+    _FN_RE = re.compile(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)")
 
     def emit(ln, rule, detail):
+        owner = fn_stack[-1][1] if fn_stack else "<toplevel>"
+        entry = fn_risk.setdefault(owner, {"unwrap": 0, "unsafe": 0})
+        if rule == "rust_unsafe":
+            entry["unsafe"] += 1
+        elif rule == "rust_unwrap_expect":
+            entry["unwrap"] += 1
         issues.append({"file": fp, "line": ln, "col": 0, "rule": rule,
-                       "detail": detail, "unit": "call"})
+                       "detail": detail, "unit": "call", "fn": owner})
 
     for idx, ln in enumerate(lines, 1):
         s = ln.strip()
@@ -302,27 +314,31 @@ def _scan_rust_struct(masked, src, fp):
             test_mod_depth = brace_depth
         elif in_test_mod and s.startswith("}") and brace_depth <= test_mod_depth:
             in_test_mod = False
+        # 先压栈：本行命中才能归属到本 fn
+        mfn = _FN_RE.search(ln)
+        if mfn and "{" in ln:
+            fn_stack.append((brace_depth, mfn.group(1)))
+            fn_names.append(mfn.group(1))
         if not in_test_mod:
-            for m in _SAFE_IDENT.finditer(ln):
-                tok = m.group(0)
-                if tok == "fn":
-                    nxt = _SAFE_IDENT.search(ln, m.end())
-                    if nxt:
-                        fn_names.append(nxt.group(0))
-                elif tok == "unsafe":
-                    unsafe_blocks.append(idx)
+            for _ in re.finditer(r"\bunsafe\b", ln):
+                unsafe_blocks.append(idx)
+                emit(idx, "rust_unsafe", "unsafe 块（设计信号，需人工评估不变量）")
             for m in _PANIC_CALL_RE.finditer(ln):
                 name = m.group(1)
                 rule = ("rust_panic_macro" if name in ("panic!", "unreachable!", "todo!", "unimplemented!")
                         else "rust_unwrap_expect")
                 emit(idx, rule, m.group(0)[:40])
-        brace_depth += ln.count("{") - ln.count("}")
+        new_depth = brace_depth + ln.count("{") - ln.count("}")
+        # fn 体花括号平衡后深度回落到压栈值 → 出栈
+        while fn_stack and fn_stack[-1][0] >= new_depth:
+            fn_stack.pop()
+        brace_depth = new_depth
 
-    for u in unsafe_blocks:
-        emit(u, "rust_unsafe", "unsafe 块（设计信号，需人工评估不变量）")
-
+    risky = sorted(
+        ({"fn": k, **v} for k, v in fn_risk.items() if v["unwrap"] or v["unsafe"]),
+        key=lambda d: -(d["unwrap"] * 2 + d["unsafe"] * 8))[:12]
     return issues, {"fn_count": len(fn_names), "unsafe_count": len(unsafe_blocks),
-                    "unsafe_lines": unsafe_blocks[:20], "fns": fn_names[:40]}
+                    "risky_fns": risky, "fns": fn_names[:40]}
 
 
 @tool("ast_scan", "结构化扫描（S9）：Python 真 AST / JS 词法掩码+括号平衡 / Rust 结构化信号；输出最小单元条目，先小后大", "scan",

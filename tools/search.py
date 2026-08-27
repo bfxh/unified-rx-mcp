@@ -75,6 +75,58 @@ def _index(root, max_files):
     return idx, doc_len, doc_paths
 
 
+def _fingerprints(root):
+    """root 下参与索引文件的指纹表 {path: (mtime_ns, size)}——只 walk+stat，不读内容。"""
+    fps = {}
+    count = 0
+    for r, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "target",
+                                                "__pycache__", "dist", "build",
+                                                ".unified-rx-index", "backups")]
+        for fn in files:
+            if count >= _MAX_FILES:
+                break
+            ext = os.path.splitext(fn)[1].lower()
+            if ext not in _INDEX_EXTS:
+                continue
+            count += 1
+            fp = os.path.join(r, fn)
+            try:
+                st = os.stat(fp)
+                fps[fp] = (st.st_mtime_ns, st.st_size)
+            except OSError:
+                pass
+    return fps
+
+
+# S12：BM25 索引指纹缓存——重复查询免去 200 文件全量读解析（实测 VF3 首查 ~0.4s → 复查 <10ms）
+_IDX_CACHE = {}     # root -> {"key": hash, "data": (idx, doc_len, doc_paths)}
+_IDX_CACHE_MAX = 4
+_IDX_CACHE_ORDER = []
+
+
+def _get_index(root):
+    fps = _fingerprints(root)
+    key = hash(tuple(sorted(fps.items())))
+    ent = _IDX_CACHE.get(root)
+    if ent is not None and ent["key"] == key:
+        return ent["data"]
+    data = _index(root, _MAX_FILES)
+    if root not in _IDX_CACHE_ORDER:
+        _IDX_CACHE_ORDER.append(root)
+        while len(_IDX_CACHE_ORDER) > _IDX_CACHE_MAX:
+            old = _IDX_CACHE_ORDER.pop(0)
+            _IDX_CACHE.pop(old, None)
+    _IDX_CACHE[root] = {"key": key, "data": data}
+    return data
+
+
+_INDEX_EXTS = frozenset((
+    ".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
+    ".gd", ".cs", ".dart", ".lua", ".java", ".kt", ".md",
+    ".toml", ".json", ".yaml", ".yml"))
+
+
 def _bm25(idx, doc_len, doc_paths, query, k=1.5, b=0.75):
     q_toks = _tokenize(query)
     if not q_toks:
@@ -103,10 +155,10 @@ def _bm25(idx, doc_len, doc_paths, query, k=1.5, b=0.75):
        },
        "required": ["query"]})
 def code_search(query, root=None, k=10):
-    root = root or os.getcwd()
+    root = os.path.abspath(root or os.getcwd())
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
-    idx, doc_len, doc_paths = _index(root, _MAX_FILES)
+    idx, doc_len, doc_paths = _get_index(root)
     ranked = _bm25(idx, doc_len, doc_paths, query)
     hits = []
     for fp, score in ranked[:k]:
@@ -139,7 +191,7 @@ def code_search(query, root=None, k=10):
 def kb_query(index_dir, query, limit=10):
     if not os.path.isdir(index_dir):
         return {"error": f"不是目录: {index_dir}"}
-    idx, doc_len, doc_paths = _index(index_dir, _MAX_FILES)
+    idx, doc_len, doc_paths = _get_index(os.path.abspath(index_dir))
     ranked = _bm25(idx, doc_len, doc_paths, query)
     hits = []
     for fp, score in ranked[:limit]:
