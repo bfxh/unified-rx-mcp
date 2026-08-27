@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """S10 端到端探针：真实 stdio 协议下 local_run 被 notifications/cancelled 中断。"""
 import json
+import os
 import subprocess
 import sys
 import time
