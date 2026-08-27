@@ -86,10 +86,12 @@ def locate_edit(path, query, max_files=100, limit=10):
         return {"error": f"不是目录: {path}"}
     query = query.strip()
     hits = []
+    all_sources = {}  # S6-D2: 引用计数需要全量文件内容（max_files 范围内）
     for fp in _iter_files(path, max_files):
         src = _read(fp)
         if not src:
             continue
+        all_sources[fp] = src
         lines = src.split("\n")
         for idx, line in enumerate(lines, 1):
             # 符号/关键词命中（区分大小写优先精确，其次忽略大小写）
@@ -100,7 +102,11 @@ def locate_edit(path, query, max_files=100, limit=10):
                     break
         if len(hits) >= limit * 3:
             break
-    return {"query": query, "total": len(hits), "hits": hits[:limit]}
+    # S6-D2 影响面事实：query 在扫描范围内的出现总次数。
+    # 只提供计数事实，不判断该不该改——影响面决策留给智能体。
+    ref_count = sum(src.count(query) for src in all_sources.values())
+    return {"query": query, "total": len(hits), "references_in_scan": ref_count,
+            "hits": hits[:limit]}
 
 
 # ---------- code_context：光标上下文 ----------

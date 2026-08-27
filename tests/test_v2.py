@@ -400,3 +400,27 @@ def test_std_check_cached_consistent(tmp_path):
     r1 = registry.call("std_check", {"path": str(d)})
     r2 = registry.call("std_check", {"path": str(d)})
     assert r1["result"]["findings"] == r2["result"]["findings"]
+
+
+# ── S6-D2：locate_edit 引用计数 + E1 bench 骨架 ───────────────
+def test_locate_edit_reference_count(tmp_path):
+    """locate_edit 返回 references_in_scan 全库计数事实。"""
+    d = tmp_path / "_refs"
+    d.mkdir()
+    (d / "a.py").write_text("def handler():\n    pass\n\nhandler()\nhandler()\n", encoding="utf-8")
+    (d / "b.py").write_text("from a import handler\nprint(handler)\n", encoding="utf-8")
+    r = registry.call("locate_edit", {"path": str(d), "query": "handler", "limit": 5})
+    out = r["result"]
+    # a.py: def 1 + 调用 2 = 3；b.py: import 1 + print 1 = 2 → 全库共 5
+    assert out["references_in_scan"] == 5, f"handler 出现 5 次: {out}"
+    assert len(out["hits"]) >= 1
+
+
+def test_bench_corpus_and_dryrun():
+    """bench 标注库可加载 + dry-run 退出码 0（CI 门禁）。"""
+    import subprocess, sys as _sys
+    bench = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "bench" / "replay_ab.py"
+    r = subprocess.run([sys.executable, "-X", "utf8", str(bench), "--dry-run"],
+                       capture_output=True, text=True, encoding="utf-8")
+    assert r.returncode == 0, f"dry-run 失败: {r.stderr[-300:]}"
+    assert "CORPUS OK" in r.stdout
