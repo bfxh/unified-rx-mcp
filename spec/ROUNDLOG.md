@@ -24,3 +24,9 @@
 - 决策：原生 clone+helpers 铺满+版本探针全通，egg_info 静默死为终点——止损挂账；.wslconfig 调优保留
 - 证据：setup.py --version RC=0；egg_info 无输出死亡 ×3（OOM 已修仍死）；225 passed
 - 提交：待提交
+
+## S41-note · astropy-8872 提交补账
+- 项目：unified-rx-mcp｜时间：2026-08-29T04:51
+- 决策：S41 commit a103daf
+- 证据：225 passed
+- 提交：a103daf
