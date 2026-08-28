@@ -3,57 +3,80 @@
  "arm": "B",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-23262",
- "tokens_in": 28015,
- "tokens_out": 1252,
- "turns": 9,
+ "tokens_in": 38310,
+ "tokens_out": 943,
+ "turns": 10,
  "tool_trace": [
   {
    "tool": "code_search",
    "round": 0,
-   "ms": 458
+   "ms": 543
   },
   {
    "tool": "code_search",
    "round": 0,
-   "ms": 68
-  },
-  {
-   "tool": "fs_list",
-   "round": 1,
-   "ms": 0
+   "ms": 63
   },
   {
    "tool": "code_search",
    "round": 1,
-   "ms": 414
+   "ms": 63
   },
   {
-   "tool": "fs_read",
-   "round": 2,
-   "ms": 1
-  },
-  {
-   "tool": "fs_read",
-   "round": 3,
-   "ms": 2
-  },
-  {
-   "tool": "fs_stat",
-   "round": 4,
+   "tool": "fs_list",
+   "round": 1,
    "ms": 0
   },
   {
    "tool": "fs_list",
-   "round": 5,
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_read",
+   "round": 4,
    "ms": 1
+  },
+  {
+   "tool": "fs_read",
+   "round": 5,
+   "ms": 2
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 55,
+   "dsml": true
   }
  ],
- "walltime_s": 13.1,
- "answer": "```diff\ndiff --git a/sympy/printing/pycode.py b/sympy/printing/pycode.py\n--- a/sympy/printing/pycode.py\n+++ b/sympy/printing/pycode.py\n@@ -1,3 +1,4 @@\n+from sympy.core.containers import Tuple\n from .str import StrPrinter\n from .precedence import precedence\n from .printer import printer_context\n@@ -111,6 +112,14 @@ def _print_ImmutableMatrix(self, expr):\n     def _print_MatrixElement(self, expr):\n         return \"{0}[{1}]\".format(expr.parent, expr.i)\n \n+    def _print_Tuple(self, expr):\n+        if len(expr) == 1:\n+            return \"({},)\".format(self._print(expr[0]))\n+        return \"({})\".format(\", \".join(self._print(arg) for arg in expr))\n+\n+    _print_tuple = _print_Tuple\n+\n     def _print_Relational(self, expr):\n         return \"{} {} {}\".format(self._print(expr.lhs), self._relationals[expr.rel_op], self._print(expr.rhs))\n \ndiff --git a/sympy/printing/tests/test_pycode.py b/sympy/printing/tests/test_pycode.py\n--- a/sympy/printing/tests/test_pycode.py\n+++ b/sympy/printing/tests/test_pycode.py\n@@ -1,5 +1,6 @@\n from sympy import (\n     Add, Eq, Float, Integer, Rational, Symbol, cos, eye, lambdify, log,\n     MatrixSymbol, pi, simplify, sin, sqrt, symbols, Tuple, true, false,\n+    Tuple as SymPyTuple,\n )\n from sympy.printing.pycode import (\n     MpmathPrinter, NumPyPrinter, PythonCodePrinter, pycode\n@@ -12,6 +13,13 @@\n def test_PythonCodePrinter():\n     assert PythonCodePrinter().doprint(Tuple(1, 2)) == \"(1, 2)\"\n     assert PythonCodePrinter().doprint(Tuple(1)) == \"(1,)\"\n+    assert PythonCodePrinter().doprint(SymPyTuple(1)) == \"(1,)\"\n+    assert PythonCodePrinter().doprint(SymPyTuple(1, 2)) == \"(1, 2)\"\n+\n+\n+def test_lambdify_tuple_single():\n+    f = lambdify([], SymPyTuple(1))\n+    assert f() == (1,)\n+    assert f() != 1\n \n \n def test_MpmathPrinter():\n```",
+ "walltime_s": 10.4,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "sympy/printing/pycode.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: sympy/printing/pycode.py\n<<<<<<< SEARCH\n    def _print_Tuple(self, expr):\n        return '({},)'.format(self.stringify(expr.args, \", \"))\n=======\n    def _print_Tuple(self, expr):\n        if len(expr.args) == 1:\n            return '({},)'.format(self._print(expr.args[0]))\n        return '({})'.format(self.stringify(expr.args, \", \"))\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
-  "fix_equivalent": true,
-  "reason": "Both patches fix single-element tuple printing by adding a comma. Candidate adds printer method; gold modifies lambdify's recursive string conversion. Both resolve the issue correctly."
- }
+  "fix_equivalent": false,
+  "reason": "Both fix tuple printing, but candidate modifies pycode.py while gold modifies lambdify.py. Candidate only handles single-element tuples, missing the general tuple formatting fix in gold."
+ },
+ "judge_votes_n": 3
 }

@@ -3,19 +3,19 @@
  "arm": "A",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142",
- "tokens_in": 6545,
- "tokens_out": 539,
- "turns": 7,
+ "tokens_in": 9588,
+ "tokens_out": 594,
+ "turns": 8,
  "tool_trace": [
   {
    "tool": "fs_list",
    "round": 0,
-   "ms": 0
+   "ms": 1
   },
   {
    "tool": "fs_list",
    "round": 1,
-   "ms": 1
+   "ms": 0
   },
   {
    "tool": "fs_list",
@@ -25,25 +25,48 @@
   {
    "tool": "fs_list",
    "round": 3,
-   "ms": 2
+   "ms": 0
   },
   {
    "tool": "fs_list",
    "round": 4,
-   "ms": 1
+   "ms": 0
   },
   {
    "tool": "fs_list",
    "round": 5,
-   "ms": 1
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
   }
  ],
- "walltime_s": 7.8,
- "answer": "```diff\ndiff --git a/requests/models.py b/requests/models.py\nindex 6a5b2f5..c4a3e7d 100644\n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -401,7 +401,7 @@ class PreparedRequest(object):\n         if self.method.upper() in ('POST', 'PUT', 'PATCH'):\n             if not self.headers.get('Content-Length'):\n                 body = self.body\n-                if body is None:\n+                if body is None or self.method.upper() == 'GET':\n                     content_length = 0\n                 else:\n                     content_length = len(body)\n```",
+ "walltime_s": 9.5,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "requests/models.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: requests/models.py\n<<<<<<< SEARCH\n        if body:\n            content_length = str(len(body))\n            if content_length not in self.headers:\n                self.headers['Content-Length'] = content_length\n=======\n        if body and method not in ('GET', 'HEAD'):\n            content_length = str(len(body))\n            if content_length not in self.headers:\n                self.headers['Content-Length'] = content_length\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": false,
-  "reason": "Both address Content-Length for GET, but candidate only skips setting it in POST/PUT/PATCH block, not in prepare_content_length, so GET still gets header."
- }
+  "reason": "Candidate only avoids adding Content-Length for GET/HEAD when body is present, but still adds '0' for empty body, unlike gold which removes default '0' for GET/HEAD."
+ },
+ "judge_votes_n": 3
 }

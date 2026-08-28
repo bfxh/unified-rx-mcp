@@ -3,47 +3,76 @@
  "arm": "B",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-12973",
- "tokens_in": 14525,
- "tokens_out": 739,
- "turns": 7,
+ "tokens_in": 44055,
+ "tokens_out": 943,
+ "turns": 9,
  "tool_trace": [
   {
-   "tool": "fs_read",
+   "tool": "code_search",
    "round": 0,
-   "ms": 2
+   "ms": 446
   },
   {
-   "tool": "fs_list",
+   "tool": "code_search",
    "round": 1,
-   "ms": 2
+   "ms": 24
   },
   {
-   "tool": "fs_list",
+   "tool": "code_search",
    "round": 2,
-   "ms": 1
+   "ms": 233
   },
   {
-   "tool": "fs_list",
+   "tool": "fs_read",
    "round": 3,
    "ms": 1
   },
   {
-   "tool": "code_search",
+   "tool": "fs_list",
    "round": 4,
-   "ms": 19
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
   },
   {
    "tool": "code_search",
-   "round": 5,
-   "ms": 29
+   "round": "pipe",
+   "ms": 108,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 96,
+   "dsml": true
   }
  ],
- "walltime_s": 10.4,
- "answer": "```diff\ndiff --git a/sklearn/linear_model/least_angle.py b/sklearn/linear_model/least_angle.py\nindex 8e2a1b2..c4f3d5e 100644\n--- a/sklearn/linear_model/least_angle.py\n+++ b/sklearn/linear_model/least_angle.py\n@@ -1487,7 +1487,7 @@ class LassoLarsIC(LassoLars):\n         self.noise_variance = noise_variance\n         self.criterion = criterion\n \n-    def fit(self, X, y, copy_X=True):\n+    def fit(self, X, y, copy_X=None):\n         \"\"\"Fit the model using X, y as training data.\n \n         Parameters\n@@ -1500,7 +1500,7 @@ class LassoLarsIC(LassoLars):\n             Target values. Will be cast to X's dtype if necessary\n \n         copy_X : boolean, optional\n-            If ``True``, X will be copied; else, it may be overwritten.\n+            If ``True``, X will be copied; else, it may be overwritten.\n+            If ``None`` (default), the value set in the constructor is used.\n \n         Returns\n         -------\n@@ -1510,6 +1510,9 @@ class LassoLarsIC(LassoLars):\n         \"\"\"\n         X, y = check_X_y(X, y, y_numeric=True)\n \n+        if copy_X is None:\n+            copy_X = self.copy_X\n+\n         X, y, Xmean, ymean, Xstd = LinearModel._preprocess_data(\n             X, y, self.fit_intercept, self.normalize, self.copy_X)\n```",
+ "walltime_s": 12.2,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 2,
+  "sr_applied": 1,
+  "sr_failed": [
+   "sklearn/linear_model/least_angle.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/sklearn/linear_model/least_angle.py b/sklearn/linear_model/least_angle.py\nindex 03b34a0..3cd7926 100644\n--- a/sklearn/linear_model/least_angle.py\n+++ b/sklearn/linear_model/least_angle.py\n@@ -1479,7 +1479,7 @@ class LassoLarsIC(LassoLars):\n         self.eps = eps\n         self.fit_path = True\n \n-    def fit(self, X, y, copy_X=True):\n+    def fit(self, X, y, copy_X=None):\n         \"\"\"Fit the model using X, y as training data.\n \n         Parameters\n"
+ },
+ "answer": "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"code_search\">\n<｜｜DSML｜｜parameter name=\"query\" string=\"true\">def fit(self, X, y, copy_X=True)</｜｜DSML｜｜parameter>\n<｜｜DSML｜｜parameter name=\"root\" string=\"true\">C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-12973\\sklearn</｜｜DSML｜｜parameter>\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": false,
-  "reason": "Candidate changes fit signature and adds None handling but still passes self.copy_X to _preprocess_data, not the resolved copy_X variable, so the bug remains."
- }
+  "reason": "Candidate only changes signature to None but lacks the logic to use self.copy_X when None, so behavior remains broken."
+ },
+ "judge_votes_n": 3
 }

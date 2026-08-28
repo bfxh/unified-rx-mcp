@@ -3,9 +3,9 @@
  "arm": "A",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-14629",
- "tokens_in": 10437,
- "tokens_out": 934,
- "turns": 7,
+ "tokens_in": 15188,
+ "tokens_out": 823,
+ "turns": 8,
  "tool_trace": [
   {
    "tool": "fs_read",
@@ -15,17 +15,17 @@
   {
    "tool": "fs_list",
    "round": 1,
-   "ms": 1
+   "ms": 0
   },
   {
    "tool": "fs_list",
    "round": 2,
-   "ms": 1
+   "ms": 0
   },
   {
    "tool": "fs_list",
    "round": 3,
-   "ms": 1
+   "ms": 2
   },
   {
    "tool": "fs_stat",
@@ -36,14 +36,37 @@
    "tool": "fs_list",
    "round": 5,
    "ms": 0
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
   }
  ],
- "walltime_s": 11.1,
- "answer": "```diff\ndiff --git a/sklearn/model_selection/_validation.py b/sklearn/model_selection/_validation.py\nindex 3be7110d2..a8f3c9b1e 100644\n--- a/sklearn/model_selection/_validation.py\n+++ b/sklearn/model_selection/_validation.py\n@@ -854,7 +854,12 @@ def _fit_and_predict(estimator, X, y, verbose, fit_params, train, test,\n         if method in ['decision_function', 'predict_proba', 'predict_log_proba']:\n             n_classes = len(classes)\n             if n_classes != len(estimator.classes_):\n-                raise ValueError('The number of classes in training set ({}) '\n-                                 'does not match the number of classes in '\n-                                 'the test set ({})'.format(\n-                                     n_classes, len(estimator.classes_)))\n+                if hasattr(estimator, 'classes_'):\n+                    estimator_classes = estimator.classes_\n+                elif hasattr(estimator, 'estimators_'):\n+                    # For MultiOutputClassifier, classes_ is stored per estimator\n+                    estimator_classes = estimator.estimators_[0].classes_\n+                else:\n+                    raise AttributeError(\n+                        'Estimator does not have classes_ attribute')\n+                raise ValueError('The number of classes in training set ({}) '\n+                                 'does not match the number of classes in '\n+                                 'the test set ({})'.format(\n+                                     n_classes, len(estimator_classes)))\n             else:\n                 if method == 'decision_function':\n                     if (predictions.ndim == 2 and\n@@ -870,7 +875,12 @@ def _fit_and_predict(estimator, X, y, verbose, fit_params, train, test,\n                     else:\n                         predictions = predictions[:, 1]\n                 else:\n-                    predictions = predictions[np.arange(len(predictions)),\n-                                              classes]\n+                    if hasattr(estimator, 'classes_'):\n+                        estimator_classes = estimator.classes_\n+                    elif hasattr(estimator, 'estimators_'):\n+                        estimator_classes = estimator.estimators_[0].classes_\n+                    else:\n+                        raise AttributeError(\n+                            'Estimator does not have classes_ attribute')\n+                    predictions = predictions[np.arange(len(predictions)),\n+                                              classes]\n     return predictions, test\n```",
+ "walltime_s": 11.0,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "sklearn/model_selection/_validation.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: sklearn/model_selection/_validation.py\n<<<<<<< SEARCH\n        if method in ['decision_function', 'predict_proba', 'predict_log_proba']:\n            if isinstance(estimator, (ClassifierMixin, BaseDecisionBoundary)):\n                proba = np.zeros((n_samples, n_classes))\n                if hasattr(estimator, 'classes_'):\n                    class_indices = np.searchsorted(estimator.classes_,\n                                                   classes)\n                else:\n                    class_indices = None\n=======\n        if method in ['decision_function', 'predict_proba', 'predict_log_proba']:\n            if isinstance(estimator, (ClassifierMixin, BaseDecisionBoundary)):\n                proba = np.zeros((n_samples, n_classes))\n                if hasattr(estimator, 'classes_'):\n                    class_indices = np.searchsorted(estimator.classes_,\n                                                   classes)\n                elif hasattr(estimator, 'estimators_'):\n                    # MultiOutputClassifier case\n                    class_indices = None\n                else:\n                    class_indices = None\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": false,
-  "reason": "Both address the missing classes_ attribute in MultiOutputClassifier, but the gold patch adds classes_ to the estimator, while the candidate patches the validation code differently."
- }
+  "reason": "Candidate patch only sets class_indices to None for MultiOutputClassifier, but doesn't add classes_ attribute or handle per-estimator classes, so predict_proba still fails."
+ },
+ "judge_votes_n": 3
 }

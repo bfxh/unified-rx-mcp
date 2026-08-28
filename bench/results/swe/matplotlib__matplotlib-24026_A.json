@@ -3,14 +3,14 @@
  "arm": "A",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-24026",
- "tokens_in": 10952,
- "tokens_out": 608,
- "turns": 7,
+ "tokens_in": 15573,
+ "tokens_out": 692,
+ "turns": 8,
  "tool_trace": [
   {
    "tool": "fs_read",
    "round": 0,
-   "ms": 0
+   "ms": 2
   },
   {
    "tool": "fs_list",
@@ -25,7 +25,7 @@
   {
    "tool": "fs_list",
    "round": 3,
-   "ms": 1
+   "ms": 0
   },
   {
    "tool": "fs_list",
@@ -35,15 +35,38 @@
   {
    "tool": "fs_list",
    "round": 5,
-   "ms": 0
+   "ms": 2
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 2,
+   "dsml": true
   }
  ],
- "walltime_s": 7.6,
- "answer": "```diff\ndiff --git a/lib/matplotlib/stackplot.py b/lib/matplotlib/stackplot.py\nindex 3e2c8a5..f4a3b7c 100644\n--- a/lib/matplotlib/stackplot.py\n+++ b/lib/matplotlib/stackplot.py\n@@ -1,6 +1,7 @@\n \"\"\"\n Stacked area plot for 1D arrays inspired by Douglas Y. Park.\n \"\"\"\n+import cycler\n import itertools\n \n import numpy as np\n@@ -70,7 +71,7 @@ def stackplot(axes, x, *args,\n         if len(colors) != len(labels):\n             raise ValueError(\"If colors and labels are specified, \"\n                              \"they must have the same length\")\n-        axes.set_prop_cycle(color=colors)\n+        axes.set_prop_cycle(cycler.cycler(color=colors))\n     elif len(args) == 1:\n         # Stacked plots can be generated with one input array, which\n         # is then treated as a 2D array and stacked.\n```",
+ "walltime_s": 9.4,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "lib/matplotlib/stackplot.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: lib/matplotlib/stackplot.py\n<<<<<<< SEARCH\n    # Color cycle from cycler\n    if colors is None:\n        colors = [next(axes._get_lines.prop_cycler)['color']\n                  for _ in range(len(labels))]\n    else:\n        # If colors is provided, set the prop cycle to use it\n        axes.set_prop_cycle(color=colors)\n=======\n    # Color cycle from cycler\n    if colors is None:\n        colors = [next(axes._get_lines.prop_cycler)['color']\n                  for _ in range(len(labels))]\n    else:\n        # If colors is provided, convert CN aliases to actual colors\n        colors = [axes._get_lines._get_patches_for_fill.get_next_color()\n                  if isinstance(c, str) and c.startswith('C')\n                  else c for c in colors]\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": false,
-  "reason": "Candidate wraps colors in cycler but still uses set_prop_cycle, which rejects CN aliases. Gold patch avoids set_prop_cycle entirely, using itertools.cycle and get_next_color, correctly fixing the issue."
- }
+  "reason": "Candidate converts CN aliases but doesn't avoid set_prop_cycle; gold uses itertools.cycle and get_next_color, preserving cycler. Candidate may still fail for non-CN colors or alter cycler."
+ },
+ "judge_votes_n": 3
 }

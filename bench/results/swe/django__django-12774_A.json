@@ -3,12 +3,12 @@
  "arm": "A",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774",
- "tokens_in": 7920,
- "tokens_out": 1096,
- "turns": 7,
+ "tokens_in": 12150,
+ "tokens_out": 897,
+ "turns": 8,
  "tool_trace": [
   {
-   "tool": "fs_list",
+   "tool": "fs_read",
    "round": 0,
    "ms": 1
   },
@@ -20,7 +20,7 @@
   {
    "tool": "fs_list",
    "round": 2,
-   "ms": 1
+   "ms": 0
   },
   {
    "tool": "fs_list",
@@ -30,20 +30,43 @@
   {
    "tool": "fs_list",
    "round": 4,
-   "ms": 0
+   "ms": 1
   },
   {
    "tool": "fs_list",
    "round": 5,
    "ms": 1
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
   }
  ],
- "walltime_s": 10.4,
- "answer": "```diff\ndiff --git a/django/db/models/query.py b/django/db/models/query.py\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -677,7 +677,7 @@ def in_bulk(self, id_list=None, *, field_name='pk'):\n         if id_list is not None:\n             if not id_list:\n                 return {}\n-        if not self.model._meta.get_field(field_name).unique:\n+        field = self.model._meta.get_field(field_name)\n+        if not (field.unique or any(\n+            field in constraint.fields\n+            for constraint in self.model._meta.total_unique_constraints\n+        )):\n             raise ValueError(\n                 \"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name\n             )\ndiff --git a/django/db/models/options.py b/django/db/models/options.py\n--- a/django/db/models/options.py\n+++ b/django/db/models/options.py\n@@ -218,6 +218,14 @@ def __init__(self, meta, app_label=None):\n         self.constraints = []\n         self._constraint_names = []\n \n+    @cached_property\n+    def total_unique_constraints(self):\n+        \"\"\"\n+        Return a list of UniqueConstraints that are not partial and don't\n+        include expressions.\n+        \"\"\"\n+        return [\n+            constraint for constraint in self.constraints\n+            if isinstance(constraint, UniqueConstraint)\n+            and constraint.condition is None\n+            and not constraint.expressions\n+        ]\n+\n     def add_field(self, field, private=False):\n         # Insert the given field in the order provided, correct for\n         # models that inherit from some concrete base model.\ndiff --git a/django/db/models/constraints.py b/django/db/models/constraints.py\n--- a/django/db/models/constraints.py\n+++ b/django/db/models/constraints.py\n@@ -1,4 +1,5 @@\n from enum import Enum\n+from functools import cached_property\n \n from django.core.exceptions import FieldError\n from django.db import connections\n@@ -37,6 +38,14 @@ def __init__(self, *expressions, fields=(), name=None, condition=None,\n         self.expressions = tuple(expressions)\n         self.condition = condition\n         self.deferrable = deferrable\n+        if self.expressions and self.fields:\n+            raise ValueError(\n+                'UniqueConstraint.fields and expressions are mutually exclusive.'\n+            )\n+        if self.expressions and self.condition:\n+            raise ValueError(\n+                'UniqueConstraint with expressions cannot have a condition.'\n+            )\n \n     @property\n     def contains_expressions(self):\n@@ -44,6 +53,11 @@ def contains_expressions(self):\n \n     @cached_property\n     def fields(self):\n+        if self.expressions:\n+            return []\n         return [self._parse_field_names(expr) for expr in self.expressions]\n+\n+    @cached_property\n+    def field_names(self):\n+        return [self._parse_field_names(expr) for expr in self.expressions]\n \n     def _get_condition_sql(self, model, schema_editor):\n         if self.condition is None:\n```",
+ "walltime_s": 11.6,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "django/db/models/query.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: django/db/models/query.py\n<<<<<<< SEARCH\n    def in_bulk(self, id_list=None, *, field_name=\"pk\"):\n        \"\"\"\n        Return a dictionary mapping each of the given IDs to the object with\n        that ID. If `id_list` isn't provided, evaluate the entire QuerySet.\n        \"\"\"\n        if self.query.distinct_fields:\n            raise TypeError(\"in_bulk() cannot be used with field_names.\")\n        if id_list is not None:\n            if not id_list:\n                return {}\n            id_list = tuple(id_list)\n        qs = self._chain()\n        if field_name != \"pk\":\n            qs = qs.filter(**{f\"{field_name}__in\": id_list})\n        else:\n            qs = qs.filter(pk__in=id_list)\n        return {getattr(obj, field_name): obj for obj in qs}\n=======\n    def in_bulk(self, id_list=None, *, field_name=\"pk\"):\n        \"\"\"\n        Return a dictionary mapping each of the given IDs to the object with\n        that ID. If `id_list` isn't provided, evaluate the entire QuerySet.\n        \"\"\"\n        if self.query.distinct_fields:\n            raise TypeError(\"in_bulk() cannot be used with field_names.\")\n        if id_list is not None:\n            if not id_list:\n                return {}\n            id_list = tuple(id_list)\n        qs = self._chain()\n        if field_name != \"pk\":\n            qs = qs.filter(**{f\"{field_name}__in\": id_list})\n        else:\n            qs = qs.filter(pk__in=id_list)\n        return {getattr(obj, field_name): obj for obj in qs}\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": false,
-  "reason": "Candidate adds extra validation and changes constraints API, which is broader than gold patch. It may break existing behavior and is not a minimal fix."
- }
+  "reason": "Candidate patch is identical to original code with no changes; it does not address the UniqueConstraint issue."
+ },
+ "judge_votes_n": 3
 }

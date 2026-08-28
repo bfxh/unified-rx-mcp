@@ -3,9 +3,9 @@
  "arm": "A",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pallets__flask-5014",
- "tokens_in": 6785,
- "tokens_out": 679,
- "turns": 8,
+ "tokens_in": 6525,
+ "tokens_out": 433,
+ "turns": 7,
  "tool_trace": [
   {
    "tool": "fs_list",
@@ -13,19 +13,14 @@
    "ms": 1
   },
   {
-   "tool": "fs_stat",
-   "round": 0,
-   "ms": 0
-  },
-  {
    "tool": "fs_list",
    "round": 1,
-   "ms": 1
+   "ms": 2
   },
   {
    "tool": "fs_list",
    "round": 2,
-   "ms": 2
+   "ms": 1
   },
   {
    "tool": "fs_list",
@@ -35,20 +30,35 @@
   {
    "tool": "fs_list",
    "round": 4,
-   "ms": 0
+   "ms": 1
   },
   {
    "tool": "fs_list",
    "round": 5,
-   "ms": 1
+   "ms": 0
   }
  ],
- "walltime_s": 11.3,
- "answer": "```diff\ndiff --git a/src/flask/blueprints.py b/src/flask/blueprints.py\n--- a/src/flask/blueprints.py\n+++ b/src/flask/blueprints.py\n@@ -1,6 +1,7 @@\n import typing as t\n from collections import defaultdict\n from functools import update_wrapper\n+from typing import Optional\n \n from . import sentinel\n from .scaffold import _endpoint_from_view_func\n@@ -68,6 +69,9 @@ class Blueprint(Scaffold):\n     def __init__(\n         self,\n         name: str,\n         import_name: str,\n         static_folder: t.Optional[str] = None,\n@@ -83,6 +87,9 @@ class Blueprint(Scaffold):\n         url_prefix: t.Optional[str] = None,\n         cli_group: t.Optional[str] = ...,\n     ) -> None:\n+        if not name:\n+            raise ValueError(\"'name' may not be empty.\")\n+\n         self.name = name\n         self.url_prefix = url_prefix\n         self.deferred_functions: t.List[t.Callable[..., None]] = []\n```",
+ "walltime_s": 10.9,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 1,
+  "sr_applied": 1,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 0,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py\nindex eb50585..45134b2 100644\n--- a/src/flask/blueprints.py\n+++ b/src/flask/blueprints.py\n@@ -192,6 +192,8 @@ class Blueprint(Scaffold):\n \n         if \".\" in name:\n             raise ValueError(\"'name' may not contain a dot '.' character.\")\n+        if not name:\n+            raise ValueError(\"'name' may not be empty.\")\n \n         self.name = name\n         self.url_prefix = url_prefix\n"
+ },
+ "answer": "```sr\npath: src/flask/blueprints.py\n<<<<<<< SEARCH\n        if \".\" in name:\n            raise ValueError(\"'name' may not contain a dot '.' character.\")\n=======\n        if \".\" in name:\n            raise ValueError(\"'name' may not contain a dot '.' character.\")\n        if not name:\n            raise ValueError(\"'name' may not be empty.\")\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": true,
-  "reason": "Both patches add the same ValueError check for empty blueprint names at the start of __init__, ensuring equivalent behavior."
- }
+  "reason": "Both patches add the same empty-name check raising ValueError, differing only in placement relative to dot check, which doesn't affect functionality."
+ },
+ "judge_votes_n": 3
 }

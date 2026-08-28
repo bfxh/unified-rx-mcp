@@ -3,19 +3,14 @@
  "arm": "B",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766",
- "tokens_in": 17265,
- "tokens_out": 594,
+ "tokens_in": 17630,
+ "tokens_out": 546,
  "turns": 8,
  "tool_trace": [
   {
    "tool": "code_search",
    "round": 0,
-   "ms": 193
-  },
-  {
-   "tool": "code_search",
-   "round": 0,
-   "ms": 19
+   "ms": 23
   },
   {
    "tool": "fs_list",
@@ -25,30 +20,51 @@
   {
    "tool": "fs_list",
    "round": 2,
-   "ms": 0
+   "ms": 1
   },
   {
    "tool": "fs_list",
    "round": 3,
-   "ms": 1
+   "ms": 0
   },
   {
-   "tool": "fs_list",
+   "tool": "code_search",
    "round": 4,
-   "ms": 1
+   "ms": 143
   },
   {
-   "tool": "fs_list",
+   "tool": "fs_read",
    "round": 5,
    "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 7,
+   "dsml": true
   }
  ],
- "walltime_s": 9.8,
- "answer": "```diff\ndiff --git a/requests/auth.py b/requests/auth.py\n--- a/requests/auth.py\n+++ b/requests/auth.py\n@@ -110,7 +110,7 @@ class HTTPDigestAuth(AuthBase):\n         # If auth-int is not requested, fall back to auth\n         if 'auth' not in qop:\n             qop = 'auth'\n-        self._qop_header = qop\n+        self._qop_header = '\"%s\"' % qop\n \n         # We can setup the challenge\n         self._charset = 'utf-8'\n```",
+ "walltime_s": 8.0,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 1,
+  "sr_applied": 1,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/requests/auth.py b/requests/auth.py\nindex a3de123..a77a62e 100644\n--- a/requests/auth.py\n+++ b/requests/auth.py\n@@ -70,6 +70,8 @@ class HTTPDigestAuth(AuthBase):\n         realm = self.chal['realm']\n         nonce = self.chal['nonce']\n         qop = self.chal.get('qop')\n+        if qop:\n+            qop = '\"%s\"' % qop\n         algorithm = self.chal.get('algorithm')\n         opaque = self.chal.get('opaque')\n \n"
+ },
+ "answer": "```sr\npath: requests/auth.py\n<<<<<<< SEARCH\n        qop = self.chal.get('qop')\n=======\n        qop = self.chal.get('qop')\n        if qop:\n            qop = '\"%s\"' % qop\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": false,
-  "reason": "Both address quoting qop, but candidate modifies internal state while gold modifies header output. Candidate may not affect final header if used elsewhere."
- }
+  "reason": "Candidate quotes qop in header value but doesn't modify the hardcoded 'qop=auth' string in the response header, so the actual sent header remains unquoted."
+ },
+ "judge_votes_n": 3
 }

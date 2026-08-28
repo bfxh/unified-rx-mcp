@@ -3,47 +3,76 @@
  "arm": "B",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-14894",
- "tokens_in": 18913,
- "tokens_out": 734,
- "turns": 7,
+ "tokens_in": 28204,
+ "tokens_out": 774,
+ "turns": 9,
  "tool_trace": [
   {
    "tool": "fs_read",
    "round": 0,
-   "ms": 0
+   "ms": 1
   },
   {
    "tool": "fs_list",
    "round": 1,
-   "ms": 0
+   "ms": 1
   },
   {
    "tool": "fs_list",
    "round": 2,
-   "ms": 0
+   "ms": 1
   },
   {
    "tool": "fs_list",
    "round": 3,
-   "ms": 1
+   "ms": 0
   },
   {
    "tool": "code_search",
    "round": 4,
-   "ms": 26
+   "ms": 25
   },
   {
-   "tool": "code_search",
+   "tool": "bug_locate",
    "round": 5,
-   "ms": 444
+   "ms": 0
+  },
+  {
+   "tool": "semantic_search",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
   }
  ],
- "walltime_s": 10.9,
- "answer": "```diff\ndiff --git a/sklearn/svm/base.py b/sklearn/svm/base.py\n--- a/sklearn/svm/base.py\n+++ b/sklearn/svm/base.py\n@@ -296,7 +296,7 @@ def _sparse_fit(self, X, y, sample_weight, solver_type, kernel,\n         self.support_ = np.zeros(n_SV, dtype=np.int32)\n         self.support_vectors_ = sp.csr_matrix((0, n_features))\n \n-        if self._sparse:\n+        if self._sparse and n_class > 0:\n             dual_coef_indices = np.zeros(n_class * n_SV, dtype=np.int32)\n             dual_coef_indptr = np.zeros(n_class + 1, dtype=np.int32)\n             for i in range(n_class):\n@@ -305,7 +305,7 @@ def _sparse_fit(self, X, y, sample_weight, solver_type, kernel,\n             self.dual_coef_ = sp.csr_matrix(\n                 (dual_coef_data, dual_coef_indices, dual_coef_indptr),\n                 (n_class, n_SV))\n-        else:\n+        elif n_class > 0:\n             self.dual_coef_ = np.empty((1, n_SV), dtype=np.float64)\n             self.support_ = np.zeros(n_SV, dtype=np.int32)\n             self.support_vectors_ = sp.csr_matrix((0, n_features))\n```",
+ "walltime_s": 11.3,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "sklearn/svm/base.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: sklearn/svm/base.py\n<<<<<<< SEARCH\n        self.dual_coef_ = sp.csr_matrix(\n            (dual_coef_data, dual_coef_indices,\n             dual_coef_indptr),\n            shape=(n_class, dual_coef_indices.size / n_class))\n=======\n        if dual_coef_indices.size > 0:\n            self.dual_coef_ = sp.csr_matrix(\n                (dual_coef_data, dual_coef_indices,\n                 dual_coef_indptr),\n                shape=(n_class, dual_coef_indices.size / n_class))\n        else:\n            self.dual_coef_ = sp.csr_matrix([])\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
-  "fix_equivalent": false,
-  "reason": "Both handle empty support vectors, but candidate changes condition to n_class>0, which may not trigger for n_class=0, and doesn't set dual_coef_ to empty csr_matrix as gold does."
- }
+  "fix_equivalent": true,
+  "reason": "Both patches handle the empty support_vectors_ case by setting dual_coef_ to an empty csr_matrix, preventing ZeroDivisionError. The candidate's condition on dual_coef_indices.size is equivalent to checking n_SV."
+ },
+ "judge_votes_n": 3
 }

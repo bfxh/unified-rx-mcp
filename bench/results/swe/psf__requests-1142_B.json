@@ -3,14 +3,19 @@
  "arm": "B",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142",
- "tokens_in": 13637,
- "tokens_out": 583,
- "turns": 7,
+ "tokens_in": 31973,
+ "tokens_out": 684,
+ "turns": 9,
  "tool_trace": [
   {
-   "tool": "fs_list",
+   "tool": "code_search",
    "round": 0,
-   "ms": 2
+   "ms": 35
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 38
   },
   {
    "tool": "fs_list",
@@ -20,30 +25,53 @@
   {
    "tool": "fs_list",
    "round": 2,
-   "ms": 2
+   "ms": 1
   },
   {
-   "tool": "engine_query",
+   "tool": "fs_list",
    "round": 3,
-   "ms": 130
+   "ms": 1
   },
   {
-   "tool": "fs_read",
+   "tool": "fs_list",
    "round": 4,
    "ms": 2
   },
   {
-   "tool": "code_context",
+   "tool": "code_search",
    "round": 5,
-   "ms": 0
+   "ms": 132
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 24,
+   "dsml": true
   }
  ],
- "walltime_s": 8.6,
- "answer": "```diff\ndiff --git a/requests/models.py b/requests/models.py\nindex 5c1f2a4..8e3b9c1 100644\n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -377,7 +377,7 @@ class PreparedRequest(object):\n         if body:\n             self.body = body\n \n-        if 'Content-Length' not in self.headers:\n+        if 'Content-Length' not in self.headers and self.method not in ('GET', 'HEAD'):\n             self.prepare_content_length(body)\n \n     def prepare_auth(self, auth, url=''):\n```",
+ "walltime_s": 8.8,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "requests/models.py: search-not-found(best=0.50)"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: requests/models.py\n<<<<<<< SEARCH\n        if self.method in (\"PUT\", \"POST\", \"PATCH\"):\n            self.prepare_content_length(body)\n=======\n        if self.method in (\"PUT\", \"POST\", \"PATCH\"):\n            self.prepare_content_length(body)\n        elif self.method == \"GET\" and body is not None:\n            self.prepare_content_length(body)\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": false,
-  "reason": "Both avoid Content-Length for GET/HEAD, but gold removes default '0' for all methods without body, while candidate only skips setting when absent, potentially leaving existing header."
- }
+  "reason": "Candidate only adds Content-Length for GET with body, but doesn't remove default '0' for GET/HEAD without body, so issue persists."
+ },
+ "judge_votes_n": 3
 }

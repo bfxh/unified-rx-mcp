@@ -3,9 +3,9 @@
  "arm": "B",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-24026",
- "tokens_in": 17842,
- "tokens_out": 625,
- "turns": 7,
+ "tokens_in": 29575,
+ "tokens_out": 687,
+ "turns": 9,
  "tool_trace": [
   {
    "tool": "fs_read",
@@ -20,7 +20,7 @@
   {
    "tool": "fs_list",
    "round": 2,
-   "ms": 1
+   "ms": 0
   },
   {
    "tool": "fs_list",
@@ -30,20 +30,47 @@
   {
    "tool": "code_search",
    "round": 4,
-   "ms": 27
+   "ms": 30
   },
   {
-   "tool": "fs_stat",
+   "tool": "bug_locate",
    "round": 5,
-   "ms": 0
+   "ms": 1
+  },
+  {
+   "tool": "semantic_search",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 2,
+   "dsml": true
   }
  ],
- "walltime_s": 7.5,
- "answer": "```diff\ndiff --git a/lib/matplotlib/stackplot.py b/lib/matplotlib/stackplot.py\nindex 8f4f2a1..3a5c9d7 100644\n--- a/lib/matplotlib/stackplot.py\n+++ b/lib/matplotlib/stackplot.py\n@@ -1,6 +1,7 @@\n \"\"\"\n Stacked area plot for 1D arrays inspired by Douglas Y. Cornette.\n \"\"\"\n \n+import cycler\n import numpy as np\n \n from matplotlib import _api\n@@ -70,7 +71,7 @@ def stackplot(axes, x, *args,\n     if colors is not None:\n         if len(colors) != len(labels):\n             raise ValueError(\"If colors are specified, they must match the \"\n                              \"number of labels\")\n-        axes.set_prop_cycle(color=colors)\n+        axes.set_prop_cycle(cycler.cycler(color=colors))\n     else:\n         # If no colors are specified, use the current prop cycle\n         # to get the colors\n```",
+ "walltime_s": 11.9,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 1,
+  "sr_applied": 1,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/lib/matplotlib/stackplot.py b/lib/matplotlib/stackplot.py\nindex c580043..92e652d 100644\n--- a/lib/matplotlib/stackplot.py\n+++ b/lib/matplotlib/stackplot.py\n@@ -71,6 +71,8 @@ def stackplot(axes, x, *args,\n     labels = iter(labels)\n     if colors is not None:\n         axes.set_prop_cycle(color=colors)\n+        # Reset the color cycle to the original one\n+        axes.set_prop_cycle(None)\n \n     # Assume data passed has not been 'stacked', so stack it here.\n     # We'll need a float buffer for the upcoming calculations.\n"
+ },
+ "answer": "```sr\npath: lib/matplotlib/stackplot.py\n<<<<<<< SEARCH\n    labels = iter(labels)\n    if colors is not None:\n        axes.set_prop_cycle(color=colors)\n=======\n    labels = iter(labels)\n    if colors is not None:\n        axes.set_prop_cycle(color=colors)\n        # Reset the color cycle to the original one\n        axes.set_prop_cycle(None)\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": false,
-  "reason": "The candidate patch wraps colors in cycler but still calls set_prop_cycle, which rejects CN aliases. The gold patch avoids set_prop_cycle entirely, using itertools.cycle to handle CN colors correctly."
- }
+  "reason": "Candidate resets prop cycle after setting, but gold avoids changing it by using itertools.cycle. Candidate may not preserve original cycle correctly and doesn't handle default color generation."
+ },
+ "judge_votes_n": 3
 }

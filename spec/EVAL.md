@@ -89,7 +89,7 @@ unified-rx 是工具箱，不能直接跑 SWE-bench——要测的是**它给模
 | P0 | 安全模糊集入库 pytest；本评分卡/EVAL 定稿 | ✅ 本轮完成 |
 | P1 | 从 VoxelForge 系 git log 固化 30 条标注 bug 库（含干净样本）；bug_scan P/R 首测 | 待做 |
 | P2 | replay-A/B runner（复用 server.py 的 stdio 协议 + `_mcp_probe` 思路），出第一份增益报告 | ✅ S14 完成：ab_run.py 实跑 12×3 双臂 72 run 全判，报告见 UPGRADE.md S14 / bench/results/l3/summary.json |
-| P3 | 外锚：SWE-bench Verified 抽样 / GitTaskBench 子集 | ✅ S22 扩容 n=47：B 34.0% vs A 17.0% fix_equivalent（McNemar 配对 p=0.057，B 独赢 11 vs A 独赢 3）；same_root 80.9% vs 68.1%；成本 2.5×（22.5k vs 9.1k tin）。S21 首期 n=6：B 33% vs A 17% 方向一致 |
+| P3 | 外锚：SWE-bench Verified 抽样 / GitTaskBench 子集 | ✅ S23 严格协议 n=47（三票判官 + patch 可应用强制）：fix_equiv A 12.8% / B 12.8%（S22 软判官的 34% 系"散文 patch"通胀，0/16 可应用）；same_root B 72.3% vs A 63.8%；appliable B 31.9% vs A 27.7%（机械层前 ~5%）。结论：外锚上 H1 增益主要在定位/可核验面，终修等效面无差距 |
 
 ## 附：A/B 判分 rubric 模板
 

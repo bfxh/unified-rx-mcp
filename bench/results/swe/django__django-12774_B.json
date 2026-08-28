@@ -3,52 +3,70 @@
  "arm": "B",
  "model": "deepseek-chat",
  "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774",
- "tokens_in": 19953,
- "tokens_out": 1130,
+ "tokens_in": 34968,
+ "tokens_out": 1155,
  "turns": 8,
  "tool_trace": [
   {
    "tool": "code_search",
    "round": 0,
-   "ms": 34
+   "ms": 1012
   },
   {
    "tool": "code_search",
-   "round": 0,
-   "ms": 18
-  },
-  {
-   "tool": "fs_list",
    "round": 1,
-   "ms": 1
+   "ms": 202
   },
   {
-   "tool": "fs_list",
+   "tool": "code_search",
    "round": 2,
-   "ms": 1
+   "ms": 222
   },
   {
-   "tool": "fs_list",
+   "tool": "fs_read",
    "round": 3,
    "ms": 0
   },
   {
-   "tool": "fs_stat",
+   "tool": "fs_list",
    "round": 4,
-   "ms": 0
+   "ms": 1
   },
   {
-   "tool": "code_search",
+   "tool": "fs_list",
    "round": 5,
-   "ms": 667
+   "ms": 2
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
   }
  ],
- "walltime_s": 11.0,
- "answer": "```diff\ndiff --git a/django/db/models/query.py b/django/db/models/query.py\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -667,7 +667,7 @@ def in_bulk(self, id_list=None, *, field_name='pk'):\n         if id_list is not None:\n             if not id_list:\n                 return {}\n-        if not self.model._meta.get_field(field_name).unique:\n+        field = self.model._meta.get_field(field_name)\n+        if not (field.unique or any(\n+            field in constraint.fields\n+            for constraint in self.model._meta.total_unique_constraints\n+        )):\n             raise ValueError(\n                 \"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name\n             )\ndiff --git a/django/db/models/options.py b/django/db/models/options.py\n--- a/django/db/models/options.py\n+++ b/django/db/models/options.py\n@@ -294,6 +294,10 @@ def _prepare(self, model):\n         self._expire_cache()\n \n     @cached_property\n+    def total_unique_constraints(self):\n+        \"\"\"Return a list of UniqueConstraints that apply to this model.\"\"\"\n+        return [constraint for constraint in self.constraints if isinstance(constraint, UniqueConstraint)]\n+\n+    @cached_property\n     def constraints(self):\n         return [constraint.clone() for constraint in self.original_attrs.get('constraints', [])]\n \ndiff --git a/django/db/models/options.py b/django/db/models/options.py\n--- a/django/db/models/options.py\n+++ b/django/db/models/options.py\n@@ -294,6 +294,10 @@ def _prepare(self, model):\n         self._expire_cache()\n \n     @cached_property\n+    def total_unique_constraints(self):\n+        \"\"\"Return a list of UniqueConstraints that apply to this model.\"\"\"\n+        return [constraint for constraint in self.constraints if isinstance(constraint, UniqueConstraint)]\n+\n+    @cached_property\n     def constraints(self):\n         return [constraint.clone() for constraint in self.original_attrs.get('constraints', [])]\n \ndiff --git a/django/db/models/query.py b/django/db/models/query.py\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -667,7 +667,7 @@ def in_bulk(self, id_list=None, *, field_name='pk'):\n         if id_list is not None:\n             if not id_list:\n                 return {}\n-        if not self.model._meta.get_field(field_name).unique:\n+        field = self.model._meta.get_field(field_name)\n+        if not (field.unique or any(\n+            field.name in constraint.fields\n+            for constraint in self.model._meta.total_unique_constraints\n+        )):\n             raise ValueError(\n                 \"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name\n             )\n```",
+ "walltime_s": 13.4,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "django/db/models/query.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: django/db/models/query.py\n<<<<<<< SEARCH\n    def in_bulk(self, id_list=None, *, field_name=\"pk\"):\n        \"\"\"\n        Return a dictionary mapping each of the given IDs to the object with\n        that ID. If `id_list` isn't provided, evaluate the entire QuerySet.\n        \"\"\"\n        if self.query.is_sliced:\n            raise TypeError(\"Cannot use 'limit' or 'offset' with in_bulk().\")\n        opts = self.model._meta\n        unique_fields = [\n            constraint.fields[0]\n            for constraint in opts.total_unique_constraints\n            if len(constraint.fields) == 1\n        ]\n        if field_name != \"pk\" and (\n            field_name not in opts.unique_together\n            and field_name not in unique_fields\n            and field_name not in opts.unique_fields\n            and field_name not in [field.name for field in opts.fields if field.unique]\n        ):\n            raise ValueError(\n                \"in_bulk()'s field_name must be a unique field but %r isn't.\"\n                % field_name\n            )\n        if id_list is not None:\n            if not id_list:\n                return {}\n            filter_key = f\"{field_name}__in\"\n            return self.filter(**{filter_key: id_list})\n        return self\n=======\n    def in_bulk(self, id_list=None, *, field_name=\"pk\"):\n        \"\"\"\n        Return a dictionary mapping each of the given IDs to the object with\n        that ID. If `id_list` isn't provided, evaluate the entire QuerySet.\n        \"\"\"\n        if self.query.is_sliced:\n            raise TypeError(\"Cannot use 'limit' or 'offset' with in_bulk().\")\n        opts = self.model._meta\n        unique_fields = [\n            constraint.fields[0]\n            for constraint in opts.total_unique_constraints\n            if len(constraint.fields) == 1\n        ]\n        if field_name != \"pk\" and (\n            field_name not in opts.unique_together\n            and field_name not in unique_fields\n            and field_name not in opts.unique_fields\n            and field_name not in [field.name for field in opts.fields if field.unique]\n        ):\n            raise ValueError(\n                \"in_bulk()'s field_name must be a unique field but %r isn't.\"\n                % field_name\n            )\n        if id_list is not None:\n            if not id_list:\n                return {}\n            filter_key = f\"{field_name}__in\"\n            return self.filter(**{filter_key: id_list})\n        return self\n>>>>>>> REPLACE\n```",
  "judge": {
   "same_issue_area": true,
   "same_root_cause": true,
   "fix_equivalent": true,
-  "reason": "Both patches allow in_bulk() on fields with single-field UniqueConstraints by checking total_unique_constraints. Candidate adds a cached property but achieves the same functionality."
- }
+  "reason": "Both patches allow in_bulk() for single-field UniqueConstraints by checking total_unique_constraints. Candidate also checks unique_together and unique_fields, but core fix matches gold."
+ },
+ "judge_votes_n": 3
 }
