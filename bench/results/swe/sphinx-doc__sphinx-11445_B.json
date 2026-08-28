@@ -82,5 +82,59 @@
   "base_ftb_fail": true,
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "stdout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-46\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-46\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.31s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/util/rst.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "stdout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-47\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-47\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.30s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "stdout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-48\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-48\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.30s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/util/rst.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "stdout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-49\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-49\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.30s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 13.5
  }
 }

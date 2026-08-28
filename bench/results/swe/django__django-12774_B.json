@@ -73,5 +73,57 @@
   "base_ftb_fail": true,
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ne 7, in <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 709\n    if batch_size and batch_size < len(id_list):\nIndentationError: unexpected indent\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": " <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 718\n    qs = self.filter(**{filter_key: id_list}).order_by()\nIndentationError: unexpected indent\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": " <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 718\n    qs = self.filter(**{filter_key: id_list}).order_by()\nIndentationError: unexpected indent\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": " <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 718\n    qs = self.filter(**{filter_key: id_list}).order_by()\nIndentationError: unexpected indent\n"
+   }
+  ],
+  "walltime_s": 16.6
  }
 }

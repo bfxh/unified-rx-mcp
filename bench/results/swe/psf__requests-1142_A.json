@@ -74,5 +74,43 @@
   "base_tail": "llections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 1 warning in 0.10s\n\n===STDERR===\n",
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": true,
+  "rounds_used": 5,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 2,
+    "fails": [
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "op working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.28s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\test_requests.py::RequestsTestCase::test_no_content_length\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-1142\\\\test_requests.py::RequestsTestCase::test_no_content_length' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 5,
+  "ptb_pass": true,
+  "walltime_s": 43.5
  }
 }

@@ -75,5 +75,57 @@
   "base_tail": "st recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11999\\tests\\model_fields\\tests.py\", line 179, in test_overriding_FIELD_display\n    self.assertEqual(f.get_foo_bar_display(), 'something')\nAssertionError: 'foo' != 'something'\n- foo\n+ something\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n",
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "django/db/models/base.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "=======\nFAIL: test_overriding_FIELD_display (model_fields.tests.GetFieldDisplayTests.test_overriding_FIELD_display)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11999\\tests\\model_fields\\tests.py\", line 179, in test_overriding_FIELD_display\n    self.assertEqual(f.get_foo_bar_display(), 'something')\nAssertionError: 'foo' != 'something'\n- foo\n+ something\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "=======\nFAIL: test_overriding_FIELD_display (model_fields.tests.GetFieldDisplayTests.test_overriding_FIELD_display)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11999\\tests\\model_fields\\tests.py\", line 179, in test_overriding_FIELD_display\n    self.assertEqual(f.get_foo_bar_display(), 'something')\nAssertionError: 'foo' != 'something'\n- foo\n+ something\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "=======\nFAIL: test_overriding_FIELD_display (model_fields.tests.GetFieldDisplayTests.test_overriding_FIELD_display)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11999\\tests\\model_fields\\tests.py\", line 179, in test_overriding_FIELD_display\n    self.assertEqual(f.get_foo_bar_display(), 'something')\nAssertionError: 'foo' != 'something'\n- foo\n+ something\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "=======\nFAIL: test_overriding_FIELD_display (model_fields.tests.GetFieldDisplayTests.test_overriding_FIELD_display)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11999\\tests\\model_fields\\tests.py\", line 179, in test_overriding_FIELD_display\n    self.assertEqual(f.get_foo_bar_display(), 'something')\nAssertionError: 'foo' != 'something'\n- foo\n+ something\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   }
+  ],
+  "walltime_s": 25.8
  }
 }

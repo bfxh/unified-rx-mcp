@@ -78,5 +78,27 @@
   "base_tail": "abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 5.73s\n\n===STDERR===\n",
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": true,
+  "rounds_used": 3,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "walltime_s": 35.2
  }
 }

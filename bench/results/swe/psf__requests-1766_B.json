@@ -72,5 +72,39 @@
   "ftb_pass": false,
   "ftb_tail": "S_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 6.44s\n\n===STDERR===\n",
   "verified": false
+ },
+ "repair": {
+  "verified": true,
+  "rounds_used": 4,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "S_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 6.57s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 4,
+    "repair_fails": [
+     "requests/auth.py: search-not-found",
+     "requests/auth.py: search-not-found",
+     "requests/auth.py: search-not-found",
+     "requests/auth.py: search-not-found",
+     "requests/auth.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "walltime_s": 49.7
  }
 }

@@ -74,5 +74,55 @@
   "base_tail": "ated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_headers_on_session_with_None_are_not_sent\n1 failed, 5 passed, 3 warnings in 8.10s\n\n===STDERR===\n",
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": ":\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1921\\requests\\models.py:164: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_headers_on_session_with_None_are_not_sent\n1 failed, 5 passed, 10 warnings in 9.35s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": ":\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1921\\requests\\models.py:164: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_headers_on_session_with_None_are_not_sent\n1 failed, 5 passed, 10 warnings in 8.59s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": ":\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1921\\requests\\models.py:164: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_headers_on_session_with_None_are_not_sent\n1 failed, 5 passed, 10 warnings in 8.64s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": ":\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1921\\requests\\models.py:164: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_headers_on_session_with_None_are_not_sent\n1 failed, 5 passed, 10 warnings in 8.97s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 58.4
  }
 }

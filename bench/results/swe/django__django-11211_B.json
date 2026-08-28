@@ -95,5 +95,72 @@
   "base_ftb_fail": true,
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (8ae59c88-9225-42d0-8c02-081dcb3f36dd)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (8ae59c88-9225-42d0-8c02-081dcb3f36dd)>\n\n- [None]\n+ [<Article: Article object (8ae59c88-9225-42d0-8c02-081dcb3f36dd)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query_utils.py: search-not-found",
+     "django/db/models/query_utils.py: search-not-found",
+     "django/db/models/query_utils.py: search-not-found",
+     "django/db/models/query_utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (16a1d32c-d369-4fd9-b95e-79ad067e87db)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (16a1d32c-d369-4fd9-b95e-79ad067e87db)>\n\n- [None]\n+ [<Article: Article object (16a1d32c-d369-4fd9-b95e-79ad067e87db)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (3e82d405-8a03-4de5-bbf3-9c4542aa0955)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (3e82d405-8a03-4de5-bbf3-9c4542aa0955)>\n\n- [None]\n+ [<Article: Article object (3e82d405-8a03-4de5-bbf3-9c4542aa0955)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (f6b1ca72-a246-4471-ba91-49597d7c7cc6)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (f6b1ca72-a246-4471-ba91-49597d7c7cc6)>\n\n- [None]\n+ [<Article: Article object (f6b1ca72-a246-4471-ba91-49597d7c7cc6)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   }
+  ],
+  "walltime_s": 141.9
  }
 }

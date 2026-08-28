@@ -74,5 +74,55 @@
   "base_tail": "ode\\swe\\django__django-12039\\tests\\indexes\\tests.py\", line 89, in test_descending_columns_list_sql\n    self.assertIn(\nAssertionError: '(\"headline\" DESC)' not found in 'CREATE INDEX \"whitespace_idx\" ON \"indexes_article\" (\"headline\"DESC)'\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n",
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "IndexesTests.test_descending_columns_list_sql)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12039\\tests\\indexes\\tests.py\", line 89, in test_descending_columns_list_sql\n    self.assertIn(\nAssertionError: '(\"headline\" DESC)' not found in 'CREATE INDEX \"whitespace_idx\" ON \"indexes_article\" (\"headline\"DESC)'\n\n----------------------------------------------------------------------\nRan 1 test in 0.002s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "IndexesTests.test_descending_columns_list_sql)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12039\\tests\\indexes\\tests.py\", line 89, in test_descending_columns_list_sql\n    self.assertIn(\nAssertionError: '(\"headline\" DESC)' not found in 'CREATE INDEX \"whitespace_idx\" ON \"indexes_article\" (\"headline\"DESC)'\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "IndexesTests.test_descending_columns_list_sql)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12039\\tests\\indexes\\tests.py\", line 89, in test_descending_columns_list_sql\n    self.assertIn(\nAssertionError: '(\"headline\" DESC)' not found in 'CREATE INDEX \"whitespace_idx\" ON \"indexes_article\" (\"headline\"DESC)'\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "IndexesTests.test_descending_columns_list_sql)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12039\\tests\\indexes\\tests.py\", line 89, in test_descending_columns_list_sql\n    self.assertIn(\nAssertionError: '(\"headline\" DESC)' not found in 'CREATE INDEX \"whitespace_idx\" ON \"indexes_article\" (\"headline\"DESC)'\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   }
+  ],
+  "walltime_s": 12.1
  }
 }

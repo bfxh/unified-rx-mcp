@@ -72,5 +72,8 @@
   "base_tail": "s                                                                        [100%]\n1 skipped in 0.81s\n",
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "skip": "base-already-green"
  }
 }

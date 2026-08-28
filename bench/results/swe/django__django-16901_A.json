@@ -66,5 +66,65 @@
   "base_tail": "ests.py\", line 30, in test_filter_multiple\n    self.assertCountEqual(\nAssertionError: Element counts were not equal:\nFirst has 0, Second has 1:  <Number: 5>\nFirst has 0, Second has 1:  <Number: 6>\nFirst has 0, Second has 1:  <Number: 9>\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n",
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "django/db/models/sql/where.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "---------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-16901\\tests\\xor_lookups\\tests.py\", line 30, in test_filter_multiple\n    self.assertCountEqual(\nAssertionError: Element counts were not equal:\nFirst has 0, Second has 1:  <Number: 5>\nFirst has 0, Second has 1:  <Number: 6>\nFirst has 0, Second has 1:  <Number: 9>\n\n----------------------------------------------------------------------\nRan 1 test in 0.005s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/sql/where.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "---------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-16901\\tests\\xor_lookups\\tests.py\", line 30, in test_filter_multiple\n    self.assertCountEqual(\nAssertionError: Element counts were not equal:\nFirst has 0, Second has 1:  <Number: 5>\nFirst has 0, Second has 1:  <Number: 6>\nFirst has 0, Second has 1:  <Number: 9>\n\n----------------------------------------------------------------------\nRan 1 test in 0.006s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "---------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-16901\\tests\\xor_lookups\\tests.py\", line 30, in test_filter_multiple\n    self.assertCountEqual(\nAssertionError: Element counts were not equal:\nFirst has 0, Second has 1:  <Number: 5>\nFirst has 0, Second has 1:  <Number: 6>\nFirst has 0, Second has 1:  <Number: 9>\n\n----------------------------------------------------------------------\nRan 1 test in 0.005s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/sql/where.py: search-not-found",
+     "django/db/models/sql/where.py: search-not-found",
+     "django/db/models/query_utils.py: search-not-found",
+     "django/db/models/query_utils.py: search-not-found",
+     "django/db/models/sql/where.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "---------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-16901\\tests\\xor_lookups\\tests.py\", line 30, in test_filter_multiple\n    self.assertCountEqual(\nAssertionError: Element counts were not equal:\nFirst has 0, Second has 1:  <Number: 5>\nFirst has 0, Second has 1:  <Number: 6>\nFirst has 0, Second has 1:  <Number: 9>\n\n----------------------------------------------------------------------\nRan 1 test in 0.006s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   }
+  ],
+  "walltime_s": 65.5
  }
 }

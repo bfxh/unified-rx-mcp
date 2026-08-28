@@ -78,5 +78,63 @@
   "base_ftb_fail": true,
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 2,
+    "fails": [
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found(best=0.47)",
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ls.py:607: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:560\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:560: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.23s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": [
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ls.py:611: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:564\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:564: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.23s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ls.py:615: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:568\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:568: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.21s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ls.py:611: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:564\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:564: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.20s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 51.4
  }
 }

@@ -116,5 +116,23 @@
   "ptb_total": 25,
   "ptb_pass": false,
   "verified": false
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 25,
+  "ptb_pass": false,
+  "walltime_s": 1.1
  }
 }

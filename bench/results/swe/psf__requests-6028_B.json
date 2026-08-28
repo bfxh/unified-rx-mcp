@@ -71,5 +71,68 @@
   "base_ftb_fail": true,
   "verified": false,
   "why": "candidate-apply-failed: b'error: corrupt patch at <stdin>:90\\n'"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": false
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "requests/adapters.py: search-not-found",
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found",
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.15s\n\n===STDERR===\n[2026-08-28 11:05:35,719] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-28 11:05:38,740] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-28 11:05:42,391] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-28 11:05:46,584] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   }
+  ],
+  "walltime_s": 25.8
  }
 }

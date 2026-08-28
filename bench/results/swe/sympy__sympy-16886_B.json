@@ -73,5 +73,63 @@
   "base_ftb_fail": true,
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "sympy/crypto/crypto.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/crypto/tests/test_crypto.py - AttributeError: module 'py' has no ...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.19s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sympy/crypto/crypto.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/crypto/tests/test_crypto.py - AttributeError: module 'py' has no ...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sympy/crypto/crypto.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/crypto/tests/test_crypto.py - AttributeError: module 'py' has no ...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sympy/crypto/crypto.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/crypto/tests/test_crypto.py - AttributeError: module 'py' has no ...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 9.0
  }
 }
