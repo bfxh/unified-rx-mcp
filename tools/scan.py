@@ -381,18 +381,14 @@ def std_check(path, max_files=MAX_FILES):
     return {"files": files_scanned, "total": len(findings), "findings": findings}
 
 
-def _std_check_file_src(_unused, fp, lang):
-    raise NotImplementedError
-
-
-# ---------- ui_check：多引擎（Bevy 重点）----------
+# ---------- ui_check：多引擎（Bevy 重点/Godot/Unity 死按钮/空容器模式） ----------
 _UI_PATTERNS = {
     "bevy": bevy.BEVY_UI_PATTERNS,
     "godot": [
         (r"Button\b[^:]*:\s*$", "Button 信号未连接（疑似死按钮）"),
     ],
     "unity": [
-        (r"new\s+Button\s*\([^)]*\)", "运行时 new Button（应引用场景中的）"),
+        (r"new\s+Button\s*\([^)]*\)", "运行时 new Button（应引用场景中的实例）"),
     ],
 }
 

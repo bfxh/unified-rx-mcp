@@ -34,11 +34,6 @@ def _probe_target():
     return base
 
 
-def _iter_registered():
-    from registry import _TOOLS
-    return sorted(_TOOLS.keys())
-
-
 @tool("input_fuzz", "输入模糊：对目标工具灌入空/空白/超长/Unicode/错型参数，返回结构化存活报告", "attack",
       {"type": "object",
        "properties": {

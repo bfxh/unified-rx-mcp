@@ -855,3 +855,22 @@ swe_repair --variant signals|plain 双变体常驻，配对 summary 一条命令
    _break_go regex 注入防护（S38 遗漏，S36 here-string 失败吞掉的后端本轮补齐
    并带防护落地）；attack fuzz 三新工具全存活；诊断缓存可变共享改拷贝
 225 passed。
+
+---
+
+## S40 · ponytail-review 全仓审计 + WSL 补完收官（2026-08-28）
+**ponytail-review**（方法：砍重复造轮子/死代码/投机抽象）：
+- 程序化死函数扫描（AST 引用计数）+ 人工判定：**砍 4 死件**
+  （attack._iter_registered、scan._std_check_file_src、p1_build.removed_ranges
+  +DEPTH）；scan_cache_clear 有测试消费保留
+- **误伤修复**：regex 切割吞掉模块级 _UI_PATTERNS（ui_check NameError）——
+  从 git 恢复定义；"already restored" 被使用处骗过的检查 bug 也修了
+- 结论：41 工具无投机抽象/无多余依赖，死代码率 4/41≈10% 为正常水位
+
+**WSL 补完收官**：feasible **45/47（95.7%）**。剩余 2 长尾如实挂账：
+- astropy-8872：astropy 1.0（2015）需 py3.6 + astropy_helpers 子模块
+  （github 墙）+ /mnt/c 构建 30min 超时——三重障碍，需 WSL 原生 clone 才可解
+- django-15280：数据集 FTB 字段是整句话（数据集自身缺陷）
+
+**顺手**：ponytail-review skill 门禁要求用户显式选择才能加载（Yan 安全设计）
+——按其方法论手动执行并留档。225 passed。
