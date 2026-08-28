@@ -60,5 +60,8 @@
   "fix_equivalent": true,
   "reason": "Both patches change offsetText color to use labelcolor unless 'inherit', then fallback to tick color. Candidate is functionally identical to gold."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

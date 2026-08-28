@@ -84,5 +84,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is incomplete/truncated and does not provide a valid unified diff. It cannot be evaluated as equivalent to the gold patch."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

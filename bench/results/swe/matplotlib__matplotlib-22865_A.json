@@ -81,5 +81,8 @@
   "fix_equivalent": false,
   "reason": "Candidate modifies a different method (_draw_edges) than gold patch (_add_solids), and the described code may not exist in current matplotlib. No valid unified diff provided."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

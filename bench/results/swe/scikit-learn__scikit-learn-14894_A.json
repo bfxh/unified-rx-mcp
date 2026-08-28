@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch modifies a different code section (dense fit) and does not address the ZeroDivisionError in _sparse_fit where n_SV is zero."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

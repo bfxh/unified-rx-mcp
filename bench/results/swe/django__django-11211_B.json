@@ -90,5 +90,10 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is a no-op (identical to original code) and does not address UUID PK prefetch issue. Gold patch fixes UUIDField value preparation."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

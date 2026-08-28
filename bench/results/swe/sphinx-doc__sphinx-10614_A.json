@@ -66,5 +66,11 @@
   "fix_equivalent": true,
   "reason": "Both patches remove the incorrect '../' prefix for SVG links, fixing relative path resolution. Candidate achieves same result as gold patch for the reported issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "base_tail": "s                                                                        [100%]\n1 skipped in 0.81s\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

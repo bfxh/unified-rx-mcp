@@ -68,5 +68,11 @@
   "fix_equivalent": false,
   "reason": "Candidate preserves bytes but doesn't fix URL encoding for binary params; gold patch moves to_native_string to prepare_url, candidate only alters data handling."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "t installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

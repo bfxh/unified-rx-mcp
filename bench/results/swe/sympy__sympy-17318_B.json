@@ -68,5 +68,10 @@
   "fix_equivalent": false,
   "reason": "Candidate only guards empty input in _split_gcd, but gold fixes root cause by checking positive rational surds in sqrtdenest, preventing the empty tuple from occurring."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

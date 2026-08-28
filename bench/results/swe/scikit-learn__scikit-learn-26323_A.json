@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch sets output on remainder during fit, not in set_output method, and uses incorrect tuple indexing (tuple is immutable). It doesn't address the reported issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

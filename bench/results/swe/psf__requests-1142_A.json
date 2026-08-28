@@ -68,5 +68,11 @@
   "fix_equivalent": false,
   "reason": "Candidate only avoids adding Content-Length for GET/HEAD when body is present, but still adds '0' for empty body, unlike gold which removes default '0' for GET/HEAD."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "llections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 1 warning in 0.10s\n\n===STDERR===\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

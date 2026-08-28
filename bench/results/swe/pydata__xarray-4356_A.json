@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch modifies a different function (likely _nan_min_count) and uses undefined 'a' instead of 'mask', so it won't compile or fix the reported issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

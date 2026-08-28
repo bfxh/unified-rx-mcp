@@ -83,5 +83,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch contains no actual code changes, only tool-call markup and file exploration, so it does not implement the refit_time_ attribute."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

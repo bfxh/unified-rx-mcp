@@ -519,3 +519,29 @@ django-11999 的候选干脆是 325 字节 DSML 垃圾）。S22 的 B 34% 是软
 
 下一层可做：真 fail-to-pass 测试执行反馈（Windows 依赖地狱待破）、强模型通道
 交叉、每任务多尝试取最优。
+
+---
+
+## S24 · 真测试执行反馈：fail-to-pass 实跑（2026-08-28）
+**破 Windows 依赖地狱**：bench/swe_verify.py 四模式（pull/envs/verify/summary）。
+- parquet 补拉 test_patch/FAIL_TO_PASS/PASS_TO_PASS（47/47 全有）
+- **uv per-task venv**：每任务一环境，install -e 任务 checkout——老 setup.py 自带
+  era 依赖钉，天然解"一仓多年代"冲突；py3.11→3.8 自动回退（上古 requests 的
+  collections.Mapping）、pylint-4661 单独钉 3.10（wrapt<1.13 的 formatargspec）
+- 7 纯 Python 仓 30/47 任务环境全成（sklearn/matplotlib/astropy/xarray/seaborn
+  C 扩展仓如实标 no-env，17 任务）
+- django FTB 括号标签→runtests 标签转换、sympy 裸 test 名全仓 def 定位、
+  PASS_TO_PASS 抽 25 捕回归、git apply test_patch→基线必须 FAIL→候选必须 PASS
+
+**n=47 实跑结果**：feasible 29/臂；执行验证 solved B 2（django-16901、flask-5014）
+/ A 1（flask-5014）；django-11999 B 修好 FTB 但打破 PTB（执行抓到判官漏掉的回归）；
+flask-5014 的"没修好"是环境故障假阴性，环境修对后双臂真通过（执行抓到判官漏掉
+的真修复）。15 个可判样本：判官 vs 执行 13 一致、2 分歧且双向纠错。
+
+**工程坑**（全部当场固化）：uv venv 默认无 pip/setuptools（--seed）、GBK 控制台
+编码崩 log（stdout reconfigure）、环境目录名 replace("_","__") 假 no-op 翻倍
+下划线、brotlicffi 在 3.8 无 wheel（砍 pytest-httpbin 链）、werkzeug/__version__
+与 pkg_resources 的时代移除。158 passed。
+
+**遗留如实**：requests-2931 数据集 node id 与 commit 实际类名漂移（对齐债）；
+C 扩展仓 17 任务需 Linux/预编译 wheel 才能入环境。

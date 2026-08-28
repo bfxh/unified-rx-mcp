@@ -81,5 +81,8 @@
   "fix_equivalent": true,
   "reason": "Both patches change offsetText color to use labelcolor when not 'inherit', with identical logic and placement."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

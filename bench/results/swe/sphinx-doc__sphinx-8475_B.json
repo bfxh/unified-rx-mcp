@@ -78,5 +78,10 @@
   "fix_equivalent": false,
   "reason": "Candidate adds duplicate except block for TooManyRedirects, which is syntactically invalid and doesn't match gold's approach of extending the existing HTTPError except clause."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

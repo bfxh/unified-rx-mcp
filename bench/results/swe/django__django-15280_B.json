@@ -93,5 +93,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch contains only a code search invocation with no actual diff or fix. It does not address the deferred field caching issue described in the problem."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "unparseable-ftb"
+ }
 }

@@ -60,5 +60,8 @@
   "fix_equivalent": false,
   "reason": "Both address StopIteration in _safe_first_finite, but candidate returns None instead of falling back to first element, changing behavior and potentially causing downstream errors."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

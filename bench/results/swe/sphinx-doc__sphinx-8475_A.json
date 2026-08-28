@@ -68,5 +68,11 @@
   "fix_equivalent": false,
   "reason": "Candidate adds TooManyRedirects handling but returns 'broken' status instead of retrying GET and returning success, unlike gold patch which properly retries and returns valid response."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "\"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

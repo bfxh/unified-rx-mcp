@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate only changes signature to None but omits the critical logic to use self.copy_X when None, leaving behavior broken."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

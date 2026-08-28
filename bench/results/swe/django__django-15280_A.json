@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch modifies query compiler handling unrelated to prefetch deferred fields issue; gold patch fixes reverse relation caching in related descriptors."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "unparseable-ftb"
+ }
 }

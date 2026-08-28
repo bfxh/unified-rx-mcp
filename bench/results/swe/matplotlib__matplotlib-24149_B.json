@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is identical to existing code; no actual change made. It does not address the StopIteration issue in _convert_dx."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

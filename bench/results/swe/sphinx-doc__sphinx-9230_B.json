@@ -73,5 +73,10 @@
   "fix_equivalent": false,
   "reason": "Candidate patch modifies napoleon docstring parser, while gold patch fixes docfields.py field splitting. Different code paths and root cause; candidate doesn't address the reported rendering issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

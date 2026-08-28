@@ -73,5 +73,10 @@
   "fix_equivalent": false,
   "reason": "Candidate only adds Content-Length for GET with body, but doesn't remove default '0' for GET/HEAD without body, so issue persists."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

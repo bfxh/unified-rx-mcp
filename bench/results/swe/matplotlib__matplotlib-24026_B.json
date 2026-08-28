@@ -72,5 +72,8 @@
   "fix_equivalent": false,
   "reason": "Candidate resets prop cycle after setting, but gold avoids changing it by using itertools.cycle. Candidate may not preserve original cycle correctly and doesn't handle default color generation."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

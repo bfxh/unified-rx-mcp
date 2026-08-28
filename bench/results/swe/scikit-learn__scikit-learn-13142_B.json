@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is incomplete and truncated; it does not provide a valid unified diff or implement the fix, so it cannot be equivalent."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

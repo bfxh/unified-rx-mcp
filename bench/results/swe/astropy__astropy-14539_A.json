@@ -66,5 +66,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is a no-op with no actual changes; it does not address the VLA handling bug in FITSDiff."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

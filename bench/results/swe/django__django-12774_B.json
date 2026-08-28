@@ -68,5 +68,10 @@
   "fix_equivalent": true,
   "reason": "Both patches allow in_bulk() for single-field UniqueConstraints by checking total_unique_constraints. Candidate also checks unique_together and unique_fields, but core fix matches gold."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

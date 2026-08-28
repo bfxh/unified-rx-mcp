@@ -68,5 +68,11 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is identical to the original code, making no changes. It does not address the array truth-value ambiguity bug."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-5631\\tox.ini:119: requires pytest-2.0, actual pytest-1.0'\n\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

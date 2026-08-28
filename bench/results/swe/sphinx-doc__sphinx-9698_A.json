@@ -60,5 +60,11 @@
   "fix_equivalent": false,
   "reason": "Candidate patch modifies signature rendering, not index text generation. Gold patch fixes index entry parens in get_index_text; candidate doesn't address that."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "hinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.71s\n\n===STDERR===\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

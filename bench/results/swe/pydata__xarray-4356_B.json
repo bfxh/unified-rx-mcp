@@ -74,5 +74,8 @@
   "fix_equivalent": false,
   "reason": "Candidate references wrong line and uses 'a.shape' instead of 'mask.shape', and lacks the actual patch context. It does not implement the correct fix."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

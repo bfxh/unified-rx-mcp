@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch only sets class_indices to None for MultiOutputClassifier, but doesn't add classes_ attribute or handle per-estimator classes, so predict_proba still fails."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

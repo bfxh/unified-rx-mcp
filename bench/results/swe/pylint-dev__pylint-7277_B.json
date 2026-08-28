@@ -74,5 +74,10 @@
   "fix_equivalent": false,
   "reason": "Candidate only guards the first pop in the source-checkout branch, not the unconditional pop in modify_sys_path, so it doesn't fix the reported runpy issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

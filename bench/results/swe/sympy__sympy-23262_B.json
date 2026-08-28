@@ -78,5 +78,10 @@
   "fix_equivalent": false,
   "reason": "Both fix tuple printing, but candidate modifies pycode.py while gold modifies lambdify.py. Candidate only handles single-element tuples, missing the general tuple formatting fix in gold."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

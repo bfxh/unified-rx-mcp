@@ -78,5 +78,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch contains no actual code changes, only investigation tool calls. No diff provided to fix the coordinate attribute overwriting issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

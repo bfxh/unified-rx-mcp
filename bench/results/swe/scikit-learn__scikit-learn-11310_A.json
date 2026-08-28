@@ -62,5 +62,8 @@
   "fix_equivalent": false,
   "reason": "Candidate only adds documentation for refit_time_ but does not implement the timing logic or attribute assignment, so it does not fix the issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

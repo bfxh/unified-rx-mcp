@@ -87,5 +87,11 @@
   "fix_equivalent": false,
   "reason": "Candidate contains no actual diff, only prose and an unchanged SEARCH/REPLACE block. It does not implement the gold patch's fix using exp(Sum(log(...)))."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is empty/no-op; it does not address the missing classes_ attribute in MultiOutputClassifier. Gold patch adds fit method to set classes_."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

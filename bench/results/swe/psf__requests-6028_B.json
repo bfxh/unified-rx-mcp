@@ -66,5 +66,10 @@
   "fix_equivalent": false,
   "reason": "Both address proxy auth parsing, but candidate modifies models.py and adds incomplete/incorrect changes, not the core utils.py fix."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "candidate-apply-failed: b'error: corrupt patch at <stdin>:90\\n'"
+ }
 }

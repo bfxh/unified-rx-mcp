@@ -60,5 +60,8 @@
   "fix_equivalent": false,
   "reason": "Candidate addresses nominal scale limits, grid, and inversion but uses a hacky invisible artist approach that may not correctly set limits, unlike gold's direct tick-based limit calculation."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

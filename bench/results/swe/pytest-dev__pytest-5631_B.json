@@ -68,5 +68,10 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is identical to the original code, making no changes. It does not address the array truth-value ambiguity issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

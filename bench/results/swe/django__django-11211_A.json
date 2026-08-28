@@ -75,5 +75,11 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is empty/invalid, containing only search/replace markup with no actual changes. It does not address the UUIDField get_prep_value issue that the gold patch fixes."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "le: Article object (43cc70b3-9049-4328-82c0-0d9f43025e0a)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (43cc70b3-9049-4328-82c0-0d9f43025e0a)>\n\n- [None]\n+ [<Article: Article object (43cc70b3-9049-4328-82c0-0d9f43025e0a)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

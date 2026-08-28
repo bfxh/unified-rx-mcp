@@ -92,5 +92,13 @@
   "fix_equivalent": false,
   "reason": "Candidate uses modulo operator on rhs_sum, but Django's SQL compiler may not support '%' in this context; gold uses Mod() function for portability."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "ftb_pass": true,
+  "ftb_tail": "Testing against Django installed in 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-16901\\django'\nFound 1 test(s).\nSystem check identified no issues (0 silenced).\n",
+  "ptb_total": 6,
+  "ptb_pass": true,
+  "verified": true
+ }
 }

@@ -79,5 +79,10 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is a no-op (identical SEARCH/REPLACE), not addressing the crash. Gold patch adds identifier prefix to avoid Python keyword conflicts."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

@@ -71,5 +71,13 @@
   "fix_equivalent": true,
   "reason": "Both patches add the same ValueError check for empty blueprint names. The candidate only has an unrelated type comment removal, which doesn't affect functionality."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "ftb_pass": true,
+  "ftb_tail": ".                                                                        [100%]\n1 passed in 0.08s\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ }
 }

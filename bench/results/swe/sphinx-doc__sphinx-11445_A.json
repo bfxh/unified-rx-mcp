@@ -80,5 +80,11 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is empty and provides no actual code changes. It only describes a potential fix location without implementing it, so it cannot be equivalent to the gold patch."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "st-of-lbx13\\pytest-38\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.78s\n\n===STDERR===\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

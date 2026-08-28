@@ -81,5 +81,8 @@
   "fix_equivalent": false,
   "reason": "Candidate modifies _set_output call in __init__ and set_output, but doesn't call _safe_set_output on remainder estimator, so remainder output remains unchanged."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

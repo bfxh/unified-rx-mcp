@@ -63,5 +63,8 @@
   "fix_equivalent": true,
   "reason": "Both patches add the same validation call before checking vocabulary, resolving the NotFittedError when vocabulary is provided."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

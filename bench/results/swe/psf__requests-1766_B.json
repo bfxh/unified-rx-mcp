@@ -66,5 +66,11 @@
   "fix_equivalent": false,
   "reason": "Candidate quotes qop in header value but doesn't modify the hardcoded 'qop=auth' string in the response header, so the actual sent header remains unquoted."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "ftb_pass": false,
+  "ftb_tail": "S_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 6.44s\n\n===STDERR===\n",
+  "verified": false
+ }
 }

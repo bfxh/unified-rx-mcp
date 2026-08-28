@@ -83,5 +83,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is empty and contains only tool-call markup, no actual code changes. It does not address the float16 dtype upgrade issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

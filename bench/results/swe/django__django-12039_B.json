@@ -80,5 +80,10 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is empty and contains no actual code changes. It repeatedly shows identical SEARCH/REPLACE blocks without modifying the file, so it cannot fix the whitespace issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

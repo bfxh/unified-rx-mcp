@@ -68,5 +68,11 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is identical to original code with no changes; it does not address the UniqueConstraint issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "go__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.005s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

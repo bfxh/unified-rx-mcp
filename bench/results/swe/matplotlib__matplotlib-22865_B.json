@@ -84,5 +84,8 @@
   "fix_equivalent": false,
   "reason": "Candidate modifies _draw_edges method, but gold patch fixes _add_solids segment indexing. Different code paths; candidate likely doesn't address actual bug in current implementation."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

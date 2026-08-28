@@ -74,5 +74,11 @@
   "fix_equivalent": false,
   "reason": "Candidate patch targets assertion rewriting, not mark expression parsing. The issue is in src/_pytest/mark/expression.py where True/False/None identifiers need prefixing. Candidate doesn't address the actual crash location."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

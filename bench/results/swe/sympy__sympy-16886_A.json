@@ -68,5 +68,11 @@
   "fix_equivalent": true,
   "reason": "Both patches correct the same incorrect Morse code mapping for '1' from '----' to '.----' in the same file and location."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/crypto/tests/test_crypto.py - AttributeError: module 'py' has no ...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.25s\n\n===STDERR===\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

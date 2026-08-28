@@ -81,5 +81,11 @@
   "fix_equivalent": false,
   "reason": "Candidate patch contains no actual changes; it only duplicates existing code without modifying behavior. It does not address the docfield parsing issue."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": " in <module>\n    from sphinx.util.typing import PathMatcher\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\typing.py\", line 37, in <module>\n    from types import Union as types_Union\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'Union' from 'types' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\types.py)\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ }
 }

@@ -72,5 +72,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is not a valid diff; it only requests file content. No code changes provided to compare with gold patch."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

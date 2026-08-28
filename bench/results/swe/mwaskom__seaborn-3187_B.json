@@ -87,5 +87,8 @@
   "fix_equivalent": false,
   "reason": "Candidate appends offset to labels instead of disabling offset/scientific notation, producing incorrect legend values. Gold patch disables offset entirely, ensuring correct display."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

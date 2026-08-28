@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate patch is incomplete, truncated mid-diff, and lacks the final E-step after setting best parameters, which is essential for consistency."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

@@ -68,5 +68,8 @@
   "fix_equivalent": false,
   "reason": "Candidate converts CN aliases but doesn't avoid set_prop_cycle; gold uses itertools.cycle and get_next_color, preserving cycler. Candidate may still fail for non-CN colors or alter cycler."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }

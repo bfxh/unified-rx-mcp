@@ -60,5 +60,14 @@
   "fix_equivalent": true,
   "reason": "Both patches add the same empty-name check raising ValueError, differing only in placement relative to dot check, which doesn't affect functionality."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "ient <Flask 'flask_test'>>\n\n    def test_empty_name_not_allowed(app, client):\n>       with pytest.raises(ValueError):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\ntests\\test_blueprints.py:260: Failed\n=========================== short test summary info ===========================\nFAILED tests/test_blueprints.py::test_empty_name_not_allowed - Failed: DID NO...\n1 failed in 0.13s\n\n===STDERR===\n",
+  "ftb_pass": true,
+  "ftb_tail": ".                                                                        [100%]\n1 passed in 0.02s\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ }
 }

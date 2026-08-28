@@ -74,5 +74,8 @@
   "fix_equivalent": true,
   "reason": "Both patches handle the empty support_vectors_ case by setting dual_coef_ to an empty csr_matrix, preventing ZeroDivisionError. The candidate's condition on dual_coef_indices.size is equivalent to checking n_SV."
  },
- "judge_votes_n": 3
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
 }
