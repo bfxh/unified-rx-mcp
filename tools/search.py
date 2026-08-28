@@ -8,7 +8,6 @@ kb_query 于 S15 移除（同引擎重复面，L3 实战 100+ 会话零调用）
 import os
 import re
 import math
-import json
 from collections import Counter
 
 from registry import tool

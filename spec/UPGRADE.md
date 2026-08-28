@@ -830,3 +830,28 @@ json/tempfile import、clippy 分支 continue 不在循环内、line 事件 retu
 
 swe_repair --variant signals|plain 双变体常驻，配对 summary 一条命令复跑。
 218 passed。
+
+---
+
+## S39 · skill 体系 + 全仓漏洞审计（2026-08-28）
+用户指定五件：ponytail skill 安装 / 倒退分析 / 每语言每域 skill / 会话记录规范
+（跨项目）/ 全仓漏洞审计。
+
+1. **ponytail 全家桶 6 skill 安装**（anti-overengineering 路线，与"表面光鲜"
+   原则同源）：ponytail/audit/debt/gain/help/review
+2. **倒退分析（django-12039 A 臂 signals→plain）**：同起点同模型，plain 臂
+   第 1 轮修复即蒙对（1 轮转绿），signals 臂 3 轮未中——**采样方差非信号伤害**，
+   n=28 检不出；signals 臂另有 B +1 对冲，净 0
+3. **skill 门禁 + 文档**：tests/test_manifest_gate.py——每个工具 description/
+   schema/group 完整性 + **每个域必须有 skills/<域>.md** + ide 声明的每语言
+   必须有 skills/lang/*.md（CI 强制"对外必须有 skill"）；skills/ 12 域 + 6
+   语言文档落齐（内容=实测 quirks 非宣传）
+4. **会话记录规范**：bench/log_round.py + spec/ROUNDLOG.md（三要素：任务/
+   决策/证据，跨项目通用格式）
+5. **全仓自扫描**：bug_scan 扫 tools/server/registry/bench——**抓到真 bug**：
+   ide_diagnostics 用 registry.call 但 tools/ide.py 未 import registry
+   （NameError 必崩，门禁测试被 fake 掩盖）→ 修复 + 真机 pylsp 全链路验证
+   （20 条真诊断）；search.py 死 json import 清除；_break_java class 注入/
+   _break_go regex 注入防护（S38 遗漏，S36 here-string 失败吞掉的后端本轮补齐
+   并带防护落地）；attack fuzz 三新工具全存活；诊断缓存可变共享改拷贝
+225 passed。

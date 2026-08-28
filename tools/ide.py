@@ -19,6 +19,7 @@ import re
 import json
 import tempfile
 
+import registry
 from registry import tool
 from tools.fs import _resolve as _fs_resolve  # P0: 复用 fs 域沙盒校验
 
@@ -312,7 +313,7 @@ def _build_cache_get(key):
         return None
     if ent["key"] != _build_fingerprint(key[2]):
         return None
-    return {"cached": True, **ent["result"]}
+    return {"cached": True, **dict(ent["result"])}
 
 
 def _build_cache_put(key, result):
@@ -759,8 +760,14 @@ def ide_break(path, cmd, breakpoints, max_hits=20):
     if not breakpoints:
         return {"error": "breakpoints 为空"}
     exe0 = os.path.basename(cmd[0].lower()) if cmd else ""
-    if "python" in exe0:
+    bp0 = breakpoints[0]
+    # S38：按断点声明形状路由（file→python / class→java / func→go），exe 名不可靠
+    if "file" in bp0 and ("python" in exe0 or str(bp0["file"]).endswith(".py")):
         return _break_python(path, cmd, breakpoints, max_hits)
+    if "class" in bp0:
+        return _break_java(path, cmd, breakpoints, max_hits)
+    if "func" in bp0:
+        return _break_go(path, cmd, breakpoints, max_hits)
     return {"error": "该语言的轻依赖断点后端不可用：rust 需 gdb/lldb（未在 PATH）——"
                      "替代方案：ide_debug 的 panic 回溯帧（RUST_BACKTRACE=1）"}
 
@@ -882,3 +889,80 @@ def ide_diagnostics(path, files=None, include_lint=True, timeout=600):
     errors = [d for d in diags if d["severity"] == "error"]
     return {"engine": "+".join(engines) or "none", "total": len(diags),
             "errors": len(errors), "diagnostics": diags[:200]}
+
+
+def _break_java(path, cmd, breakpoints, max_hits):
+    """java/jdb：脚本化馈送（stop in/at → locals → where → cont）。
+    S38 安全：class 名白名单校验（防 jdb 命令注入）。"""
+    jdb = shutil.which("jdb")
+    if not jdb:
+        return {"error": "jdb 未找到（JDK bin 不在 PATH）"}
+    bp = breakpoints[0]
+    cls = str(bp.get("class") or "")
+    if not re.match(r"^[A-Za-z_][A-Za-z0-9_.$]*$", cls):
+        return {"error": f"class 名非法（防 jdb 命令注入）: {cls[:40]}"}
+    ln = int(bp.get("line", 0))
+    cp = []
+    for i, a in enumerate(cmd):
+        if a in ("-cp", "-classpath") and i + 1 < len(cmd):
+            cp = [cmd[i + 1]]
+    script = "\n".join([f"stop in {cls}.main", "run",
+                         f"stop at {cls}:{ln}", "locals", "where",
+                         "cont", "locals", "quit", ""])
+    env = dict(os.environ)
+    env["JAVA_TOOL_OPTIONS"] = "-Duser.language=en -Duser.country=US"
+    try:
+        r = subprocess.run([jdb, "-classpath", *cp], cwd=path,
+                           input=script.encode(), capture_output=True,
+                           timeout=120, env=env)
+    except subprocess.TimeoutExpired:
+        return {"error": "jdb 超时（120s）", "hits": []}
+    out = (r.stdout or b"").decode(errors="replace")
+    hits, cur = [], None
+    for line in out.splitlines():
+        if "Breakpoint hit" in line:
+            if cur:
+                hits.append(cur)
+            cur = {"locals": {}, "stack": []}
+            m = re.search(r"line=(\d+)", line)
+            if m:
+                cur["bp_line"] = int(m.group(1))
+        elif cur is not None:
+            vm = re.match(r"\s*([\w\[\]<>.]+)\s+(\w+)\s*=\s*(.*)", line)
+            if vm and "=" in line:
+                cur["locals"][vm.group(2)] = vm.group(3)[:120]
+            elif line.strip().startswith("at "):
+                cur["stack"].append(line.strip()[:120])
+    if cur:
+        hits.append(cur)
+    return {"lang": "java", "total": len(hits), "hits": hits[:max_hits],
+            "raw_tail": out[-1200:]}
+
+
+def _break_go(path, cmd, breakpoints, max_hits):
+    """go：dlv trace 函数级（行级断点需交互式 dlv——如实降级）。
+    S38 安全：函数名正则白名单（防 regex 注入）。"""
+    dlv = shutil.which("dlv")
+    if not dlv:
+        return {"error": "dlv 未找到（go install github.com/go-delve/delve/cmd/dlv@latest）"}
+    exe = cmd[0]
+    if not os.path.isabs(exe):
+        exe = os.path.join(path, exe)
+    names = "|".join(str(bp.get("func", "main.")) for bp in breakpoints)
+    if not re.match(r"^[\w.*?|\-]+$", names):
+        return {"error": f"函数名非法（防 regex 注入）: {names[:40]}"}
+    env = dict(os.environ)
+    env["MPLBACKEND"] = "Agg"
+    try:
+        r = subprocess.run([dlv, "trace", names, "--exec", exe, "--output", "-"],
+                           cwd=path, capture_output=True, timeout=300, env=env)
+    except subprocess.TimeoutExpired:
+        return {"error": "dlv 超时（300s）", "hits": []}
+    text = (r.stdout or b"").decode(errors="replace") + "\n" + \
+           (r.stderr or b"").decode(errors="replace")
+    hits = []
+    for line in text.splitlines():
+        if line.startswith("> ") or " => " in line:
+            hits.append({"trace": line.strip()[:200]})
+    return {"lang": "go", "mode": "function-trace", "total": len(hits),
+            "hits": hits[:max_hits], "raw_tail": text[-1200:]}
