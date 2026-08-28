@@ -30,3 +30,16 @@ def test_score_full_matrix():
 def test_score_empty():
     s = score([])
     assert s["precision"] == 0.0 and s["recall"] == 0.0
+
+
+def test_indexing_cast_rule_catches_member_expr():
+    # S27 人工标注审计发现的召回缺口：[rot as usize] 此前 indexing 漏报
+    import json
+    import registry
+    import tools  # noqa: F401
+    d = os.path.join(ROOT, "bench", "manual_snaps")
+    snap = os.path.join(d, "VoxelForge_04_rand__input.rs")
+    r = registry.call("bug_scan", {"path": snap})
+    issues = r["result"]["issues"]
+    hits = [i for i in issues if i["rule"] == "indexing" and i["line"] == 206]
+    assert hits, "rotations_24()[rot as usize] 必须被 indexing 命中"

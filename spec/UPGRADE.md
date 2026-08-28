@@ -592,3 +592,29 @@ TP=15 FN=0 FP=0 TN=15，P=1.000 R=1.000。**如实定框：这是自标注循环
 工程坑：PowerShell Set-Content -Encoding UTF8 毁中文注释（re-mangled 成
 GBK mojibake + 断字符串）——文件操作一律走专用工具，不走 shell 变换。
 164 passed。
+
+---
+
+## S27 · P1 独立人工标注：泛化 P/R + 揪出 indexing 漏报（2026-08-28）
+**协议**：32 快照（15 语料文件 × {HEAD + seed 随机历史版}），快照选择独立于
+scan 输出；评审者（模型）用自有词法超集 grep 圈候选 + 函数上下文逐个语义判
+safe/unsafe，先标注后跑 scan。标注与协议落盘 bench/p1_manual_labels.py /
+p1_score2.py，可复跑。
+
+**人工判定**：~490 候选全审，unsafe 仅 3 处——V3 main.rs L1355 center.unwrap()
+（不变量不可证）、VF input.rs rand L206 与 main.rs rand L61（rotations_24()[..]
+无 % 24/rot>=24 守卫——head 版本后补防御，证明缺陷真实存在过）。其余全部
+safe：测试断言语义、let-else 守卫、% 24 防御在位、网格坐标数值域安全。
+
+**测量（按规则契约拆分，不混算）**：
+- definite 家族（panic/unreachable/todo/bare_except/undefined_name）：**零 FP**
+  （panic 全部正确落入测试降级）
+- clue 家族（unwrap/expect/as_cast/indexing/bevy_query_single）：全量上报是
+  设计使然，safe 命中不计 FP
+- **clue 召回 1/3 → 揪出真缺口**：indexing 正则 `\[[a-zA-Z_]\w*\]` 抓不到
+  `[rot as usize]`/`[md.rotation as usize]` 成员+转换索引——**修复**（新增
+  as-转换索引模式），召回 3/3，真快照回归测试锁死（test_p1_score）
+
+**诚实注**：python undefined_name 的 FN 方向未全量精读（connector 2941L 超出
+人工范围），clue FP 概念不适用；792 个"表面 FP"全部是 clue 设计性命中。
+164→165 passed（新增真快照回归）。

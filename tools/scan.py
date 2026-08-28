@@ -165,6 +165,8 @@ _RUST_RULES = [
     ("todo_unimplemented", r"\b(todo!|unimplemented!)\(", "todo!/unimplemented!()——未实现即崩溃", "high", "definite"),
     ("as_cast", r"\bas\s+(i64|i32|u64|u32|f64|f32|usize|isize)\b", "as 类型转换——截断/精度丢失（线索：建议 try_from）", "info", "clue"),
     ("indexing", r"\[[a-zA-Z_][a-zA-Z0-9_]*\]", "索引访问——越界即 panic（线索：建议 .get()）", "info", "clue"),
+    # S27 人工标注审计发现：[expr.field as usize] 成员+转换索引此前全部漏报
+    ("indexing", r"\[[^\]\[\n]{0,80}\bas\s+(usize|isize|i64|i32|u64|u32)\s*\]", "索引访问（含 as 转换）——越界即 panic（线索：建议 .get()）", "info", "clue"),
 ]
 
 
