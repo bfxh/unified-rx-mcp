@@ -290,9 +290,18 @@ def repair_loop(args):
 
 
 def _structured_frames(text):
-    """S33：把测试失败输出里的 traceback/panic 解析成结构化帧文本段（无帧返回空）。"""
-    from tools.ide import _parse_py_traceback, _parse_java_trace, _parse_go_panic
+    """S33/S34：把测试失败输出解析成结构化帧文本段（无帧返回空）。"""
+    from tools.ide import (_parse_py_traceback, _parse_java_trace,
+                           _parse_go_panic, _parse_pytest)
     parts = []
+    pf, asserts = _parse_pytest(text)
+    if pf or asserts:
+        lines = ["[STRUCTURED · pytest]"]
+        for t in pf[:10]:
+            lines.append(f"- FAILED {t}")
+        for a in asserts[:5]:
+            lines.append(f"  E {a}")
+        parts.append("\n".join(lines))
     frames, last = _parse_py_traceback(text)
     if frames:
         lines = ["[STRUCTURED FRAMES · python]"]

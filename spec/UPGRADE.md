@@ -727,3 +727,22 @@ structured_frames 单测。
 **过程自抓**：test_s33_lang 里两个 call_tool 定义互相覆盖（后定义无 merge
 → KeyError ok）；PowerShell 内联 python 引号地狱持续——一律走脚本文件。
 201 passed。
+
+---
+
+## S34 · IDE 按使用数据优化（2026-08-28）
+stats.jsonl 实测：code_search 1580 / ide_edit_multi 887 / ide_lsp 643 /
+locate_edit 534 / code_context 228 / ide_build 111 / code_semantic 84 /
+ide_debug 58——按频次挑优化点，不拍脑袋。
+
+1. **ide_edit_multi dry_run 预览**（887× 高频）：匹配模拟在副本上整段跑，
+   dry_run 返回 unified diff 不落盘；mismatch 不再留下半应用状态
+2. **ide_build 诊断缓存**：源文件指纹（mtime+size）失效判定，重复调用秒回
+   （cargo check/compileall 皆命中），改文件自动重跑
+3. **pytest 失败解析**（ide_debug + swe_repair 修复轮）：FAILED/ERROR 行 +
+   E 断言行 → [STRUCTURED · pytest] 段回喂——pytest 是 FTB 主力 runner，
+   此前只解析裸 traceback 漏掉短格式失败
+4. 顺手修：ide_edit_multi 模拟/写回两段 errors 变量残留（NameError）
+
+**诚实边界表增补**：code_semantic tf-idf 非嵌入模型、C 运行时崩溃无帧
+（无 gdb）。206 passed。

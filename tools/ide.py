@@ -158,7 +158,7 @@ def code_context(path, cursor_line=0, radius=30):
        },
        "required": ["file_path", "edits"]},
       requires_auth=True)
-def ide_edit_multi(file_path, edits, root=None, __authorized=False, old_lines=None, new_lines=None):
+def ide_edit_multi(file_path, edits, root=None, __authorized=False, old_lines=None, new_lines=None, dry_run=False):
     # 授权已由 registry.call 的 requires_auth 强制；此处信任进入即已授权
     if old_lines or new_lines:
         edits = (edits or []) + [{"old_lines": old_lines, "new_lines": new_lines or []}]
@@ -178,34 +178,46 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False, old_lines=No
     lines = [ln[:-1] if ln.endswith("\r") else ln for ln in lines]
     applied = 0
     errors = []
-    for e in edits or []:
+    edits = edits or []
+    # S34：先整段模拟匹配（在副本上），失败不写盘——dry_run 也复用同一模拟
+    sim = list(lines)
+    sim_errors = []
+    for e in edits:
         old = e.get("old_lines") or []
         new = e.get("new_lines") or []
         occ = int(e.get("occ", 1) or 1)
         if not old:
-            errors.append("old_lines 为空")
+            sim_errors.append("old_lines 为空")
             continue
-        # 逐行块匹配（第 occ 次出现）——I1/I2 修复
         found = -1
         seen = 0
-        for i in range(len(lines) - len(old) + 1):
-            if lines[i:i + len(old)] == old:
+        for i in range(len(sim) - len(old) + 1):
+            if sim[i:i + len(old)] == old:
                 seen += 1
                 if seen == occ:
                     found = i
                     break
         if found < 0:
-            errors.append(f"未匹配(occ={occ}): {old[0][:60]!r}...")
+            sim_errors.append(f"未匹配(occ={occ}): {old[0][:60]!r}...")
             continue
-        lines[found:found + len(old)] = new
+        sim[found:found + len(old)] = new
         applied += 1
     if applied == 0:
-        return {"error": f"0 应用: {errors[:3]}", "applied": 0, "errors": errors}
+        return {"error": f"0 应用: {sim_errors[:3]}", "applied": 0, "errors": sim_errors}
+    out = eol.join(sim)
+    if dry_run:
+        # S34：预览模式——unified diff，不落盘（887 次调用里预览是高频需求）
+        import difflib
+        diff = "".join(difflib.unified_diff(
+            src.splitlines(keepends=True), out.splitlines(keepends=True),
+            fromfile=file_path, tofile=file_path + " (dry_run)"))
+        return {"applied": applied, "errors": sim_errors, "file": p,
+                "dry_run": True, "diff": diff[:MAX_CTX]}
     # 写回：保留原行尾（I3 修复）
-    out = eol.join(lines)
     with open(p, "w", encoding="utf-8", newline="") as f:
         f.write(out)
-    return {"applied": applied, "errors": errors, "file": p, "eol": "CRLF" if eol == "\r\n" else "LF"}
+    return {"applied": applied, "errors": sim_errors, "file": p,
+            "eol": "CRLF" if eol == "\r\n" else "LF"}
 
 
 
@@ -254,6 +266,59 @@ _RE_PY_FRAME = re.compile(r'File "([^"]+)", line (\d+)(?:, in (\w+))?')
 _RE_PY_LAST = re.compile(r"^([A-Za-z_.]+(?:Error|Exception|Interrupt|Exit))(?::\s*(.*))?$")
 _RE_RUST_PANIC = re.compile(r"panicked at\s+(?:'([^']*)',\s*)?([^\s:]+):(\d+):(\d+)")
 _RE_RUST_FRAME = re.compile(r"^\s+at\s+.+?:(\d+):(\d+)")
+_RE_PYTEST_FAILED = re.compile(r"^(?:FAILED|ERROR)\s+([\w/\\.:,\[\]\-]+)", re.M)
+_RE_PYTEST_SHORT_ID = re.compile(r"^_{5,}\s+(\S+)\s+_+$", re.M)
+
+
+def _parse_pytest(text):
+    """pytest 失败摘要：FAILED/ERROR 行 + E 断言行（S34：修复轮的高频信号）。"""
+    failed = [m.group(1) for m in _RE_PYTEST_FAILED.finditer(text)]
+    for m in _RE_PYTEST_SHORT_ID.finditer(text):
+        if m.group(1) not in failed:
+            failed.append(m.group(1))
+    asserts = [ln[1:].strip()[:200] for ln in text.splitlines()
+               if re.match(r"^E\s+\S", ln)][:8]
+    return failed, asserts
+
+
+def _build_fingerprint(root):
+    """参与构建的源文件指纹（mtime+size）——诊断缓存失效判定。"""
+    fps = {}
+    for r, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for fn in files:
+            if os.path.splitext(fn)[1].lower() in (
+                    ".py", ".rs", ".go", ".java", ".c", ".cpp", ".h",
+                    ".hpp", ".toml", ".lock"):
+                fp = os.path.join(r, fn)
+                try:
+                    st = os.stat(fp)
+                    fps[fp] = (st.st_mtime_ns, st.st_size)
+                except OSError:
+                    pass
+    return hash(tuple(sorted(fps.items())))
+
+
+_BUILD_CACHE = {}       # (tool, action, build_root) -> {"key": fp, "result": {...}}
+_BUILD_CACHE_MAX = 8
+_BUILD_CACHE_ORDER = []
+
+
+def _build_cache_get(key):
+    ent = _BUILD_CACHE.get(key)
+    if ent is None:
+        return None
+    if ent["key"] != _build_fingerprint(key[2]):
+        return None
+    return {"cached": True, **ent["result"]}
+
+
+def _build_cache_put(key, result):
+    _BUILD_CACHE[key] = {"key": _build_fingerprint(key[2]), "result": result}
+    _BUILD_CACHE_ORDER.append(key)
+    while len(_BUILD_CACHE_ORDER) > _BUILD_CACHE_MAX:
+        old = _BUILD_CACHE_ORDER.pop(0)
+        _BUILD_CACHE.pop(old, None)
 
 
 def _find_build_root(path, markers):
@@ -455,6 +520,9 @@ def ide_build(path, action="check", timeout=600):
     exe = shutil.which("cargo")
     build_root = _find_build_root(path, ("Cargo.toml",))
     if exe and build_root:
+        cached = _build_cache_get(("cargo", action, build_root))
+        if cached:
+            return cached
         cmd = [exe, "check", "--message-format=short"]
         if action == "test":
             cmd = [exe, "test", "--no-run", "--message-format=short"]
@@ -466,11 +534,13 @@ def ide_build(path, action="check", timeout=600):
         out = (r.stdout or b"").decode(errors="replace") + "\n" + \
               (r.stderr or b"").decode(errors="replace")
         diags = _parse_cargo_short(out, build_root)
-        return {"tool": "cargo", "action": action, "build_root": build_root,
-                "exit": r.returncode, "ok": r.returncode == 0,
-                "total": len(diags),
-                "errors": [d for d in diags if d["level"] == "error"],
-                "warnings": [d for d in diags if d["level"] == "warning"][:50]}
+        result = {"tool": "cargo", "action": action, "build_root": build_root,
+                  "exit": r.returncode, "ok": r.returncode == 0,
+                  "total": len(diags),
+                  "errors": [d for d in diags if d["level"] == "error"],
+                  "warnings": [d for d in diags if d["level"] == "warning"][:50]}
+        _build_cache_put(("cargo", action, build_root), result)
+        return result
     if os.path.isfile(os.path.join(path, "go.mod")):
         go = shutil.which("go")
         if not go:
@@ -494,6 +564,9 @@ def ide_build(path, action="check", timeout=600):
     py = shutil.which("python") or shutil.which("py")
     if py is None:
         return {"error": "无可识别构建目标（Cargo.toml/go.mod/.java/.c/.cpp/.py）"}
+    cached = _build_cache_get(("compileall", "", path))
+    if cached:
+        return cached
     try:
         r = subprocess.run([py, "-m", "compileall", "-q", path],
                            capture_output=True, timeout=timeout)
@@ -507,8 +580,10 @@ def ide_build(path, action="check", timeout=600):
         fp, ln = m.group(1), int(m.group(2))
         diags.append({"file": os.path.abspath(fp), "line": ln, "level": "error",
                       "msg": "syntax"})
-    return {"tool": "compileall", "exit": r.returncode, "ok": r.returncode == 0,
-            "total": len(diags), "errors": diags, "raw_tail": out[-1500:]}
+    result = {"tool": "compileall", "exit": r.returncode, "ok": r.returncode == 0,
+              "total": len(diags), "errors": diags, "raw_tail": out[-1500:]}
+    _build_cache_put(("compileall", "", path), result)
+    return result
 
 
 def _parse_py_traceback(text):
@@ -577,6 +652,7 @@ def ide_debug(path, cmd, timeout=300):
     rust = _parse_rust_panic(text)
     jframes, jlast = _parse_java_trace(text)
     gop = _parse_go_panic(text)
+    pf, asserts = _parse_pytest(text)
     lang_frames = None
     if jframes:
         lang_frames = {"kind": "java", "frames": jframes, "last_error": jlast}
@@ -586,6 +662,7 @@ def ide_debug(path, cmd, timeout=300):
             "python": {"frames": py_frames, "last_error": py_last} if py_frames else None,
             "rust_panics": rust,
             "lang_frames": lang_frames,
+            "pytest": {"failed": pf[:20], "asserts": asserts} if (pf or asserts) else None,
             "raw_tail": text[-2500:]}
 
 
