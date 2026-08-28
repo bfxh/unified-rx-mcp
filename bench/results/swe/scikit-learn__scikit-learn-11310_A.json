@@ -64,6 +64,12 @@
  },
  "judge_votes_n": 3,
  "verify": {
-  "skip": "no-env"
+  "base_ftb_fail": false,
+  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_41078.sh: 行 3: : 未找到命令\n",
+  "ftb_pass": true,
+  "ftb_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_41078.sh: 行 3: : 未找到命令\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
  }
 }

@@ -618,3 +618,24 @@ safe：测试断言语义、let-else 守卫、% 24 防御在位、网格坐标�
 **诚实注**：python undefined_name 的 FN 方向未全量精读（connector 2941L 超出
 人工范围），clue FP 概念不适用；792 个"表面 FP"全部是 clue 设计性命中。
 164→165 passed（新增真快照回归）。
+
+---
+
+## S28 · WSL 执行环境：C 扩展仓入局（2026-08-28）
+用户提供 WSL（Ubuntu 24.04）。swe_verify 新增 WSL 路径：C 扩展任务在 WSL 内
+建 per-task venv（uv 托管 py3.8/3.10 + gcc 现场编译 C），测试经 wsl bash 脚本
+跑（patch/restore 仍在 Windows 侧 git 完成）。
+
+**流程打通证据**：scikit-learn__scikit-learn-11310 → uv venv py3.8（--seed 带
+pip）→ setuptools<60 + cython==0.29.36 + numpy==1.17.3/scipy==1.4.1 → pip
+--no-build-isolation legacy develop → pytest 真跑 ✓。
+
+**覆盖**：feasible 29→33/47（sklearn 7 任务中 4 个 env 成功：11310/10908/
+14629/14894；verified A 3 / B 2）。sklearn base-green 3 任务如实标 base_bad
+（数据集声明与真实环境不符）。剩余挂账：12973/13142 构建报错（tail 截断需
+细查）、26323（py3.10 路径）构建 Traceback；matplotlib/astropy 需 apt 装系统
+库（libfreetype 等）。
+
+**工程坑**：生成 bash 脚本时 `pytest<8` 未加引号 → bash 把 `<8` 当 stdin 重定向
+（"8: 没有那个文件或目录"）；uv venv 无 --seed 时无 pip，legacy develop 走不通；
+setuptools<64 无 PEP660 build_editable，uv -e 不可用必须 venv pip。165 passed。

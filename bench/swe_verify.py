@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -65,6 +66,77 @@ TASK_DEPS = {
 TASK_PY = {"pylint-dev__pylint-4661": "3.10"}
 PTB_CAP = 25
 TEST_TIMEOUT = 900
+
+# S28：C 扩展仓走 WSL（Ubuntu 24.04 + uv 托管 python + gcc 现场构建）。
+# 每任务独立 venv（WSL ~/swe/envs2/<iid>），era 依赖钉 + pip legacy develop。
+WSL_MOUNT = "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe"
+WSL_TASKS = {
+    "scikit-learn__scikit-learn-10908": {"py": "3.8"},
+    "scikit-learn__scikit-learn-11310": {"py": "3.8"},
+    "scikit-learn__scikit-learn-12973": {"py": "3.8"},
+    "scikit-learn__scikit-learn-13142": {"py": "3.8"},
+    "scikit-learn__scikit-learn-14629": {"py": "3.8"},
+    "scikit-learn__scikit-learn-14894": {"py": "3.8"},
+    "scikit-learn__scikit-learn-26323": {"py": "3.10"},
+}
+SKLEARN_DEPS = ["cython==0.29.36", "numpy==1.17.3", "scipy==1.4.1", "joblib",
+                "threadpoolctl", "pytest<8"]
+SKLEARN_DEPS_NEW = ["cython<3", "numpy<1.27", "scipy<1.11", "joblib",
+                    "threadpoolctl", "pytest<8"]
+
+
+def wsl_run(script):
+    """把 bash 脚本写到 Windows 侧临时文件，经 /mnt/c 执行（免引号地狱）。"""
+    p = os.path.join(tempfile.gettempdir(), "opencode", f"wsl_{abs(hash(script)) % 99999}.sh")
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(script)
+    mount = p.replace("\\", "/").replace("C:/", "/mnt/c/")
+    r = subprocess.run(["wsl", "-e", "bash", mount],
+                       capture_output=True, timeout=TEST_TIMEOUT + 600)
+    out = (r.stdout or b"").decode(errors="replace")
+    err = (r.stderr or b"").decode(errors="replace")
+    return r.returncode, out, err
+
+
+def build_env_wsl(inst):
+    iid = inst["instance_id"]
+    cfg = WSL_TASKS[iid]
+    pyver = cfg["py"]
+    deps = SKLEARN_DEPS if pyver == "3.8" else SKLEARN_DEPS_NEW
+    co = f"{WSL_MOUNT}/{iid.replace('/', '__')}"
+    script = f"""#!/usr/bin/env bash
+set -e
+E=~/swe/envs2/{iid.replace('/', '__')}
+V=$E/bin/python
+UV=~/.local/bin/uv
+CO={co}
+[ -x "$V" ] && "$V" -c "import sklearn" 2>/dev/null && {{ echo "sklearn OK"; exit 0; }}
+rm -rf "$E"
+"$UV" venv --seed --python {pyver} "$E" 2>&1 | tail -1
+"$UV" pip install --python "$V" "setuptools<60" wheel {' '.join(f"'{d}'" for d in deps)} 2>&1 | tail -1
+"$V" -m pip install --no-build-isolation -e "$CO" 2>&1 | tail -2
+"$V" -c "import sklearn; print('sklearn', sklearn.__version__, 'OK')"
+"""
+    rc, out, err = wsl_run(script)
+    ok = "OK" in out
+    if not ok:
+        log(f"[ENV-FAIL/wsl] {iid}: {(err or out)[-300:]}")
+    return ok
+
+
+def _run_tests_wsl(inst, iid, ftb):
+    if not ftb:
+        return None, "no-ftb"
+    co = f"{WSL_MOUNT}/{iid.replace('/', '__')}"
+    V = f"~/swe/envs2/{iid.replace('/', '__')}/bin/python"
+    script = f"""#!/usr/bin/env bash
+cd {co}
+{' '.join(['"$V" -m pytest -q --no-header -p no:cacheprovider',
+           '--continue-on-collection-errors'] + list(ftb))} 2>&1 | tail -20
+"""
+    rc, out, err = wsl_run(script)
+    tail = (out or err)[-1200:]
+    return rc, tail
 
 
 def log(msg):
@@ -215,6 +287,8 @@ def _sympy_resolve(root, names):
 
 
 def _run_tests(inst, py, root, ftb, timeout=TEST_TIMEOUT):
+    if inst["instance_id"] in WSL_TASKS:          # S28：C 扩展仓走 WSL
+        return _run_tests_wsl(inst, inst["instance_id"], ftb)
     runner = PY_REPOS[inst["repo"]]["runner"]
     if runner == "django":
         labels = _django_labels(ftb)
@@ -313,6 +387,21 @@ def verify(args):
             continue
         inst = insts.get(rec["instance_id"])
         if inst is None:
+            continue
+        if rec["instance_id"] in WSL_TASKS:        # WSL 环境按需构建（幂等）
+            if not build_env_wsl(inst):
+                rec["verify"] = {"skip": "no-env-wsl"}
+                json.dump(rec, open(fp, "w", encoding="utf-8"),
+                          ensure_ascii=False, indent=1)
+                continue
+            t0 = time.time()
+            rec["verify"] = verify_one(rec, inst, None, cache)
+            log(f"verify {os.path.basename(fp)} -> "
+                f"{rec['verify'].get('verified', rec['verify'].get('skip'))} "
+                f"({time.time()-t0:.0f}s)")
+            json.dump(rec, open(fp, "w", encoding="utf-8"),
+                      ensure_ascii=False, indent=1)
+            done += 1
             continue
         py = _uv_py(os.path.join(ENVS, rec["instance_id"].replace("/", "__")))
         if not os.path.exists(py):
