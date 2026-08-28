@@ -42,40 +42,24 @@ def call_tool(name, args):
     return res
 
 
-def test_lsp_section_format():
-    dias = [{"file": "a.py", "line": 7, "msg": "undefined name 'foo'"},
-            {"file": "b.py", "line": 0, "msg": "import error"}]
-    txt = swe_repair._lsp_section(dias)
-    assert "[LSP DIAGNOSTICS" in txt and "a.py:7" in txt
-    assert swe_repair._lsp_section([]) == ""
-
-
-def test_lsp_diagnostics_uses_registry_and_filters_severity(tmp_path, monkeypatch):
-    (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
-    calls = []
-
-    def fake_call(name, args):
-        calls.append((name, args))
-        if name == "ide_lsp":
+def test_diag_section_format(tmp_path, monkeypatch):
+    # S37：统一诊断通道（LSP+clippy 同形状）只回喂 error 级
+    def fake(name, args):
+        if name == "ide_diagnostics":
             return {"ok": True, "result": {"diagnostics": [
-                {"severity": 1, "line": 1, "msg": "E999 syntax"},
-                {"severity": 2, "line": 1, "msg": "W291 trailing ws"},
+                {"source": "pylsp", "file": "a.py", "line": 7,
+                 "severity": "error", "message": "undefined name 'z'"},
+                {"source": "clippy", "file": "b.rs", "line": 3,
+                 "severity": "warning", "message": "equality checks"},
             ]}}
         return {"ok": True, "result": {}}
-
-    monkeypatch.setattr(swe_repair.registry, "call", fake_call)
-    dias = swe_repair._lsp_diagnostics(str(tmp_path), ["a.py"])
-    assert calls and calls[0][0] == "ide_lsp"
-    assert len(dias) == 1 and dias[0]["msg"] == "E999 syntax"   # 只收 error 级
-
-
-def test_lsp_diagnostics_lsp_broken_returns_empty(tmp_path, monkeypatch):
-    (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
-
-    def broken(name, args):
-        raise RuntimeError("lsp dead")
-    monkeypatch.setattr(swe_repair.registry, "call", broken)
-    assert swe_repair._lsp_diagnostics(str(tmp_path), ["a.py"]) == []
+    monkeypatch.setattr(swe_repair.registry, "call", fake)
+    txt = swe_repair._diag_section(str(tmp_path), ["a.py", "b.rs"])
+    assert "[DIAGNOSTICS" in txt and "[pylsp]" in txt and "a.py:7" in txt
+    assert "clippy" not in txt           # warning 级不进修复提示词
+    monkeypatch.setattr(swe_repair.registry, "call",
+                        lambda n, a: {"ok": True, "result": {"diagnostics": []}})
+    assert swe_repair._diag_section(str(tmp_path), ["a.py"]) == ""
 
 
 def test_repair_prompt_contains_lsp_section(tmp_path, monkeypatch):
@@ -108,9 +92,11 @@ def test_repair_prompt_contains_lsp_section(tmp_path, monkeypatch):
         state["runs"] += 1
         return (0, "") if state["runs"] >= 3 else (1, "FAILED x::test_a\nE   assert 1 == 2")
     monkeypatch.setattr(sv, "_run_tests", fake_tests)
-    monkeypatch.setattr(swe_repair, "_lsp_diagnostics",
-                        lambda root, files: [{"file": "a.py", "line": 1,
-                                              "msg": "undefined name 'z'"}])
+    monkeypatch.setattr(swe_repair.registry, "call",
+                        lambda n, a: ({"ok": True, "result": {"diagnostics": [
+                            {"source": "pylsp", "file": "a.py", "line": 0,
+                             "severity": "error", "message": "undefined name 'z'"}]}}
+                            if n == "ide_diagnostics" else {"ok": True, "result": {}}))
     good = {"choices": [{"message": {
         "content": "```sr\npath: a.txt\n<<<<<<< SEARCH\ny = 2\n=======\ny = 42\n"
                    ">>>>>>> REPLACE\n```", "tool_calls": None}}]}
@@ -141,5 +127,5 @@ def test_repair_prompt_contains_lsp_section(tmp_path, monkeypatch):
         else:
             open(fp, "w", encoding="utf-8").write(old)
     joined = "\n".join(str(mm.get("content"))[:300] for mm in captured.get("msgs", []))
-    assert "[LSP DIAGNOSTICS" in joined
+    assert "[DIAGNOSTICS" in joined
     assert "undefined name 'z'" in joined

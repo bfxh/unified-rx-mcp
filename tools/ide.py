@@ -687,10 +687,11 @@ def ide_debug(path, cmd, timeout=300):
 # rust：无 gdb/lldb 时如实报错（不硬造）
 
 _BREAK_RUNNER = '''# -*- coding: utf-8 -*-
-import sys, json, os
+import sys, json, os, runpy
 bps = json.loads(sys.argv[1])
 max_hits = int(sys.argv[2])
-target = sys.argv[3]
+mode = sys.argv[3]
+target = sys.argv[4]
 hits = []
 
 
@@ -723,10 +724,12 @@ def tracer(frame, event, arg):
 
 
 sys.settrace(tracer)
-sys.argv = [target] + sys.argv[4:]
+sys.argv = [target] + sys.argv[5:]
 try:
-    import runpy
-    runpy.run_path(target, run_name="__main__")
+    if mode == "module":
+        runpy.run_module(target, run_name="__main__", alter_sys=True)
+    else:
+        runpy.run_path(target, run_name="__main__")
 except SystemExit:
     pass
 sys.settrace(None)
@@ -763,12 +766,21 @@ def ide_break(path, cmd, breakpoints, max_hits=20):
 
 
 def _break_python(path, cmd, breakpoints, max_hits):
-    """python settrace 记录器：cmd = [python, target.py, ...args]。"""
-    target = cmd[1] if len(cmd) > 1 else ""
-    target_abs = os.path.abspath(
-        os.path.join(path, target) if not os.path.isabs(target) else target)
-    if not os.path.isfile(target_abs):
-        return {"error": f"python 目标不存在: {target_abs}"}
+    """python settrace 记录器：cmd = [python, target.py, ...] 或 [python, -m, 模块, ...]。"""
+    if len(cmd) > 1 and cmd[1] == "-m":
+        mode = "module"
+        target = cmd[2] if len(cmd) > 2 else ""
+        rest = list(cmd[3:])
+        if not target:
+            return {"error": "-m 缺少模块名"}
+    else:
+        mode = "path"
+        target = cmd[1] if len(cmd) > 1 else ""
+        rest = list(cmd[2:])
+        t_abs = os.path.abspath(
+            os.path.join(path, target) if not os.path.isabs(target) else target)
+        if not os.path.isfile(t_abs):
+            return {"error": f"python 目标不存在: {t_abs}"}
     bps = []
     for b in breakpoints:
         bf = b["file"]
@@ -779,8 +791,7 @@ def _break_python(path, cmd, breakpoints, max_hits):
     os.makedirs(os.path.dirname(runner), exist_ok=True)
     with open(runner, "w", encoding="utf-8", newline="") as f:
         f.write(_BREAK_RUNNER)
-    argv = [cmd[0], runner, json.dumps(bps), str(max_hits), target_abs] + \
-        list(cmd[2:])
+    argv = [cmd[0], runner, json.dumps(bps), str(max_hits), mode, target] + rest
     env = dict(os.environ)
     env["PYTHONIOENCODING"] = "utf-8"
     try:
@@ -800,3 +811,74 @@ def _break_python(path, cmd, breakpoints, max_hits):
             "raw_tail": text[-1200:] if not hits else ""}
 
 
+
+
+# ================= S37：ide_diagnostics —— 统一诊断通道 =================
+# LSP（rust-analyzer/pylsp）+ cargo clippy 聚合成同一形状：
+# {source, file, line(1-based), col, severity(error/warning), message}
+# 与 ide_lsp 的发布式诊断不同：本工具是聚合入口，修复循环直接消费。
+
+_SEV_LSP = {"error": "error", "warning": "warning", "info": "info", "hint": "hint"}
+
+_LANG_BY_EXT = {".py": "python", ".rs": "rust"}
+
+
+@tool("ide_diagnostics", "统一诊断通道：LSP 诊断 + cargo clippy 聚合（同一形状，"
+      "severity 归一，行号 1-based）——修复循环/agent 直接消费", "ide",
+      {"type": "object",
+       "properties": {
+           "path": {"type": "string", "description": "项目目录（沙盒内）"},
+           "files": {"type": "array", "items": {"type": "string"},
+                     "description": "相对路径列表（LSP 诊断目标；缺省跳过 LSP）"},
+           "include_lint": {"type": "boolean",
+                            "description": "含 cargo clippy（Cargo.toml 存在时，默认 true）"},
+       },
+       "required": ["path"]})
+def ide_diagnostics(path, files=None, include_lint=True, timeout=600):
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
+    if not os.path.isdir(path):
+        return {"error": f"不是目录: {path}"}
+    diags = []
+    engines = []
+    # 1) LSP：逐文件（会话在 lsp.py 内按 lang 缓存，不重复冷启动）
+    for rel in (files or [])[:3]:
+        fp = os.path.abspath(os.path.join(path, rel.replace("/", os.sep)))
+        if not os.path.isfile(fp):
+            continue
+        lang = _LANG_BY_EXT.get(os.path.splitext(fp)[1].lower())
+        if not lang:
+            continue
+        try:
+            r = registry.call("ide_lsp", {"action": "diagnostics", "file": fp})
+            res = r.get("result") or {}
+            for d in res.get("diagnostics") or []:
+                sev = _SEV_LSP.get(str(d.get("severity")), "warning")
+                diags.append({"source": d.get("source") or f"{lang}-lsp",
+                              "file": rel, "line": int(d.get("line") or 0) + 1,
+                              "col": 0, "severity": sev,
+                              "message": (d.get("message") or "")[:200]})
+            if res.get("diagnostics"):
+                engines.append(f"{lang}-lsp")
+        except Exception:
+            continue                     # LSP 不可用 → 如实跳过该信号
+    # 2) clippy：Cargo.toml 存在时
+    if include_lint and os.path.isfile(os.path.join(path, "Cargo.toml")):
+        try:
+            r = registry.call("ide_build", {"path": path, "action": "lint"})
+            res = r.get("result") or r
+            for d in (res.get("warnings") or []) + (res.get("errors") or []):
+                rel = os.path.relpath(d["file"], path).replace("\\", "/")
+                diags.append({"source": "clippy", "file": rel,
+                              "line": d["line"], "col": d.get("col", 0),
+                              "severity": d["level"],
+                              "message": d["msg"][:200]})
+            if res.get("warnings") or res.get("errors"):
+                engines.append("clippy")
+        except Exception:
+            pass                         # clippy 不可用 → 如实跳过该信号
+    errors = [d for d in diags if d["severity"] == "error"]
+    return {"engine": "+".join(engines) or "none", "total": len(diags),
+            "errors": len(errors), "diagnostics": diags[:200]}

@@ -783,3 +783,22 @@ _lsp_diagnostics 严重级过滤/LSP 坏死降级、修复提示词含 LSP 段�
 
 215 passed（ide_break 4 测试：locals/栈、max_hits 截停、rust 诚实报错、
 目标缺失）。
+
+---
+
+## S37 · 三通道合一：断点/诊断进修复轮 + L3 环境锚（2026-08-28）
+用户指定三项全落地：
+1. **ide_break 断点命中 → swe_repair 回喂**：_changed_lines 解析候选 diff 的
+   新行号区间 → ide_break 以 [py, -m, pytest, <FTB ids>] 模式在 settrace 下
+   跑 FTB，抓补丁行实际运行时 locals+栈 → [BREAKPOINT HITS] 段回喂。
+   ide_break 补 -m 模块模式（runpy.run_module, alter_sys）
+2. **统一诊断通道 ide_diagnostics**（新工具）：LSP(pylsp/rust-analyzer) +
+   cargo clippy 聚合同形状 {source,file,line(1-based),severity,message}；
+   swe_repair._diag_section 只回喂 error 级；clippy 不可用/异常如实跳过
+3. **L3 环境锚**：l3_anchor.py 实跑 VF3 cargo test——140 passed / 0 failed
+   （90.7s），unified_report L3 段带 env_verified（诊断型任务答案无法执行
+   验证，verified 锚定在评测底座可执行性上——诚实定界）
+
+**过程自抓**：两个 call_tool 定义互相覆盖（KeyError 连环）、tools/ide.py 缺
+json/tempfile import、clippy 分支 continue 不在循环内、line 事件 return None
+的追踪语义（S36 已记）。218 passed。

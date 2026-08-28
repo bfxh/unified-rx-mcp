@@ -66,10 +66,13 @@ def main():
                    "same_root_pct": round(a["root"] / max(a["j_n"], 1) * 100, 1)}
     report["P3"] = {"protocol": "SWE-bench 外锚：真 checkout + FTB 执行验证（主）+ "
                                 "三票 judge 语义等效（辅）", "arms": p3}
-    # L3：judge rubric
+    # L3：judge rubric + 环境锚（VF3 cargo test 实跑 = 评测底座可执行性验证）
     l3 = _load("l3/summary.json")
-    report["L3"] = {"protocol": "VF3 诊断双臂（judge rubric 口径；无补丁产物，"
-                                "verified 不适用）", "arms": l3 or {}}
+    anchor = _load("l3_env_anchor.json")
+    report["L3"] = {"protocol": "VF3 诊断双臂：judge rubric 口径（诊断型任务无补丁"
+                                "产物，verified 不适用于答案本身）；环境锚 = VF3 "
+                                "cargo test 实跑（评测底座可执行性）",
+                    "arms": l3 or {}, "env_verified": anchor}
     # P1
     p1 = _load("p1_summary.json")
     p1m = _load("p1_manual_pr.json")

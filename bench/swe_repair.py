@@ -243,11 +243,17 @@ def repair_loop(args):
                 msgs.append({"role": "user", "content":
                              "[YOUR PREVIOUS PATCH]\n" + cur[:3500]})
             frames_txt = _structured_frames(tail or "")
-            lsp_txt = _lsp_section(_lsp_diagnostics(root, files_show))
+            lsp_txt = _diag_section(root, files_show)
+            # S37：断点命中——补丁行的实际运行时 locals（pytest 在 settrace 下执行）
+            bps_txt = ""
+            if cur.strip() and py:
+                hits = _break_hits(root, py, _changed_lines(cur), list(ftb)[:6])
+                bps_txt = _break_section(hits)
             msgs.append({"role": "user", "content":
                          "[TEST FAILURE OUTPUT]\n" + (tail or "")[:FTB_TAIL_CAP] +
                          (("\n\n" + frames_txt[:2500]) if frames_txt else "") +
                          (("\n\n" + lsp_txt[:1500]) if lsp_txt else "") +
+                         (("\n\n" + bps_txt[:1500]) if bps_txt else "") +
                          "\n\n[CURRENT FILE CONTENTS]\n" +
                          "\n\n".join(b for p in files_show
                                      for b in [_file_block(root, p)] if b)[:22000] +
@@ -360,6 +366,78 @@ def _structured_frames(text):
                 lines.append(f"  at {b['file']}:{b['line']}")
         parts.append("\n".join(lines))
     return "\n\n".join(parts)
+
+
+def _changed_lines(diff):
+    """候选 diff → {path: [(start, end)]}（新文件行号区间，S37 断点回喂用）。"""
+    out = {}
+    cur = None
+    for line in (diff or "").splitlines():
+        m = re.match(r"^diff --git a/(\S+) b/", line)
+        if m:
+            cur = m.group(1)
+            continue
+        m = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", line)
+        if m and cur:
+            start = int(m.group(1))
+            n = int(m.group(2) or 1)
+            if n:
+                out.setdefault(cur, []).append((start, start + n - 1))
+    return out
+
+
+def _break_hits(root, py, changed, test_ids, max_hits=12):
+    """S37：候选补丁行上跑断点记录器（pytest 在 settrace 下执行），
+    抓补丁行的实际运行时 locals——模型据此判断补丁算出的值对不对。"""
+    bps = []
+    for path, ranges in changed.items():
+        for a, _b in ranges[:4]:
+            bps.append({"file": path, "line": a})
+    if not bps or not test_ids:
+        return []
+    try:
+        r = registry.call("ide_break", {"path": root,
+                                        "cmd": [py, "-m", "pytest",
+                                                *test_ids],
+                                        "breakpoints": bps[:8],
+                                        "max_hits": max_hits})
+        res = r.get("result") or {}
+        return res.get("hits") or []
+    except Exception:
+        return []                    # 断点后端不可用 → 如实放弃该信号
+
+
+def _break_section(hits):
+    if not hits:
+        return ""
+    lines = ["[BREAKPOINT HITS · 补丁行运行时状态]"]
+    for h in hits[:6]:
+        locs = "; ".join(f"{k}={v}" for k, v in
+                         list(h.get("locals", {}).items())[:6])
+        lines.append(f"- line {h.get('bp_line')}: {locs}")
+        st = (h.get("stack") or [{}])[0]
+        if st.get("fn"):
+            lines.append(f"  in {st['fn']} ({st.get('file')}:{st.get('line')})")
+    return "\n".join(lines)
+
+
+def _diag_section(root, files):
+    """S37：统一诊断通道（LSP + clippy），只回喂 error 级。"""
+    try:
+        r = registry.call("ide_diagnostics", {"path": root, "files": files,
+                                              "include_lint": True})
+        res = r.get("result") or r
+        dias = res.get("diagnostics") or []
+        errs = [d for d in dias if d["severity"] == "error"]
+        if not errs:
+            return ""
+        lines = ["[DIAGNOSTICS · patch 引入的静态错误]"]
+        for d in errs[:8]:
+            lines.append(f"- [{d['source']}] {d['file']}:{d['line']} "
+                         f"{d['message']}")
+        return "\n".join(lines)
+    except Exception:
+        return ""
 
 
 def _applied_now(root, diff):

@@ -1,0 +1,7 @@
+{
+ "cargo_test_ok": true,
+ "passed": 140,
+ "failed": 0,
+ "wall_s": 90.7,
+ "tail": " 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n\nrunning 73 tests\n.........................................................................\ntest result: ok. 73 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s\n\n\nrunning 7 tests\n.......\ntest result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+}
