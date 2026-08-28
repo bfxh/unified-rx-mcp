@@ -663,3 +663,23 @@ setuptools<64 无 PEP660 build_editable，uv -e 不可用必须 venv pip。165 p
 **诚实定框**：漏洞全部在"模型输出/外部语料 → 文件系统/子进程"的新增链路上，
 既有 36 工具面模糊集依旧全绿——新代码没走老收口流程，这次补上了。
 175 passed（+10 对抗测试）。
+
+---
+
+## S30 · T2 补完 + T4 闭环统一（2026-08-28）
+**T2 WSL 补完**：WSL_TASKS 扩到 16 任务（sklearn7 + matplotlib4 + astropy1 +
+xarray2 + seaborn2，astropy-8872 2015 年代如实不入）。构建配方踩坑全固化：
+py3.7 用 micromamba（uv 不带 3.7；github 被墙走 conda-forge）、sklearn vendored
+cloudpickle 需 py≤3.7、mpl 3.1 要 setuptools_scm<6 + PRETEND_VERSION、seaborn
+0.11 用 flit_core、mpl 3.7+ 要 pybind11 + 预置 freetype/qhull 源码包（sourceforge
+可达）、_version.py 构建后补写、MPLBACKEND 必须在 bash 脚本内 export（WSL 不
+继承 Windows env、set -e 下 guard 静默死）。
+
+**T2 结果**：feasible **44/47（93.6%）**；verified A 8 / B 6；base_bad 17 run
+（8 任务数据集声明 FTB-at-base 与真实环境不符，如实排除）。
+
+**T4 闭环统一**：bench/unified_report.py——三套评测器单口径聚合（verified 主
+/ judge 辅），落盘 unified_report.json 可复跑。当前快照：P3 verified A 17.8% /
+B 13.3%，judge_eq 双臂 12.8%，same_root B 72.3% vs A 63.8%。
+
+165→175 passed。

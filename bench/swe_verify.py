@@ -73,16 +73,58 @@ WSL_MOUNT = "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe"
 WSL_TASKS = {
     "scikit-learn__scikit-learn-10908": {"py": "3.8"},
     "scikit-learn__scikit-learn-11310": {"py": "3.8"},
-    "scikit-learn__scikit-learn-12973": {"py": "3.8"},
-    "scikit-learn__scikit-learn-13142": {"py": "3.8"},
+    "scikit-learn__scikit-learn-12973": {"py": "3.7",
+        "interp": "$HOME/swe/py37/bin/python3"},   # vendored cloudpickle CodeType 3.8 移除
+    "scikit-learn__scikit-learn-13142": {"py": "3.7",
+        "interp": "$HOME/swe/py37/bin/python3"},
     "scikit-learn__scikit-learn-14629": {"py": "3.8"},
     "scikit-learn__scikit-learn-14894": {"py": "3.8"},
     "scikit-learn__scikit-learn-26323": {"py": "3.10"},
+    "matplotlib__matplotlib-22865": {"py": "3.8"},
+    "matplotlib__matplotlib-24026": {"py": "3.8"},
+    "matplotlib__matplotlib-24149": {"py": "3.8"},
+    "matplotlib__matplotlib-25287": {"py": "3.10"},
+    "astropy__astropy-14539": {"py": "3.8"},
+    "pydata__xarray-4356": {"py": "3.8"},
+    "pydata__xarray-7229": {"py": "3.8"},
+    "mwaskom__seaborn-3069": {"py": "3.8"},
+    "mwaskom__seaborn-3187": {"py": "3.8"},
 }
-SKLEARN_DEPS = ["cython==0.29.36", "numpy==1.17.3", "scipy==1.4.1", "joblib",
-                "threadpoolctl", "pytest<8"]
-SKLEARN_DEPS_NEW = ["cython<3", "numpy<1.27", "scipy<1.11", "joblib",
-                    "threadpoolctl", "pytest<8"]
+_OLD = ["setuptools<60", "wheel", "cython==0.29.36", "numpy==1.17.3",
+        "scipy==1.4.1", "joblib", "threadpoolctl", "pytest<8"]
+_NEW = ["setuptools<70", "wheel", "cython==0.29.36", "numpy==1.23.5",
+        "scipy==1.10.1", "joblib", "threadpoolctl", "pytest<8"]
+_MPL = ["setuptools<60", "wheel", "numpy==1.17.3", "pillow", "pytest<8",
+        "pyparsing", "setuptools_scm<6"]
+_XR = ["setuptools<60", "wheel", "numpy==1.17.3", "pandas==0.24.2",
+       "pytest<8"]
+_SB = ["setuptools<60", "wheel", "flit_core", "numpy==1.23.5",
+       "pandas==1.4.4", "matplotlib==3.5.1", "pytest<8"]
+_SB2 = ["wheel", "flit_core", "numpy==1.17.3", "pandas==0.25.3",
+        "matplotlib==3.2.1", "pytest<8", "setuptools<60"]
+_AST = ["setuptools<60", "wheel", "cython==0.29.36", "numpy==1.17.3",
+        "pytest<8", "extension_helpers<1", "setuptools_scm<6"]
+for _iid, _t in WSL_TASKS.items():
+    if _iid.startswith("matplotlib"):
+        _t["deps"] = (_NEW + ["pybind11", "certifi"]) if "25287" in _iid else _MPL
+        _t["pkg"] = "matplotlib"
+        _t["scmver"] = {"22865": "3.0.2", "24026": "3.0.3", "24149": "3.1.0",
+                        "25287": "3.7.1"}[_iid.split("-")[-1]]
+    elif _iid.startswith("astropy"):
+        _t["deps"] = _AST
+        _t["pkg"] = "astropy"
+        _t["scmver"] = "3.1.0"
+        _t["py"] = "3.8"          # astropy 14539 元数据声明 py>=3.8
+    elif _iid.startswith("pydata"):
+        _t["deps"] = _XR
+        _t["pkg"] = "xarray"
+    elif _iid.startswith("mwaskom"):
+        _t["deps"] = _SB2 if "3187" in _iid else _SB
+        _t["pkg"] = "seaborn"
+        _t["scmver"] = "0.10.0" if "3187" in _iid else "0.9.0"
+    else:
+        _t["deps"] = _NEW if _t["py"] == "3.10" else _OLD
+        _t["pkg"] = "sklearn"
 
 
 _WSL_SEQ = [0]
@@ -98,8 +140,10 @@ def wsl_run(script):
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write(script)
     mount = p.replace("\\", "/").replace("C:/", "/mnt/c/")
+    env = dict(os.environ)
+    env.setdefault("MPLBACKEND", "Agg")       # WSL 无显示：seaborn import mpl 会拉 backend
     r = subprocess.run(["wsl", "-e", "bash", mount],
-                       capture_output=True, timeout=TEST_TIMEOUT + 600)
+                       capture_output=True, timeout=TEST_TIMEOUT + 600, env=env)
     out = (r.stdout or b"").decode(errors="replace")
     err = (r.stderr or b"").decode(errors="replace")
     return r.returncode, out, err
@@ -109,20 +153,52 @@ def build_env_wsl(inst):
     iid = inst["instance_id"]
     cfg = WSL_TASKS[iid]
     pyver = cfg["py"]
-    deps = SKLEARN_DEPS if pyver == "3.8" else SKLEARN_DEPS_NEW
-    co = f"{WSL_MOUNT}/{iid.replace('/', '__')}"
-    script = f"""#!/usr/bin/env bash
+    deps = cfg["deps"]
+    pkg = cfg.get("pkg", "sklearn")
+    interp = cfg.get("interp")
+    scmver = cfg.get("scmver", "")
+    co = f"{WSL_MOUNT}/{safe_iid(iid)}"
+    safe = safe_iid(iid)
+    depq = " ".join(f"'{d}'" for d in deps)
+    scm = cfg.get("scmver", "")
+    scm_line = (f'export SETUPTOOLS_SCM_PRETEND_VERSION={scm}\n'
+                f'export MPLBACKEND=Agg') if scm else 'export MPLBACKEND=Agg'
+    if interp:
+        # py3.7 路径：stdlib venv + pip 链（uv 已不支持 3.7；pip 钉 <24.1）
+        script = f"""#!/usr/bin/env bash
 set -e
-E=~/swe/envs2/{iid.replace('/', '__')}
+E=~/swe/envs2/{safe}
+V=$E/bin/python
+CO={co}
+export MPLBACKEND=Agg
+[ -x "$V" ] && "$V" -c "import {pkg}" 2>/dev/null && {{ echo "{pkg} OK"; exit 0; }}
+rm -rf "$E"
+{interp} -m venv "$E" 2>&1 | tail -1
+"$V" -m pip install -q --upgrade "pip<24.1" "setuptools<60" wheel 2>&1 | tail -1
+"$V" -m pip install -q {depq} 2>&1 | tail -1
+{scm_line}
+"$V" -m pip install --no-build-isolation -e "$CO" 2>&1 | tail -2
+"$V" -c "import {pkg}; print('{pkg} OK')"
+"""
+    else:
+        # py3.8/3.10 路径：uv 秒装依赖，构建走 venv pip legacy develop
+        script = f"""#!/usr/bin/env bash
+set -e
+E=~/swe/envs2/{safe}
 V=$E/bin/python
 UV=~/.local/bin/uv
 CO={co}
-[ -x "$V" ] && "$V" -c "import sklearn" 2>/dev/null && {{ echo "sklearn OK"; exit 0; }}
+export MPLBACKEND=Agg
+[ -x "$V" ] && "$V" -c "import {pkg}" 2>/dev/null && {{ echo "{pkg} OK"; exit 0; }}
 rm -rf "$E"
 "$UV" venv --seed --python {pyver} "$E" 2>&1 | tail -1
-"$UV" pip install --python "$V" "setuptools<60" wheel {' '.join(f"'{d}'" for d in deps)} 2>&1 | tail -1
+"$UV" pip install --python "$V" {depq} 2>&1 | tail -1
+{scm_line}
 "$V" -m pip install --no-build-isolation -e "$CO" 2>&1 | tail -2
-"$V" -c "import sklearn; print('sklearn', sklearn.__version__, 'OK')"
+if [ "$pkg" = "matplotlib" ] && [ ! -f "$CO/lib/matplotlib/_version.py" ]; then
+  printf '__version__ = version = "{scmver}"\n__version_tuple__ = version_tuple = (3, 9, 0)\n' > "$CO/lib/matplotlib/_version.py"
+fi
+"$V" -c "import {pkg}; print('{pkg} OK')"
 """
     rc, out, err = wsl_run(script)
     ok = "OK" in out
