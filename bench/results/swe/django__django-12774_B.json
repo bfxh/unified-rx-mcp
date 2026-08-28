@@ -136,13 +136,15 @@
    },
    {
     "src": "fresh",
-    "applied": 1,
-    "fails": []
+    "applied": 0,
+    "fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
    },
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "ine 7, in <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 710\n    batch = id_list[offset:offset + batch_size]\nIndentationError: unexpected indent\n"
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 0,
@@ -154,17 +156,19 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "ine 7, in <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 710\n    batch = id_list[offset:offset + batch_size]\nIndentationError: unexpected indent\n"
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 1,
-    "repair_applied": 1,
-    "repair_fails": []
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
    },
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "ine 7, in <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 710\n    batch = id_list[offset:offset + batch_size]\nIndentationError: unexpected indent\n"
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 2,
@@ -176,10 +180,10 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "ine 7, in <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 710\n    batch = id_list[offset:offset + batch_size]\nIndentationError: unexpected indent\n"
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.005s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    }
   ],
-  "walltime_s": 18.3
+  "walltime_s": 11.3
  },
  "repair_signals": {
   "verified": false,
@@ -199,7 +203,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.010s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 0,
@@ -211,7 +215,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.017s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 1,
@@ -223,7 +227,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.007s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 2,
@@ -235,9 +239,9 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.006s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    }
   ],
-  "walltime_s": 16.6
+  "walltime_s": 13.0
  }
 }

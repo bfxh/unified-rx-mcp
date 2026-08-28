@@ -10,7 +10,6 @@ P5 修复（2026-08-25）：Python AST 作用域感知（参数/方法/属性/�
 import os
 import re
 import ast
-import json
 
 from registry import tool
 from . import bevy  # Bevy 专项规则

@@ -153,8 +153,10 @@
    },
    {
     "src": "fresh",
-    "applied": 1,
-    "fails": []
+    "applied": 0,
+    "fails": [
+     "src/_pytest/assertion/rewrite.py: search-not-found"
+    ]
    },
    {
     "round": 0,
@@ -163,8 +165,10 @@
    },
    {
     "round": 0,
-    "repair_applied": 1,
-    "repair_fails": []
+    "repair_applied": 0,
+    "repair_fails": [
+     "src/_pytest/assertion/rewrite.py: search-not-found"
+    ]
    },
    {
     "round": 1,
@@ -175,7 +179,7 @@
     "round": 1,
     "repair_applied": 0,
     "repair_fails": [
-     "src/_pytest/assertion/rewrite.py: search-not-found(best=0.39)"
+     "src/_pytest/assertion/rewrite.py: search-not-found"
     ]
    },
    {
@@ -196,7 +200,7 @@
     "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
    }
   ],
-  "walltime_s": 9.5
+  "walltime_s": 10.1
  },
  "repair_signals": {
   "verified": false,
@@ -230,7 +234,7 @@
     "round": 1,
     "repair_applied": 0,
     "repair_fails": [
-     "src/_pytest/assertion/rewrite.py: search-not-found"
+     "src/_pytest/assertion/util.py: search-not-found"
     ]
    },
    {
@@ -251,6 +255,6 @@
     "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
    }
   ],
-  "walltime_s": 10.5
+  "walltime_s": 43.0
  }
 }

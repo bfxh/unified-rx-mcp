@@ -173,8 +173,10 @@
    },
    {
     "src": "fresh",
-    "applied": 5,
+    "applied": 0,
     "fails": [
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
      "django/contrib/contenttypes/fields.py: search-not-found",
      "django/contrib/contenttypes/fields.py: search-not-found",
      "django/contrib/contenttypes/fields.py: search-not-found"
@@ -183,44 +185,50 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "47, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 690, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 940, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211\\tests\\prefetch_related\\models.py\", line 3, in <module>\n    from django.contrib.contenttypes.fields import (\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211\\django\\contrib\\contenttypes\\fields.py\", line 251\n    )\n    ^\nSyntaxError: unmatched ')'\n"
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (aace3374-49aa-4b33-9766-b5afdfbf27d1)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (aace3374-49aa-4b33-9766-b5afdfbf27d1)>\n\n- [None]\n+ [<Article: Article object (aace3374-49aa-4b33-9766-b5afdfbf27d1)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 0,
-    "repair_applied": 2,
-    "repair_fails": []
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found"
+    ]
    },
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "47, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 690, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 940, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211\\tests\\prefetch_related\\models.py\", line 3, in <module>\n    from django.contrib.contenttypes.fields import (\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211\\django\\contrib\\contenttypes\\fields.py\", line 236\n    )\n    ^\nSyntaxError: unmatched ')'\n"
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (1528ad2c-b12e-485d-a487-6c0c61cfc7ac)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (1528ad2c-b12e-485d-a487-6c0c61cfc7ac)>\n\n- [None]\n+ [<Article: Article object (1528ad2c-b12e-485d-a487-6c0c61cfc7ac)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.005s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 1,
-    "repair_applied": 1,
+    "repair_applied": 0,
     "repair_fails": [
-     "django/contrib/contenttypes/fields.py: search-ambiguous(x2)"
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
     ]
    },
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "47, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 690, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 940, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211\\tests\\prefetch_related\\models.py\", line 3, in <module>\n    from django.contrib.contenttypes.fields import (\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211\\django\\contrib\\contenttypes\\fields.py\", line 236\n    )\n    ^\nSyntaxError: unmatched ')'\n"
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (4a6b97d2-79dd-4553-a50c-bf35740705e4)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (4a6b97d2-79dd-4553-a50c-bf35740705e4)>\n\n- [None]\n+ [<Article: Article object (4a6b97d2-79dd-4553-a50c-bf35740705e4)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 2,
-    "repair_applied": 1,
+    "repair_applied": 0,
     "repair_fails": [
-     "django/contrib/contenttypes/fields.py: search-ambiguous(x2)"
+     "django/db/models/fields/related_descriptors.py: search-not-found"
     ]
    },
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "47, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 690, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 940, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211\\tests\\prefetch_related\\models.py\", line 3, in <module>\n    from django.contrib.contenttypes.fields import (\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211\\django\\contrib\\contenttypes\\fields.py\", line 236\n    )\n    ^\nSyntaxError: unmatched ')'\n"
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (db48e049-8271-4416-8f3f-2c631b72afa5)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (db48e049-8271-4416-8f3f-2c631b72afa5)>\n\n- [None]\n+ [<Article: Article object (db48e049-8271-4416-8f3f-2c631b72afa5)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
    }
   ],
-  "walltime_s": 33.3
+  "walltime_s": 95.7
  },
  "repair_signals": {
   "verified": false,
@@ -235,36 +243,40 @@
     "applied": 0,
     "fails": [
      "django/db/models/fields/related_descriptors.py: search-not-found",
-     "django/db/models/fields/related_descriptors.py: search-not-found",
-     "django/db/models/fields/related_descriptors.py: search-not-found",
-     "django/db/models/fields/related_descriptors.py: search-not-found",
-     "django/db/models/fields/related_descriptors.py: search-not-found"
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
     ]
    },
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (3b9e8399-2ad2-44e1-81f8-a15bf1b368da)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (3b9e8399-2ad2-44e1-81f8-a15bf1b368da)>\n\n- [None]\n+ [<Article: Article object (3b9e8399-2ad2-44e1-81f8-a15bf1b368da)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (1883515d-4ac1-4b1b-ba59-62163e35b397)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (1883515d-4ac1-4b1b-ba59-62163e35b397)>\n\n- [None]\n+ [<Article: Article object (1883515d-4ac1-4b1b-ba59-62163e35b397)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 0,
     "repair_applied": 0,
-    "repair_fails": []
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found"
+    ]
    },
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (3f58365b-0c31-40d3-82a2-755f42b6348e)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (3f58365b-0c31-40d3-82a2-755f42b6348e)>\n\n- [None]\n+ [<Article: Article object (3f58365b-0c31-40d3-82a2-755f42b6348e)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (dc5b641d-8cfb-45b7-bd58-e665110f5868)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (dc5b641d-8cfb-45b7-bd58-e665110f5868)>\n\n- [None]\n+ [<Article: Article object (dc5b641d-8cfb-45b7-bd58-e665110f5868)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 1,
     "repair_applied": 0,
-    "repair_fails": []
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found"
+    ]
    },
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (dc95d7ff-3dc1-439e-823c-855d53e40f8f)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (dc95d7ff-3dc1-439e-823c-855d53e40f8f)>\n\n- [None]\n+ [<Article: Article object (dc95d7ff-3dc1-439e-823c-855d53e40f8f)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.006s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (59a59d6b-c5af-4382-86ce-828b95317bda)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (59a59d6b-c5af-4382-86ce-828b95317bda)>\n\n- [None]\n+ [<Article: Article object (59a59d6b-c5af-4382-86ce-828b95317bda)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 2,
@@ -274,9 +286,9 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (20f67979-328a-4363-ab20-fa1aa4e59a88)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (20f67979-328a-4363-ab20-fa1aa4e59a88)>\n\n- [None]\n+ [<Article: Article object (20f67979-328a-4363-ab20-fa1aa4e59a88)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.006s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (eb2a3825-a088-4ff7-a7e5-f93f1ff543e7)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (eb2a3825-a088-4ff7-a7e5-f93f1ff543e7)>\n\n- [None]\n+ [<Article: Article object (eb2a3825-a088-4ff7-a7e5-f93f1ff543e7)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
    }
   ],
-  "walltime_s": 77.9
+  "walltime_s": 70.5
  }
 }

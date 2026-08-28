@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """p1_build.py —— P1 语料挖掘：VoxelForge 系 git 历史 → 标注 bug 库。
 
 条目（bench/bug_corpus.jsonl）：

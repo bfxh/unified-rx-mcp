@@ -110,7 +110,7 @@
  "repair_plain": {
   "verified": true,
   "variant": "plain",
-  "rounds_used": 4,
+  "rounds_used": 6,
   "rounds": [
    {
     "src": "s23",
@@ -119,22 +119,32 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 10.84s\n\n===STDERR===\n"
+    "tail": "S_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 4.85s\n\n===STDERR===\n"
    },
    {
     "round": 0,
-    "repair_applied": 3,
+    "repair_applied": 1,
     "repair_fails": []
    },
    {
     "round": 1,
+    "ftb_pass": false,
+    "tail": "S_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 4.93s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 3,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
     "ftb_pass": true,
     "tail": ""
    }
   ],
   "ptb_total": 25,
   "ptb_pass": true,
-  "walltime_s": 62.9
+  "walltime_s": 38.1
  },
  "repair_signals": {
   "verified": true,
@@ -148,7 +158,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 14.30s\n\n===STDERR===\n"
+    "tail": "S_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 5.04s\n\n===STDERR===\n"
    },
    {
     "round": 0,
@@ -158,7 +168,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 13.12s\n\n===STDERR===\n"
+    "tail": "S_QOP_VALUE\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1766\\requests\\models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n1 failed, 5 passed, 3 warnings in 5.32s\n\n===STDERR===\n"
    },
    {
     "round": 1,
@@ -173,6 +183,6 @@
   ],
   "ptb_total": 25,
   "ptb_pass": true,
-  "walltime_s": 92.5
+  "walltime_s": 37.4
  }
 }

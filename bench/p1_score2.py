@@ -8,7 +8,6 @@ import json
 import os
 import sys
 import tempfile
-from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)

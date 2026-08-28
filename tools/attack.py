@@ -11,7 +11,6 @@
 - big_input    : 大输入边界（1MB 字符串/超大 list/深嵌套）
 """
 import os
-import sys
 
 import registry  # 显式导入：path_probe 依赖此处的 registry.call（不要用延迟属性）
 from registry import tool

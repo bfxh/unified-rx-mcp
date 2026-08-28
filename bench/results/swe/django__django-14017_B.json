@@ -125,7 +125,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x0000024D511A8DD0>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x00000275CA843350>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 0,
@@ -135,7 +135,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x000001E0060A2590>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.005s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x000001CC29F56050>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 1,
@@ -145,7 +145,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x0000024CEA172790>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.007s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\tests\\expressions\\tests.py\", line 833, in test_boolean_expression_combined_with_empty_Q\n    Q() & Exists(is_poc),\n    ~~~~^~~~~~~~~~~~~~~~\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\expressions.py\", line 140, in __rand__\n    raise NotImplementedError(\nNotImplementedError: Use .bitand() and .bitor() for bitwise logical operations.\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 2,
@@ -155,10 +155,10 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x000001B40ABE2D90>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\tests\\expressions\\tests.py\", line 833, in test_boolean_expression_combined_with_empty_Q\n    Q() & Exists(is_poc),\n    ~~~~^~~~~~~~~~~~~~~~\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\expressions.py\", line 140, in __rand__\n    raise NotImplementedError(\nNotImplementedError: Use .bitand() and .bitor() for bitwise logical operations.\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
    }
   ],
-  "walltime_s": 9.2
+  "walltime_s": 9.1
  },
  "repair_signals": {
   "verified": false,
@@ -172,7 +172,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x0000021CFF9B93D0>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.009s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x0000027E5F8C3390>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 0,
@@ -182,7 +182,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x00000222C8F05FD0>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.016s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x000002754BD42610>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 1,
@@ -192,7 +192,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 55, in _combine\n    _, args, kwargs = other.deconstruct()\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 99, in deconstruct\n    kwargs = {child[0]: child[1]}\n              ~~~~~^^^\nTypeError: 'Exists' object is not subscriptable\n\n----------------------------------------------------------------------\nRan 2 tests in 0.014s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 52, in _combine\n    _, args, kwargs = other.deconstruct()\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 96, in deconstruct\n    kwargs = {child[0]: child[1]}\n              ~~~~~^^^\nTypeError: 'Exists' object is not subscriptable\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    },
    {
     "round": 2,
@@ -202,9 +202,9 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 55, in _combine\n    _, args, kwargs = other.deconstruct()\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 99, in deconstruct\n    kwargs = {child[0]: child[1]}\n              ~~~~~^^^\nTypeError: 'Exists' object is not subscriptable\n\n----------------------------------------------------------------------\nRan 2 tests in 0.011s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+    "tail": "le \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 64, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 52, in _combine\n    return other.copy()\n           ^^^^^^^^^^\nAttributeError: 'Q' object has no attribute 'copy'\n\n----------------------------------------------------------------------\nRan 2 tests in 0.007s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
    }
   ],
-  "walltime_s": 15.4
+  "walltime_s": 8.7
  }
 }

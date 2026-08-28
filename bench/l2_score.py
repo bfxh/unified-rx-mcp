@@ -11,7 +11,6 @@
 - 通过线：precision ≥ 0.7 且 FP 样本未覆盖的规则须带 coverage 警示
 """
 import json
-import os
 import sys
 from collections import defaultdict
 from pathlib import Path

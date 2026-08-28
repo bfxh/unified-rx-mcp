@@ -166,10 +166,10 @@
    },
    {
     "src": "fresh",
-    "applied": 1,
+    "applied": 2,
     "fails": [
      "sympy/printing/pretty/pretty.py: search-not-found",
-     "sympy/printing/latex.py: search-not-found"
+     "sympy/matrices/expressions/matexpr.py: search-not-found"
     ]
    },
    {
@@ -181,7 +181,7 @@
     "round": 0,
     "repair_applied": 0,
     "repair_fails": [
-     "sympy/printing/str.py: search-not-found"
+     "sympy/printing/latex.py: search-not-found"
     ]
    },
    {
@@ -191,18 +191,26 @@
    },
    {
     "round": 1,
-    "repair_applied": 1,
-    "repair_fails": []
+    "repair_applied": 0,
+    "repair_fails": [
+     "sympy/printing/str.py: search-not-found"
+    ]
    },
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "luggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-14248\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections.abc import Mapping, defaultdict\nE   ImportError: cannot import name 'defaultdict' from 'collections.abc' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\abc.py)\n"
+    "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-14248\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    },
    {
     "round": 2,
-    "repair_applied": 1,
-    "repair_fails": []
+    "repair_applied": 3,
+    "repair_fails": [
+     "sympy/printing/str.py: search-not-found",
+     "sympy/printing/str.py: search-not-found",
+     "sympy/printing/str.py: search-not-found",
+     "sympy/printing/str.py: search-not-found",
+     "sympy/printing/str.py: search-not-found"
+    ]
    },
    {
     "round": 3,
@@ -210,7 +218,7 @@
     "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-14248\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    }
   ],
-  "walltime_s": 12.9
+  "walltime_s": 62.0
  },
  "repair_signals": {
   "verified": false,
@@ -235,10 +243,8 @@
    },
    {
     "round": 0,
-    "repair_applied": 0,
-    "repair_fails": [
-     "sympy/printing/str.py: search-not-found"
-    ]
+    "repair_applied": 1,
+    "repair_fails": []
    },
    {
     "round": 1,
@@ -253,7 +259,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "luggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-14248\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections.abc import Mapping, defaultdict\nE   ImportError: cannot import name 'defaultdict' from 'collections.abc' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\abc.py)\n"
+    "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-14248\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    },
    {
     "round": 2,
@@ -266,6 +272,6 @@
     "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-14248\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    }
   ],
-  "walltime_s": 13.4
+  "walltime_s": 16.8
  }
 }

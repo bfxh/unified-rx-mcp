@@ -167,13 +167,21 @@ def repair_loop(args):
             continue
         iid = rec["instance_id"]
         inst = insts.get(iid)
-        if inst is None or inst["repo"] not in sv.PY_REPOS:
+        if inst is None or not (inst["repo"] in sv.PY_REPOS
+                                or iid in sv.WSL_TASKS):
             continue
         if not (inst.get("test_patch") and inst.get("ftb")):
             continue
-        py = sv._uv_py(os.path.join(sv.ENVS, iid.replace("/", "__")))
-        if not os.path.exists(py):
-            continue
+        if iid in sv.WSL_TASKS:
+            # S41：WSL 任务修复覆盖（测试走 _run_tests 的 WSL 分支；
+            # settrace 断点在 WSL 不可用 → bps 信号缺失，frames/LSP 照常）
+            if not sv.build_env_wsl(inst):
+                continue
+            py = None
+        else:
+            py = sv._uv_py(os.path.join(sv.ENVS, iid.replace("/", "__")))
+            if not os.path.exists(py):
+                continue
         root = os.path.join(sv.WORK, iid.replace("/", "__"))
         if not os.path.isdir(root):
             continue
@@ -249,6 +257,7 @@ def repair_loop(args):
                 frames_txt = _structured_frames(tail or "")
                 lsp_txt = _diag_section(root, files_show)
                 # S37：断点命中——补丁行的实际运行时 locals（pytest 在 settrace 下执行）
+                # S41：WSL 任务 settrace 不可用 → 该信号缺失（frames/LSP 照常）
                 bps_txt = ""
                 if cur.strip() and py:
                     hits = _break_hits(root, py, _changed_lines(cur), list(ftb)[:6])

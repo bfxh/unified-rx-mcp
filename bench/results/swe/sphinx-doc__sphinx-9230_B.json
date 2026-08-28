@@ -178,7 +178,7 @@
     "tail": "phinx-9230\\sphinx\\config.py\", line 21, in <module>\n    from sphinx.util import logging\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\__init__.py\", line 41, in <module>\n    from sphinx.util.typing import PathMatcher\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\typing.py\", line 37, in <module>\n    from types import Union as types_Union\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'Union' from 'types' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\types.py)\n"
    }
   ],
-  "walltime_s": 20.1
+  "walltime_s": 18.7
  },
  "repair_signals": {
   "verified": false,
@@ -190,7 +190,7 @@
    },
    {
     "src": "fresh",
-    "applied": 27,
+    "applied": 0,
     "fails": []
    },
    {
@@ -210,13 +210,13 @@
    },
    {
     "round": 1,
-    "repair_applied": 1,
+    "repair_applied": 0,
     "repair_fails": []
    },
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": " from sphinx.config import Config\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\config.py\", line 21, in <module>\n    from sphinx.util import logging\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\__init__.py\", line 41, in <module>\n    from sphinx.util.typing import PathMatcher\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\typing.py\", line 38\n    from types import Union as types_Union\n    ^\nIndentationError: expected an indented block after 'try' statement on line 37\n"
+    "tail": "phinx-9230\\sphinx\\config.py\", line 21, in <module>\n    from sphinx.util import logging\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\__init__.py\", line 41, in <module>\n    from sphinx.util.typing import PathMatcher\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\typing.py\", line 37, in <module>\n    from types import Union as types_Union\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'Union' from 'types' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\types.py)\n"
    },
    {
     "round": 2,
@@ -226,9 +226,9 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "eferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_info_field_list\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_info_field_list - sphinx.errors.VersionRe...\n5 warnings, 1 error in 0.44s\n\n===STDERR===\n"
+    "tail": " from sphinx.config import Config\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\config.py\", line 21, in <module>\n    from sphinx.util import logging\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\__init__.py\", line 41, in <module>\n    from sphinx.util.typing import PathMatcher\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9230\\sphinx\\util\\typing.py\", line 38\n    from types import Union as types_Union\n    ^\nIndentationError: expected an indented block after 'try' statement on line 37\n"
    }
   ],
-  "walltime_s": 51.3
+  "walltime_s": 8.3
  }
 }

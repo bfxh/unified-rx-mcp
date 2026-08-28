@@ -73,5 +73,11 @@
   "base_ftb_fail": false,
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
  }
 }

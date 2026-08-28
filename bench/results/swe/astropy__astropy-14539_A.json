@@ -72,5 +72,11 @@
   "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_30392_2.sh: 行 3: : 未找到命令\n",
   "verified": false,
   "why": "no-candidate-diff"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
  }
 }

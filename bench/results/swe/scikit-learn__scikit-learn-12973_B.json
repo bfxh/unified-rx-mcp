@@ -82,5 +82,11 @@
   "ptb_total": 25,
   "ptb_pass": true,
   "verified": true
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
  }
 }

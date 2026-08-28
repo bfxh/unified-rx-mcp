@@ -136,7 +136,7 @@
   ],
   "ptb_total": 6,
   "ptb_pass": true,
-  "walltime_s": 1.5
+  "walltime_s": 1.6
  },
  "repair_signals": {
   "verified": true,
@@ -155,6 +155,6 @@
   ],
   "ptb_total": 6,
   "ptb_pass": true,
-  "walltime_s": 3.7
+  "walltime_s": 1.5
  }
 }

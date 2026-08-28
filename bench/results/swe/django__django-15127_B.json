@@ -175,7 +175,7 @@
     "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
    }
   ],
-  "walltime_s": 5.9
+  "walltime_s": 5.3
  },
  "repair_signals": {
   "verified": false,
@@ -189,7 +189,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.002s\n\nFAILED (failures=1)\n"
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
    },
    {
     "round": 0,
@@ -209,7 +209,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.002s\n\nFAILED (failures=1)\n"
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
    },
    {
     "round": 2,
@@ -222,6 +222,6 @@
     "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
    }
   ],
-  "walltime_s": 10.5
+  "walltime_s": 5.0
  }
 }
