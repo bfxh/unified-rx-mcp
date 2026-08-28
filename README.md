@@ -54,21 +54,24 @@ python -m pip install python-lsp-server pycodestyle pyflakes   # Python 诊断�
 
 缺失时 `ide_lsp` 的 status 如实报 detected=false 并降级到文本级 ide 工具——绝不假装支持。
 
-## 评测体系（spec/EVAL.md 五假设 → 四项已实测）
+## 评测体系（spec/EVAL.md 五假设全实测 + P0-P3 管线全收账）
 
 | 假设 | 结论 | 关键数字 |
 |---|---|---|
 | H1 工具省轮次省 token / 提准确率 | ✅ 双通道复现 | Δsolved **+6.7pp**(deepseek-chat, n=90) / **+10pp**(glm-4.5-flash)；文件引用存在率 0% vs 63%/23% |
 | H2 hallucination_guard 拦得住假声明 | ✅ 首测达标 | 与路径真值一致率 **100%**（1379 条声明，门槛 ≥90%） |
 | H3 扫描器真查准率 | ✅ 首测 PASS | 案底 FP 复检 0 命中保持；precision≈1.0（三条 WEAK(n=1) 黄灯如实亮着） |
-| H4 lesson 记忆复利 | 待跨会话积累 | — |
+| H4 lesson 记忆复利 | ✅ 缩影实测 | 重灾区 8 任务带教训复跑 solved 0/8→3/8，fail 点 -72%（方向性证据） |
 | H5 fail-closed 可托管性 | ✅ 固化 pytest | 安全模糊集 100% 拒绝 |
 
-L3 双臂评测器：`bench/ab_run.py`（run/judge/score 三模式），
-语料 30 条真实历史缺陷 × rubric（bench/l3_tasks.jsonl），72→360 run 已入库可复跑。
+三阶段评测管线（bench/）：**P2** L3 双臂（ab_run.py，30 任务 × rubric，72→360 run 入库）
+→ **P3** SWE-bench 外锚（swe_p3/swe_verify/swe_repair 三段：机械落地可应用 5%→30%、
+执行判分去通胀、执行回喂闭环 verified A1/B2→A3/B3；29/47 任务真 fail-to-pass 环境）
+→ **P1** 标注 bug 库（p1_build/p1_score，30 条自标注语料，P/R 首测口径如实）。
 
 ## 施工史
 
-S1-S18 全程对账见 [spec/UPGRADE.md](spec/UPGRADE.md)：安全收口 → 协议三件套 →
+S1-S26 全程对账见 [spec/UPGRADE.md](spec/UPGRADE.md)：安全收口 → 协议三件套 →
 攻击面默认化 → appaudit 域 → 结构化扫描（AST/词法管线/Rust 切片）→ L2/L3 评测体系 →
-内存 -75% / 缓存 16× → 废物清理（46→35 工具）→ 真 LSP 域 → H2/H3 上场。
+内存 -75% / 缓存 16× → 废物清理（46→35 工具）→ 真 LSP 域 → H2/H3/H4 上场 →
+CI 常驻门禁 → SWE-bench 外锚三段 + 执行闭环 → P1 标注库收账。
