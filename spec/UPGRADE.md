@@ -707,3 +707,23 @@ B 13.3%，judge_eq 双臂 12.8%，same_root B 72.3% vs A 63.8%。
 全部白纸黑字。
 
 191 passed（+16：ide 10 + 语义 5 + fuzz 前轮）。
+
+---
+
+## S33 · 语言扩展 Java/Go/C/C++ + 修复轮结构化帧（2026-08-28）
+**ide_build/ide_debug 语言面 3→7**（Rust/Python/Go + Java/C/C++）：
+- ide_build：.java→javac 全量编译（无 mvn/gradle 的诚实降级）、.c→gcc
+  -fsyntax-only、.cpp→g++、go build 错误专用解析（无 level 词）
+- ide_debug：Java 堆栈帧（at 类.方法(File:行)，含 Exception in thread 前缀）
+  + Go panic 帧（goroutine 回溯）；C 运行时崩溃如实只报 exit 信号
+- 本地化坑：JDK 中文输出"错误"/gcc LC_MESSAGES → javac 强制
+  -J-Duser.language=en、gcc LC_ALL=C，否则诊断正则全空
+
+**swe_repair 修复轮升级（T4 延伸）**：测试失败输出先过 ide 解析器 →
+[STRUCTURED FRAMES] 段（file:line 帧 + last_error）随原始输出一起回喂模型。
+测试：解析器纯测 ×5 + javac/gcc/gxx/go 集成（skipif 无工具链）+
+structured_frames 单测。
+
+**过程自抓**：test_s33_lang 里两个 call_tool 定义互相覆盖（后定义无 merge
+→ KeyError ok）；PowerShell 内联 python 引号地狱持续——一律走脚本文件。
+201 passed。

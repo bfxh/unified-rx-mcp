@@ -231,7 +231,7 @@ def repair_loop(args):
                 break
             if rnd == args.max_repairs:
                 break
-            # 回喂：失败输出 + 触碰文件当前内容 → 修正 sr 块
+            # 回喂：失败输出 + 结构化帧（S33：ide 解析器）+ 触碰文件当前内容
             files_show = _touched_files(cur) if cur.strip() else []
             msgs = [{"role": "system", "content":
                      "You are a senior engineer. Your patch did NOT make the "
@@ -241,8 +241,10 @@ def repair_loop(args):
             if cur.strip():
                 msgs.append({"role": "user", "content":
                              "[YOUR PREVIOUS PATCH]\n" + cur[:3500]})
+            frames_txt = _structured_frames(tail or "")
             msgs.append({"role": "user", "content":
                          "[TEST FAILURE OUTPUT]\n" + (tail or "")[:FTB_TAIL_CAP] +
+                         (("\n\n" + frames_txt[:2500]) if frames_txt else "") +
                          "\n\n[CURRENT FILE CONTENTS]\n" +
                          "\n\n".join(b for p in files_show
                                      for b in [_file_block(root, p)] if b)[:22000] +
@@ -285,6 +287,37 @@ def repair_loop(args):
             f"rounds={len(rounds)} ({rec['repair']['walltime_s']}s)")
         done += 1
     log(f"[OK] repair done {done} files")
+
+
+def _structured_frames(text):
+    """S33：把测试失败输出里的 traceback/panic 解析成结构化帧文本段（无帧返回空）。"""
+    from tools.ide import _parse_py_traceback, _parse_java_trace, _parse_go_panic
+    parts = []
+    frames, last = _parse_py_traceback(text)
+    if frames:
+        lines = ["[STRUCTURED FRAMES · python]"]
+        for f in frames[:8]:
+            lines.append(f"- {f['file']}:{f['line']} in {f['fn']}")
+        if last:
+            lines.append(f"  last: {last}")
+        parts.append("\n".join(lines))
+    jf, jl = _parse_java_trace(text)
+    if jf:
+        lines = ["[STRUCTURED FRAMES · java]"]
+        for f in jf[:8]:
+            lines.append(f"- {f['cls']} ({f['file']}:{f['line']})")
+        if jl:
+            lines.append(f"  last: {jl}")
+        parts.append("\n".join(lines))
+    gp = _parse_go_panic(text)
+    if gp:
+        lines = ["[STRUCTURED FRAMES · go]"]
+        for p in gp[:3]:
+            lines.append(f"- panic: {p['msg']}")
+            for b in p["backtrace"][:5]:
+                lines.append(f"  at {b['file']}:{b['line']}")
+        parts.append("\n".join(lines))
+    return "\n\n".join(parts)
 
 
 def _applied_now(root, diff):

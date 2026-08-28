@@ -286,11 +286,153 @@ def _parse_cargo_short(out, root):
     return diags
 
 
-@tool("ide_build", "编译/静态检查：Rust=cargo check、Python=compileall 语法检查、"
-      "Go=go build → 结构化诊断 {file,line,level,msg}", "ide",
+# ---- S33：Java / Go / C / C++ 扩展（真实工具链，缺什么如实报） ----
+# gcc/g++/javac 诊断同构："file:line:col: level: msg"（javac 无 col）
+_RE_GCC_DIAG = re.compile(r"^(.+?):(\d+)(?::(\d+))?:\s+(error|warning|note|fatal error):\s+(.*)$")
+_RE_JAVA_FRAME = re.compile(r"^\s+at\s+([\w$.]+)\(([\w./]+\.java):(\d+)\)", re.M)
+_RE_JAVA_LAST = re.compile(
+    r'(?:Exception in thread "[^"]*"\s+)?'
+    r'([\w.$]+(?:Exception|Error|Throwable))\s*:?\s*(.*)')
+_RE_GO_BUILD = re.compile(r"^(.+?\.go):(\d+)(?::(\d+))?:\s+(.*)$")
+
+
+def _parse_go_build(out, root):
+    """go build 错误无 level 词（`file:line:col: msg`），专用解析。"""
+    diags, seen = [], set()
+    for line in out.splitlines():
+        m = _RE_GO_BUILD.match(line.strip())
+        if not m:
+            continue
+        f, ln, col, msg = m.groups()
+        fp = f if os.path.isabs(f) else os.path.join(root, f)
+        key = (fp, ln, msg)
+        if key in seen:
+            continue
+        seen.add(key)
+        diags.append({"file": os.path.abspath(fp), "line": int(ln),
+                      "col": int(col) if col else 0, "level": "error",
+                      "msg": msg.strip()[:200]})
+    return diags
+_RE_GO_PANIC = re.compile(r"^panic:\s+(.*)$")
+_RE_GO_FRAME = re.compile(r"^\s+(?:[\w().*]+\.)?([\w().*]+)\(\)$|^\s+(.+?\.go):(\d+)")
+
+
+def _parse_gcc(out, root):
+    diags, seen = [], set()
+    for line in out.splitlines():
+        m = _RE_GCC_DIAG.match(line.strip())
+        if not m:
+            continue
+        f, ln, col, level, msg = m.groups()
+        fp = f if os.path.isabs(f) else os.path.join(root, f)
+        key = (fp, ln, level, msg)
+        if key in seen:
+            continue
+        seen.add(key)
+        diags.append({"file": os.path.abspath(fp), "line": int(ln),
+                      "col": int(col) if col else 0, "level": level,
+                      "msg": msg.strip()[:200]})
+    return diags
+
+
+def _parse_java_trace(text):
+    """Java 堆栈：at 包.类.方法(File.java:行) 帧 + 异常头/Caused by。"""
+    frames = [{"cls": m.group(1), "file": m.group(2), "line": int(m.group(3))}
+              for m in _RE_JAVA_FRAME.finditer(text)]
+    last = ""
+    for line in text.splitlines():
+        m = _RE_JAVA_LAST.search(line.strip())
+        if m:
+            exc = m.group(1) or ""
+            last = f"{exc}: {m.group(2) or ''}".strip()
+    return frames, last
+
+
+def _parse_go_panic(text):
+    out = []
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = _RE_GO_PANIC.match(line.strip())
+        if not m:
+            continue
+        frames = []
+        for j in range(i, min(i + 30, len(lines))):
+            fm = re.search(r"([^\s/]+\.go):(\d+)", lines[j])
+            if fm and j > i:
+                frames.append({"file": fm.group(1), "line": int(fm.group(2))})
+        out.append({"msg": m.group(1)[:200], "backtrace": frames[:12]})
+    return out
+
+
+def _javac_build(path, timeout):
+    """松散 .java → javac 全量语法编译到临时 -d（无 mvn/gradle 时的诚实降级）。"""
+    javac = shutil.which("javac")
+    if not javac:
+        return {"error": "未找到 javac（JDK 未安装或不在 PATH）"}
+    files = []
+    for r, dirs, fs in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for fn in fs:
+            if fn.endswith(".java"):
+                files.append(os.path.join(r, fn))
+    if not files:
+        return {"error": "目录内无 .java 文件"}
+    outd = os.path.join(path, ".urx_javac_out")
+    os.makedirs(outd, exist_ok=True)
+    try:
+        # JDK 本地化消息（中文"错误"）会破坏诊断正则 → 强制英文
+        r = subprocess.run([javac, "-J-Duser.language=en", "-J-Duser.country=US",
+                            "-d", outd] + files, cwd=path,
+                           capture_output=True, timeout=timeout)
+    finally:
+        shutil.rmtree(outd, ignore_errors=True)
+    out = (r.stderr or b"").decode(errors="replace")
+    diags = _parse_gcc(out, path)      # javac 诊断格式与 gcc 同构
+    return {"tool": "javac", "exit": r.returncode, "ok": r.returncode == 0,
+            "total": len(diags), "errors": [d for d in diags if d["level"] == "error"],
+            "warnings": [d for d in diags if d["level"] == "warning"][:50]}
+
+
+def _cc_build(path, timeout, cxx=False):
+    """松散 C/C++ → gcc/g++ -fsyntax-only 逐文件（无 make/cmake 的诚实降级）。"""
+    exe = shutil.which("g++" if cxx else "gcc") or \
+        (shutil.which("clang++" if cxx else "clang"))
+    if not exe:
+        return {"error": f"未找到 {'g++/clang++' if cxx else 'gcc/clang'}"}
+    exts = (".cpp", ".cc", ".cxx") if cxx else (".c",)
+    files = []
+    for r, dirs, fs in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for fn in fs:
+            if fn.lower().endswith(exts):
+                files.append(os.path.join(r, fn))
+    if not files:
+        return {"error": f"目录内无 {'C++' if cxx else 'C'} 源文件"}
+    diags = []
+    env = dict(os.environ)
+    env["LC_ALL"] = "C"                   # gcc 本地化消息强制英文
+    for fp in files[:200]:
+        try:
+            r = subprocess.run([exe, "-fsyntax-only", fp], cwd=path,
+                               capture_output=True, timeout=max(30, timeout // 4),
+                               env=env)
+        except subprocess.TimeoutExpired:
+            continue
+        out = (r.stderr or b"").decode(errors="replace")
+        diags.extend(_parse_gcc(out, path))
+    return {"tool": "g++ --fsyntax-only" if cxx else "gcc --fsyntax-only",
+            "exit": 0 if not any(d["level"] == "error" for d in diags) else 1,
+            "ok": not any(d["level"] == "error" for d in diags),
+            "total": len(diags),
+            "errors": [d for d in diags if d["level"] == "error"],
+            "warnings": [d for d in diags if d["level"] == "warning"][:50]}
+
+
+@tool("ide_build", "编译/静态检查：Rust=cargo check、Java=javac（无 mvn/gradle 如实降级）、"
+      "C/C++=gcc/g++ -fsyntax-only、Go=go build、Python=compileall → 结构化诊断", "ide",
       {"type": "object",
        "properties": {
-           "path": {"type": "string", "description": "项目目录（含 Cargo.toml/go.mod/或 .py）"},
+           "path": {"type": "string", "description": "项目目录（含 Cargo.toml/go.mod/pom.xml/或源文件）"},
            "action": {"type": "string", "enum": ["check", "test"],
                       "description": "check=诊断；test=Rust 走 cargo test"},
            "timeout": {"type": "integer", "description": "秒（默认 600）"},
@@ -303,6 +445,13 @@ def ide_build(path, action="check", timeout=600):
         return {"error": str(e)}
     if not os.path.isdir(path):
         return {"error": f"不是目录: {path}"}
+    # Java：pom.xml/build.gradle 存在但无 mvn/gradle → 如实降级 javac 松散编译
+    has_java = any(f.endswith(".java") for f in os.listdir(path)) or \
+        any(fn.endswith(".java") for _, _, fs in os.walk(path) for fn in fs)
+    if has_java and not os.path.isfile(os.path.join(path, "Cargo.toml")):
+        if os.path.isfile(os.path.join(path, "pom.xml")) and not shutil.which("mvn"):
+            pass                                          # 落到 javac 松散编译
+        return _javac_build(path, timeout)
     exe = shutil.which("cargo")
     build_root = _find_build_root(path, ("Cargo.toml",))
     if exe and build_root:
@@ -322,19 +471,29 @@ def ide_build(path, action="check", timeout=600):
                 "total": len(diags),
                 "errors": [d for d in diags if d["level"] == "error"],
                 "warnings": [d for d in diags if d["level"] == "warning"][:50]}
-    if os.path.isfile(os.path.join(path, "go.mod")) and shutil.which("go"):
+    if os.path.isfile(os.path.join(path, "go.mod")):
+        go = shutil.which("go")
+        if not go:
+            return {"error": "go.mod 存在但未找到 go 工具链"}
         try:
-            r = subprocess.run(["go", "build", "./..."], cwd=path,
+            r = subprocess.run([go, "build", "./..."], cwd=path,
                                capture_output=True, timeout=timeout)
         except subprocess.TimeoutExpired:
             return {"error": f"超时（{timeout}s）", "tool": "go"}
         out = (r.stderr or b"").decode(errors="replace")
+        diags = _parse_go_build(out, path)   # go 错误格式 file:line:col: msg（无 level 词）
         return {"tool": "go", "exit": r.returncode, "ok": r.returncode == 0,
+                "total": len(diags), "errors": diags,
                 "raw_tail": out[-2000:]}
+    if any(fn.lower().endswith((".cpp", ".cc", ".cxx")) for _, _, fs in
+           os.walk(path) for fn in fs):
+        return _cc_build(path, timeout, cxx=True)
+    if any(fn.lower().endswith(".c") for _, _, fs in os.walk(path) for fn in fs):
+        return _cc_build(path, timeout, cxx=False)
     # Python：compileall 语法检查（找 path 下首个 .py 的目录语义由用户保证）
     py = shutil.which("python") or shutil.which("py")
     if py is None:
-        return {"error": "无可识别构建目标（Cargo.toml/go.mod）且无 python"}
+        return {"error": "无可识别构建目标（Cargo.toml/go.mod/.java/.c/.cpp/.py）"}
     try:
         r = subprocess.run([py, "-m", "compileall", "-q", path],
                            capture_output=True, timeout=timeout)
@@ -383,7 +542,7 @@ def _parse_rust_panic(text):
 
 
 @tool("ide_debug", "调试捕获：跑命令（argv 列表，不走 shell）→ 解析 Rust panic/"
-      "Python traceback 为结构化帧（RUST_BACKTRACE 自动开）", "ide",
+      "Java 堆栈/Go panic/Python traceback 为结构化帧（RUST_BACKTRACE 自动开）", "ide",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "工作目录（沙盒内）"},
@@ -416,9 +575,17 @@ def ide_debug(path, cmd, timeout=300):
     text = out + "\n" + err
     py_frames, py_last = _parse_py_traceback(text)
     rust = _parse_rust_panic(text)
+    jframes, jlast = _parse_java_trace(text)
+    gop = _parse_go_panic(text)
+    lang_frames = None
+    if jframes:
+        lang_frames = {"kind": "java", "frames": jframes, "last_error": jlast}
+    elif gop:
+        lang_frames = {"kind": "go", "panics": gop}
     return {"cmd": cmd, "exit": r.returncode, "ok": r.returncode == 0,
             "python": {"frames": py_frames, "last_error": py_last} if py_frames else None,
             "rust_panics": rust,
+            "lang_frames": lang_frames,
             "raw_tail": text[-2500:]}
 
 
