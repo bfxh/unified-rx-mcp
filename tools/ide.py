@@ -493,13 +493,13 @@ def _cc_build(path, timeout, cxx=False):
             "warnings": [d for d in diags if d["level"] == "warning"][:50]}
 
 
-@tool("ide_build", "编译/静态检查：Rust=cargo check、Java=javac（无 mvn/gradle 如实降级）、"
+@tool("ide_build", "编译/静态检查/lint：Rust=cargo check/test/clippy、Java=javac（无 mvn/gradle 如实降级）、"
       "C/C++=gcc/g++ -fsyntax-only、Go=go build、Python=compileall → 结构化诊断", "ide",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目目录（含 Cargo.toml/go.mod/pom.xml/或源文件）"},
-           "action": {"type": "string", "enum": ["check", "test"],
-                      "description": "check=诊断；test=Rust 走 cargo test"},
+           "action": {"type": "string", "enum": ["check", "test", "lint"],
+                      "description": "check=诊断；test=Rust 走 cargo test；lint=Rust 走 cargo clippy"},
            "timeout": {"type": "integer", "description": "秒（默认 600）"},
        },
        "required": ["path"]})
@@ -523,9 +523,15 @@ def ide_build(path, action="check", timeout=600):
         cached = _build_cache_get(("cargo", action, build_root))
         if cached:
             return cached
-        cmd = [exe, "check", "--message-format=short"]
-        if action == "test":
+        if action == "lint":
+            if shutil.which("cargo-clippy") is None:
+                return {"error": "clippy 未安装（rustup component add clippy）",
+                        "tool": "clippy"}
+            cmd = [exe, "clippy", "--message-format=short"]
+        elif action == "test":
             cmd = [exe, "test", "--no-run", "--message-format=short"]
+        else:
+            cmd = [exe, "check", "--message-format=short"]
         try:
             r = subprocess.run(cmd, cwd=build_root, capture_output=True,
                                timeout=timeout)
@@ -533,12 +539,18 @@ def ide_build(path, action="check", timeout=600):
             return {"error": f"超时（{timeout}s）", "tool": "cargo"}
         out = (r.stdout or b"").decode(errors="replace") + "\n" + \
               (r.stderr or b"").decode(errors="replace")
+        if action == "lint" and "no such subcommand" in out:
+            return {"error": "clippy 未安装（rustup component add clippy）",
+                    "tool": "clippy"}
         diags = _parse_cargo_short(out, build_root)
-        result = {"tool": "cargo", "action": action, "build_root": build_root,
+        result = {"tool": "clippy" if action == "lint" else "cargo",
+                  "action": action, "build_root": build_root,
                   "exit": r.returncode, "ok": r.returncode == 0,
                   "total": len(diags),
                   "errors": [d for d in diags if d["level"] == "error"],
                   "warnings": [d for d in diags if d["level"] == "warning"][:50]}
+        _build_cache_put(("cargo", action, build_root), result)
+        return result
         _build_cache_put(("cargo", action, build_root), result)
         return result
     if os.path.isfile(os.path.join(path, "go.mod")):

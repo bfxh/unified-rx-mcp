@@ -746,3 +746,19 @@ ide_debug 58——按频次挑优化点，不拍脑袋。
 
 **诚实边界表增补**：code_semantic tf-idf 非嵌入模型、C 运行时崩溃无帧
 （无 gdb）。206 passed。
+
+---
+
+## S35 · clippy lint + LSP 诊断主动进修复轮（2026-08-28）
+用户指定两项：
+1. **ide_build action=lint**：cargo clippy --message-format=short（同 cargo 解析
+   管道，缓存键含 action）；clippy 缺失两路探测（which cargo-clippy + 输出
+   "no such subcommand"）→ 如实报 rustup component add clippy
+2. **ide_lsp 诊断进修复轮**：swe_repair._lsp_diagnostics——补丁触碰文件（≤2）
+   逐个拉 publishDiagnostics，只收 error 级；LSP 不可用/异常 → 如实放弃该信号
+   不硬造。修复提示词新增 [LSP DIAGNOSTICS · patch 引入的错误] 段。
+
+测试：clippy 集成（x==true → warning 精确断言，skipif 无 clippy）、
+_lsp_diagnostics 严重级过滤/LSP 坏死降级、修复提示词含 LSP 段端到端
+（fake 全链路零 API——顺带修了 fake_tests 计数把 base 检查算漏的测试 bug）。
+211 passed。

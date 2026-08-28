@@ -31,6 +31,7 @@ sys.path.insert(0, HERE)
 import ab_run as AB
 import swe_p3
 import swe_verify as sv
+import registry
 
 MAX_FILES = 3
 FILE_CAP = 9000
@@ -231,7 +232,7 @@ def repair_loop(args):
                 break
             if rnd == args.max_repairs:
                 break
-            # 回喂：失败输出 + 结构化帧（S33：ide 解析器）+ 触碰文件当前内容
+            # 回喂：失败输出 + 结构化帧（S33：ide 解析器）+ LSP 诊断（S35）+ 触碰文件当前内容
             files_show = _touched_files(cur) if cur.strip() else []
             msgs = [{"role": "system", "content":
                      "You are a senior engineer. Your patch did NOT make the "
@@ -242,9 +243,11 @@ def repair_loop(args):
                 msgs.append({"role": "user", "content":
                              "[YOUR PREVIOUS PATCH]\n" + cur[:3500]})
             frames_txt = _structured_frames(tail or "")
+            lsp_txt = _lsp_section(_lsp_diagnostics(root, files_show))
             msgs.append({"role": "user", "content":
                          "[TEST FAILURE OUTPUT]\n" + (tail or "")[:FTB_TAIL_CAP] +
                          (("\n\n" + frames_txt[:2500]) if frames_txt else "") +
+                         (("\n\n" + lsp_txt[:1500]) if lsp_txt else "") +
                          "\n\n[CURRENT FILE CONTENTS]\n" +
                          "\n\n".join(b for p in files_show
                                      for b in [_file_block(root, p)] if b)[:22000] +
@@ -287,6 +290,36 @@ def repair_loop(args):
             f"rounds={len(rounds)} ({rec['repair']['walltime_s']}s)")
         done += 1
     log(f"[OK] repair done {done} files")
+
+
+def _lsp_diagnostics(root, files):
+    """S35：补丁触碰文件的 LSP 诊断（publishDiagnostics 拉取）。
+    pylsp 冷启动会话在 lsp.py 内缓存；失败/无诊断返回空——诚实不硬造。"""
+    out = []
+    for p in files[:2]:
+        fp = os.path.join(root, p.replace("/", os.sep))
+        if not os.path.isfile(fp):
+            continue
+        try:
+            r = registry.call("ide_lsp", {"action": "diagnostics", "file": fp})
+            res = r.get("result") or {}
+            dias = res.get("diagnostics") or []
+            for d in dias:
+                if d.get("severity") == "error" or d.get("severity") == 1:
+                    out.append({"file": p, "line": d.get("line"),
+                                "msg": (d.get("msg") or "")[:160]})
+        except Exception:
+            return []            # LSP 不可用 → 如实放弃该信号
+    return out[:10]
+
+
+def _lsp_section(dias):
+    if not dias:
+        return ""
+    lines = ["[LSP DIAGNOSTICS · patch 引入的错误]"]
+    for d in dias:
+        lines.append(f"- {d['file']}:{d.get('line', '?')} {d['msg']}")
+    return "\n".join(lines)
 
 
 def _structured_frames(text):

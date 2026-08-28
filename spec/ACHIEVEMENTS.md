@@ -46,16 +46,15 @@
   - 诚实边界：tf-idf 是词面向量，中英跨语言需嵌入模型（重依赖，未采用）；
     跨语言靠仓库内中文注释桥接
 
-## 五、当前基线
-
-- **201 passed** / SCHEMA_BAD 0 / CI 常驻
+- **201 passed** → **211 passed** / SCHEMA_BAD 0 / CI 常驻
 - 工具面 **38**（12 域）全过对抗测试；code_search(BM25 文件级) +
   code_semantic(符号级向量) 互补；ide 域 8 工具（含 ide_build/ide_debug，
-  语言面 Rust/Python/Go/Java/C/C++）
+  语言面 Rust/Python/Go/Java/C/C++，Rust lint=clippy）
 - 评测三套（L3 judge / P3 verified+judge / P1 P/R）统一口径
   bench/unified_report.py（verified 主、judge 辅）
 - swe_repair 修复轮回喂升级：测试失败输出先解析成**结构化帧**
-  （python traceback / java 堆栈 / go panic），帧文本随原始输出一起回喂模型
+  （python traceback / java 堆栈 / go panic / pytest FAILED+E 断言），
+  外加 **LSP 诊断主动拉取**（补丁触碰文件的 error 级诊断进提示词）
 
 ## 六、诚实边界：表面光鲜 vs 真实里子（S32 记录，用户点名要求）
 
