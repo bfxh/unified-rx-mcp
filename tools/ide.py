@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""tools/ide.py —— IDE 增强域（6 工具）
+"""tools/ide.py —— IDE 增强域（8 工具）
 
 收敛自旧版 ide_complete_chain/ide_continue/ide_jump_predict/ide_open_at 等。
 重点修复旧版 0 应用问题：ide_edit_multi 用「内容匹配」而非「行号匹配」，
@@ -9,6 +9,10 @@
 - I2: 行数组块匹配（消除拼接字符串 find 的顺序依赖隐患）
 - I3: 写回保留原行尾（CRLF/LF 不破坏）
 - I4: locate_edit 等 max_files 只计代码文件
+S32（用户"IDE 调试编译开搞"）：ide_build（cargo check/compileall/go build →
+结构化诊断）+ ide_debug（argv 直跑不走 shell → panic/traceback 解析成帧）。
+诚实边界：不是内置 VS——编译/调试走真实工具链（cargo/python/go），缺失即如实
+报错；沙盒沿 fs 域 _fs_resolve，cmd 为 argv 列表不走 shell。
 """
 import os
 import re
@@ -236,5 +240,185 @@ def ide_rename(root, symbol, new_name, include_plan=False):
         "plan": plan if include_plan else None,
         "note": "L3 只建议不落盘；确认后可用 fs_write 应用",
     }
+
+
+# ================= S32：ide_build / ide_debug —— 编译与调试（真实工具链） =================
+# 诚实边界：不是内置 VS——Rust 走 cargo check、Python 走 compileall、Go 走 go build，
+# 诊断行解析成结构化 {file,line,level,msg}；调试=跑命令抓 panic/traceback 解析成帧。
+import subprocess  # noqa: E402
+import shutil  # noqa: E402
+
+_RE_CARGO_SHORT = re.compile(
+    r"^(.+?):(\d+):(\d+):\s+(error|warning|note)\[?[EW0-9]*\]?:\s+(.*)$")
+_RE_PY_FRAME = re.compile(r'File "([^"]+)", line (\d+)(?:, in (\w+))?')
+_RE_PY_LAST = re.compile(r"^([A-Za-z_.]+(?:Error|Exception|Interrupt|Exit))(?::\s*(.*))?$")
+_RE_RUST_PANIC = re.compile(r"panicked at\s+(?:'([^']*)',\s*)?([^\s:]+):(\d+):(\d+)")
+_RE_RUST_FRAME = re.compile(r"^\s+at\s+.+?:(\d+):(\d+)")
+
+
+def _find_build_root(path, markers):
+    """path 向上找最近的构建标记（Cargo.toml / go.mod）。"""
+    p = os.path.abspath(path)
+    while True:
+        for m in markers:
+            if os.path.isfile(os.path.join(p, m)):
+                return p
+        parent = os.path.dirname(p)
+        if parent == p:
+            return None
+        p = parent
+
+
+def _parse_cargo_short(out, root):
+    diags, seen = [], set()
+    for line in out.splitlines():
+        m = _RE_CARGO_SHORT.match(line.strip())
+        if not m:
+            continue
+        f, ln, col, level, msg = m.groups()
+        fp = f if os.path.isabs(f) else os.path.join(root, f)
+        key = (fp, ln, level, msg)
+        if key in seen:
+            continue
+        seen.add(key)
+        diags.append({"file": os.path.abspath(fp), "line": int(ln), "col": int(col),
+                      "level": level, "msg": msg.strip()[:200]})
+    return diags
+
+
+@tool("ide_build", "编译/静态检查：Rust=cargo check、Python=compileall 语法检查、"
+      "Go=go build → 结构化诊断 {file,line,level,msg}", "ide",
+      {"type": "object",
+       "properties": {
+           "path": {"type": "string", "description": "项目目录（含 Cargo.toml/go.mod/或 .py）"},
+           "action": {"type": "string", "enum": ["check", "test"],
+                      "description": "check=诊断；test=Rust 走 cargo test"},
+           "timeout": {"type": "integer", "description": "秒（默认 600）"},
+       },
+       "required": ["path"]})
+def ide_build(path, action="check", timeout=600):
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
+    if not os.path.isdir(path):
+        return {"error": f"不是目录: {path}"}
+    exe = shutil.which("cargo")
+    build_root = _find_build_root(path, ("Cargo.toml",))
+    if exe and build_root:
+        cmd = [exe, "check", "--message-format=short"]
+        if action == "test":
+            cmd = [exe, "test", "--no-run", "--message-format=short"]
+        try:
+            r = subprocess.run(cmd, cwd=build_root, capture_output=True,
+                               timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return {"error": f"超时（{timeout}s）", "tool": "cargo"}
+        out = (r.stdout or b"").decode(errors="replace") + "\n" + \
+              (r.stderr or b"").decode(errors="replace")
+        diags = _parse_cargo_short(out, build_root)
+        return {"tool": "cargo", "action": action, "build_root": build_root,
+                "exit": r.returncode, "ok": r.returncode == 0,
+                "total": len(diags),
+                "errors": [d for d in diags if d["level"] == "error"],
+                "warnings": [d for d in diags if d["level"] == "warning"][:50]}
+    if os.path.isfile(os.path.join(path, "go.mod")) and shutil.which("go"):
+        try:
+            r = subprocess.run(["go", "build", "./..."], cwd=path,
+                               capture_output=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return {"error": f"超时（{timeout}s）", "tool": "go"}
+        out = (r.stderr or b"").decode(errors="replace")
+        return {"tool": "go", "exit": r.returncode, "ok": r.returncode == 0,
+                "raw_tail": out[-2000:]}
+    # Python：compileall 语法检查（找 path 下首个 .py 的目录语义由用户保证）
+    py = shutil.which("python") or shutil.which("py")
+    if py is None:
+        return {"error": "无可识别构建目标（Cargo.toml/go.mod）且无 python"}
+    try:
+        r = subprocess.run([py, "-m", "compileall", "-q", path],
+                           capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return {"error": f"超时（{timeout}s）", "tool": "compileall"}
+    # compileall 的语法错误走 stdout（不是 stderr）——两路都收
+    out = ((r.stdout or b"").decode(errors="replace") + "\n" +
+           (r.stderr or b"").decode(errors="replace"))
+    diags = []
+    for m in _RE_PY_FRAME.finditer(out):
+        fp, ln = m.group(1), int(m.group(2))
+        diags.append({"file": os.path.abspath(fp), "line": ln, "level": "error",
+                      "msg": "syntax"})
+    return {"tool": "compileall", "exit": r.returncode, "ok": r.returncode == 0,
+            "total": len(diags), "errors": diags, "raw_tail": out[-1500:]}
+
+
+def _parse_py_traceback(text):
+    frames = [{"file": os.path.abspath(f), "line": int(n), "fn": fn or "?"}
+              for f, n, fn in _RE_PY_FRAME.findall(text)]
+    last = ""
+    for line in text.splitlines():
+        m = _RE_PY_LAST.match(line.strip())
+        if m:
+            last = f"{m.group(1)}: {m.group(2) or ''}".strip()
+    return frames, last
+
+
+def _parse_rust_panic(text):
+    out = []
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = _RE_RUST_PANIC.search(line)
+        if m:
+            msg, f, ln, col = m.groups()
+            if not msg and i + 1 < len(lines):
+                msg = lines[i + 1].strip()
+            frames = []
+            for j in range(i, min(i + 40, len(lines))):
+                fm = _RE_RUST_FRAME.match(lines[j])
+                if fm:
+                    frames.append({"line": int(fm.group(1)), "col": int(fm.group(2))})
+            out.append({"msg": (msg or "")[:200], "file": f, "line": int(ln),
+                        "col": int(col), "backtrace": frames[:12]})
+    return out
+
+
+@tool("ide_debug", "调试捕获：跑命令（argv 列表，不走 shell）→ 解析 Rust panic/"
+      "Python traceback 为结构化帧（RUST_BACKTRACE 自动开）", "ide",
+      {"type": "object",
+       "properties": {
+           "path": {"type": "string", "description": "工作目录（沙盒内）"},
+           "cmd": {"type": "array", "items": {"type": "string"},
+                   "description": "命令 argv 列表，如 [\"cargo\",\"test\"] 或 [\"python\",\"x.py\"]"},
+           "timeout": {"type": "integer", "description": "秒（默认 300）"},
+       },
+       "required": ["path", "cmd"]})
+def ide_debug(path, cmd, timeout=300):
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
+    if not os.path.isdir(path):
+        return {"error": f"不是目录: {path}"}
+    if (not isinstance(cmd, list) or not cmd
+            or not all(isinstance(x, str) for x in cmd)):
+        return {"error": "cmd 必须是非空 argv 字符串列表（不走 shell，防注入）"}
+    env = dict(os.environ)
+    env["RUST_BACKTRACE"] = "1"
+    try:
+        r = subprocess.run(cmd, cwd=path, capture_output=True, timeout=timeout,
+                           env=env)
+    except subprocess.TimeoutExpired:
+        return {"error": f"超时（{timeout}s）", "cmd": cmd}
+    except OSError as e:
+        return {"error": f"无法启动: {e}", "cmd": cmd}
+    out = (r.stdout or b"").decode(errors="replace")
+    err = (r.stderr or b"").decode(errors="replace")
+    text = out + "\n" + err
+    py_frames, py_last = _parse_py_traceback(text)
+    rust = _parse_rust_panic(text)
+    return {"cmd": cmd, "exit": r.returncode, "ok": r.returncode == 0,
+            "python": {"frames": py_frames, "last_error": py_last} if py_frames else None,
+            "rust_panics": rust,
+            "raw_tail": text[-2500:]}
 
 

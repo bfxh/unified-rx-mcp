@@ -683,3 +683,27 @@ cloudpickle 需 py≤3.7、mpl 3.1 要 setuptools_scm<6 + PRETEND_VERSION、seab
 B 13.3%，judge_eq 双臂 12.8%，same_root B 72.3% vs A 63.8%。
 
 165→175 passed。
+
+---
+
+## S32 · IDE 编译/调试落地 + 诚实边界文档（2026-08-28）
+用户点名："IDE 的调试编译都是可以开搞的" + "文档记清楚，很多东西不是表面
+光鲜，好的效果只是少数优化强"。
+
+**ide 域 6→8 工具**：
+- **ide_build**：Cargo.toml→cargo check/test --message-format=short（诊断解析
+  成 {file,line,level,msg}，去重）；go.mod→go build；否则 python compileall
+  （语法错误走 stdout 不是 stderr——实测抓的）；无目标如实报错。向上找最近
+  构建根。沙盒 _fs_resolve 收口。
+- **ide_debug**：argv 列表直跑不走 shell（schema 层拒 str 注入）；
+  RUST_BACKTRACE=1 自动开；Rust panic 新旧双格式解析 + 回溯帧；Python
+  traceback 帧 + 末行错误。输出结构化帧供修复循环回喂。
+- 真实验收：cargo 新 crate 编译错误 ✓、panic vec[9] 端到端帧解析 ✓、
+  python crash traceback ✓、沙盒拒 C:/Windows ✓。
+
+**诚实边界表**进 ACHIEVEMENTS.md 第六节（表面/里子/差距三列，逐工具拆）——
+回应"很多技术不光鲜、好效果只是少数优化强"：BM25/tf-idf 非嵌入、scan 非
+编译器语义、LSP 仅两语言、fuzz 非属性测试、verified 非官方 harness，
+全部白纸黑字。
+
+191 passed（+16：ide 10 + 语义 5 + fuzz 前轮）。

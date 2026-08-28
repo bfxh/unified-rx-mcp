@@ -48,11 +48,30 @@
 
 ## 五、当前基线
 
-- **180 passed** / SCHEMA_BAD 0 / CI 常驻
-- 工具面 **37**（12 域）全过对抗测试；code_search(BM25 文件级) + 
-  code_semantic(符号级向量) 互补
+- **191 passed** / SCHEMA_BAD 0 / CI 常驻
+- 工具面 **38**（12 域）全过对抗测试；code_search(BM25 文件级) +
+  code_semantic(符号级向量) 互补；ide 域 8 工具含编译/调试
 - 评测三套（L3 judge / P3 verified+judge / P1 P/R）统一口径
   bench/unified_report.py（verified 主、judge 辅）
+
+## 六、诚实边界：表面光鲜 vs 真实里子（S32 记录，用户点名要求）
+
+原则：**不是 VS 就用 AST/真实工具链，缺什么如实报错，不造假 IDE**。
+好的效果来自少数强优化点，不是每个工具都牛——逐个拆开记：
+
+| 表面 | 真实里子 | 差距如实 |
+|---|---|---|
+| code_search"语义检索" | BM25 词面（零依赖离线） | 无神经网络嵌入；中文查英文码靠仓库内注释桥接 |
+| code_semantic"向量空间" | tf-idf 余弦 + trigram | 不是 embedding 模型；跨语言语义无桥 |
+| bug_scan"结构化扫描" | 正则 + AST-lite（裸标识符/定义级） | 不是编译器语义；类型级漏洞不可见 |
+| ide_lsp"真 LSP" | stdio JSON-RPC 真 LSP，但只接 rust-analyzer/pylsp 两个语言 | 其他语言如实 not wired |
+| ide_build/ide_debug（S32 新） | 真实工具链：cargo check / compileall / go build；panic/traceback 解析成帧 | 不是嵌入式 VS 调试器；无断点/单步，只做"跑+抓+解析" |
+| 安全模糊集 | 自写对抗用例（路径逃逸/注入/大输入） | 不是 hypothesis 属性测试框架 |
+| P3"执行验证" | 真仓库真 FTB 测试跑 | 不是官方 SWE-bench harness（无 Docker，无环境镜像复现） |
+| 性能亮点（缓存 16×、指纹索引、SR 机械层、era venv 配方） | 少数几个点真强 | 其余工具是"能用、够快、诚实"的水位 |
+
+这条表的用途：评测数字可信的前提是知道每个数字背后到底是什么。
+哪个工具的宣传语和里子有差距，修里子或改宣传语，不许停在光鲜表面。
 
 ## 五、挂账（不丢，但不值得单独开轮）
 
