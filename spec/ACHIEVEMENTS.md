@@ -47,8 +47,8 @@
     跨语言靠仓库内中文注释桥接
 
 - **201 passed** → **211 passed** / SCHEMA_BAD 0 / CI 常驻
-- 工具面 **39**（12 域）全过对抗测试；code_search(BM25 文件级) +
-  code_semantic(符号级向量) 互补；ide 域 9 工具（ide_build/ide_debug/ide_break，
+- 工具面 **40**（12 域）全过对抗测试；code_search(BM25 文件级) +
+  code_semantic(符号级向量) 互补；ide 域 8 工具（ide_build/ide_debug/ide_break，
   语言面 Rust/Python/Go/Java/C/C++，Rust lint=clippy）
 - 评测三套（L3 judge / P3 verified+judge / P1 P/R）统一口径
   bench/unified_report.py（verified 主、judge 辅）
