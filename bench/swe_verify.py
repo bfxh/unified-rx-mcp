@@ -85,9 +85,16 @@ SKLEARN_DEPS_NEW = ["cython<3", "numpy<1.27", "scipy<1.11", "joblib",
                     "threadpoolctl", "pytest<8"]
 
 
+_WSL_SEQ = [0]
+
+
 def wsl_run(script):
-    """把 bash 脚本写到 Windows 侧临时文件，经 /mnt/c 执行（免引号地狱）。"""
-    p = os.path.join(tempfile.gettempdir(), "opencode", f"wsl_{abs(hash(script)) % 99999}.sh")
+    """把 bash 脚本写到 Windows 侧临时文件，经 /mnt/c 执行（免引号地狱）。
+    S29：名字含 pid+序号——hash 碰撞会让并发构建执行错脚本。"""
+    _WSL_SEQ[0] += 1
+    d = os.path.join(tempfile.gettempdir(), "opencode")
+    os.makedirs(d, exist_ok=True)             # S29 模糊：pytest 改 TMPDIR 后目录可能不存在
+    p = os.path.join(d, f"wsl_{os.getpid()}_{_WSL_SEQ[0]}.sh")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write(script)
     mount = p.replace("\\", "/").replace("C:/", "/mnt/c/")
@@ -127,16 +134,24 @@ rm -rf "$E"
 def _run_tests_wsl(inst, iid, ftb):
     if not ftb:
         return None, "no-ftb"
-    co = f"{WSL_MOUNT}/{iid.replace('/', '__')}"
-    V = f"~/swe/envs2/{iid.replace('/', '__')}/bin/python"
+    import shlex
+    co = f"{WSL_MOUNT}/{safe_iid(iid)}"
+    V = f"~/swe/envs2/{safe_iid(iid)}/bin/python"
+    ids = " ".join(shlex.quote(x) for x in ftb)      # S29：node id 不可信
     script = f"""#!/usr/bin/env bash
 cd {co}
-{' '.join(['"$V" -m pytest -q --no-header -p no:cacheprovider',
-           '--continue-on-collection-errors'] + list(ftb))} 2>&1 | tail -20
+"$V" -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors {ids} 2>&1 | tail -20
 """
     rc, out, err = wsl_run(script)
     tail = (out or err)[-1200:]
     return rc, tail
+
+
+def safe_iid(iid):
+    """instance_id → 文件系统安全名（S29：语料可控输入不进路径穿越）。"""
+    s = re.sub(r"[^A-Za-z0-9._-]+", "__", str(iid or ""))
+    s = s.replace("..", "__")                 # 穿越点清零
+    return s[:120].strip("._-") or "unnamed"
 
 
 def log(msg):

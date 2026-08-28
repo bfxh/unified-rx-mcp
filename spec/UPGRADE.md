@@ -639,3 +639,27 @@ pip）→ setuptools<60 + cython==0.29.36 + numpy==1.17.3/scipy==1.4.1 → pip
 **工程坑**：生成 bash 脚本时 `pytest<8` 未加引号 → bash 把 `<8` 当 stdin 重定向
 （"8: 没有那个文件或目录"）；uv venv 无 --seed 时无 pip，legacy develop 走不通；
 setuptools<64 无 PEP660 build_editable，uv -e 不可用必须 venv pip。165 passed。
+
+---
+
+## S29 · 高压检查：新模块对抗测试 + 5 洞修复（2026-08-28）
+高压目标 = S23-S28 快速堆出的 bench 面（swe_p3/swe_verify/swe_repair）——它们
+没过过既有安全模糊集。tests/test_s29_fuzz.py 先红后绿（对抗测试先行确认漏洞）。
+
+**坐实并修复**：
+1. **sr path 逃逸（高危）**：apply_sr 的 `path:` 来自模型输出，`../..` 穿越
+   或 `C:/` 绝对路径直接丢 root 写任意文件 → swe_p3.safe_join（commonpath 校验）
+   + locate 轮同修；逃逸路径一律 path-escape-rejected
+2. **读取逃逸（高危）**：swe_repair._file_block 同 join 模式 → 任意文件内容可
+   经修复提示词外泄 → safe_join 收口 + 新增 _locate_ok
+3. **wsl 脚本名碰撞（中）**：`abs(hash(script)) % 99999` 跨进程随机、并发构建
+   可互踩 → pid+序号
+4. **wsl 脚本注入（中）**：FTB node id 裸拼进 bash（数据集可控）→ shlex.quote
+5. **instance_id 路径注入（低）**：safe_iid（穿越点清零 + 长度上限）
+6. **wsl_run 目录假设（低，模糊测试当场抓的）**：pytest 改 TMPDIR 后 opencode
+   目录不存在 → makedirs exist_ok
+7. **二进制文件崩（低）**：apply_sr 读 bytes 文件 TypeError → 按 fails 诚实处理
+
+**诚实定框**：漏洞全部在"模型输出/外部语料 → 文件系统/子进程"的新增链路上，
+既有 36 工具面模糊集依旧全绿——新代码没走老收口流程，这次补上了。
+175 passed（+10 对抗测试）。

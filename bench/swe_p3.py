@@ -200,6 +200,23 @@ _RE_DSML_PARAM = re.compile(
 _RE_DIFF_FENCE = re.compile(r"```diff\s*\n(.*?)```", re.S)
 
 
+def safe_join(root, path):
+    """模型可控路径 → root 内绝对路径；绝对路径/穿越一律 None（S29 高压）。"""
+    if not path or len(path) > 400:
+        return None
+    p = path.replace("\\", "/").lstrip("/")
+    if re.match(r"^[A-Za-z]:", p) or p.startswith("//"):
+        return None
+    cand = os.path.abspath(os.path.join(root, *p.split("/")))
+    root_abs = os.path.abspath(root)
+    try:
+        if os.path.commonpath([cand, root_abs]) != root_abs:
+            return None
+    except ValueError:
+        return None
+    return cand
+
+
 def parse_dsml(content):
     """API 面 tool_calls 为空但 content 里续写了 DSML 风格工具调用 → 解析。
     S22 实测 8/94 run（A1/B7）以此收场：整轮变死轮，答案只剩标记垃圾。"""
@@ -325,7 +342,10 @@ def apply_sr(root, blocks):
     applied, fails, touched, fuzzy_n = 0, [], [], 0
     grounds = {}
     for path, s, r in blocks:
-        fp = os.path.join(root, path.replace("/", os.sep))
+        fp = safe_join(root, path)
+        if fp is None:
+            fails.append(f"{path}: path-escape-rejected")
+            continue
         try:
             with open(fp, encoding="utf-8", errors="replace") as f:
                 raw = f.read()
@@ -518,7 +538,7 @@ def run_once(arm, inst, ch, model, max_rounds, root, tools_schema):
                 p = p.replace("\\", "/").lstrip("/").strip(".,`;*\"'()[]")
                 if p in out or len(p) > 200 or "/" in p and p.startswith("/"):
                     continue
-                if os.path.isfile(os.path.join(root, p.replace("/", os.sep))):
+                if safe_join(root, p) and os.path.isfile(safe_join(root, p)):
                     out.append(p)
                 if len(out) >= 3:
                     break
@@ -529,9 +549,12 @@ def run_once(arm, inst, ch, model, max_rounds, root, tools_schema):
             paths = _path_candidates(answer)   # 原始答案里提到的文件也试
         parts = []
         for p in paths:
+            fp = safe_join(root, p)
+            if fp is None:
+                continue
             try:
-                c = open(os.path.join(root, p.replace("/", os.sep)),
-                         encoding="utf-8", errors="replace").read().replace("\r\n", "\n")
+                c = open(fp, encoding="utf-8",
+                         errors="replace").read().replace("\r\n", "\n")
             except OSError:
                 continue
             if len(c) > 12000:

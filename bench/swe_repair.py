@@ -62,10 +62,19 @@ def _touched_files(diff):
                    re.finditer(r"^diff --git a/(\S+) b/", diff, re.M)})[:MAX_FILES]
 
 
+def _locate_ok(root, path):
+    """S29：locate 轮的路径存在性检查必须锁在 root 内。"""
+    fp = swe_p3.safe_join(root, path)
+    return bool(fp) and os.path.isfile(fp)
+
+
 def _file_block(root, path):
-    fp = os.path.join(root, path.replace("/", os.sep))
+    fp = swe_p3.safe_join(root, path)
+    if fp is None:
+        return ""
     try:
-        c = open(fp, encoding="utf-8", errors="replace").read().replace("\r\n", "\n")
+        with open(fp, encoding="utf-8", errors="replace") as f:
+            c = f.read().replace("\r\n", "\n")
     except OSError:
         return ""
     if len(c) > FILE_CAP:
@@ -97,8 +106,7 @@ def _locate_and_ground(inst, root, ch, model, msgs):
     paths = []
     for pm in re.finditer(r"^\s*path:\s*(\S+)\s*$", loc or "", re.M):
         p = pm.group(1).replace("\\", "/").lstrip("/").strip(".,`;*\"'()[]")
-        if (p not in paths and len(paths) < MAX_FILES
-                and os.path.isfile(os.path.join(root, p.replace("/", os.sep)))):
+        if (p not in paths and len(paths) < MAX_FILES and _locate_ok(root, p)):
             paths.append(p)
     parts = [b for p in paths for b in [_file_block(root, p)] if b]
     msgs.append({"role": "assistant", "content": loc})
