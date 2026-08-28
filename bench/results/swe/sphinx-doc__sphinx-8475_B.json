@@ -141,5 +141,123 @@
    }
   ],
   "walltime_s": 15.7
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "sphinx/builders/linkcheck.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ta\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\builders\\__init__.py\", line 26, in <module>\n    from sphinx.util import import_object, logging, progress_message, rst, status_iterator\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/builders/linkcheck.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ta\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\builders\\__init__.py\", line 26, in <module>\n    from sphinx.util import import_object, logging, progress_message, rst, status_iterator\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/builders/linkcheck.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ta\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\builders\\__init__.py\", line 26, in <module>\n    from sphinx.util import import_object, logging, progress_message, rst, status_iterator\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/builders/linkcheck.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ta\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\builders\\__init__.py\", line 26, in <module>\n    from sphinx.util import import_object, logging, progress_message, rst, status_iterator\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n"
+   }
+  ],
+  "walltime_s": 16.7
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "sphinx/builders/linkcheck.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ta\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\builders\\__init__.py\", line 26, in <module>\n    from sphinx.util import import_object, logging, progress_message, rst, status_iterator\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/builders/linkcheck.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ta\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\builders\\__init__.py\", line 26, in <module>\n    from sphinx.util import import_object, logging, progress_message, rst, status_iterator\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/builders/linkcheck.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ta\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\builders\\__init__.py\", line 26, in <module>\n    from sphinx.util import import_object, logging, progress_message, rst, status_iterator\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/builders/linkcheck.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ta\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\builders\\__init__.py\", line 26, in <module>\n    from sphinx.util import import_object, logging, progress_message, rst, status_iterator\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-8475\\sphinx\\util\\rst.py\", line 21, in <module>\n    from jinja2 import Environment, environmentfilter\nImportError: Error importing plugin \"sphinx.testing.fixtures\": cannot import name 'environmentfilter' from 'jinja2' (C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\envs2\\sphinx-doc__sphinx-8475\\Lib\\site-packages\\jinja2\\__init__.py)\n"
+   }
+  ],
+  "walltime_s": 15.9
  }
 }

@@ -142,5 +142,115 @@
    }
   ],
   "walltime_s": 11.9
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "src/_pytest/assertion/rewrite.py: search-not-found(best=0.39)"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "src/_pytest/assertion/rewrite.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
+   }
+  ],
+  "walltime_s": 9.5
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "src/_pytest/assertion/rewrite.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "src/_pytest/assertion/rewrite.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "\n===STDERR===\nERROR: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pytest-dev__pytest-7324\\tox.ini:157: requires pytest-2.0, actual pytest-1.0'\n\n"
+   }
+  ],
+  "walltime_s": 10.5
  }
 }

@@ -149,6 +149,8 @@ SR_TEMPLATE = ("```sr\npath: <relpath>\n<<<<<<< SEARCH\n<exact lines copied from
 def repair_loop(args):
     ch = AB.load_channel(args.channel)
     model = args.model
+    out_key = "repair_signals" if args.variant == "signals" else "repair_plain"
+    use_signals = args.variant == "signals"
     insts = {d["instance_id"]: d for d in swe_p3.load_sample()}
     import glob
     files = sorted(glob.glob(os.path.join(sv.RESULTS_DIR, "*_A.json")) +
@@ -161,7 +163,7 @@ def repair_loop(args):
     done = 0
     for fp in files:
         rec = json.load(open(fp, encoding="utf-8"))
-        if "repair" in rec and not args.force:
+        if out_key in rec and not args.force:
             continue
         iid = rec["instance_id"]
         inst = insts.get(iid)
@@ -182,7 +184,7 @@ def repair_loop(args):
                            input=inst["test_patch"].replace("\r\n", "\n").encode(),
                            capture_output=True, timeout=120)
         if r.returncode != 0:
-            rec["repair"] = {"skip": "test-patch-apply-failed"}
+            rec[out_key] = {"skip": "test-patch-apply-failed"}
             json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             continue
         ftb = list(inst.get("ftb") or [])
@@ -191,7 +193,7 @@ def repair_loop(args):
             rc, _ = sv._run_tests(inst, py, root, ftb)
             base_cache[bkey] = (rc is not None and rc != 0)
         if not base_cache[bkey]:
-            rec["repair"] = {"skip": "base-already-green"}
+            rec[out_key] = {"skip": "base-already-green"}
             json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             continue
 
@@ -232,7 +234,7 @@ def repair_loop(args):
                 break
             if rnd == args.max_repairs:
                 break
-            # 回喂：失败输出 + 结构化帧（S33：ide 解析器）+ LSP 诊断（S35）+ 触碰文件当前内容
+            # 回喂：失败输出 + 触碰文件当前内容；signals 变体追加三路结构化信号
             files_show = _touched_files(cur) if cur.strip() else []
             msgs = [{"role": "system", "content":
                      "You are a senior engineer. Your patch did NOT make the "
@@ -242,18 +244,21 @@ def repair_loop(args):
             if cur.strip():
                 msgs.append({"role": "user", "content":
                              "[YOUR PREVIOUS PATCH]\n" + cur[:3500]})
-            frames_txt = _structured_frames(tail or "")
-            lsp_txt = _diag_section(root, files_show)
-            # S37：断点命中——补丁行的实际运行时 locals（pytest 在 settrace 下执行）
-            bps_txt = ""
-            if cur.strip() and py:
-                hits = _break_hits(root, py, _changed_lines(cur), list(ftb)[:6])
-                bps_txt = _break_section(hits)
+            extra = ""
+            if use_signals:
+                frames_txt = _structured_frames(tail or "")
+                lsp_txt = _diag_section(root, files_show)
+                # S37：断点命中——补丁行的实际运行时 locals（pytest 在 settrace 下执行）
+                bps_txt = ""
+                if cur.strip() and py:
+                    hits = _break_hits(root, py, _changed_lines(cur), list(ftb)[:6])
+                    bps_txt = _break_section(hits)
+                extra = (("\n\n" + frames_txt[:2500]) if frames_txt else "") + \
+                        (("\n\n" + lsp_txt[:1500]) if lsp_txt else "") + \
+                        (("\n\n" + bps_txt[:1500]) if bps_txt else "")
             msgs.append({"role": "user", "content":
                          "[TEST FAILURE OUTPUT]\n" + (tail or "")[:FTB_TAIL_CAP] +
-                         (("\n\n" + frames_txt[:2500]) if frames_txt else "") +
-                         (("\n\n" + lsp_txt[:1500]) if lsp_txt else "") +
-                         (("\n\n" + bps_txt[:1500]) if bps_txt else "") +
+                         extra +
                          "\n\n[CURRENT FILE CONTENTS]\n" +
                          "\n\n".join(b for p in files_show
                                      for b in [_file_block(root, p)] if b)[:22000] +
@@ -288,44 +293,14 @@ def repair_loop(args):
             if ptb and not ptb["ptb_pass"]:
                 verified = False
         sv._restore(root)
-        rec["repair"] = {"verified": verified, "rounds_used": len(rounds),
-                         "rounds": rounds[:12], **ptb,
-                         "walltime_s": round(time.time() - t0, 1)}
+        rec[out_key] = {"verified": verified, "variant": args.variant,
+                        "rounds_used": len(rounds), "rounds": rounds[:12],
+                        **ptb, "walltime_s": round(time.time() - t0, 1)}
         json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-        log(f"repair {os.path.basename(fp)} -> verified={verified} "
-            f"rounds={len(rounds)} ({rec['repair']['walltime_s']}s)")
+        log(f"repair[{args.variant}] {os.path.basename(fp)} -> verified={verified} "
+            f"rounds={len(rounds)} ({rec[out_key]['walltime_s']}s)")
         done += 1
     log(f"[OK] repair done {done} files")
-
-
-def _lsp_diagnostics(root, files):
-    """S35：补丁触碰文件的 LSP 诊断（publishDiagnostics 拉取）。
-    pylsp 冷启动会话在 lsp.py 内缓存；失败/无诊断返回空——诚实不硬造。"""
-    out = []
-    for p in files[:2]:
-        fp = os.path.join(root, p.replace("/", os.sep))
-        if not os.path.isfile(fp):
-            continue
-        try:
-            r = registry.call("ide_lsp", {"action": "diagnostics", "file": fp})
-            res = r.get("result") or {}
-            dias = res.get("diagnostics") or []
-            for d in dias:
-                if d.get("severity") == "error" or d.get("severity") == 1:
-                    out.append({"file": p, "line": d.get("line"),
-                                "msg": (d.get("msg") or "")[:160]})
-        except Exception:
-            return []            # LSP 不可用 → 如实放弃该信号
-    return out[:10]
-
-
-def _lsp_section(dias):
-    if not dias:
-        return ""
-    lines = ["[LSP DIAGNOSTICS · patch 引入的错误]"]
-    for d in dias:
-        lines.append(f"- {d['file']}:{d.get('line', '?')} {d['msg']}")
-    return "\n".join(lines)
 
 
 def _structured_frames(text):
@@ -450,29 +425,38 @@ def _applied_now(root, diff):
 
 
 def summary():
+    """S38：signals vs plain 双变体配对对比（verified 口径）。"""
     import glob
     agg = {}
     for fp in sorted(glob.glob(os.path.join(sv.RESULTS_DIR, "*_*.json"))):
         if os.path.basename(fp) == "summary.json":
             continue
         d = json.load(open(fp, encoding="utf-8"))
-        v = d.get("verify") or {}
-        r = d.get("repair") or {}
-        a = agg.setdefault(d["arm"], {"n": 0, "feasible": 0, "verified_s24": 0,
-                                      "looped": 0, "verified_s25": 0})
+        a = agg.setdefault(d["arm"], {"n": 0, "sig_tried": 0, "sig": 0,
+                                      "plain_tried": 0, "plain": 0,
+                                      "both": 0, "flip": []})
         a["n"] += 1
-        if "skip" not in v:
-            a["feasible"] += 1
-            a["verified_s24"] += int(v.get("verified") is True)
-        if "skip" not in r and r:
-            a["looped"] += 1
-            a["verified_s25"] += int(r.get("verified") is True)
-    print(f"{'arm':<4}{'n':>4}{'feasible':>10}{'s24_ok':>8}{'looped':>8}"
-          f"{'s25_ok':>8}{'lift':>8}")
+        rs = d.get("repair_signals") or {}
+        rp = d.get("repair_plain") or {}
+        ok_s = "skip" not in rs and rs.get("verified") is True
+        ok_p = "skip" not in rp and rp.get("verified") is True
+        tr_s = "skip" not in rs and bool(rs)
+        tr_p = "skip" not in rp and bool(rp)
+        a["sig_tried"] += int(tr_s)
+        a["plain_tried"] += int(tr_p)
+        a["sig"] += int(ok_s)
+        a["plain"] += int(ok_p)
+        if tr_s and tr_p:
+            a["both"] += 1
+            if ok_s != ok_p:
+                a["flip"].append(f"{d['instance_id']}: "
+                                 f"{'plain→signals' if ok_s else 'signals→plain'}")
+    print(f"{'arm':<4}{'tried':>7}{'sig_ok':>8}{'plain_ok':>9}{'lift':>6}")
     for name, s in sorted(agg.items()):
-        print(f"{name:<4}{s['n']:>4}{s['feasible']:>10}{s['verified_s24']:>8}"
-              f"{s['looped']:>8}{s['verified_s25']:>8}"
-              f"{s['verified_s25'] - s['verified_s24']:>8}")
+        print(f"{name:<4}{s['sig_tried']:>7}{s['sig']:>8}{s['plain']:>9}"
+              f"{s['sig'] - s['plain']:>6}")
+        for f in s["flip"]:
+            print(f"  flip {f}")
 
 
 def main():
@@ -482,6 +466,8 @@ def main():
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--ids", default="")
     ap.add_argument("--max-repairs", type=int, default=3)
+    ap.add_argument("--variant", choices=["signals", "plain"], default="signals",
+                    help="signals=三路结构化信号回喂；plain=仅原始失败输出（对照）")
     ap.add_argument("--channel", default="conn-deepseek")
     ap.add_argument("--model", default="deepseek-chat")
     a = ap.parse_args()

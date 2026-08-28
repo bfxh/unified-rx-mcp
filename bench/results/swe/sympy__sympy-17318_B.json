@@ -123,5 +123,107 @@
    }
   ],
   "walltime_s": 13.6
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.18s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 14.0
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.20s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.11s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 13.7
  }
 }

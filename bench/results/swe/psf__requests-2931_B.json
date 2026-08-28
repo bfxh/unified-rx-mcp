@@ -134,5 +134,104 @@
    }
   ],
   "walltime_s": 11.6
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 8,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.22s\n\n===STDERR===\n[2026-08-28 23:15:32,623] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.12s\n\n===STDERR===\n[2026-08-28 23:15:35,875] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.10s\n\n===STDERR===\n[2026-08-28 23:15:37,772] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.10s\n\n===STDERR===\n[2026-08-28 23:15:39,672] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n"
+   }
+  ],
+  "walltime_s": 7.7
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 8,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 2.61s\n\n===STDERR===\n[2026-08-29 00:10:34,980] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 1.48s\n\n===STDERR===\n[2026-08-29 00:10:42,465] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "==================\nERROR test_requests.py - AttributeError: module 'collections' has no attribut...\n2 warnings, 1 error in 1.59s\n\n===STDERR===\n[2026-08-29 00:10:49,092] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 1.44s\n\n===STDERR===\n[2026-08-29 00:10:57,137] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n"
+   }
+  ],
+  "walltime_s": 28.4
  }
 }

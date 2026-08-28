@@ -136,5 +136,125 @@
    }
   ],
   "walltime_s": 51.4
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ls.py:609: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:562\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:562: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.09s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "op working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.12s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\test_requests.py::RequestsTestCase::test_no_content_length\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-1142\\\\test_requests.py::RequestsTestCase::test_no_content_length' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/models.py: search-ambiguous(x2)"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "op working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.11s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\test_requests.py::RequestsTestCase::test_no_content_length\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-1142\\\\test_requests.py::RequestsTestCase::test_no_content_length' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "op working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.11s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\test_requests.py::RequestsTestCase::test_no_content_length\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-1142\\\\test_requests.py::RequestsTestCase::test_no_content_length' in any of [<Module test_requests.py>])\n\n"
+   }
+  ],
+  "walltime_s": 20.9
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found(best=0.70)",
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ls.py:607: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:560\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:560: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.23s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\packages\\urllib3\\_collections.py:7: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 1 warning in 1.17s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\packages\\urllib3\\_collections.py:7: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 1 warning in 1.07s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\packages\\urllib3\\_collections.py:7: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 1 warning in 1.20s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 56.6
  }
 }

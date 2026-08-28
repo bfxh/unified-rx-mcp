@@ -802,3 +802,31 @@ _lsp_diagnostics 严重级过滤/LSP 坏死降级、修复提示词含 LSP 段�
 **过程自抓**：两个 call_tool 定义互相覆盖（KeyError 连环）、tools/ide.py 缺
 json/tempfile import、clippy 分支 continue 不在循环内、line 事件 return None
 的追踪语义（S36 已记）。218 passed。
+
+---
+
+## S38 · 三路信号 A/B 实测：净提升为零（诚实负结果）（2026-08-28）
+用户"继续"→ 把 S37 完整修复轮在 verified 口径下做 A/B：
+- **signals 臂**：结构化帧 + 统一诊断 + 断点命中三路回喂
+- **plain 臂**：仅原始失败输出尾巴（S25 对照式）
+- 同起点（S23 candidate/fresh）、同测试执行、双臂 × 28 可试任务全配对
+
+**结果（verified 口径，--max-repairs 3）**：
+
+| 臂 | signals | plain | lift |
+|---|---|---|---|
+| A | 2 | 3 | −1（django-12039 翻向 plain） |
+| B | 4 | 3 | +1（requests-6028 翻向 signals） |
+
+**净提升 = 0**。耗时 median 16.9s vs 15.6s（signals 多 8%）。
+
+**解读（如实）**：
+1. 主导失败模式是模型能力墙——三路信号给了精确位置和运行时值，
+   模型仍修不出语义级修复（与 S23-S25 的观察一致）
+2. 额外信号段吃 context 预算，收益被抵消
+3. n=28 检不出小效应
+4. 三路信号保留（成本低、单点翻盘真实存在），但**不宣称提升**——
+   S25 的 +3 是通道较少时的结果，通道堆满后边际收益归零
+
+swe_repair --variant signals|plain 双变体常驻，配对 summary 一条命令复跑。
+218 passed。

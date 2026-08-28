@@ -118,5 +118,43 @@
   "ptb_total": 6,
   "ptb_pass": true,
   "walltime_s": 3.8
+ },
+ "repair_plain": {
+  "verified": true,
+  "variant": "plain",
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 6,
+  "ptb_pass": true,
+  "walltime_s": 1.5
+ },
+ "repair_signals": {
+  "verified": true,
+  "variant": "signals",
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 6,
+  "ptb_pass": true,
+  "walltime_s": 3.7
  }
 }

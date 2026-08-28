@@ -130,5 +130,125 @@
    }
   ],
   "walltime_s": 77.2
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "sphinx/domains/python.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_pymethod_options\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.30s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/domains/python.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_pymethod_options\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.31s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/domains/python.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_pymethod_options\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.31s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_pymethod_options\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.34s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 17.6
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "sphinx/domains/python.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_pymethod_options\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.32s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/domains/python.py: search-not-found",
+     "sphinx/domains/python.py: search-not-found",
+     "sphinx/domains/python.py: search-not-found",
+     "sphinx/domains/python.py: search-not-found",
+     "sphinx/domains/python.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_pymethod_options\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.31s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/domains/python.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_pymethod_options\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.30s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/domains/python.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ferences/keywords.html#keyword-namespace-packages\n    declare_namespace(pkg)\n\ntests/test_domain_py.py::test_pymethod_options\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-9698\\sphinx\\util\\images.py:12: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13\n    import imghdr\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_domain_py.py::test_pymethod_options - sphinx.errors.VersionR...\n5 warnings, 1 error in 0.30s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 59.0
  }
 }

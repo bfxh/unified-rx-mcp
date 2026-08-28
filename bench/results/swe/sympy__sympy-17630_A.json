@@ -132,5 +132,125 @@
    }
   ],
   "walltime_s": 57.9
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 3,
+    "repair_fails": [
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.15s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 2,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 68.9
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.36s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.29s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.34s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.30s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 56.3
  }
 }

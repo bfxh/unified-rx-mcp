@@ -119,7 +119,8 @@ def test_repair_prompt_contains_lsp_section(tmp_path, monkeypatch):
     json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False)
     try:
         args = type("A", (), {"channel": "c", "model": "m", "max_repairs": 1,
-                              "force": True, "ids": ""})()
+                              "force": True, "ids": "",
+                              "variant": "signals"})()
         swe_repair.repair_loop(args)
     finally:
         if old is None:
