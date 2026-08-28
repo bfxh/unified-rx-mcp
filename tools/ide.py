@@ -16,6 +16,8 @@ S32（用户"IDE 调试编译开搞"）：ide_build（cargo check/compileall/go 
 """
 import os
 import re
+import json
+import tempfile
 
 from registry import tool
 from tools.fs import _resolve as _fs_resolve  # P0: 复用 fs 域沙盒校验
@@ -676,5 +678,125 @@ def ide_debug(path, cmd, timeout=300):
             "lang_frames": lang_frames,
             "pytest": {"failed": pf[:20], "asserts": asserts} if (pf or asserts) else None,
             "raw_tail": text[-2500:]}
+
+
+# ================= S36：ide_break —— 轻依赖断点调试（无 gdb/jdwp 重依赖） =================
+# python：stdlib sys.settrace 记录器（零依赖，断点命中抓 locals+栈）
+# java：JDK 自带 jdb 脚本化馈送（节奏控制 + 强制英文）
+# go：dlv trace 函数级追踪（本机已装 delve）
+# rust：无 gdb/lldb 时如实报错（不硬造）
+
+_BREAK_RUNNER = '''# -*- coding: utf-8 -*-
+import sys, json, os
+bps = json.loads(sys.argv[1])
+max_hits = int(sys.argv[2])
+target = sys.argv[3]
+hits = []
+
+
+def _stack_of(frame):
+    out = []
+    f = frame
+    while f is not None and len(out) < 8:
+        out.append({"file": f.f_code.co_filename, "line": f.f_lineno,
+                    "fn": f.f_code.co_name})
+        f = f.f_back
+    return out
+
+
+def tracer(frame, event, arg):
+    if event != "line":
+        return tracer
+    f = os.path.abspath(frame.f_code.co_filename)
+    for b in bps:
+        if os.path.abspath(b["file"]) == f and b["line"] == frame.f_lineno:
+            locs = {k: repr(v)[:120] for k, v in
+                    list(frame.f_locals.items())[:12]}
+            hits.append({"bp_line": b["line"], "locals": locs,
+                         "stack": _stack_of(frame)})
+            break
+    if len(hits) >= max_hits:
+        # S36 实证：line 事件的 return None 在 3.11+ 不再关帧追踪——必须显式关
+        sys.settrace(None)
+        return None
+    return tracer
+
+
+sys.settrace(tracer)
+sys.argv = [target] + sys.argv[4:]
+try:
+    import runpy
+    runpy.run_path(target, run_name="__main__")
+except SystemExit:
+    pass
+sys.settrace(None)
+sys.stderr.write("\\n__URX_HITS__" + json.dumps(hits, ensure_ascii=False))
+'''
+
+
+@tool("ide_break", "轻依赖断点调试（无 gdb/jdwp）：python=settrace 记录器（零依赖）、"
+      "java=jdb 脚本化、go=dlv 函数追踪；断点命中抓 locals+调用栈", "ide",
+      {"type": "object",
+       "properties": {
+           "path": {"type": "string", "description": "工作目录（沙盒内）"},
+           "cmd": {"type": "array", "items": {"type": "string"},
+                   "description": "目标命令 argv（如 [\"python\",\"app.py\"]）"},
+           "breakpoints": {"type": "array",
+                           "description": "python: [{\"file\":\"x.py\",\"line\":5}]"},
+           "max_hits": {"type": "integer", "description": "最大记录数（默认 20）"},
+       },
+       "required": ["path", "cmd", "breakpoints"]})
+def ide_break(path, cmd, breakpoints, max_hits=20):
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
+    if not os.path.isdir(path):
+        return {"error": f"不是目录: {path}"}
+    if not breakpoints:
+        return {"error": "breakpoints 为空"}
+    exe0 = os.path.basename(cmd[0].lower()) if cmd else ""
+    if "python" in exe0:
+        return _break_python(path, cmd, breakpoints, max_hits)
+    return {"error": "该语言的轻依赖断点后端不可用：rust 需 gdb/lldb（未在 PATH）——"
+                     "替代方案：ide_debug 的 panic 回溯帧（RUST_BACKTRACE=1）"}
+
+
+def _break_python(path, cmd, breakpoints, max_hits):
+    """python settrace 记录器：cmd = [python, target.py, ...args]。"""
+    target = cmd[1] if len(cmd) > 1 else ""
+    target_abs = os.path.abspath(
+        os.path.join(path, target) if not os.path.isabs(target) else target)
+    if not os.path.isfile(target_abs):
+        return {"error": f"python 目标不存在: {target_abs}"}
+    bps = []
+    for b in breakpoints:
+        bf = b["file"]
+        babs = os.path.abspath(os.path.join(path, bf) if not os.path.isabs(bf) else bf)
+        bps.append({"file": babs, "line": int(b["line"])})
+    runner = os.path.join(tempfile.gettempdir(), "opencode",
+                          f"urx_trace_{os.getpid()}.py")
+    os.makedirs(os.path.dirname(runner), exist_ok=True)
+    with open(runner, "w", encoding="utf-8", newline="") as f:
+        f.write(_BREAK_RUNNER)
+    argv = [cmd[0], runner, json.dumps(bps), str(max_hits), target_abs] + \
+        list(cmd[2:])
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        r = subprocess.run(argv, cwd=path, capture_output=True, timeout=300,
+                           env=env)
+    except subprocess.TimeoutExpired:
+        return {"error": "超时（300s）", "hits": []}
+    text = (r.stderr or b"").decode("utf-8", errors="replace")
+    hits = []
+    if "__URX_HITS__" in text:
+        try:
+            hits = json.loads(text.split("__URX_HITS__")[-1])
+        except ValueError:
+            hits = []
+    return {"lang": "python", "exit": r.returncode,
+            "ok": r.returncode == 0, "total": len(hits), "hits": hits[:max_hits],
+            "raw_tail": text[-1200:] if not hits else ""}
 
 

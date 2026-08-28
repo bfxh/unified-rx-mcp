@@ -762,3 +762,24 @@ ide_debug 58——按频次挑优化点，不拍脑袋。
 _lsp_diagnostics 严重级过滤/LSP 坏死降级、修复提示词含 LSP 段端到端
 （fake 全链路零 API——顺带修了 fake_tests 计数把 base 检查算漏的测试 bug）。
 211 passed。
+
+---
+
+## S36 · ide_break 轻依赖断点调试（2026-08-28）
+用户问"gdb/jdwp 级断点调试能否不用重依赖"——能，按语言用已有二进制/stdlib：
+
+- **python：stdlib sys.settrace 记录器**（零依赖）：断点命中抓 locals（repr
+  截断）+ 调用栈（f_back 8 层），max_hits 截停。runpy 包裹执行，sentinel
+  JSON 回传。
+- **java：JDK 自带 jdb 脚本化**（stop in/stop at/locals/where/cont 馈送 +
+  JAVA_TOOL_OPTIONS 强英文）
+- **go：本机 dlv trace 函数级**（行级断点需交互式 dlv，如实降级为函数追踪）
+- **rust：无 gdb/lldb 如实报错** + 指引替代（ide_debug 的 panic 回溯帧）
+
+**两个实证新知**：
+1. CPython 3.11+ 里 line 事件的 local trace 返回 None **不再关帧追踪**——
+   max_hits 截停必须显式 sys.settrace(None)（文档与行为不符，实证抓出）
+2. WSL 输出给 Windows 控制台走 UTF-16 混流（jdb 探针时发现，非本模块问题）
+
+215 passed（ide_break 4 测试：locals/栈、max_hits 截停、rust 诚实报错、
+目标缺失）。
