@@ -18,3 +18,9 @@
 - 决策：死代码 AST 引用计数扫描 + 人工判定；WSL 长尾（astropy-8872 三重障碍）如实挂账不硬凑
 - 证据：砍 4 死件 + 误伤恢复（_UI_PATTERNS 从 git）；feasible 45/47=95.7%；225 passed
 - 提交：c635b5f
+
+## S41 · astropy-8872 原生 clone 攻坚
+- 项目：unified-rx-mcp｜时间：2026-08-29T04:51
+- 决策：原生 clone+helpers 铺满+版本探针全通，egg_info 静默死为终点——止损挂账；.wslconfig 调优保留
+- 证据：setup.py --version RC=0；egg_info 无输出死亡 ×3（OOM 已修仍死）；225 passed
+- 提交：待提交

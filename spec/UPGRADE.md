@@ -874,3 +874,23 @@ swe_repair --variant signals|plain 双变体常驻，配对 summary 一条命令
 
 **顺手**：ponytail-review skill 门禁要求用户显式选择才能加载（Yan 安全设计）
 ——按其方法论手动执行并留档。225 passed。
+
+---
+
+## S41 · astropy-8872 原生 clone 攻坚：正式止损挂账（2026-08-28）
+用户指定最后长尾。已打通：WSL 原生 clone（从 Windows checkout 本地克隆，绕
+github 墙）→ py3.6 micromamba env → pypi astropy-helpers 1.3.1 sdist 铺满
+helpers 目录（子模块空 + 墙的双绕过）→ SETUPTOOLS_SCM_PRETEND_VERSION →
+setup.py --version 通过（RC=0，Cython 重建完成）。
+
+**死点**：pip -e 的 setup.py egg_info 阶段静默死亡（无 traceback、无 OOM
+记录、9.7GB 内存 + 16GB swap + CFLAGS -O0 三招后依然）。已排除：网络（pypi
+可达）、依赖（helpers/cython/numpy 就位）、OOM（dmesg 无新记录）、时长
+（增量重试 ×3）。剩余嫌疑：py3.6 + 老 numpy.distutils + WSL 内核组合的
+深层不兼容——需官方 SWE-bench docker 镜像级方案，超出本项目边界。
+
+**有价值的副产品**：.wslconfig 调优（memory=10GB + swap=16GB，原 7.7GB 无
+swap 配置对大 C 编译不稳）——对所有未来 WSL 构建生效，保留。
+
+**最终状态**：feasible **45/47（95.7%）**；astropy-8872 + django-15280 双
+长尾挂账（前者需官方镜像，后者数据集缺陷）。
