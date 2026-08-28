@@ -12,3 +12,9 @@
 - 项目：unified-rx-mcp｜时间：2026-08-29T01:53
 - 决策：MCP 对外必须有 skill（CI 门禁强制）；记录规范跨项目通用
 - 证据：skills/ 12 域 + 6 语言文档；manifest gate 4 测试
+
+## S40 · ponytail-review 全仓审计 + WSL 补完收官
+- 项目：unified-rx-mcp｜时间：2026-08-29T02:43
+- 决策：死代码 AST 引用计数扫描 + 人工判定；WSL 长尾（astropy-8872 三重障碍）如实挂账不硬凑
+- 证据：砍 4 死件 + 误伤恢复（_UI_PATTERNS 从 git）；feasible 45/47=95.7%；225 passed
+- 提交：c635b5f
