@@ -574,3 +574,21 @@ bench/swe_repair.py：把 S24 的"判分"升级为"回喂"——FTB 失败输出
 **闭环全景（P3 三段）**：S23 机械落地（可应用 5%→30%）→ S24 执行判分
 （判官去通胀）→ S25 执行回喂（+3 solved）。纯 Python 仓已全链路打通；
 C 扩展仓与 requests-2931 node id 漂移仍挂账。
+
+---
+
+## S26 · P1 收账：标注 bug 库 30 条 + bug_scan P/R 首测（2026-08-28）
+五阶段账本最后一格。bench/p1_build.py：VoxelForge/V3 全历史逐文件扫描，相邻
+版本某规则计数下降 = bug→fix 对（每 文件×规则 留最近一次）；clean = 全历史
+零命中文件（负类）。产出 30 条 = 15 bug（as_cast 6/indexing 4/unwrap 3/
+bevy_query_single 2）+ 15 clean。
+
+**P/R 首测**（bench/p1_score.py，score 纯函数带回归测试）：
+TP=15 FN=0 FP=0 TN=15，P=1.000 R=1.000。**如实定框：这是自标注循环口径**——
+语料由 bug_scan 自己挖出，重扫命中是确定性复现，不是泛化证据；本轮实际验证
+的是①挖掘→评分管线端到端 ②规则确定性 ③真实仓库文件 clean 侧零 FP。
+泛化 P/R 需要**独立人工标注**（不依赖 bug_scan 输出的 30 条）——挂账。
+
+工程坑：PowerShell Set-Content -Encoding UTF8 毁中文注释（re-mangled 成
+GBK mojibake + 断字符串）——文件操作一律走专用工具，不走 shell 变换。
+164 passed。

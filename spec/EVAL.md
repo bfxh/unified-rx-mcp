@@ -87,7 +87,7 @@ unified-rx 是工具箱，不能直接跑 SWE-bench——要测的是**它给模
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | P0 | 安全模糊集入库 pytest；本评分卡/EVAL 定稿 | ✅ 本轮完成 |
-| P1 | 从 VoxelForge 系 git log 固化 30 条标注 bug 库（含干净样本）；bug_scan P/R 首测 | 待做 |
+| P1 | 从 VoxelForge 系 git log 固化 30 条标注 bug 库（含干净样本）；bug_scan P/R 首测 | ✅ S26 完成：30 条（15 bug + 15 clean，逐文件历史"信号计数下降"自标注）；P/R 首测 P=1.0/R=1.0——**自标注循环口径**，验证的是确定性+clean 零 FP；泛化精度需独立人工标注（挂账） |
 | P2 | replay-A/B runner（复用 server.py 的 stdio 协议 + `_mcp_probe` 思路），出第一份增益报告 | ✅ S14 完成：ab_run.py 实跑 12×3 双臂 72 run 全判，报告见 UPGRADE.md S14 / bench/results/l3/summary.json |
 | P3 | 外锚：SWE-bench Verified 抽样 / GitTaskBench 子集 | ✅ S25 闭环：执行失败回喂修复轮（≤3 轮），verified A 1→3 / B 2→3（29 feasible）；判官 vs 执行 13/15 一致且分歧双向纠错（S24） |
 
