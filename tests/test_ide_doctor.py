@@ -38,7 +38,7 @@ def _make_project(tmp_path, body="def add(a, b):\n    return a + b\n",
 
 def test_doctor_green_project(tmp_path):
     p = _make_project(tmp_path)
-    r = registry.call("ide_doctor", {"path": p})
+    r = registry.call("ide_doctor", {"path": p, "__authorized": True})
     assert r["ok"], r.get("error")
     res = r["result"]
     names = {c["check"] for c in res["checks"]}
@@ -51,7 +51,7 @@ def test_doctor_green_project(tmp_path):
 
 def test_doctor_flags_broken_build(tmp_path):
     p = _make_project(tmp_path, body="def broken(:\n    return 1\n")
-    r = registry.call("ide_doctor", {"path": p})
+    r = registry.call("ide_doctor", {"path": p, "__authorized": True})
     res = r["result"]
     assert res["verdict"] == "issues"
     assert any("build" in x for x in res["problems"]), res["problems"]
@@ -61,7 +61,7 @@ def test_doctor_flags_failing_test(tmp_path):
     p = _make_project(tmp_path, test_body="from pkg_under_test import add\n\n"
                                           "def test_add():\n"
                                           "    assert add(1, 2) == 4\n")
-    r = registry.call("ide_doctor", {"path": p})
+    r = registry.call("ide_doctor", {"path": p, "__authorized": True})
     res = r["result"]
     assert res["verdict"] == "issues"
     assert any("test failed" in x for x in res["problems"])
@@ -73,12 +73,12 @@ def test_doctor_warns_on_missing_tests(tmp_path):
     p.mkdir()
     (p / "app.py").write_text("x = 1\n", encoding="utf-8")
     _git_init(p)
-    r = registry.call("ide_doctor", {"path": str(p)})
+    r = registry.call("ide_doctor", {"path": str(p), "__authorized": True})
     res = r["result"]
     assert res["verdict"] in ("warn", "issues")
     assert any("没写测试" in x or "未检测到测试设施" in x for x in res["warns"])
 
 
 def test_doctor_error_paths(tmp_path):
-    r = registry.call("ide_doctor", {"path": str(tmp_path / "ghost")})
+    r = registry.call("ide_doctor", {"path": str(tmp_path / "ghost"), "__authorized": True})
     assert not r["ok"]

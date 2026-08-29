@@ -26,6 +26,7 @@ GCC = shutil.which("gcc")
 
 
 def call_tool(name, args):
+    args = {**args, "__authorized": True}   # S61 执行类工具统一授权（测试语境）
     """registry 对工具 error/ok:false 特判（S7/S10 契约）——统一取值并把 ok 合回。"""
     r = registry.call(name, args)
     res = r.get("result", r)

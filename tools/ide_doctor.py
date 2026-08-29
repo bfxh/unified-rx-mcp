@@ -17,9 +17,10 @@ def _run_check(name, fn):
     try:
         r = fn()
         if isinstance(r, dict) and r.get("ok") is False:
-            if isinstance(r.get("result"), dict):
+            res = r.get("result")
+            if isinstance(res, dict) and "error" not in res:
                 # 工具自己报的失败（带详情）——区别于基础设施崩溃
-                return {"check": name, "status": "failed", "result": r["result"],
+                return {"check": name, "status": "failed", "result": res,
                         "elapsed_s": round(time.time() - t0, 2)}
             return {"check": name, "status": "error",
                     "summary": str(r.get("error"))[:160],
@@ -46,8 +47,11 @@ def _run_check(name, fn):
            "run_tests": {"type": "boolean",
                          "description": "是否跑测试（大仓库可关，默认 true）"},
        },
-       "required": ["path"]})
-def ide_doctor(path, max_files=300, run_tests=True):
+       "required": ["path"]},
+      requires_auth=True)
+def ide_doctor(path, max_files=300, run_tests=True, __authorized=False):
+    """requires_auth：doctor 内部会跑测试与编译（ide_test/ide_build 是执行类）——
+    确认 doctor 即确认其执行子调用；授权显式转发，不做工具间静默互信。"""
     try:
         path = _fs_resolve(path)
     except ValueError as e:
@@ -57,6 +61,8 @@ def ide_doctor(path, max_files=300, run_tests=True):
 
     def reg(name, args):
         from registry import call
+        if name in ("ide_test", "ide_build"):
+            args = {**args, "__authorized": __authorized}
         return call(name, args)
 
     checks = [

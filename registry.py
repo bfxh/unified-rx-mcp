@@ -7,6 +7,7 @@
 - group 用于工具面收敛统计与文档生成
   - 2026-08-25: call() 自动打点（duration_ms 写入 stats.jsonl，供 usage_stats 统计；S15 起 cost_report 已并入 usage_stats）
 """
+import inspect
 import json
 import os
 import threading
@@ -176,12 +177,17 @@ def tool(name, description="", group="misc", schema=None, requires_auth=False):
     一层防线——工具函数不再各自手写 if 检查，新增工具漏配在 selftest 即暴露。
     """
     def deco(fn):
+        try:
+            params = frozenset(inspect.signature(fn).parameters)
+        except (TypeError, ValueError):
+            params = frozenset()
         _TOOLS[name] = {
             "handler": fn,
             "description": description,
             "group": group,
             "schema": schema or {"type": "object", "properties": {}, "required": []},
             "requires_auth": requires_auth,
+            "params": params,
         }
         return fn
     return deco
@@ -268,6 +274,10 @@ def call(name, args):
         return {"ok": False, "error": "PermissionError: 写/执行操作需要授权：参数加 __authorized: true 确认后重试"}
     a.pop("cursor", None)  # 传输层分页参数，不是工具签名的一部分
     cursor_arg = (args or {}).get("cursor")  # 分页起点先取出（a 已剥除）
+    # S61：__authorized 不是工具签名一部分时剥掉——授权确认是传输层语义，
+    # 调用方可以放心对任意工具统一附带，不撑爆 handler 签名
+    if "__authorized" in a and "__authorized" not in entry.get("params", frozenset()):
+        a.pop("__authorized")
     # S10-D0：入口 schema 门禁（错误类型在这里死掉，不再穿透进工具内部）
     verr = _validate_schema(entry["schema"], a)
     if verr:
@@ -278,9 +288,11 @@ def call(name, args):
         result = entry["handler"](**a)
         # S7 错误语义统一：工具返回 {"error": ...}（成功形状里的错误）→ 转 ok:false，
         # 调用方只看 ok 一个字段即可，不必二次探测 result.error
-        if isinstance(result, dict) and isinstance(result.get("error"), str) and len(result) <= 2:
+        # S61：砍掉 len<=2 魔数——{"error","applied","errors"} 三键错误形状
+        # 曾穿透此检查（ok:true 藏错误，编辑 0 应用看起来像成功）
+        if isinstance(result, dict) and isinstance(result.get("error"), str):
             _record_stats(name, (time.time() - t0) * 1000)
-            return {"ok": False, "error": result["error"]}
+            return {"ok": False, "error": result["error"], "result": result}
         # S10：工具【显式标记】ok:false（local_run 取消/超时等带详情的失败）→
         # 上浮顶层，调用方只看一个字段；详情留在 result 里不丢。
         if isinstance(result, dict) and result.get("ok") is False:

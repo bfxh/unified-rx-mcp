@@ -18,6 +18,7 @@ from tools.ide_test import _run_cargo, _run_go  # noqa: E402
 
 
 def call(name, args):
+    args = {**args, "__authorized": True}   # S61 执行类工具统一授权（测试语境）
     r = registry.call(name, args)
     assert r.get("ok"), f"{name}: {r.get('error')}"
     return r["result"]
@@ -50,7 +51,7 @@ def test_pytest_zero_collected_is_explicit(tmp_path):
 
 def test_pytest_no_infra_is_error(tmp_path):
     (tmp_path / "app.py").write_text("print('hi')\n", encoding="utf-8")
-    r = registry.call("ide_test", {"path": str(tmp_path)})
+    r = registry.call("ide_test", {"path": str(tmp_path), "__authorized": True})
     assert not r["ok"] and "未检测到测试设施" in r["error"]
 
 
@@ -60,7 +61,8 @@ def test_target_flag_injection_rejected(tmp_path):
     (tmp_path / "tests" / "test_a.py").write_text(
         "def test_a():\n    assert True\n", encoding="utf-8")
     for evil in ("--junitxml=C:/Temp/pwn.xml", "-x", "-p", "--collect-only"):
-        r = registry.call("ide_test", {"path": str(tmp_path), "target": evil})
+        r = registry.call("ide_test", {"path": str(tmp_path), "target": evil,
+                                       "__authorized": True})
         assert not r["ok"] and "argv" in r["error"], evil
 
 

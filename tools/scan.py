@@ -141,6 +141,18 @@ def _scan_python(src, path):
         if isinstance(node, ast.ExceptHandler) and node.type is None:
             issues.append({"line": getattr(node, "lineno", 0), "rule": "bare_except",
                            "msg": "裸 except（吞掉所有异常）", "file": path})
+        # S61 动态执行（AST 级）：只查裸 Name 调用——re.compile 等 Attribute 成员
+        # 调用天然排除（S44 的 dsml FP 教训在 AST 层的结构化解法）
+        if isinstance(node, ast.Call):
+            fn = node.func
+            if isinstance(fn, ast.Name) and fn.id in ("eval", "exec", "compile"):
+                hot = fn.id in ("eval", "exec")
+                issues.append({
+                    "line": node.lineno, "rule": "eval_exec",
+                    "msg": f"python 动态执行 {fn.id}()——注入面（裸调用）",
+                    "file": path,
+                    "severity": "high" if hot else "medium",
+                    "kind": "definite" if hot else "clue"})
         # 未定义变量：只查 Load 上下文的 Name，且：
         #   - 是属性访问的一部分（node.xxx 的 xxx 不是 Name 节点，天然排除）
         #   - 方法调用 self.xxx 的 xxx 是 Attribute，排除
