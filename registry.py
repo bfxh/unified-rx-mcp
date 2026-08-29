@@ -18,6 +18,9 @@ import time
 MAX_RESULT_ITEMS = 200
 _MAX_BYTES = 50 * 1024
 MAX_STR_CHARS = 64 * 1024
+# S62：输入侧对偶上限（_clamp 只管出口，入口此前裸奔）
+_MAX_STR_ARG = 2 * 1024 * 1024       # 单个字符串参数 ≤2M 字符
+_MAX_LIST_ARG = 10000                # 单个列表参数 ≤1 万项
 
 # S3-B2：logging 通知出口（server.main 注入；直跑 pytest 时为 None → 静默跳过）
 _NOTIFIER = None
@@ -278,6 +281,16 @@ def call(name, args):
     # 调用方可以放心对任意工具统一附带，不撑爆 handler 签名
     if "__authorized" in a and "__authorized" not in entry.get("params", frozenset()):
         a.pop("__authorized")
+    # S62 入口尺寸门：超大字符串/列表参数在这里死掉，不再穿透进工具内部
+    for k, v in a.items():
+        if isinstance(v, str) and len(v) > _MAX_STR_ARG:
+            _record_stats(name, 0.0)
+            return {"ok": False,
+                    "error": f"SchemaError: 参数 {k} 过大（>{_MAX_STR_ARG // (1024 * 1024)}MB 字符）"}
+        if isinstance(v, list) and len(v) > _MAX_LIST_ARG:
+            _record_stats(name, 0.0)
+            return {"ok": False,
+                    "error": f"SchemaError: 参数 {k} 列表过长（>{_MAX_LIST_ARG} 项）"}
     # S10-D0：入口 schema 门禁（错误类型在这里死掉，不再穿透进工具内部）
     verr = _validate_schema(entry["schema"], a)
     if verr:

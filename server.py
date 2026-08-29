@@ -50,12 +50,23 @@ def log_msg(level, message, logger="unified-rx"):
         pass  # 通知失败绝不拖垮主流程
 
 
+_MAX_LINE_BYTES = 64 * 1024 * 1024   # S62：单条协议消息上限（宿主异常/敌意输入不撑内存）
+
+
 def _read_line():
-    """读一行（newline-delimited JSON）。EOF 返回 None。"""
-    line = sys.stdin.readline()
+    """读一行（newline-delimited JSON）。EOF 返回 None；触顶未到行尾则丢弃整行。"""
+    buf = sys.stdin.buffer
+    line = buf.readline(_MAX_LINE_BYTES + 1)
     if not line:
         return None
-    return line.strip()
+    if not line.endswith(b"\n") and len(line) > _MAX_LINE_BYTES:
+        # 未到行尾就触顶 → 丢弃到行尾，防残留污染下一条消息
+        while True:
+            rest = buf.readline(_MAX_LINE_BYTES)
+            if not rest or rest.endswith(b"\n"):
+                break
+        return ""
+    return line.decode("utf-8", errors="replace").strip()
 
 
 def _send(obj):

@@ -41,6 +41,7 @@ _INIT_TIMEOUT = 60         # 首次 initialize/index 上限
 _REQ_TIMEOUT = 45
 
 _HEADER_RE = re.compile(rb"Content-Length:\s*(\d+)\r\n", re.I)
+_MAX_FRAME_BYTES = 64 * 1024 * 1024   # S62：入站帧上限（服务器异常不撑爆内存）
 
 
 def _as_uri(path):
@@ -156,6 +157,8 @@ class _Session:
                         n = int(hl.split(b":")[1].strip())
                 if n is None:
                     raise ConnectionError("missing Content-Length")
+                if n > _MAX_FRAME_BYTES:
+                    raise ConnectionError(f"frame too large: {n}")
                 body = b""
                 while len(body) < n:
                     chunk = rd.read(n - len(body))
