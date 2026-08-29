@@ -15,6 +15,25 @@ from tools.metrics import _imports_of  # noqa: E402
 AUTH = {"__authorized": True}
 
 
+def test_func_spans_recognizes_pub_crate():
+    """S63 验收抓出：rust 正则不认 pub(crate) fn → 跨度归给上一个函数。"""
+    from tools.scan import _func_spans
+    src = ("fn tiny() {\n"
+           "    let x = 1;\n"
+           "}\n"
+           "\n"
+           "pub(crate) fn sync_wheel_axles(\n"
+           "    a: u32,\n"
+           ") {\n"
+           "    // 100 行的真身子……\n"
+           "}\n")
+    spans = _func_spans(src.split("\n"), "rust")
+    names = {n for n, _, _, _ in spans}
+    assert "sync_wheel_axles" in names, f"pub(crate) fn 被漏认: {names}"
+    tiny = next(s for s in spans if s[0] == "tiny")
+    assert tiny[2] - tiny[1] <= 5, "tiny 的跨度不应吞掉后面的函数"
+
+
 # ---------- bug_scan python 动态执行（AST 级） ----------
 
 def test_bug_scan_flags_bare_eval_exec(tmp_path):

@@ -587,7 +587,10 @@ _RE_DANGER = [
 _RE_TODO = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b")
 _RE_FUNC_START = {
     "python": re.compile(r"^(\s*)(?:async\s+)?def\s+(\w+)"),
-    "rust": re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)"),
+    # S64：pub(crate)/pub(super)/pub(in path) 可见性修饰也要认——此前不认，
+    # 函数跨度被错误归给上一个 fn（VF3 sync_wheel_axles 108 行算给了
+    # face_from_index，报 134 行假热点）
+    "rust": re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)"),
     "go": re.compile(r"^func\s+(?:\([^)]*\)\s*)?(\w+)"),
     "javascript": re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)"),
 }
@@ -621,6 +624,16 @@ def _func_spans(lines, lang):
     spans = []
     for j, (name, i, params) in enumerate(starts):
         end = starts[j + 1][1] if j + 1 < len(starts) else min(len(lines), i + _FUNC_LONG * 3)
+        # S64：brace 语言的真函数尾 = 函数后第一个列 0 的 "}"——此前跨度
+        # 一律到下一个 fn 起点，中间的 struct/常量/注释把行数吹大
+        # （VF3 vehicle_compound_parts 真身 59 行被报 82）
+        # 仅顶层 fn 适用；嵌套在 mod/class 里的 fn（行首缩进）走原回退
+        if lang in ("rust", "go", "javascript") and lines[i][:1] not in (" ", "\t"):
+            cap = min(len(lines), i + _FUNC_LONG * 4)
+            for k in range(i + 1, cap):
+                if lines[k].rstrip() == "}":
+                    end = k + 1
+                    break
         spans.append((name, i, end, params))
     return spans
 
