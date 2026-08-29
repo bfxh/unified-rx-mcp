@@ -1016,3 +1016,18 @@ S44 的 code_review 对自家 tools/ide.py 报 12 热点 → 本轮全部闭环�
   pylsp/code_review 无需 WSL python；断点信号（S41 缺失项）仍不适用于 WSL
 
 234 passed（diag_section 格式测试同步更新：error/warning 双级断言）。
+
+---
+
+## S47 · clippy/复杂度信号 A/B 复测：负结果三连确认，信号研究收口（2026-08-28）
+S46 接线的验证实验（signals 现含 clippy/复杂度 vs plain）：
+- A：sig 3 vs plain 2（+1）；B：sig 2 vs plain 4（−2）→ 净 −1
+- **三轮独立 sweep 聚合**（S38/S41/S47，168 配对 run）：
+  signals 13 vs plain 19，**净 −2**——翻转在任务间漂移（requests-1921 三个
+  方向都出现过），是采样方差不是效应
+
+**最终结论（收口，不再 revisit）**：结构化信号通道（帧/诊断/断点/clippy/
+复杂度）对 deepseek-chat 的 verified 修复率**无净提升**。主导变量是模型
+能力，不是喂给模型的信息形态。信号机制保留（成本低、单点翻盘存在、
+换强模型后值得重测），**信号维度的进一步工程投入停止**——这是 S38
+负结果买来的边界，现在有三倍证据。

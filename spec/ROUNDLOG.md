@@ -71,3 +71,9 @@
 - 决策：warning 级放行（clippy 同通道）+ code_review 复杂度透镜拉触碰文件；error 优先排序
 - 证据：234 passed；diag_section 双级断言；S38 A/B 基线保留可复测
 - 提交：待提交
+
+## S47 · clippy/复杂度信号 A/B 复测
+- 项目：unified-rx-mcp｜时间：2026-08-29T16:08
+- 决策：三轮独立 sweep 聚合净 −2——信号维度研究收口，不再 revisit
+- 证据：56 文件 ×2 变体重跑；A +1/B −2；168 配对 run 聚合 signals 13 vs plain 19
+- 提交：待提交

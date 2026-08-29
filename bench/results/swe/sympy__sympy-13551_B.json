@@ -155,7 +155,7 @@
    },
    {
     "round": 0,
-    "repair_applied": 0,
+    "repair_applied": 1,
     "repair_fails": []
    },
    {
@@ -165,11 +165,8 @@
    },
    {
     "round": 1,
-    "repair_applied": 0,
-    "repair_fails": [
-     "sympy/concrete/products.py: search-not-found",
-     "sympy/concrete/products.py: search-not-found"
-    ]
+    "repair_applied": 1,
+    "repair_fails": []
    },
    {
     "round": 2,
@@ -178,11 +175,8 @@
    },
    {
     "round": 2,
-    "repair_applied": 0,
-    "repair_fails": [
-     "sympy/concrete/products.py: search-not-found",
-     "sympy/concrete/products.py: search-not-found"
-    ]
+    "repair_applied": 1,
+    "repair_fails": []
    },
    {
     "round": 3,
@@ -190,7 +184,7 @@
     "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-13551\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    }
   ],
-  "walltime_s": 22.3
+  "walltime_s": 9.2
  },
  "repair_signals": {
   "verified": false,
@@ -204,41 +198,43 @@
     "src": "fresh",
     "applied": 1,
     "fails": [
+     "sympy/concrete/products.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-13551\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-13551\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
      "sympy/concrete/products.py: search-not-found",
      "sympy/concrete/products.py: search-not-found"
     ]
    },
    {
-    "round": 0,
+    "round": 2,
     "ftb_pass": false,
     "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-13551\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    },
    {
-    "round": 0,
-    "repair_applied": 1,
-    "repair_fails": []
-   },
-   {
-    "round": 1,
-    "ftb_pass": false,
-    "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-13551\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
-   },
-   {
-    "round": 1,
-    "repair_applied": 1,
+    "round": 2,
+    "repair_applied": 0,
     "repair_fails": [
      "sympy/concrete/products.py: search-not-found"
     ]
-   },
-   {
-    "round": 2,
-    "ftb_pass": false,
-    "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-13551\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
-   },
-   {
-    "round": 2,
-    "repair_applied": 1,
-    "repair_fails": []
    },
    {
     "round": 3,
@@ -246,6 +242,6 @@
     "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-13551\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    }
   ],
-  "walltime_s": 43.6
+  "walltime_s": 60.3
  }
 }

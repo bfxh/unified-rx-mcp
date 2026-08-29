@@ -148,16 +148,17 @@
     "src": "fresh",
     "applied": 1,
     "fails": [
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found(best=0.60)",
+     "requests/utils.py: search-not-found(best=0.79)",
      "requests/adapters.py: search-not-found",
-     "requests/adapters.py: search-not-found",
-     "requests/adapters.py: search-not-found",
-     "requests/adapters.py: search-not-found"
+     "requests/utils.py: search-not-found(best=0.79)"
     ]
    },
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.12s\n\n===STDERR===\n[2026-08-29 06:22:48,030] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+    "tail": "sts\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:136: in <module>\n    from .api import request, get, head, post, patch, put, delete, options\nrequests\\api.py:13: in <module>\n    from . import sessions\nrequests\\sessions.py:28: in <module>\n    from .adapters import HTTPAdapter\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\adapters.py\", line 212\nE       the server's TLS certificate, or a string, in which case it must be a path\nE                 ^\nE   SyntaxError: unterminated string literal (detected at line 212)\n"
    },
    {
     "round": 0,
@@ -167,34 +168,30 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-29 06:22:49,791] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+    "tail": "sts\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:136: in <module>\n    from .api import request, get, head, post, patch, put, delete, options\nrequests\\api.py:13: in <module>\n    from . import sessions\nrequests\\sessions.py:28: in <module>\n    from .adapters import HTTPAdapter\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\adapters.py\", line 212\nE       the server's TLS certificate, or a string, in which case it must be a path\nE                 ^\nE   SyntaxError: unterminated string literal (detected at line 212)\n"
    },
    {
     "round": 1,
-    "repair_applied": 0,
-    "repair_fails": [
-     "requests/utils.py: search-not-found"
-    ]
+    "repair_applied": 1,
+    "repair_fails": []
    },
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-29 06:22:52,548] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+    "tail": "sts\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:136: in <module>\n    from .api import request, get, head, post, patch, put, delete, options\nrequests\\api.py:13: in <module>\n    from . import sessions\nrequests\\sessions.py:28: in <module>\n    from .adapters import HTTPAdapter\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\adapters.py\", line 217\nE       the server's TLS certificate, or a string, in which case it must be a path\nE                 ^\nE   SyntaxError: unterminated string literal (detected at line 217)\n"
    },
    {
     "round": 2,
-    "repair_applied": 0,
-    "repair_fails": [
-     "requests/utils.py: search-not-found"
-    ]
+    "repair_applied": 1,
+    "repair_fails": []
    },
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-29 06:22:55,034] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+    "tail": "sts\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:136: in <module>\n    from .api import request, get, head, post, patch, put, delete, options\nrequests\\api.py:13: in <module>\n    from . import sessions\nrequests\\sessions.py:28: in <module>\n    from .adapters import HTTPAdapter\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\adapters.py\", line 217\nE       the server's TLS certificate, or a string, in which case it must be a path\nE                 ^\nE   SyntaxError: unterminated string literal (detected at line 217)\n"
    }
   ],
-  "walltime_s": 21.6
+  "walltime_s": 34.8
  },
  "repair_signals": {
   "verified": false,
@@ -207,8 +204,11 @@
    },
    {
     "src": "fresh",
-    "applied": 0,
+    "applied": 1,
     "fails": [
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found",
+     "requests/adapters.py: search-not-found",
      "requests/adapters.py: search-not-found",
      "requests/adapters.py: search-not-found"
     ]
@@ -216,7 +216,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.12s\n\n===STDERR===\n[2026-08-29 06:44:33,983] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.15s\n\n===STDERR===\n[2026-08-29 15:33:48,199] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
    },
    {
     "round": 0,
@@ -228,7 +228,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-29 06:44:36,946] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.12s\n\n===STDERR===\n[2026-08-29 15:33:52,042] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
    },
    {
     "round": 1,
@@ -240,19 +240,21 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-29 06:44:39,434] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.11s\n\n===STDERR===\n[2026-08-29 15:33:54,650] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
    },
    {
     "round": 2,
     "repair_applied": 0,
-    "repair_fails": []
+    "repair_fails": [
+     "requests/utils.py: search-not-found(best=0.73)"
+    ]
    },
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.09s\n\n===STDERR===\n[2026-08-29 06:44:42,169] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.11s\n\n===STDERR===\n[2026-08-29 15:33:57,385] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
    }
   ],
-  "walltime_s": 15.9
+  "walltime_s": 51.7
  }
 }

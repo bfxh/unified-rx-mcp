@@ -175,7 +175,7 @@
     "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-14248\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    }
   ],
-  "walltime_s": 9.5
+  "walltime_s": 10.4
  },
  "repair_signals": {
   "verified": false,
@@ -222,6 +222,6 @@
     "tail": ".html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-14248\\sympy\\conftest.py'.\nsympy\\__init__.py:57: in <module>\n    from .core import *\nsympy\\core\\__init__.py:6: in <module>\n    from .basic import Basic, Atom, preorder_traversal\nsympy\\core\\basic.py:3: in <module>\n    from collections import Mapping, defaultdict\nE   ImportError: cannot import name 'Mapping' from 'collections' (C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\collections\\__init__.py)\n"
    }
   ],
-  "walltime_s": 10.1
+  "walltime_s": 10.2
  }
 }

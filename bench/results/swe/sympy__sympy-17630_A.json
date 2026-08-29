@@ -149,40 +149,42 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "n threaded_factory\n    from sympy.matrices import MatrixBase\nsympy\\matrices\\__init__.py:19: in <module>\n    from .immutable import ImmutableDenseMatrix, ImmutableSparseMatrix\nsympy\\matrices\\immutable.py:7: in <module>\n    from sympy.matrices.expressions import MatrixExpr\nsympy\\matrices\\expressions\\__init__.py:4: in <module>\n    from .blockmatrix import BlockMatrix, BlockDiagMatrix, block_collapse, blockcut\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17630\\sympy\\matrices\\expressions\\blockmatrix.py\", line 182\nE       =======\nE       ^^\nE   SyntaxError: invalid syntax\n"
    },
    {
     "round": 0,
-    "repair_applied": 1,
-    "repair_fails": []
+    "repair_applied": 0,
+    "repair_fails": [
+     "sympy/matrices/expressions/blockmatrix.py: search-ambiguous(x2)"
+    ]
    },
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "n threaded_factory\n    from sympy.matrices import MatrixBase\nsympy\\matrices\\__init__.py:19: in <module>\n    from .immutable import ImmutableDenseMatrix, ImmutableSparseMatrix\nsympy\\matrices\\immutable.py:7: in <module>\n    from sympy.matrices.expressions import MatrixExpr\nsympy\\matrices\\expressions\\__init__.py:4: in <module>\n    from .blockmatrix import BlockMatrix, BlockDiagMatrix, block_collapse, blockcut\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17630\\sympy\\matrices\\expressions\\blockmatrix.py\", line 182\nE       =======\nE       ^^\nE   SyntaxError: invalid syntax\n"
    },
    {
     "round": 1,
-    "repair_applied": 1,
+    "repair_applied": 0,
     "repair_fails": []
    },
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "n threaded_factory\n    from sympy.matrices import MatrixBase\nsympy\\matrices\\__init__.py:19: in <module>\n    from .immutable import ImmutableDenseMatrix, ImmutableSparseMatrix\nsympy\\matrices\\immutable.py:7: in <module>\n    from sympy.matrices.expressions import MatrixExpr\nsympy\\matrices\\expressions\\__init__.py:4: in <module>\n    from .blockmatrix import BlockMatrix, BlockDiagMatrix, block_collapse, blockcut\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17630\\sympy\\matrices\\expressions\\blockmatrix.py\", line 182\nE       =======\nE       ^^\nE   SyntaxError: invalid syntax\n"
    },
    {
     "round": 2,
-    "repair_applied": 1,
+    "repair_applied": 0,
     "repair_fails": []
    },
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
+    "tail": "n threaded_factory\n    from sympy.matrices import MatrixBase\nsympy\\matrices\\__init__.py:19: in <module>\n    from .immutable import ImmutableDenseMatrix, ImmutableSparseMatrix\nsympy\\matrices\\immutable.py:7: in <module>\n    from sympy.matrices.expressions import MatrixExpr\nsympy\\matrices\\expressions\\__init__.py:4: in <module>\n    from .blockmatrix import BlockMatrix, BlockDiagMatrix, block_collapse, blockcut\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17630\\sympy\\matrices\\expressions\\blockmatrix.py\", line 182\nE       =======\nE       ^^\nE   SyntaxError: invalid syntax\n"
    }
   ],
-  "walltime_s": 18.1
+  "walltime_s": 16.7
  },
  "repair_signals": {
   "verified": false,
@@ -194,31 +196,23 @@
    },
    {
     "src": "fresh",
-    "applied": 0,
-    "fails": [
-     "sympy/matrices/expressions/blockmatrix.py: search-not-found"
-    ]
+    "applied": 1,
+    "fails": []
    },
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.15s\n\n===STDERR===\n"
    },
    {
     "round": 0,
-    "repair_applied": 3,
-    "repair_fails": [
-     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
-     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
-     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
-     "sympy/matrices/expressions/blockmatrix.py: search-not-found",
-     "sympy/matrices/expressions/blockmatrix.py: search-not-found"
-    ]
+    "repair_applied": 0,
+    "repair_fails": []
    },
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.15s\n\n===STDERR===\n"
    },
    {
     "round": 1,
@@ -228,19 +222,21 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.15s\n\n===STDERR===\n"
    },
    {
     "round": 2,
-    "repair_applied": 0,
-    "repair_fails": []
+    "repair_applied": 40,
+    "repair_fails": [
+     "sympy/matrices/expressions/blockmatrix.py: search-not-found"
+    ]
    },
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "py.matrices import MatrixBase\nsympy\\matrices\\__init__.py:19: in <module>\n    from .immutable import ImmutableDenseMatrix, ImmutableSparseMatrix\nsympy\\matrices\\immutable.py:7: in <module>\n    from sympy.matrices.expressions import MatrixExpr\nsympy\\matrices\\expressions\\__init__.py:4: in <module>\n    from .blockmatrix import BlockMatrix, BlockDiagMatrix, block_collapse, blockcut\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17630\\sympy\\matrices\\expressions\\blockmatrix.py\", line 336\nE       return BlockMatrix._blockmul(self, other)\nE   IndentationError: unexpected indent\n"
    }
   ],
-  "walltime_s": 34.9
+  "walltime_s": 51.6
  }
 }

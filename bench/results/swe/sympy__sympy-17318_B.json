@@ -134,13 +134,13 @@
    },
    {
     "src": "fresh",
-    "applied": 1,
+    "applied": 2,
     "fails": []
    },
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.19s\n\n===STDERR===\n"
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.22s\n\n===STDERR===\n"
    },
    {
     "round": 0,
@@ -150,7 +150,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
    },
    {
     "round": 1,
@@ -160,7 +160,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.12s\n\n===STDERR===\n"
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
    },
    {
     "round": 2,
@@ -170,10 +170,10 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
    }
   ],
-  "walltime_s": 16.3
+  "walltime_s": 19.3
  },
  "repair_signals": {
   "verified": false,
@@ -185,13 +185,13 @@
    },
    {
     "src": "fresh",
-    "applied": 2,
+    "applied": 1,
     "fails": []
    },
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.18s\n\n===STDERR===\n"
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.21s\n\n===STDERR===\n"
    },
    {
     "round": 0,
@@ -211,21 +211,19 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "    from sympy.polys.rootoftools import CRootOf\nsympy\\polys\\rootoftools.py:16: in <module>\n    from sympy.polys.polyroots import (\nsympy\\polys\\polyroots.py:27: in <module>\n    from sympy.simplify import simplify, powsimp\nsympy\\simplify\\__init__.py:7: in <module>\n    from .simplify import (simplify, hypersimp, hypersimilar,\nsympy\\simplify\\simplify.py:28: in <module>\n    from sympy.simplify.radsimp import radsimp, fraction\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17318\\sympy\\simplify\\radsimp.py\", line 1106\nE       =======\nE       ^^\nE   SyntaxError: invalid syntax\n"
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
    },
    {
     "round": 2,
-    "repair_applied": 0,
-    "repair_fails": [
-     "sympy/simplify/radsimp.py: search-ambiguous(x3)"
-    ]
+    "repair_applied": 1,
+    "repair_fails": []
    },
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "    from sympy.polys.rootoftools import CRootOf\nsympy\\polys\\rootoftools.py:16: in <module>\n    from sympy.polys.polyroots import (\nsympy\\polys\\polyroots.py:27: in <module>\n    from sympy.simplify import simplify, powsimp\nsympy\\simplify\\__init__.py:7: in <module>\n    from .simplify import (simplify, hypersimp, hypersimilar,\nsympy\\simplify\\simplify.py:28: in <module>\n    from sympy.simplify.radsimp import radsimp, fraction\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-17318\\sympy\\simplify\\radsimp.py\", line 1106\nE       =======\nE       ^^\nE   SyntaxError: invalid syntax\n"
+    "tail": "ges\\_pytest\\config\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.15s\n\n===STDERR===\n"
    }
   ],
-  "walltime_s": 16.8
+  "walltime_s": 13.5
  }
 }

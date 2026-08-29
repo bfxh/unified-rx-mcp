@@ -90,9 +90,9 @@
   "why": "no-candidate-diff"
  },
  "repair_plain": {
-  "skip": "base-already-green"
+  "skip": "infra: No module named pytest"
  },
  "repair_signals": {
-  "skip": "base-already-green"
+  "skip": "infra: No module named pytest"
  }
 }

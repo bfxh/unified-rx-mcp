@@ -137,7 +137,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.19s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.21s\n\n===STDERR===\n"
    },
    {
     "round": 0,
@@ -147,7 +147,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
    },
    {
     "round": 1,
@@ -157,7 +157,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.15s\n\n===STDERR===\n"
    },
    {
     "round": 2,
@@ -167,10 +167,10 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.18s\n\n===STDERR===\n"
    }
   ],
-  "walltime_s": 8.7
+  "walltime_s": 9.9
  },
  "repair_signals": {
   "verified": false,
@@ -184,7 +184,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.20s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.21s\n\n===STDERR===\n"
    },
    {
     "round": 0,
@@ -194,7 +194,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
    },
    {
     "round": 1,
@@ -204,7 +204,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
    },
    {
     "round": 2,
@@ -214,9 +214,9 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.13s\n\n===STDERR===\n"
+    "tail": "fig\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.14s\n\n===STDERR===\n"
    }
   ],
-  "walltime_s": 8.3
+  "walltime_s": 9.1
  }
 }

@@ -151,7 +151,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.85s\n\n===STDERR===\n"
+    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.96s\n\n===STDERR===\n"
    },
    {
     "round": 0,
@@ -161,7 +161,7 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.26s\n\n===STDERR===\n"
+    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.30s\n\n===STDERR===\n"
    },
    {
     "round": 1,
@@ -171,7 +171,7 @@
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.28s\n\n===STDERR===\n"
+    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.30s\n\n===STDERR===\n"
    },
    {
     "round": 2,
@@ -181,10 +181,10 @@
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.28s\n\n===STDERR===\n"
+    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.29s\n\n===STDERR===\n"
    }
   ],
-  "walltime_s": 15.7
+  "walltime_s": 16.7
  },
  "repair_signals": {
   "verified": false,
@@ -198,7 +198,7 @@
    {
     "round": 0,
     "ftb_pass": false,
-    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.85s\n\n===STDERR===\n"
+    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 1.00s\n\n===STDERR===\n"
    },
    {
     "round": 0,
@@ -208,31 +208,31 @@
    {
     "round": 1,
     "ftb_pass": false,
-    "tail": ">\n    from .pythonrational import PythonRational\nsympy\\polys\\domains\\pythonrational.py:10: in <module>\n    from sympy.printing.defaults import DefaultPrinting\nsympy\\printing\\__init__.py:19: in <module>\n    from .rcode import rcode, print_rcode\nsympy\\printing\\rcode.py:15: in <module>\n    from sympy.sets.fancysets import Range\nsympy\\sets\\__init__.py:1: in <module>\n    from .sets import (Set, Interval, Union, FiniteSet, ProductSet,\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-20438\\sympy\\sets\\sets.py\", line 441\nE       =======\nE       ^^\nE   SyntaxError: invalid syntax\n"
+    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.30s\n\n===STDERR===\n"
    },
    {
     "round": 1,
-    "repair_applied": 0,
+    "repair_applied": 1,
     "repair_fails": [
-     "sympy/sets/sets.py: search-ambiguous(x2)"
+     "sympy/sets/sets.py: search-not-found"
     ]
    },
    {
     "round": 2,
     "ftb_pass": false,
-    "tail": ">\n    from .pythonrational import PythonRational\nsympy\\polys\\domains\\pythonrational.py:10: in <module>\n    from sympy.printing.defaults import DefaultPrinting\nsympy\\printing\\__init__.py:19: in <module>\n    from .rcode import rcode, print_rcode\nsympy\\printing\\rcode.py:15: in <module>\n    from sympy.sets.fancysets import Range\nsympy\\sets\\__init__.py:1: in <module>\n    from .sets import (Set, Interval, Union, FiniteSet, ProductSet,\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-20438\\sympy\\sets\\sets.py\", line 441\nE       =======\nE       ^^\nE   SyntaxError: invalid syntax\n"
+    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.31s\n\n===STDERR===\n"
    },
    {
     "round": 2,
-    "repair_applied": 1,
+    "repair_applied": 15,
     "repair_fails": []
    },
    {
     "round": 3,
     "ftb_pass": false,
-    "tail": "ational.py:10: in <module>\n    from sympy.printing.defaults import DefaultPrinting\nsympy\\printing\\__init__.py:19: in <module>\n    from .rcode import rcode, print_rcode\nsympy\\printing\\rcode.py:15: in <module>\n    from sympy.sets.fancysets import Range\nsympy\\sets\\__init__.py:1: in <module>\n    from .sets import (Set, Interval, Union, FiniteSet, ProductSet,\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sympy__sympy-20438\\sympy\\sets\\sets.py\", line 350\nE       def is_subset(self, other):\nE       ^^^\nE   IndentationError: expected an indented block after function definition on line 349\n"
+    "tail": "g\\__init__.py:1373: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - AttributeError: 'Emp...\n2 failed, 98 deselected, 5 warnings in 0.31s\n\n===STDERR===\n"
    }
   ],
-  "walltime_s": 11.7
+  "walltime_s": 58.9
  }
 }
