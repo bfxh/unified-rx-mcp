@@ -137,11 +137,19 @@ def _run_cargo(path, root, target, timeout):
         return r
     out = (r["stdout"] or "") + "\n" + (r["stderr"] or "")
     res = _base_result("cargo", r["code"])
-    m = _RE_CARGO_RESULT.search(out)
-    if m:
-        res.update({"passed": int(m.group(2)), "failed": int(m.group(3)),
-                    "skipped": int(m.group(4)),
-                    "collected": int(m.group(2)) + int(m.group(3)) + int(m.group(4))})
+    # S63：workspace 多 crate → 多条 "test result:" 行，全量累加
+    # （此前只取第一条，VF3 实测 177 测试只报 52）
+    passed = failed = ignored = 0
+    seen = 0
+    for m in _RE_CARGO_RESULT.finditer(out):
+        seen += 1
+        passed += int(m.group(2))
+        failed += int(m.group(3))
+        ignored += int(m.group(4))
+    if seen:
+        res.update({"passed": passed, "failed": failed, "skipped": ignored,
+                    "collected": passed + failed + ignored,
+                    "result_lines": seen})
     for m2 in _RE_CARGO_TEST_LINE.finditer(out):
         if m2.group(2) == "FAILED":
             res["failures"].append({"test": m2.group(1), "msg": ""})

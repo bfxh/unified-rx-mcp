@@ -103,6 +103,22 @@ def test_cargo_parser_canned(monkeypatch):
     assert r["frames"] and r["frames"][0]["line"] == 3
 
 
+def test_cargo_parser_multi_crate_workspace(monkeypatch):
+    """S63：workspace 多 crate → 多条 test result 行必须全量累加
+    （VF3 实测 177 测试只报 52 的根因）。"""
+    out = ("test a::ok ... ok\n"
+           "test result: ok. 100 passed; 0 failed; 0 ignored\n"
+           "\n"
+           "test b::bad ... FAILED\n"
+           "test result: FAILED. 77 passed; 3 failed; 2 ignored\n")
+    monkeypatch.setattr("tools.ide_test._exec",
+                        lambda *a, **k: {"code": 101, "stdout": out, "stderr": ""})
+    r = _run_cargo("p", "p", None, 60)
+    assert r["passed"] == 177 and r["failed"] == 3 and r["skipped"] == 2
+    assert r["result_lines"] == 2
+    assert any("b::bad" == f["test"] for f in r["failures"])
+
+
 def test_go_parser_canned(monkeypatch):
     out = ("=== RUN   TestA\n"
            "--- PASS: TestA (0.00s)\n"
