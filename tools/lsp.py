@@ -409,12 +409,106 @@ def validate_content(path, text, pump_s=4.0):
         return {"error": f"{type(e).__name__}: {e}"}
 
 
-@tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/symbols/diagnostics/rename_plan——rename 只出预案不落盘", "ide",
+def _from_utf16_col(line_text, units):
+    """LSP UTF-16 code unit 列 → Python 字符列（_to_utf16_col 的逆）。"""
+    if units is None or units <= 0:
+        return 0
+    chars = 0
+    used = 0
+    for ch in line_text:
+        w = 2 if ord(ch) > 0xFFFF else 1
+        if used + w > units:
+            break
+        used += w
+        chars += 1
+    return chars
+
+
+def _pos_offset(lines, line, col_units):
+    """(line, utf16col) → src 内字符偏移（越界钳到边界，不静默丢编辑）。"""
+    if line < 0:
+        return 0
+    if line >= len(lines):
+        return sum(len(l) + 1 for l in lines)
+    return (sum(len(l) + 1 for l in lines[:line])
+            + _from_utf16_col(lines[line], col_units))
+
+
+def _apply_text_edits(src, edits):
+    """LSP TextEdit 列表 → (新文本, 应用数)。同文档非重叠编辑，按起点倒序拼接。
+
+    行尾保留：按 \\n 切行时 \\r 归前行内容，偏移不受影响；整体写回原样保留。"""
+    if not edits:
+        return src, 0
+    lines = src.split("\n")
+    todo = []
+    for ed in edits:
+        rng = ed.get("range") or {}
+        s = rng.get("start") or {}
+        e = rng.get("end") or {}
+        a = _pos_offset(lines, int(s.get("line") or 0), s.get("character") or 0)
+        b = _pos_offset(lines, int(e.get("line") or 0), e.get("character") or 0)
+        todo.append((a, b, ed.get("newText") or ""))
+    todo.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    out = src
+    applied = 0
+    for a, b, txt in todo:
+        a = max(0, min(a, len(out)))
+        b = max(a, min(b, len(out)))
+        out = out[:a] + txt + out[b:]
+        applied += 1
+    return out, applied
+
+
+def _has_local_test(fpath):
+    """python 文件名约定的测试覆盖代理（test_<stem>.py，同目录/tests/test/）。
+    诚实定界：rust 内联 #[cfg(test)] 不适用。"""
+    d = os.path.dirname(fpath)
+    stem = os.path.splitext(os.path.basename(fpath))[0]
+    for cand in (os.path.join(d, f"test_{stem}.py"),
+                 os.path.join(d, f"{stem}_test.py"),
+                 os.path.join(d, "tests", f"test_{stem}.py"),
+                 os.path.join(d, "test", f"test_{stem}.py")):
+        if os.path.isfile(cand):
+            return True
+    return False
+
+
+@tool("ide_impact", "影响面分析：符号 → LSP references 按文件聚合 + 每个受影响"
+      "文件的测试覆盖标注（python 文件名约定代理）——改前先看会碰哪些裸奔文件",
+      "ide",
+      {"type": "object",
+       "properties": {
+           "file": {"type": "string", "description": "符号所在文件（沙盒内绝对路径）"},
+           "line": {"type": "integer", "description": "0-based 行"},
+           "col": {"type": "integer", "description": "0-based 字符列"},
+           "include_decl": {"type": "boolean", "description": "是否含声明处（默认 true）"},
+       },
+       "required": ["file"]})
+def ide_impact(file, line=0, col=0, include_decl=True):
+    r = ide_lsp("references", file=file, line=line, col=col,
+                include_decl=include_decl)
+    if r.get("error"):
+        return r
+    groups = {}
+    for ref in r.get("references") or []:
+        groups.setdefault(ref["file"], []).append(ref["line"])
+    files = [{"file": f, "refs": len(ls), "lines": ls[:20],
+              "has_test": _has_local_test(f)}
+             for f, ls in sorted(groups.items())]
+    untested = [f["file"] for f in files if not f["has_test"]]
+    return {"engine": r.get("engine"), "total_refs": r.get("total"),
+            "files": files, "untested": untested,
+            "note": "has_test 为 python test_<stem>.py 约定代理；"
+                    "rust 内联 #[cfg(test)] 不适用"}
+
+
+@tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/symbols/diagnostics/rename_plan/rename_apply——apply 落盘需授权", "ide",
       {"type": "object",
        "properties": {
            "action": {"type": "string",
                       "description": "status/definition/references/hover/document_symbols/"
-                                     "diagnostics/rename_plan/shutdown"},
+                                     "diagnostics/rename_plan/rename_apply/shutdown"},
            "file": {"type": "string", "description": "目标文件（沙盒内绝对路径）"},
            "line": {"type": "integer", "description": "0-based 行"},
            "col": {"type": "integer", "description": "0-based 字符列"},
@@ -422,7 +516,8 @@ def validate_content(path, text, pump_s=4.0):
            "include_decl": {"type": "boolean", "description": "references 是否含声明处"},
        },
        "required": ["action"]})
-def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True):
+def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
+            __authorized=False):
     reap_idle()                                        # 接线空闲回收（此前是死代码）
     if action == "status":
         out = {}
@@ -530,6 +625,47 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True):
                                  "newText": (ed.get("newText") or "")[:60]})
             return {"engine": f"{lang}-lsp", "applied": False,
                     "note": "预案不落盘（写盘归宿主）", "total": len(plan), "plan": plan[:80]}
+
+        if action == "rename_apply":
+            # R3：rename 落盘——把 WorkspaceEdit 应用到沙盒内文件（逐文件 _resolve 防逃逸）
+            if not new_name:
+                return {"error": "rename_apply 需要 new_name"}
+            if __authorized is not True:
+                return {"error": "PermissionError: rename_apply 落盘需要授权："
+                                 "参数加 __authorized: true 确认后重试"}
+            r = _call_ready(sess, "textDocument/rename", {**tdpos,
+                                                          "newName": new_name})
+            if not r:
+                return {"engine": f"{lang}-lsp", "applied": False,
+                        "total": 0, "files": [], "note": "无可改引用"}
+            by_file = {}
+            for u, eds in (r.get("changes") or {}).items():
+                by_file.setdefault(_uri_path(u), []).extend(eds)
+            for wd in (r.get("documentChanges") or []):
+                u = (wd.get("textDocument") or {}).get("uri")
+                by_file.setdefault(_uri_path(u), []).extend(wd.get("edits") or [])
+            results, total = [], 0
+            for fpath, eds in by_file.items():
+                try:
+                    real = _resolve_in_sandbox(fpath)
+                except PermissionError as e:
+                    results.append({"file": fpath, "error": str(e)})
+                    continue
+                try:
+                    with open(real, "r", encoding="utf-8", errors="replace",
+                              newline="") as f:
+                        src = f.read()
+                except OSError as e:
+                    results.append({"file": real, "error": str(e)})
+                    continue
+                new_src, n = _apply_text_edits(src, eds)
+                with open(real, "w", encoding="utf-8", newline="") as f:
+                    f.write(new_src)
+                sess.notify_change(real)       # 会话内文档同步，防陈旧诊断
+                total += n
+                results.append({"file": real, "edits": n})
+            return {"engine": f"{lang}-lsp", "applied": True, "total": total,
+                    "files": results}
 
         return {"error": f"未知 action: {action}"}
     except FileNotFoundError as e:

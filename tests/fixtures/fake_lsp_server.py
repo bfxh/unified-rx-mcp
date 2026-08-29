@@ -77,9 +77,13 @@ def main():
                                        range={"start": {"line": 11, "character": 0},
                                               "end": {"line": 11, "character": 5}})]})
         elif method == "textDocument/rename":
+            # 回显请求文档 uri——rename_apply 落盘链路测试的前提
+            u = msg.get("params", {}).get("textDocument", {}).get("uri") or LOC["uri"]
             send({"jsonrpc": "2.0", "id": rid,
-                  "result": {"changes": {LOC["uri"]: [
-                      {"range": LOC["range"], "newText": "renamed_x"}]}}})
+                  "result": {"changes": {u: [
+                      {"range": {"start": {"line": 0, "character": 0},
+                                 "end": {"line": 0, "character": 5}},
+                       "newText": "renamed_x"}]}}})
         elif method == "textDocument/hover":
             send({"jsonrpc": "2.0", "id": rid,
                   "result": {"contents": {"kind": "plaintext", "value": "fn demo(&self) -> u32"},

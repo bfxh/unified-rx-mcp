@@ -65,7 +65,9 @@ def test_rename_plan_never_applies(fake_env):
     r = _call("rename_plan", fp, line=0, col=5, new_name="renamed_x")
     assert r["ok"] and r["result"]["applied"] is False
     plan = r["result"]["plan"]
-    assert plan and plan[0]["newText"] == "renamed_x" and plan[0]["line"] == 7
+    # fake server 回显请求 uri + 固定 (0,0)-(0,5) 编辑——预案必须指向真实文件
+    assert plan and plan[0]["newText"] == "renamed_x" and plan[0]["line"] == 0
+    assert plan[0]["file"].endswith("m.py")
     assert open(fp, encoding="utf-8").read() == before
 
 
