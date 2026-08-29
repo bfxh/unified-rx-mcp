@@ -57,6 +57,9 @@
   （python traceback / java 堆栈 / go panic / pytest FAILED+E 断言），
   外加 **统一诊断**（ide_diagnostics：LSP+clippy 同形状，error 级进提示词）
   与**断点命中**（补丁行 settrace 抓运行时 locals+栈，经 ide_break -m pytest）
+- **信号维度研究收口（S47）**：三轮独立 A/B（168 配对 run）证实结构化信号
+  对 deepseek-chat 的 verified 修复率无净提升（聚合 13 vs 19）——主导变量
+  是模型能力；信号机制保留，换强模型后值得重测
 
 ## 六、诚实边界：表面光鲜 vs 真实里子（S32 记录，用户点名要求）
 
