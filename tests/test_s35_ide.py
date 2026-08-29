@@ -43,7 +43,7 @@ def call_tool(name, args):
 
 
 def test_diag_section_format(tmp_path, monkeypatch):
-    # S37：统一诊断通道（LSP+clippy 同形状）只回喂 error 级
+    # S46：统一诊断 error+warning 都回喂（clippy warning 走同一通道）
     def fake(name, args):
         if name == "ide_diagnostics":
             return {"ok": True, "result": {"diagnostics": [
@@ -56,7 +56,8 @@ def test_diag_section_format(tmp_path, monkeypatch):
     monkeypatch.setattr(swe_repair.registry, "call", fake)
     txt = swe_repair._diag_section(str(tmp_path), ["a.py", "b.rs"])
     assert "[DIAGNOSTICS" in txt and "[pylsp]" in txt and "a.py:7" in txt
-    assert "clippy" not in txt           # warning 级不进修复提示词
+    assert "WARN" in txt and "clippy" in txt and "equality checks" in txt
+    assert "ERROR [pylsp]" in txt
     monkeypatch.setattr(swe_repair.registry, "call",
                         lambda n, a: {"ok": True, "result": {"diagnostics": []}})
     assert swe_repair._diag_section(str(tmp_path), ["a.py"]) == ""

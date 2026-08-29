@@ -1003,3 +1003,16 @@ S44 的 code_review 对自家 tools/ide.py 报 12 热点 → 本轮全部闭环�
 
 **方法闭环**：工具发现问题 → 作者修复 → 同一工具复测验证 → 剩 0。
 这条链证明了 code_review 不是摆设。
+
+---
+
+## S46 · clippy/复杂度接进修复轮回喂（纯接线完成）（2026-08-28）
+用户指定。_diag_section 升级：
+- **error + warning 双级回喂**（此前只回 error——clippy 的 warning 全被过滤；
+  现在 clippy 经 ide_diagnostics 同通道直达修复提示词，WARN 行带来源标签）
+- **触碰文件复杂度发现**：code_review 复杂度透镜逐触碰文件拉取
+  （函数>80 行/参数>6/嵌套≥28），[COMPLEXITY] 段回喂
+- 边界如实：WSL 任务的 clippy/复杂度同样走 Windows 侧 checkout 文件，
+  pylsp/code_review 无需 WSL python；断点信号（S41 缺失项）仍不适用于 WSL
+
+234 passed（diag_section 格式测试同步更新：error/warning 双级断言）。

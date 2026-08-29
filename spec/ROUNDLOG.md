@@ -65,3 +65,9 @@
 - 决策：真问题重构（单体拆分/参数砍）、假阳性修工具（括号深度感知）、阈值校准留注释
 - 证据：code_review(ide.py) 12→0；234 passed；工具链自验证闭环
 - 提交：待提交
+
+## S46 · clippy/复杂度接进修复轮回喂
+- 项目：unified-rx-mcp｜时间：2026-08-29T15:23
+- 决策：warning 级放行（clippy 同通道）+ code_review 复杂度透镜拉触碰文件；error 优先排序
+- 证据：234 passed；diag_section 双级断言；S38 A/B 基线保留可复测
+- 提交：待提交

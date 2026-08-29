@@ -417,20 +417,41 @@ def _break_section(hits):
 
 
 def _diag_section(root, files):
-    """S37：统一诊断通道（LSP + clippy），只回喂 error 级。"""
+    """S46：修复轮静态信号——统一诊断（error+warning，clippy 随 ide_diagnostics
+    走同一通道）+ 触碰文件复杂度发现（code_review 复杂度透镜）。"""
     try:
         r = registry.call("ide_diagnostics", {"path": root, "files": files,
                                               "include_lint": True})
         res = r.get("result") or r
         dias = res.get("diagnostics") or []
         errs = [d for d in dias if d["severity"] == "error"]
-        if not errs:
+        warns = [d for d in dias if d["severity"] == "warning"][:6]
+        if not errs and not warns:
             return ""
-        lines = ["[DIAGNOSTICS · patch 引入的静态错误]"]
+        lines = ["[DIAGNOSTICS · 修复轮静态信号]"]
         for d in errs[:8]:
-            lines.append(f"- [{d['source']}] {d['file']}:{d['line']} "
+            lines.append(f"- ERROR [{d['source']}] {d['file']}:{d['line']} "
                          f"{d['message']}")
-        return "\n".join(lines)
+        for d in warns:
+            lines.append(f"- WARN  [{d['source']}] {d['file']}:{d['line']} "
+                         f"{d['message']}")
+        txt = "\n".join(lines)
+        cx = []
+        for f in (files or [])[:2]:
+            fp = os.path.join(root, f.replace("/", os.sep))
+            if not os.path.isfile(fp):
+                continue
+            try:
+                rr = registry.call("code_review", {"path": fp})
+                rr = rr.get("result") or rr
+                cx.extend(x for x in rr.get("findings") or []
+                          if x.get("lens") == "complexity")
+            except Exception:
+                continue
+        if cx:
+            txt += "\n[COMPLEXITY · 触碰文件]\n" + "\n".join(
+                f"- {x['file']}:{x['line']} {x['msg']}" for x in cx[:6])
+        return txt
     except Exception:
         return ""
 
