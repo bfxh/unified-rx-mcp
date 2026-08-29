@@ -99,3 +99,9 @@
 - 决策：AST 拆分把 @tool 绑到 _lsp_file_diags 而非 ide_diagnostics——registry._TOOLS 逐工具验证 handler 名应为拆分后标准步骤
 - 证据：VF3 cargo 0 错/clippy 0/bug_scan 492 info/装饰器修复后 ide_diagnostics 正常；235 passed
 - 提交：本次
+
+## S53 · 维稳版部署 D:\rj\MCP + 工作流规范
+- 项目：unified-rx-mcp｜时间：2026-08-30T02:23
+- 决策：main 合入 feat 分支 + tag v2.3.0 + clone 到 D:\rj\MCP + workflow.md 固化流程；235→237 passed
+- 证据：D:\rj\MCP pytest 235 passed ✓；MCP 宿主配置模板写死；237 passed
+- 提交：5051c6d+ef0ba0e
