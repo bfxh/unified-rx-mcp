@@ -69,7 +69,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_30392_2.sh: 行 3: : 未找到命令\n",
+  "base_tail": "c/Users/lbx13/AppData/Local/Temp/opencode/swe/astropy__astropy-14539/astropy/__init__.py\", line 12, in <module>\n    from .version import version as __version__\n  File \"/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/astropy__astropy-14539/astropy/version.py\", line 12, in <module>\n    warnings.warn(\nUserWarning: could not determine astropy package version; this indicates a broken installation\n\n\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

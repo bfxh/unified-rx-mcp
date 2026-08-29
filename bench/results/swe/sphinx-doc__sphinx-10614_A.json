@@ -69,7 +69,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "s                                                                        [100%]\n1 skipped in 0.81s\n",
+  "base_tail": "s                                                                        [100%]\n1 skipped in 0.57s\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

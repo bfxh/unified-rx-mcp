@@ -66,9 +66,9 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_85231.sh: 行 3: : 未找到命令\n",
+  "base_tail": "ture_names)\n>       assert_false(cv.fixed_vocabulary_)\nE       AttributeError: 'CountVectorizer' object has no attribute 'fixed_vocabulary_'\n\nsklearn/feature_extraction/tests/test_text.py:547: AttributeError\n=========================== short test summary info ============================\nFAILED sklearn/feature_extraction/tests/test_text.py::test_feature_names - At...\n1 failed, 3 warnings in 2.74s\n",
   "ftb_pass": true,
-  "ftb_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_85231.sh: 行 3: : 未找到命令\n",
+  "ftb_tail": ".                                                                        [100%]\n1 passed, 3 warnings in 1.08s\n",
   "ptb_total": 25,
   "ptb_pass": true,
   "verified": true

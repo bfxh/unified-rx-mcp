@@ -63,9 +63,9 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_34740_4.sh: 行 3: : 未找到命令\n",
+  "base_tail": "minal_x_axis_tweaks' in any of [<Module test_plot.py>])\n\nERROR: not found: /mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_y_axis_tweaks\n(no name '/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_y_axis_tweaks' in any of [<Module test_plot.py>])\n\n",
   "ftb_pass": true,
-  "ftb_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_34740_5.sh: 行 3: : 未找到命令\n",
+  "ftb_tail": "3069/tests/_core/test_plot.py::TestScaling::test_nominal_x_axis_tweaks\n(no name '/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_x_axis_tweaks' in any of [<Module test_plot.py>])\n\nERROR: not found: /mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_y_axis_tweaks\n(no name '/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_y_axis_tweaks' in any of [<Module test_plot.py>])\n\n",
   "ptb_total": 25,
   "ptb_pass": true,
   "verified": true

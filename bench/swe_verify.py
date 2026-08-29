@@ -171,7 +171,7 @@ E=~/swe/envs2/{safe}
 V=$E/bin/python
 CO={co}
 export MPLBACKEND=Agg
-[ -x "$V" ] && "$V" -c "import {pkg}" 2>/dev/null && {{ echo "{pkg} OK"; exit 0; }}
+[ -x "$V" ] && "$V" -c "import {pkg}; import pytest" 2>/dev/null && {{ echo "{pkg} OK"; exit 0; }}
 rm -rf "$E"
 {interp} -m venv "$E" 2>&1 | tail -1
 "$V" -m pip install -q --upgrade "pip<24.1" "setuptools<60" wheel 2>&1 | tail -1
@@ -189,7 +189,7 @@ V=$E/bin/python
 UV=~/.local/bin/uv
 CO={co}
 export MPLBACKEND=Agg
-[ -x "$V" ] && "$V" -c "import {pkg}" 2>/dev/null && {{ echo "{pkg} OK"; exit 0; }}
+[ -x "$V" ] && "$V" -c "import {pkg}; import pytest" 2>/dev/null && {{ echo "{pkg} OK"; exit 0; }}
 rm -rf "$E"
 "$UV" venv --seed --python {pyver} "$E" 2>&1 | tail -1
 "$UV" pip install --python "$V" {depq} 2>&1 | tail -1
@@ -215,7 +215,9 @@ def _run_tests_wsl(inst, iid, ftb):
     V = f"~/swe/envs2/{safe_iid(iid)}/bin/python"
     ids = " ".join(shlex.quote(x) for x in ftb)      # S29：node id 不可信
     script = f"""#!/usr/bin/env bash
+# S42 修复：V 此前只是 Python 变量，bash 里从未定义 → "$V" 空命令，测试从未真跑
 cd {co}
+V={V}
 "$V" -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors {ids} 2>&1 | tail -20
 """
     rc, out, err = wsl_run(script)

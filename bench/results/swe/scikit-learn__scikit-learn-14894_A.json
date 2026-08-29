@@ -71,7 +71,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_19621.sh: 行 3: : 未找到命令\n",
+  "base_tail": "\n            n_class = 1\n        n_SV = self.support_vectors_.shape[0]\n    \n        dual_coef_indices = np.tile(np.arange(n_SV), n_class)\n>       dual_coef_indptr = np.arange(0, dual_coef_indices.size + 1,\n                                     dual_coef_indices.size / n_class)\nE       ZeroDivisionError: float division by zero\n\nsklearn/svm/base.py:290: ZeroDivisionError\n1 failed, 1 warning in 1.85s\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

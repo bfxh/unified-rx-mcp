@@ -86,7 +86,7 @@
  "verify": {
   "base_ftb_fail": true,
   "ftb_pass": false,
-  "ftb_tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.26s\n\n===STDERR===\n[2026-08-28 10:18:32,825] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n",
+  "ftb_tail": "========================= short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.25s\n\n===STDERR===\n[2026-08-29 09:43:45,433] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-2931\\test_requests.py::TestRequests::test_binary_put\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-2931\\\\test_requests.py::TestRequests::test_binary_put' in any of [<Module test_requests.py>])\n\n",
   "verified": false
  },
  "repair": {

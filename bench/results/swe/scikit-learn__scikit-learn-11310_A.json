@@ -65,9 +65,9 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_41078.sh: 行 3: : 未找到命令\n",
+  "base_tail": "r, msg=None):\n        \"\"\"Check that the expression is true.\"\"\"\n        if not expr:\n            msg = self._formatMessage(msg, \"%s is not true\" % safe_repr(expr))\n>           raise self.failureException(msg)\nE           AssertionError: False is not true\n\n/home/lbx13/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/lib/python3.8/unittest/case.py:765: AssertionError\n1 failed, 6 warnings in 2.05s\n",
   "ftb_pass": true,
-  "ftb_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_41078.sh: 行 3: : 未找到命令\n",
+  "ftb_tail": "_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <sklearn.utils._unittest_backport.TestCase testMethod=__init__>\nexpr = False, msg = 'False is not true'\n\n    def assertTrue(self, expr, msg=None):\n        \"\"\"Check that the expression is true.\"\"\"\n        if not expr:\n            msg = self._formatMessage(msg, \"%s is not true\" % safe_repr(expr))\n>           raise self.failureException(msg)\nE           AssertionError: False is not true\n\n/home/lbx13/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/lib/python3.8/unittest/case.py:765: AssertionError\n1 failed, 4 warnings in 1.97s\n",
   "ptb_total": 25,
   "ptb_pass": true,
   "verified": true

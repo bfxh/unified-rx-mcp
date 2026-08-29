@@ -85,7 +85,7 @@
  "verify": {
   "base_ftb_fail": false,
   "ftb_pass": true,
-  "ftb_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_6004_6.sh: 行 3: : 未找到命令\n",
+  "ftb_tail": "otlib/_fontconfig_pattern.py:92\n  /mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/matplotlib__matplotlib-25287/lib/matplotlib/_fontconfig_pattern.py:92: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'\n    parser.resetCache()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR lib/matplotlib/tests/test_axes.py - pyparsing.warnings.PyparsingDepreca...\nERROR lib/matplotlib/tests/test_axes.py - pyparsing.warnings.PyparsingDepreca...\n10 warnings, 2 errors in 1.02s\n",
   "ptb_total": 25,
   "ptb_pass": true,
   "verified": true

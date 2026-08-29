@@ -78,7 +78,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": true,
-  "base_tail": "o/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - assert None is True\n2 failed, 98 deselected, 5 warnings in 1.29s\n\n===STDERR===\n",
+  "base_tail": "o/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/sets/tests/test_sets.py::test_Eq - assert Eq(ProductSet(FiniteSe...\nFAILED sympy/sets/tests/test_sets.py::test_issue_19378 - assert None is True\n2 failed, 98 deselected, 5 warnings in 0.91s\n\n===STDERR===\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

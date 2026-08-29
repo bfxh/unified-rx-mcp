@@ -71,7 +71,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_34332_7.sh: 行 3: : 未找到命令\n",
+  "base_tail": "9]$\", s):\n>           raise ValueError(f\"Cannot put cycle reference ({s!r}) in prop_cycler\")\nE           ValueError: Cannot put cycle reference ('C0') in prop_cycler\n\nlib/matplotlib/rcsetup.py:285: ValueError\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_stackplot[png] - ValueError: C...\n1 failed, 1 skipped in 3.98s\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

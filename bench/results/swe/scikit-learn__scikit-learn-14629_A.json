@@ -71,7 +71,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_42566.sh: 行 3: : 未找到命令\n",
+  "base_tail": "mp/opencode/swe/scikit-learn__scikit-learn-14629/sklearn/tests/test_multioutput.py::test_multi_output_classes_[estimator1]\n(no name '/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/scikit-learn__scikit-learn-14629/sklearn/tests/test_multioutput.py::test_multi_output_classes_[estimator1]' in any of [<DoctestModule sklearn/tests/test_multioutput.py>, <Module sklearn/tests/test_multioutput.py>])\n\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

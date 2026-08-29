@@ -71,7 +71,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": true,
-  "base_tail": "capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.32s\n\n===STDERR===\n",
+  "base_tail": "capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/matrices/expressions/tests/test_matadd.py - AttributeError: modul...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n15 deselected, 5 warnings, 1 error in 0.24s\n\n===STDERR===\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

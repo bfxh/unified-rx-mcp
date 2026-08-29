@@ -63,9 +63,9 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_19616_4.sh: 行 3: : 未找到命令\n",
+  "base_tail": "                              \"support generators as input\")\n        else:\n>           return next(val for val in obj if safe_isfinite(val))\nE           StopIteration\n\nlib/matplotlib/cbook/__init__.py:1749: StopIteration\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_bar_all_nan[png] - StopIteration\n1 failed in 2.26s\n",
   "ftb_pass": true,
-  "ftb_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_19616_5.sh: 行 3: : 未找到命令\n",
+  "ftb_tail": ".                                                                        [100%]\n1 passed in 1.49s\n",
   "ptb_total": 25,
   "ptb_pass": true,
   "verified": true

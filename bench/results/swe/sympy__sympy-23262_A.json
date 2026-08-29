@@ -72,7 +72,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": true,
-  "base_tail": "ate module is deprecated\",\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/utilities/tests/test_lambdify.py::test_issue_14941 - assert 1 ==...\n1 failed, 116 deselected, 4 warnings in 0.36s\n\n===STDERR===\n",
+  "base_tail": "ate module is deprecated\",\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nFAILED sympy/utilities/tests/test_lambdify.py::test_issue_14941 - assert 1 ==...\n1 failed, 116 deselected, 4 warnings in 0.30s\n\n===STDERR===\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

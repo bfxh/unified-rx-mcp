@@ -77,7 +77,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": true,
-  "base_tail": "/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.22s\n\n===STDERR===\n",
+  "base_tail": "/stable/how-to/capture-warnings.html\n                               DO *NOT* COMMIT!                               \n=========================== short test summary info ===========================\nERROR sympy/simplify/tests/test_sqrtdenest.py - AttributeError: module 'py' h...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n5 warnings, 1 error in 0.24s\n\n===STDERR===\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

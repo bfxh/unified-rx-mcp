@@ -71,7 +71,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_34332_20.sh: 行 3: : 未找到命令\n",
+  "base_tail": "/home/lbx13/swe/envs2/pydata__xarray-4356/bin/python: No module named pytest\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

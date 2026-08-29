@@ -71,7 +71,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": true,
-  "base_tail": "needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.13s\n\n===STDERR===\n[2026-08-28 10:18:34,218] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n",
+  "base_tail": "needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.16s\n\n===STDERR===\n[2026-08-29 09:43:46,282] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n",
   "ftb_pass": false,
   "ftb_tail": "ownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\tests\\conftest.py'.\ntests\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:135: in <module>\n    from .models import Request, Response, PreparedRequest\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\models.py\", line 598\nE       server's response to an HTTP request.\nE             ^\nE   SyntaxError: unterminated string literal (detected at line 598)\n",
   "verified": false

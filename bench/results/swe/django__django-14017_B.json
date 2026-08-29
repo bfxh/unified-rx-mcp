@@ -64,7 +64,7 @@
  "verify": {
   "base_ftb_fail": true,
   "ftb_pass": false,
-  "ftb_tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x000002616DC37710>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n",
+  "ftb_tail": "sers\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 65, in __and__\n    return self._combine(other, self.AND)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-14017\\django\\db\\models\\query_utils.py\", line 44, in _combine\n    raise TypeError(other)\nTypeError: <django.db.models.expressions.Exists object at 0x000001EB01077C50>\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nFAILED (errors=2)\nDestroying test database for alias 'default'...\n\n",
   "verified": false
  },
  "repair": {

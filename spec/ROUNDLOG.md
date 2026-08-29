@@ -30,3 +30,9 @@
 - 决策：S41 commit a103daf
 - 证据：225 passed
 - 提交：a103daf
+
+## S42 · WSL 测试假跑修复（用户逼出来的）
+- 项目：unified-rx-mcp｜时间：2026-08-29T09:59
+- 决策：tail 尸检发现  未定义 → 全部 WSL FTB 假跑；修复脚本模板 + guard 硬化 + 4 env 重建
+- 证据：fake-tail 0/45；base_bad 17 全部真因分类；verified A8/B6 真实口径；225 passed
+- 提交：待提交

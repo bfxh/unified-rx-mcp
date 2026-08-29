@@ -76,7 +76,7 @@
  "verify": {
   "base_ftb_fail": false,
   "ftb_pass": true,
-  "ftb_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_34332_9.sh: 行 3: : 未找到命令\n",
+  "ftb_tail": "_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\ns = 'C0'\n\n    def validate_color_for_prop_cycle(s):\n        # N-th color cycle syntax can't go into the color cycle.\n        if isinstance(s, str) and re.match(\"^C[0-9]$\", s):\n>           raise ValueError(f\"Cannot put cycle reference ({s!r}) in prop_cycler\")\nE           ValueError: Cannot put cycle reference ('C0') in prop_cycler\n\nlib/matplotlib/rcsetup.py:285: ValueError\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_stackplot[png] - ValueError: C...\n1 failed, 1 skipped in 2.68s\n",
   "ptb_total": 25,
   "ptb_pass": true,
   "verified": true

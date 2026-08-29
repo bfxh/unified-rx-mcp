@@ -78,7 +78,7 @@
  "verify": {
   "base_ftb_fail": false,
   "ftb_pass": true,
-  "ftb_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_19616_19.sh: 行 3: : 未找到命令\n",
+  "ftb_tail": "08932 ,  1.86755799],\\n       [-0.97727788,  0.95008842, -0.1513572...336,  1.10028434,  1.29802197,  2.69622405],\\n       [-0.07392467, -0.65855297, -0.51423397, -1.01804188, -0.07785476]]), array([[ 1.76405235,  0.40015721,  0.97873798,  2.2408932 ,  1.86755799],\\n       [-0.97727788,  0.95008842, -0.1513572...336,  1.10028434,  1.29802197,  2.69622405],\\n       [-0.07392467, -0.65855297, -0.51423397, -1.01804188, -0.07785476]]))\nE        +    where <function array_equal at 0x7e21c0fd1c20> = np.array_equal\n\nsklearn/linear_model/tests/test_least_angle.py:719: AssertionError\n1 failed in 1.88s\n",
   "ptb_total": 25,
   "ptb_pass": true,
   "verified": true

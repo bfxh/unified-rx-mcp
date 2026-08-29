@@ -84,7 +84,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_34332_4.sh: 行 3: : 未找到命令\n",
+  "base_tail": "_colorbar.py:943: AssertionError\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_extend_drawedges[both-1-res0]\nFAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_extend_drawedges[min-0-res1]\nFAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_extend_drawedges[max-0-res2]\n3 failed in 2.54s\n",
   "verified": false,
   "why": "no-candidate-diff"
  },

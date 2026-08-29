@@ -907,3 +907,27 @@ swap 配置对大 C 编译不稳）——对所有未来 WSL 构建生效，保�
 - WSL 任务全部 base-already-green（数据集声明 vs 真实环境的系统性偏差）→
   无修复可做，如实记录
 - ROUNDLOG S38-S41 入账；225→225 passed（无回归）
+
+---
+
+## S42 · 用户逼出来的大鱼：WSL 测试假跑修复（2026-08-28）
+用户"我不信，绝对还有"——数据尸检实锤：
+
+**_run_tests_wsl 生成的 bash 脚本里 $V 从未定义**（Python 变量 V 没写进
+脚本模板，f-string 里 "$V" 是字面量）→ WSL 任务的所有 FTB"测试"实际执行
+的是空命令 → rc≠0 被当成"测试失败"。S28 出生即坏。假跑特征：tail 含
+"行 3: : 未找到命令"、测试时长 0-2s。
+
+**修复 + 全量真跑后**：fake-tail 0/45（全真），base_bad 17 个全部获得
+真因分类：pytest 缺失（mpl-22865/24026 + xarray-4356/7229，半成品 venv
+被 import-only guard 放行 → guard 硬化为 import pkg + pytest，4 env 重建）、
+seaborn-3069/3187 node id 漂移、sphinx-10614 测试在环境内 skip、其余为
+数据集/环境漂移。
+
+**真数字（修复后全量实测）**：verified A 8（17.8%）/ B 6（13.3%），
+base_bad 17（全部真因可查）。与假跑时代的数字巧合一致——因为多数 verified
+来自纯 Python 本地 venv 任务（真跑），WSL 任务的真伪混在聚合里未被察觉。
+
+**元教训**：数字不变 ≠ 没有回归。逐 run 的 tail 检查（fake-tail 计数）
+才是回归检测的正解——已纳入 S42 手法。
+225 passed。

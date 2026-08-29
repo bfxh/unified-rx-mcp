@@ -71,7 +71,7 @@
  "judge_votes_n": 3,
  "verify": {
   "base_ftb_fail": false,
-  "base_tail": "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/wsl_6708_6.sh: 行 3: : 未找到命令\n",
+  "base_tail": "\u001b[33ms\u001b[0m\u001b[33m                                                                        [100%]\u001b[0m\n\u001b[33m\u001b[33m\u001b[1m1 skipped\u001b[0m\u001b[33m in 1.85s\u001b[0m\u001b[0m\n",
   "verified": false,
   "why": "no-candidate-diff"
  },
