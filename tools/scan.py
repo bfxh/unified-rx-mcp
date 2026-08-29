@@ -624,14 +624,19 @@ def _func_spans(lines, lang):
     spans = []
     for j, (name, i, params) in enumerate(starts):
         end = starts[j + 1][1] if j + 1 < len(starts) else min(len(lines), i + _FUNC_LONG * 3)
-        # S64：brace 语言的真函数尾 = 函数后第一个列 0 的 "}"——此前跨度
+        # S64：brace 语言的真函数尾 = 括号深度回到 0——此前跨度
         # 一律到下一个 fn 起点，中间的 struct/常量/注释把行数吹大
         # （VF3 vehicle_compound_parts 真身 59 行被报 82）
         # 仅顶层 fn 适用；嵌套在 mod/class 里的 fn（行首缩进）走原回退
         if lang in ("rust", "go", "javascript") and lines[i][:1] not in (" ", "\t"):
             cap = min(len(lines), i + _FUNC_LONG * 4)
-            for k in range(i + 1, cap):
-                if lines[k].rstrip() == "}":
+            depth = 0
+            opened = False
+            for k in range(i, cap):
+                depth += lines[k].count("{") - lines[k].count("}")
+                if "{" in lines[k]:
+                    opened = True
+                if opened and depth <= 0:
                     end = k + 1
                     break
         spans.append((name, i, end, params))
@@ -661,6 +666,23 @@ def _complexity_findings(lines, lang):
         if depth >= _NEST_SPACES:
             out.append((i + 1, f"函数 {name} 嵌套深 {depth} 空格（≥{_NEST_SPACES}）"))
     return out
+
+
+def _test_mod_regions(lines):
+    """rust #[cfg(test)] + mod X { 的区间（到列 0 的 '}'）——测试夹具的
+    长函数不是产品复杂度（S65：VF3 测试夹具污染热点清单）。"""
+    regions = []
+    i = 0
+    while i < len(lines) - 1:
+        if lines[i].strip() == "#[cfg(test)]" and \
+                re.match(r"^\s*mod\s+\w+\s*\{", lines[i + 1]):
+            for k in range(i + 1, len(lines)):
+                if lines[k].rstrip() == "}":
+                    regions.append((i, k))
+                    i = k
+                    break
+        i += 1
+    return regions
 
 
 def _review_file(fp, changed=None):
@@ -695,7 +717,15 @@ def _review_file(fp, changed=None):
             out.append({"lens": "todo", "severity": "info", "file": fp,
                         "line": i, "msg": f"{m.group(1)} 标记"})
     if lang:
+        # S65：复杂度透镜跳过测试区——rust #[cfg(test)] mod 与 python 测试/
+        # conftest 文件；测试夹具的长函数（def/mount 表构造）不是产品复杂度
+        stem = os.path.splitext(os.path.basename(fp))[0]
+        is_py_test = lang == "python" and (
+            stem.startswith("test_") or stem.endswith("_test") or stem == "conftest")
+        skip_regions = _test_mod_regions(lines) if lang == "rust" else []
         for ln, msg in _complexity_findings(lines, lang):
+            if is_py_test or any(a <= ln <= b for a, b in skip_regions):
+                continue
             if in_changed(ln):
                 out.append({"lens": "complexity", "severity": "low", "file": fp,
                             "line": ln, "msg": msg})
@@ -796,7 +826,7 @@ def _git_changed_ranges(repo, base="HEAD"):
 
 
 @tool("code_review", "多维代码评审：bug 模式 + 安全（硬编码凭据/危险调用）+ 复杂度"
-      "热点 + TODO；mode=diff 只报改动行（评审补丁）", "scan",
+      "热点 + TODO；mode=diff 只报改动行（评审补丁）；lens 只留指定透镜", "scan",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "文件/目录/git 仓库根"},
@@ -805,9 +835,12 @@ def _git_changed_ranges(repo, base="HEAD"):
            "base": {"type": "string",
                     "description": "diff 基线（默认 HEAD；可传分支名评审整个 branch）"},
            "max_files": {"type": "integer", "description": "文件上限（默认 60）"},
+           "lens": {"type": "string",
+                    "description": "只保留指定透镜（bug_scan/security/complexity/"
+                                   "todo/duplication/coverage）——大仓评审免截断"},
        },
        "required": ["path"]})
-def code_review(path, mode="file", max_files=60, base="HEAD"):
+def code_review(path, mode="file", max_files=60, base="HEAD", lens=None):
     try:
         path = _fs_resolve(path)
     except ValueError as e:
@@ -850,10 +883,17 @@ def code_review(path, mode="file", max_files=60, base="HEAD"):
     if mode == "file" and os.path.isdir(path):
         findings.extend(_dup_file_findings(path))
         findings.extend(_untested_findings(path, files))
+    # S65：lens 过滤——大仓评审免截断（findings 出口有 200 项钳制，
+    # 全透镜 468 项时 duplication/coverage 会被挤出）
+    if lens:
+        findings = [f for f in findings if f["lens"] == lens]
     by_lens = Counter(f["lens"] for f in findings)
     hot = Counter(f["file"] for f in findings if f["severity"] in ("high", "med"))
+    if not hot and findings:
+        # S65：lens 过滤后可能全是 low/info（如 complexity）——回退按文件计数
+        hot = Counter(f["file"] for f in findings)
     return {"mode": mode, "files": len(files), "total": len(findings),
-            "by_lens": dict(by_lens),
+            "by_lens": dict(by_lens), "lens": lens or None,
             "top_hotspots": [{"file": f, "findings": n} for f, n in
                              hot.most_common(5)],
             "findings": sorted(findings, key=lambda x: (
