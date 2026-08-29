@@ -57,6 +57,10 @@
   （python traceback / java 堆栈 / go panic / pytest FAILED+E 断言），
   外加 **统一诊断**（ide_diagnostics：LSP+clippy 同形状，error 级进提示词）
   与**断点命中**（补丁行 settrace 抓运行时 locals+栈，经 ide_break -m pytest）
+- **S48/S49 卫生透镜 + 自模拟**：code_review 新增 duplication（md5 全文件
+  重复，抓出 VF3 data↔dist/data 等 12 对）与 coverage（py/java/go 无测试
+  源文件，VF3 抓出 3 个）；ide_break 自模拟在沙盒内真实断点命中并抓到
+  运行时 locals+栈；顺带修复 runner 缺 cwd sys.path 的第三个真 bug
 - **信号维度研究收口（S47）**：三轮独立 A/B（168 配对 run）证实结构化信号
   对 deepseek-chat 的 verified 修复率无净提升（聚合 13 vs 19）——主导变量
   是模型能力；信号机制保留，换强模型后值得重测
