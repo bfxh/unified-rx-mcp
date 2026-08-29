@@ -32,7 +32,7 @@ def _walk_py(root, cap=500):
 
 
 def _imports_of(fp):
-    """提取 .py 文件的 import 模块名列表。"""
+    """提取 .py 文件的 import 模块名列表（含动态 import 的字符串常量）。"""
     try:
         tree = ast.parse(open(fp, encoding='utf-8', errors='replace').read())
     except (SyntaxError, OSError):
@@ -44,6 +44,17 @@ def _imports_of(fp):
                 mods.append(a.name.split('.')[0])
         elif isinstance(node, ast.ImportFrom) and node.module:
             mods.append(node.module.split('.')[0])
+        elif isinstance(node, ast.Call):
+            # S61：动态 import——importlib.import_module("x") / __import__("x")
+            # 只认字符串常量实参（变量实参静态不可见，如实定界）
+            f = node.func
+            dyn = (isinstance(f, ast.Name) and f.id == "__import__") or (
+                isinstance(f, ast.Attribute) and f.attr == "import_module"
+                and isinstance(f.value, ast.Name) and f.value.id == "importlib")
+            if dyn and node.args:
+                a0 = node.args[0]
+                if isinstance(a0, ast.Constant) and isinstance(a0.value, str):
+                    mods.append(a0.value.split('.')[0])
     return mods
 
 

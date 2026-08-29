@@ -66,7 +66,8 @@ def _detect(path):
                       "description": "可选：pytest 测试路径/关键字、cargo 过滤词、go -run 正则"},
            "timeout": {"type": "integer", "description": "秒（默认 600）"},
        },
-       "required": ["path"]})
+       "required": ["path"]},
+      requires_auth=True)
 def ide_test(path, target=None, timeout=600):
     try:
         path = _fs_resolve(path)

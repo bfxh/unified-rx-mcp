@@ -100,7 +100,8 @@ def _parse_rust_panic(text):
                    "description": "命令 argv 列表，如 [\"cargo\",\"test\"] 或 [\"python\",\"x.py\"]"},
            "timeout": {"type": "integer", "description": "秒（默认 300）"},
        },
-       "required": ["path", "cmd"]})
+       "required": ["path", "cmd"]},
+      requires_auth=True)
 def ide_debug(path, cmd, timeout=300):
     try:
         path = _fs_resolve(path)
@@ -208,7 +209,8 @@ sys.stderr.write("\\n__URX_HITS__" + json.dumps(hits, ensure_ascii=False))
                            "description": "python: [{\"file\":\"x.py\",\"line\":5}]"},
            "max_hits": {"type": "integer", "description": "最大记录数（默认 20）"},
        },
-       "required": ["path", "cmd", "breakpoints"]})
+       "required": ["path", "cmd", "breakpoints"]},
+      requires_auth=True)
 def ide_break(path, cmd, breakpoints, max_hits=20):
     try:
         path = _fs_resolve(path)

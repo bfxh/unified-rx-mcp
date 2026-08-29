@@ -17,6 +17,8 @@ from tools.ide_common import (_read, _lang_of, _iter_files,
                               _detect_eol, MAX_CTX)
 from tools.lsp import validate_content
 
+_MAX_EDIT_BYTES = 10 * 1024 * 1024   # S61：超过即拒编辑——读截断+写回=静默丢内容
+
 @tool("locate_edit", "定位：符号/关键词 → file:line + snippet（改代码引导）", "ide",
       {"type": "object",
        "properties": {
@@ -70,6 +72,11 @@ def locate_edit(path, query, max_files=100, limit=10):
        },
        "required": ["path"]})
 def code_context(path, cursor_line=0, radius=30):
+    try:
+        if os.path.getsize(path) > _MAX_EDIT_BYTES:
+            return {"error": f"文件超过 {_MAX_EDIT_BYTES // (1024 * 1024)}MB——拒绝读取"}
+    except OSError:
+        pass
     src = _read(path)
     if src is None:
         return {"error": f"文件不可读: {path}"}
@@ -87,8 +94,24 @@ def code_context(path, cursor_line=0, radius=30):
         "content": "\n".join(lines[start:end]),
     }
 
-@tool("ide_edit_multi", "多行修改：内容匹配应用（支持 occ 指定第几次出现；保留原行尾）；"
-      "py 写前语法门默认开，validate=true 再加 LSP 写前验证", "ide",
+def _match_idx(hay, needle, occ, fuzzy):
+    """块匹配：精确（逐行全等）或空白容忍（strip 后比对，行首缩进差异也容忍）。
+    返回第 occ 次出现的下标，无则 -1。fuzzy 只放宽【查找】，new_lines 仍按
+    调用方给的落盘（缩进由调用方负责）。"""
+    if fuzzy:
+        hay = [l.strip() for l in hay]
+        needle = [l.strip() for l in needle]
+    seen = 0
+    for i in range(len(hay) - len(needle) + 1):
+        if hay[i:i + len(needle)] == needle:
+            seen += 1
+            if seen == occ:
+                return i
+    return -1
+
+
+@tool("ide_edit_multi", "多行修改：内容匹配应用（支持 occ 指定第几次出现；保留原行尾；"
+      "fuzzy=空白容忍查找）；py 写前语法门默认开，validate=true 再加 LSP 写前验证", "ide",
       {"type": "object",
        "properties": {
            "root": {"type": "string", "description": "仓库根（可选）"},
@@ -97,11 +120,13 @@ def code_context(path, cursor_line=0, radius=30):
                      "description": "[{old_lines: [...], new_lines: [...], occ?: 1}]——old_lines 逐行精确匹配；occ 指定匹配第几次出现（默认 1）"},
            "validate": {"type": "boolean",
                         "description": "LSP 写前验证（error 拒写；LSP 不可用如实放行）"},
+           "fuzzy": {"type": "boolean",
+                     "description": "空白容忍匹配（rstrip 比对；new_lines 原样落盘，缩进由调用方负责）"},
        },
        "required": ["file_path", "edits"]},
       requires_auth=True)
 def ide_edit_multi(file_path, edits, root=None, __authorized=False,
-                   dry_run=False, validate=False):
+                   dry_run=False, validate=False, fuzzy=False):
     # S44 ponytail：old_lines/new_lines 顶层兼容参数砍除（全仓无调用方，edits 内用法不变）
     p = file_path
     if root and not os.path.isabs(p):
@@ -118,6 +143,13 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
     if had_bom:
         src = src[1:]
     eol = _detect_eol(src)
+    # S61：尺寸护栏——超大文件拒绝编辑（读截断+写回=静默丢内容，宁可拒）
+    try:
+        if os.path.getsize(p) > _MAX_EDIT_BYTES:
+            return {"error": f"文件超过编辑上限 {_MAX_EDIT_BYTES // (1024 * 1024)}MB"
+                             "——拒绝（防截断静默丢内容）"}
+    except OSError:
+        pass
     lines = src.split("\n")
     # 去掉每行尾部的 \r（CRLF 时），统一成 \n 数组
     lines = [ln[:-1] if ln.endswith("\r") else ln for ln in lines]
@@ -134,14 +166,9 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
         if not old:
             sim_errors.append("old_lines 为空")
             continue
-        found = -1
-        seen = 0
-        for i in range(len(sim) - len(old) + 1):
-            if sim[i:i + len(old)] == old:
-                seen += 1
-                if seen == occ:
-                    found = i
-                    break
+        found = _match_idx(sim, old, occ, fuzzy=False)
+        if found < 0 and fuzzy:
+            found = _match_idx(sim, old, occ, fuzzy=True)
         if found < 0:
             sim_errors.append(f"未匹配(occ={occ}): {old[0][:60]!r}...")
             continue

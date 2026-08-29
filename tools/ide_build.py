@@ -141,7 +141,8 @@ def _cc_build(path, timeout, cxx=False):
            "watch_poll": {"type": "integer", "description": "watch 轮询间隔秒（默认 5）"},
            "timeout": {"type": "integer", "description": "秒（默认 600）"},
        },
-       "required": ["path"]})
+       "required": ["path"]},
+      requires_auth=True)
 def ide_build(path, action="check", timeout=600, watch=False, watch_poll=5):
     if watch:
         return _build_watch(path, action, timeout, watch_poll)

@@ -109,7 +109,9 @@ def test_bad_paths_structured_reject():
 
 def test_registry_requires_auth_declared():
     """UPGRADE-A1：写/执行工具必须在注册表声明 requires_auth（防新增漏配）。"""
-    expected = {"fs_write", "ide_edit_multi", "local_run"}
+    expected = {"fs_write", "ide_edit_multi", "local_run",
+                "ide_build", "ide_debug", "ide_break", "ide_test",
+                "ide_doctor"}
     declared = {n for n, v in registry._TOOLS.items() if v.get("requires_auth")}
     assert expected <= declared, f"未声明 requires_auth: {expected - declared}"
 

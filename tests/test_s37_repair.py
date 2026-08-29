@@ -79,6 +79,7 @@ def test_ide_break_module_mode(tmp_path):
 
 
 def call_tool(name, args):
+    args = {**args, "__authorized": True}   # S61 执行类工具统一授权（测试语境）
     r = registry.call(name, args)
     res = r.get("result", r)
     if "ok" not in res and "ok" in r:
