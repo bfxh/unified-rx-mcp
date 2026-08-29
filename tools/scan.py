@@ -616,7 +616,10 @@ def _func_spans(lines, lang):
         m = pat.match(line)
         if not m:
             continue
-        name = next((g for g in m.groups() if g), None)
+        # S66：python 模式组 1 是缩进、组 2 才是名字——取最后一个参与组
+        # （此前缩进 def 的"名字"是缩进串，complexity 报名全错）
+        name = m.group(m.lastindex) if m.lastindex else \
+            next((g for g in m.groups() if g), None)
         if not name:
             continue
         params = line.count(",") + 1 if "(" in line and ")" in line else 0
