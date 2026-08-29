@@ -1,0 +1,706 @@
+{
+ "root": "D:\\开发\\VoxelForge-V3",
+ "ts": 1787835432,
+ "bug_scan": {
+  "files": 19,
+  "total": 597,
+  "by_severity": {
+   "low": 388,
+   "info": 209
+  },
+  "by_rule": {
+   "unwrap": 210,
+   "as_cast": 178,
+   "indexing": 167,
+   "expect": 18,
+   "panic": 21,
+   "bevy_query_single": 3
+  },
+  "elapsed_s": 0.11
+ },
+ "std_check": {
+  "files": 19,
+  "total": 16,
+  "by_rule": {
+   "magic_number": 14,
+   "placeholder": 2
+  },
+  "elapsed_s": 0.02
+ },
+ "ast_scan": {
+  "files": 19,
+  "total": 182,
+  "by_rule": {
+   "rust_unwrap_expect": 158,
+   "rust_unsafe": 2,
+   "rust_panic_macro": 20,
+   "py_dynamic_exec": 2
+  },
+  "by_lang": {
+   "rust": 15,
+   "python": 4
+  },
+  "elapsed_s": 0.29,
+  "rust_units": [
+   {
+    "file": "crates\\app\\src\\geom.rs",
+    "lang": "rust",
+    "lines": 323,
+    "strings_masked": 1,
+    "comments_masked": 32,
+    "fn_count": 23,
+    "unsafe_count": 0,
+    "risky_fns": [],
+    "fns": [
+     "ground_cell",
+     "lift_above_ground",
+     "rot_quat",
+     "cat_color",
+     "ray_aabb",
+     "ray_aabb_face",
+     "ray_hit_module_face",
+     "surface_place_cell",
+     "ground_point",
+     "cells_aabb",
+     "module_aabb",
+     "rotated_cells",
+     "def_dims",
+     "def_center",
+     "cell_centers_for",
+     "boxes_mesh",
+     "cells_mesh",
+     "corner_frame_mesh",
+     "edge_frame_mesh",
+     "ray",
+     "ray_aabb_face_top_hit_returns_up_normal",
+     "ray_aabb_face_side_hit_returns_side_normal",
+     "surface_place_cell_sticks_to_faced_surface"
+    ]
+   },
+   {
+    "file": "crates\\app\\src\\main.rs",
+    "lang": "rust",
+    "lines": 2140,
+    "strings_masked": 100,
+    "comments_masked": 204,
+    "fn_count": 23,
+    "unsafe_count": 2,
+    "risky_fns": [
+     {
+      "fn": "alert_already_running",
+      "unwrap": 0,
+      "unsafe": 2
+     },
+     {
+      "fn": "build_sky_and_light",
+      "unwrap": 1,
+      "unsafe": 0
+     },
+     {
+      "fn": "<toplevel>",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
+    "fns": [
+     "default",
+     "main",
+     "setup_scene",
+     "build_sky_and_light",
+     "def",
+     "build_demo_assembly",
+     "drop",
+     "acquire_instance_lock",
+     "alert_already_running",
+     "alert_already_running",
+     "setup_assembly",
+     "load_module_defs",
+     "cursor_pos_system",
+     "held_reference",
+     "vehicle_compound_parts",
+     "rotate_picked",
+     "rock_top_y",
+     "module_library_ron_parses",
+     "terrain_height_is_flat_ground",
+     "vehicle_compound_contains_all_vehicle_cells",
+     "vehicle_compound_center_is_mass_weighted",
+     "save_load_roundtrip_preserves_modules_and_edges",
+     "demo_assembly_contains_cab_structure_and_wheels"
+    ]
+   },
+   {
+    "file": "crates\\app\\src\\terrain.rs",
+    "lang": "rust",
+    "lines": 315,
+    "strings_masked": 4,
+    "comments_masked": 45,
+    "fn_count": 12,
+    "unsafe_count": 0,
+    "risky_fns": [],
+    "fns": [
+     "terrain_height",
+     "rolling_height",
+     "hash01",
+     "rock_cells",
+     "rock_shape",
+     "terrain_color",
+     "height",
+     "current_terrain_mode",
+     "ground_collider_for_mode",
+     "heightfield_data",
+     "heightfield_samples_match_render_terrain",
+     "terrain_mesh_winding_faces_up"
+    ]
+   },
+   {
+    "file": "crates\\app\\src\\ui.rs",
+    "lang": "rust",
+    "lines": 1183,
+    "strings_masked": 48,
+    "comments_masked": 100,
+    "fn_count": 10,
+    "unsafe_count": 0,
+    "risky_fns": [],
+    "fns": [
+     "ui_rect",
+     "panel_bg",
+     "panel_border",
+     "text_style",
+     "category_name",
+     "spawn_ui",
+     "spawn_inventory_panel",
+     "spawn_category_slots",
+     "spawn_corp_slots",
+     "show_toast"
+    ]
+   },
+   {
+    "file": "crates\\app\\src\\vehicle_physics.rs",
+    "lang": "rust",
+    "lines": 133,
+    "strings_masked": 0,
+    "comments_masked": 9,
+    "fn_count": 11,
+    "unsafe_count": 0,
+    "risky_fns": [],
+    "fns": [
+     "drive_mode",
+     "drive_fraction",
+     "steering_angle",
+     "suspension_response",
+     "suspension_force",
+     "four_wheels_are_all_drive",
+     "wheel_count_defaults_are_sensible",
+     "input_is_clamped_and_brake_opposes_motion",
+     "steering_respects_custom_limit",
+     "spring_force_has_damping",
+     "suspension_compression_and_damping_are_bounded"
+    ]
+   },
+   {
+    "file": "crates\\app\\tests\\headless_m3.rs",
+    "lang": "rust",
+    "lines": 90,
+    "strings_masked": 13,
+    "comments_masked": 14,
+    "fn_count": 4,
+    "unsafe_count": 0,
+    "risky_fns": [
+     {
+      "fn": "m3_remove_keeps_vehicle_connected_and_regroups_fragments",
+      "unwrap": 7,
+      "unsafe": 0
+     },
+     {
+      "fn": "m3_two_vehicles_coexist_after_detach",
+      "unwrap": 5,
+      "unsafe": 0
+     }
+    ],
+    "fns": [
+     "demo_defs",
+     "m3_w_drive_semantics_move_root_vehicle",
+     "m3_remove_keeps_vehicle_connected_and_regroups_fragments",
+     "m3_two_vehicles_coexist_after_detach"
+    ]
+   },
+   {
+    "file": "crates\\core\\src\\assembly.rs",
+    "lang": "rust",
+    "lines": 1306,
+    "strings_masked": 53,
+    "comments_masked": 102,
+    "fn_count": 61,
+    "unsafe_count": 0,
+    "risky_fns": [
+     {
+      "fn": "rotate_vehicle_y",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "translate_vehicle",
+      "unwrap": 2,
+      "unsafe": 0
+     },
+     {
+      "fn": "set_root",
+      "unwrap": 1,
+      "unsafe": 0
+     },
+     {
+      "fn": "set_module_origin",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
+    "fns": [
+     "new",
+     "register",
+     "place_root",
+     "place",
+     "place_with_vehicle",
+     "set_root",
+     "promote_island",
+     "cell_adjacent_component",
+     "peek_next_vehicle",
+     "place_free",
+     "place_free_with_vehicle",
+     "place_attach",
+     "compute_world_mounts",
+     "compute_connections",
+     "remove",
+     "damage_module",
+     "damage_connection",
+     "root_component",
+     "newly_fragmented",
+     "reconcile_islands",
+     "apply_damage",
+     "probe_place",
+     "probe_place_with_vehicle",
+     "snap_targets",
+     "snap_candidates",
+     "snap_candidates_uncached",
+     "invalidate_candidates",
+     "connected_components",
+     "detect_fragments",
+     "len",
+     "is_empty",
+     "translate_vehicle",
+     "rotate_vehicle_y",
+     "set_module_origin",
+     "vehicle_mass",
+     "vehicle_center",
+     "impact_damage",
+     "rebuild_edges_for_vehicle",
+     "save",
+     "load"
+    ]
+   },
+   {
+    "file": "crates\\core\\src\\connect.rs",
+    "lang": "rust",
+    "lines": 47,
+    "strings_masked": 0,
+    "comments_masked": 5,
+    "fn_count": 5,
+    "unsafe_count": 0,
+    "risky_fns": [],
+    "fns": [
+     "is_exposed",
+     "exposed_faces",
+     "single_cube_all_faces_exposed",
+     "two_cubes_hide_shared_face",
+     "l_shape_exposed"
+    ]
+   },
+   {
+    "file": "crates\\core\\src\\lib.rs",
+    "lang": "rust",
+    "lines": 8,
+    "strings_masked": 0,
+    "comments_masked": 1,
+    "fn_count": 0,
+    "unsafe_count": 0,
+    "risky_fns": [],
+    "fns": []
+   },
+   {
+    "file": "crates\\core\\src\\module.rs",
+    "lang": "rust",
+    "lines": 328,
+    "strings_masked": 45,
+    "comments_masked": 17,
+    "fn_count": 21,
+    "unsafe_count": 0,
+    "risky_fns": [
+     {
+      "fn": "check_connected",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
+    "fns": [
+     "add",
+     "sub",
+     "dir",
+     "opposite",
+     "neighbor",
+     "accepts",
+     "default_strength",
+     "local_cells",
+     "contains_local",
+     "validate",
+     "check_global",
+     "check_category",
+     "check_standards",
+     "check_connected",
+     "block",
+     "block_local_cells",
+     "cells_shape_various",
+     "validate_rejects_bad",
+     "validate_rejects_internal_mount",
+     "face_neighbor_opposite",
+     "chinese_names_ron_roundtrip"
+    ]
+   },
+   {
+    "file": "crates\\core\\src\\placement.rs",
+    "lang": "rust",
+    "lines": 73,
+    "strings_masked": 7,
+    "comments_masked": 5,
+    "fn_count": 4,
+    "unsafe_count": 0,
+    "risky_fns": [],
+    "fns": [
+     "try_place",
+     "def",
+     "resolve_overlap_outward",
+     "resolve_no_overlap_unchanged"
+    ]
+   },
+   {
+    "file": "crates\\core\\src\\rotation.rs",
+    "lang": "rust",
+    "lines": 188,
+    "strings_masked": 3,
+    "comments_masked": 8,
+    "fn_count": 19,
+    "unsafe_count": 0,
+    "risky_fns": [
+     {
+      "fn": "apply_to_face",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
+    "fns": [
+     "apply_to_coord",
+     "apply_to_face",
+     "inverse",
+     "compose",
+     "pow",
+     "face_from_dir",
+     "gen_rotations",
+     "rotations_24",
+     "rotated_local_cells",
+     "rotated_local_coord",
+     "rotate_y_90_idx",
+     "rotate_x_90_idx",
+     "rotate_z_90_idx",
+     "rotate_idx",
+     "rotations_24_orthonormal_distinct",
+     "apply_to_face_roundtrip",
+     "coord_rotate_roundtrip",
+     "rotate_y_90_idx_four_times_identity",
+     "multi_cell_rotation_keeps_local_min_at_zero"
+    ]
+   },
+   {
+    "file": "crates\\core\\tests\\save_fuzz.rs",
+    "lang": "rust",
+    "lines": 84,
+    "strings_masked": 14,
+    "comments_masked": 7,
+    "fn_count": 8,
+    "unsafe_count": 0,
+    "risky_fns": [],
+    "fns": [
+     "defn",
+     "asm",
+     "feed",
+     "poison_dangling_root_recovers",
+     "poison_edge_to_missing_dropped",
+     "poison_unknown_def_rejected",
+     "poison_overlapping_cells_rejected",
+     "poison_huge_next_vehicle_capped_by_max"
+    ]
+   },
+   {
+    "file": "crates\\core\\tests\\stress.rs",
+    "lang": "rust",
+    "lines": 1042,
+    "strings_masked": 259,
+    "comments_masked": 96,
+    "fn_count": 54,
+    "unsafe_count": 0,
+    "risky_fns": [
+     {
+      "fn": "pick_place_roundtrip_100x",
+      "unwrap": 5,
+      "unsafe": 0
+     },
+     {
+      "fn": "bridge_remove_and_reconnect",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "chain_100_integrity",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "save_load_roundtrip",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "pick_place_roundtrip_l_shape_100x",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "rotate_vehicle_rebuilds_edge_faces",
+      "unwrap": 4,
+      "unsafe": 0
+     },
+     {
+      "fn": "all_rotations_connect_6dirs",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "vehicle_group_same_vehicle_snaps",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "different_vehicle_not_snap",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "vehicle_translate_moves_all_members",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "vehicle_translate_rejected_on_collision",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "vehicle_rotate_y_keeps_structure",
+      "unwrap": 3,
+      "unsafe": 0
+     }
+    ],
+    "fns": [
+     "def",
+     "def_l",
+     "def_b2_edge",
+     "def_cells",
+     "assert_invariants",
+     "pick_place_roundtrip_100x",
+     "high_speed_small_block_stress_2000",
+     "random_stress_500",
+     "bridge_remove_and_reconnect",
+     "all_rotations_connect_6dirs",
+     "invalid_inputs_rejected",
+     "chain_100_integrity",
+     "stack_tower",
+     "place_free_and_set_root",
+     "vehicle_group_same_vehicle_snaps",
+     "different_vehicle_not_snap",
+     "mount_mask_accepts_enforced",
+     "snap_targets_reports_neighbor_mount",
+     "unassigned_module_can_snap_to_vehicle",
+     "snap_targets_only_reports_contacted_mount",
+     "nearby_candidates_cover_surface_patch",
+     "save_load_roundtrip",
+     "snap_candidates_include_adjacent_placement",
+     "edge_mounts_on_2x1_all_cells_exposed",
+     "rotated_2x1_edge_mounts_still_exposed",
+     "snap_candidates_cover_2x1_both_edges",
+     "two_2x1_connect_at_edges",
+     "all_rotations_multi_cell_mounts_stable",
+     "pick_place_roundtrip_l_shape_100x",
+     "abstract_shapes_snap_to_vehicle",
+     "many_abstract_shapes_all_snap",
+     "vehicle_translate_moves_all_members",
+     "vehicle_translate_rejected_on_collision",
+     "vehicle_rotate_y_keeps_structure",
+     "rotate_vehicle_rebuilds_edge_faces",
+     "set_module_origin_moves_single_module",
+     "vehicle_mass_center_and_damage",
+     "snap_candidates_cache_stable_and_invalidated",
+     "vehicle_center_handles_nonzero_min",
+     "load_sanitizes_next_id"
+    ]
+   },
+   {
+    "file": "crates\\core\\tests\\stress_matrix.rs",
+    "lang": "rust",
+    "lines": 364,
+    "strings_masked": 114,
+    "comments_masked": 34,
+    "fn_count": 10,
+    "unsafe_count": 0,
+    "risky_fns": [
+     {
+      "fn": "m7_island_vehicle_survives_foreign_events",
+      "unwrap": 9,
+      "unsafe": 0
+     },
+     {
+      "fn": "m4_removal_order_closure_and_rebuild",
+      "unwrap": 7,
+      "unsafe": 0
+     },
+     {
+      "fn": "m6_save_load_matrix",
+      "unwrap": 7,
+      "unsafe": 0
+     },
+     {
+      "fn": "m3_multi_cell_rotations_no_overlap",
+      "unwrap": 5,
+      "unsafe": 0
+     },
+     {
+      "fn": "m2_rotation_matrix_24_orientations",
+      "unwrap": 3,
+      "unsafe": 0
+     },
+     {
+      "fn": "m1_snap_candidates_all_defs_all_placeable",
+      "unwrap": 2,
+      "unsafe": 0
+     },
+     {
+      "fn": "m5_two_cars_and_cross_attach",
+      "unwrap": 1,
+      "unsafe": 0
+     }
+    ],
+    "fns": [
+     "def",
+     "std_assembly",
+     "check_invariants",
+     "m1_snap_candidates_all_defs_all_placeable",
+     "m2_rotation_matrix_24_orientations",
+     "m3_multi_cell_rotations_no_overlap",
+     "m4_removal_order_closure_and_rebuild",
+     "m5_two_cars_and_cross_attach",
+     "m7_island_vehicle_survives_foreign_events",
+     "m6_save_load_matrix"
+    ]
+   }
+  ],
+  "rust_reach": {
+   "prod": 164,
+   "test_only": 10,
+   "unreferenced": 8
+  },
+  "test_only_helpers": [
+   {
+    "fn": "drive_mode",
+    "file": "crates\\app\\src\\vehicle_physics.rs",
+    "line": 37
+   },
+   {
+    "fn": "drive_command",
+    "file": "crates\\app\\src\\vehicle_physics.rs",
+    "line": 56
+   },
+   {
+    "fn": "set_root",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 118
+   },
+   {
+    "fn": "peek_next_vehicle",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 177
+   },
+   {
+    "fn": "place_free",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 180
+   },
+   {
+    "fn": "apply_damage",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 457
+   },
+   {
+    "fn": "rotate_vehicle_y",
+    "file": "crates\\core\\src\\assembly.rs",
+    "line": 675
+   },
+   {
+    "fn": "exposed_faces",
+    "file": "crates\\core\\src\\connect.rs",
+    "line": 13
+   },
+   {
+    "fn": "resolve_cell",
+    "file": "crates\\core\\src\\placement.rs",
+    "line": 8
+   },
+   {
+    "fn": "inverse",
+    "file": "crates\\core\\src\\rotation.rs",
+    "line": 30
+   }
+  ]
+ },
+ "attack_path_probe": {
+  "probes": 8,
+  "all_safe": true
+ },
+ "attack_big_input": {
+  "all_pass": true,
+  "cases": [
+   {
+    "case": "str_1mb",
+    "ok": true,
+    "verdict": "PASS",
+    "err_preview": ""
+   },
+   {
+    "case": "list_100k",
+    "ok": false,
+    "verdict": "PASS",
+    "err_preview": "SchemaError: 参数 query 需要 string, 得到 list"
+   },
+   {
+    "case": "deep_500",
+    "ok": false,
+    "verdict": "PASS",
+    "err_preview": "SchemaError: 参数 query 需要 string, 得到 dict"
+   }
+  ]
+ },
+ "attack_fuzz_locate": {
+  "cases": 12,
+  "failures": 0,
+  "noise": []
+ },
+ "engine_query": {
+  "engine": "bm25_fallback",
+  "total": 10
+ }
+}

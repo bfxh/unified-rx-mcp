@@ -1,0 +1,21 @@
+{
+ "task_id": "VF3-T15",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787818907,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n放置落点外推逻辑在计算命中点沿法线偏移时，未考虑法线方向与视线方向的相对关系。当视线与表面法线夹角接近或超过90°（即斜视命中表面背面）时，法线方向指向视线一侧，导致偏移方向错误，将落点推入表面下方或穿透到另一侧。此外，偏移量可能未随视角变化而动态调整，固定偏移在陡坡上会放大误差。\n\n【定位】\n- `src/placement/raycast.rs:compute_placement_point` （推测：外推计算函数，含法线偏移逻辑）\n- `src/placement/ghost.rs:update_ghost_transform` （推测：ghost 预览位置更新，调用外推函数）\n- `src/placement/snap.rs:snap_to_surface` （推测：实际落点吸附逻辑，可能复用同一外推）\n\n【修复方案】\n1. 在 `compute_placement_point` 中，计算命中点偏移前，先判断 `dot(ray_dir, hit_normal)` 的符号。若为负（视线与法线反向），则翻转法线方向（取 `-hit_normal`）作为偏移基准，确保偏移始终指向视线一侧。\n2. 将固定偏移量改为基于视角的动态值：`offset = base_offset * max(0.1, abs(dot(ray_dir, hit_normal)))`，避免陡坡上偏移过大导致穿透。\n3. 在 `update_ghost_transform` 和 `snap_to_surface` 中统一调用修复后的外推函数，确保 ghost 预览与实际落点使用同一修正逻辑，消除两者不一致。\n4. 增加边界校验：偏移后若命中点位于表面背面（即 `dot(offset_point - hit_point, hit_normal) < 0`），则回退到原始命中点，防止极端角度下无效落点。",
+ "tokens_in": 139,
+ "tokens_out": 409,
+ "turns": 1,
+ "cost_usd": 0.00049,
+ "walltime_s": 4.1,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "unverifiable"
+ }
+}

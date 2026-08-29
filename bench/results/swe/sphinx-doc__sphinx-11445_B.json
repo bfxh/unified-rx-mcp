@@ -1,0 +1,244 @@
+{
+ "instance_id": "sphinx-doc__sphinx-11445",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\sphinx-doc__sphinx-11445",
+ "tokens_in": 38557,
+ "tokens_out": 1060,
+ "turns": 10,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 21
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 21
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 666
+  },
+  {
+   "tool": "fs_read",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 128,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 64,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 13.0,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 1,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": true,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: sphinx/util/rst.py\n<<<<<<< SEARCH\ndef prepend_prolog(content: StringList, prolog: str) -> None:\n    \"\"\"Prepend a string to content body as prolog.\"\"\"\n    if prolog:\n        pos = 0\n        for line in content:\n            if docinfo_re.match(line):\n                pos += 1\n            else:\n                break\n\n        if pos > 0:\n            # insert a blank line after docinfo\n            content.insert(pos, '', '<generated>', 0)\n            pos += 1\n\n        # insert prolog (after docinfo if exists)\n        for lineno, line in enumerate(prolog.splitlines()):\n            content.insert(pos + lineno, line, '<rst_prolog>', lineno)\n\n        content.insert(pos + lineno + 1, '', '<generated>', 0)\n=======\ndef prepend_prolog(content: StringList, prolog: str) -> None:\n    \"\"\"Prepend a string to content body as prolog.\"\"\"\n    if prolog:\n        pos = 0\n        for line in content:\n            if docinfo_re.match(line):\n                pos += 1\n            else:\n                break\n\n        if pos > 0:\n            # insert a blank line after docinfo\n            content.insert(pos, '', '<generated>', 0)\n            pos += 1\n\n        # insert prolog (after docinfo if exists)\n        for lineno, line in enumerate(prolog.splitlines()):\n            content.insert(pos + lineno, line, '<rst_prolog>', lineno)\n\n        content.insert(pos + lineno + 1, '', '<generated>', 0)\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate patch is identical to original code, making no changes. It does not address the docinfo regex issue that causes the bug."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "stdout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-46\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-46\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.31s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/util/rst.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "stdout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-47\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-47\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.30s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "stdout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-48\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-48\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.30s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/util/rst.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "stdout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-49\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-49\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.30s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 13.5
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "dout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-167\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-167\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.35s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "dout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-168\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-168\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.35s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "sphinx/util/rst.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "dout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-169\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-169\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.34s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "dout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-170\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-170\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.34s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 22.0
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "dout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-146\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-146\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.39s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "dout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-147\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-147\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.35s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "dout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-148\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-148\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.35s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "dout teardown ---------------------------\n# testroot: root\n# builder: html\n# srcdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-149\\root\n# outdir: C:\\Users\\lbx13\\AppData\\Local\\Temp\\pytest-of-lbx13\\pytest-149\\root\\_build\\html\n# status: \n\u001b[01mRunning Sphinx v7.1.0+/71db08c\u001b[39;49;00m\n\n# warning: \n\n=========================== short test summary info ===========================\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_with_newline\nFAILED tests/test_util_rst.py::test_prepend_prolog_with_roles_in_sections_without_newline\n2 failed in 0.36s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 8.8
+ }
+}

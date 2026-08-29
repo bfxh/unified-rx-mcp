@@ -1,0 +1,103 @@
+{
+ "task_id": "VF3-T29",
+ "arm": "model_plus_rx",
+ "run_idx": 0,
+ "ts": 1787819615,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n当前 `crates/core/tests/save_fuzz.rs` 已存在基础毒档投喂框架（第30行注释\"直接构造 SaveData 字段的 RON，反序列化后投喂 load\"），但覆盖面不足：仅覆盖了 `SaveData` 字段级畸形，未系统性覆盖三类已知毒档形态——① 悬空边/跨车边（`assembly.rs:899` 已有清洗逻辑但无对应 fuzz 断言）；② 越界索引（如 `rotations_24()[rot]` 越界 panic 风险，见 `VULN_SCAN_2026-08-21.md:68`）；③ NaN 质量值（`stress.rs:783` 提到\"坏存档防御\"但未覆盖 NaN 维度）。现有 `stress.rs:783` 的防御测试是手工构造的固定用例，非系统性 fuzz，无法穷举畸形组合。\n\n【定位】\n- `crates/core/tests/save_fuzz.rs:30` — 现有毒档投喂工具函数（仅字段级畸形，缺系统性策略）\n- `crates/core/src/assembly.rs:899` — 悬空边/跨车边清洗逻辑（fuzz 断言目标）\n- `crates/core/src/assembly.rs:834` — `save()` 序列化入口（往返一致性断言目标）\n- `crates/core/tests/stress.rs:783` — 现有坏存档防御测试（固定用例，非 fuzz）\n- `docs/legacy/v1-docs/VULN_SCAN_2026-08-21.md:68` — 越界索引 panic 风险记录（fuzz 需覆盖的已知雷区）\n\n【修复方案】\n1. **扩展 `save_fuzz.rs` 为三层 fuzz 矩阵**：\n   - **语法层**：随机截断/插入非法字符/嵌套括号不闭合/重复字段名/未知字段名/类型不匹配（如 `quality: \"abc\"` 而非浮点数）的 RON 字符串，断言 `load` 返回 `Err` 而非 panic。\n   - **结构层**：基于 `SaveData` 合法 RON 模板做字段级变异——`edges` 中引用不存在的 `vehicle_id`（悬空边）、`next_vehicle` 指向未注册 ID、`rotation` 索引超出 `rotations_24()` 范围、`quality` 填 `NaN`/`inf`/`-inf`/超范围值、`position` 坐标填 `f64::MAX` 或负数。\n   - **组合层**：将上述畸形字段随机组合（如悬空边+NaN 质量+越界 rotation 同时出现），验证清洗逻辑能全部处理且不 panic。\n2. **断言面四重校验**（每个毒档用例均需通过）：\n   - **无 panic**：`load` 调用不触发 panic（用 `catch_unwind` 包裹或依赖测试框架自动捕获）。\n   - **清洗生效**：`load` 返回 `Ok` 后，遍历返回的 `Assembly` 断言——所有 `edges` 的端点 ID 均存在于 `vehicles` 中、所有 `rotation` 索引在 `0..rotations_24().len()` 内、所有 `quality` 为有限数且在 `[0,1]` 区间。\n   - **状态不污染**：毒档 `load` 后立即 `save()` 再 `load()`，断言第二次 `load` 结果与第一次清洗后结果一致（证明毒档未污染内部状态导致二次加载异常）。\n   - **往返一致性**：对清洗后的合法数据执行 `save→load` 往返，断言结构逐字段相等（复用 `stress_matrix.rs:330` 的 M6 矩阵思路）。\n3. **新增确定性毒档种子集**：在 `save_fuzz.rs` 中内置 20+ 个手写毒档 RON 字符串（覆盖 `VULN_SCAN_2026-08-21.md:68` 记录的越界 rotation、`assembly.rs:899` 记录的悬空边、以及 NaN/Inf 质量），作为 fuzz 的固定基线，确保 CI 每次运行都覆盖已知雷区，再叠加随机变异扩大覆盖面。",
+ "tokens_in": 21150,
+ "tokens_out": 1776,
+ "turns": 13,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "engine_query",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "bug_locate",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00766,
+ "walltime_s": 18.6,
+ "notes": [
+  "round0: 2 calls 2131ch (1.6s)",
+  "round1: 3 calls 581ch (1.7s)",
+  "round2: 1 calls 151ch (1.0s)",
+  "round3: 2 calls 282ch (1.2s)",
+  "round4: 2 calls 2317ch (2.0s)",
+  "round5: 2 calls 2318ch (2.2s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

@@ -1,0 +1,139 @@
+{
+ "instance_id": "pallets__flask-5014",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pallets__flask-5014",
+ "tokens_in": 20447,
+ "tokens_out": 874,
+ "turns": 9,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 45
+  },
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 222
+  },
+  {
+   "tool": "fs_read",
+   "round": 5,
+   "ms": 2
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 15.1,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 1,
+  "sr_applied": 1,
+  "sr_failed": [],
+  "sr_fuzzy": 1,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py\nindex eb50585..80b3d55 100644\n--- a/src/flask/blueprints.py\n+++ b/src/flask/blueprints.py\n@@ -180,7 +180,7 @@ class Blueprint(Scaffold):\n         subdomain: t.Optional[str] = None,\n         url_defaults: t.Optional[dict] = None,\n         root_path: t.Optional[str] = None,\n-        cli_group: t.Optional[str] = _sentinel,  # type: ignore\n+        cli_group: t.Optional[str] = _sentinel,\n     ):\n         super().__init__(\n             import_name=import_name,\n@@ -190,6 +190,9 @@ class Blueprint(Scaffold):\n             root_path=root_path,\n         )\n \n+        if not name:\n+            raise ValueError(\"'name' may not be empty.\")\n+\n         if \".\" in name:\n             raise ValueError(\"'name' may not contain a dot '.' character.\")\n \n"
+ },
+ "answer": "```sr\npath: src/flask/blueprints.py\n<<<<<<< SEARCH\n    def __init__(\n        self,\n        name: str,\n        import_name: str,\n        static_folder: t.Optional[t.Union[str, os.PathLike]] = None,\n        static_url_path: t.Optional[str] = None,\n        template_folder: t.Optional[t.Union[str, os.PathLike]] = None,\n        url_prefix: t.Optional[str] = None,\n        subdomain: t.Optional[str] = None,\n        url_defaults: t.Optional[dict] = None,\n        root_path: t.Optional[str] = None,\n        cli_group: t.Optional[str] = _sentinel,\n    ):\n        super().__init__(\n            import_name=import_name,\n            static_folder=static_folder,\n            static_url_path=static_url_path,\n            template_folder=template_folder,\n            root_path=root_path,\n        )\n=======\n    def __init__(\n        self,\n        name: str,\n        import_name: str,\n        static_folder: t.Optional[t.Union[str, os.PathLike]] = None,\n        static_url_path: t.Optional[str] = None,\n        template_folder: t.Optional[t.Union[str, os.PathLike]] = None,\n        url_prefix: t.Optional[str] = None,\n        subdomain: t.Optional[str] = None,\n        url_defaults: t.Optional[dict] = None,\n        root_path: t.Optional[str] = None,\n        cli_group: t.Optional[str] = _sentinel,\n    ):\n        super().__init__(\n            import_name=import_name,\n            static_folder=static_folder,\n            static_url_path=static_url_path,\n            template_folder=template_folder,\n            root_path=root_path,\n        )\n\n        if not name:\n            raise ValueError(\"'name' may not be empty.\")\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches add the same ValueError check for empty blueprint names. The candidate only has an unrelated type comment removal, which doesn't affect functionality."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "ftb_pass": true,
+  "ftb_tail": ".                                                                        [100%]\n1 passed in 0.08s\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ },
+ "repair": {
+  "verified": true,
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "walltime_s": 2.4
+ },
+ "repair_plain": {
+  "verified": true,
+  "variant": "plain",
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "walltime_s": 1.1
+ },
+ "repair_signals": {
+  "verified": true,
+  "variant": "signals",
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "walltime_s": 1.2
+ }
+}

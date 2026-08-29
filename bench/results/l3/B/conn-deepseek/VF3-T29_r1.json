@@ -1,0 +1,113 @@
+{
+ "task_id": "VF3-T29",
+ "arm": "model_plus_rx",
+ "run_idx": 1,
+ "ts": 1787819633,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n当前 `crates/core/tests/save_fuzz.rs` 已存在毒档投喂的雏形（文件头注释明确\"主动构造坏存档验证 load 防御\"），但覆盖面不足：仅针对 `SaveData` 的 RON 反序列化后投喂 `load`，缺少对**清洗逻辑（assembly.rs:898 防御性清洗段）**的独立断言面——即\"清洗后不变量成立\"与\"清洗前不 panic\"是两条正交的验证维度。且现有 fuzz 用例未覆盖 `SavedModule` 内部嵌套字段（如 `dims` 越界、`quality` 为 NaN、悬空边引用）的**组合爆炸式畸形**，也未对 `ron::from_str` 失败路径（语法级毒档）与 `load` 成功但语义级毒档做分层断言。缺陷本质是：测试只验证\"不 panic\"，未验证\"不污染状态\"（即清洗后结构不变量必须成立）。\n\n【定位】\n- `crates/core/tests/save_fuzz.rs:30` — 现有毒档构造工具（仅直接构造 `SaveData` 字段 RON）\n- `crates/core/src/assembly.rs:898` — 防御性清洗段（坏存档/手工编辑不再延迟爆雷）\n- `crates/core/src/assembly.rs:856` — `load(&mut self, data: SaveData) -> Result<(), String>` 入口\n- `crates/core/src/assembly.rs:940` — `SaveData` 结构体定义（serde 可序列化为 RON）\n- `crates/core/tests/stress.rs:783` — 已有坏存档防御用例（悬空 root/悬空边/next_vehicle 落后），可作为断言面参照\n\n【修复方案】\n1. **分层毒档矩阵**：在 `save_fuzz.rs` 中新增 `enum PoisonKind` 枚举，分三类构造毒档：\n   - **语法级**：截断 RON、非法 token、未闭合括号、BOM 残留 → 断言 `ron::from_str` 返回 `Err` 且不 panic；\n   - **语义级-字段级**：`dims` 为 0/负/超大、`quality` 为 `f32::NAN`/`INFINITY`、`origin` 坐标越界 → 断言 `load` 返回 `Ok` 且清洗后字段被钳制到合法范围；\n   - **语义级-引用级**：悬空 `root`、悬空边（边指向不存在的模块 id）、`next_vehicle` 落后于现存载具 → 断言清洗后引用图闭合（无悬空指针）。\n2. **断言面双轨**：每个毒档用例必须同时断言两条：\n   - **不 panic**：`catch_unwind` 包裹 `load` 调用，断言无 panic；\n   - **不污染**：`load` 返回后调用 `save()` 回读，断言回读结果满足结构不变量（`dims` 全正、`quality` 全有限、引用图无悬空），即\"毒档进、净档出\"。\n3. **组合爆炸控制**：用 `proptest` 或手写笛卡尔积生成器，对 `SavedModule` 的 `dims/quality/origin` 三字段做 `合法×越界×NaN×零` 的 4×4×4 组合，避免全排列爆炸；引用级毒档单独枚举 5 种典型悬空模式（root 缺失、边指向未注册 id、自环、双向边不一致、next_vehicle 越界）。\n4. **回归锚点**：将 `stress.rs:783` 已有的 3 种坏存档防御用例迁移/合并进 `save_fuzz.rs` 的引用级矩阵，保证新旧防线不重复、不遗漏。",
+ "tokens_in": 27051,
+ "tokens_out": 2004,
+ "turns": 15,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00951,
+ "walltime_s": 20.9,
+ "notes": [
+  "round0: 3 calls 4229ch (2.3s)",
+  "round1: 2 calls 375ch (1.7s)",
+  "round2: 2 calls 381ch (1.3s)",
+  "round3: 2 calls 366ch (1.4s)",
+  "round4: 2 calls 365ch (2.3s)",
+  "round5: 3 calls 6442ch (3.2s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

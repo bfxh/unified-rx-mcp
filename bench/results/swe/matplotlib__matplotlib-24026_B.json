@@ -1,0 +1,90 @@
+{
+ "instance_id": "matplotlib__matplotlib-24026",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-24026",
+ "tokens_in": 29575,
+ "tokens_out": 687,
+ "turns": 9,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 30
+  },
+  {
+   "tool": "bug_locate",
+   "round": 5,
+   "ms": 1
+  },
+  {
+   "tool": "semantic_search",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 2,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 11.9,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 1,
+  "sr_applied": 1,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/lib/matplotlib/stackplot.py b/lib/matplotlib/stackplot.py\nindex c580043..92e652d 100644\n--- a/lib/matplotlib/stackplot.py\n+++ b/lib/matplotlib/stackplot.py\n@@ -71,6 +71,8 @@ def stackplot(axes, x, *args,\n     labels = iter(labels)\n     if colors is not None:\n         axes.set_prop_cycle(color=colors)\n+        # Reset the color cycle to the original one\n+        axes.set_prop_cycle(None)\n \n     # Assume data passed has not been 'stacked', so stack it here.\n     # We'll need a float buffer for the upcoming calculations.\n"
+ },
+ "answer": "```sr\npath: lib/matplotlib/stackplot.py\n<<<<<<< SEARCH\n    labels = iter(labels)\n    if colors is not None:\n        axes.set_prop_cycle(color=colors)\n=======\n    labels = iter(labels)\n    if colors is not None:\n        axes.set_prop_cycle(color=colors)\n        # Reset the color cycle to the original one\n        axes.set_prop_cycle(None)\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate resets prop cycle after setting, but gold avoids changing it by using itertools.cycle. Candidate may not preserve original cycle correctly and doesn't handle default color generation."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "ftb_pass": true,
+  "ftb_tail": "_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\ns = 'C0'\n\n    def validate_color_for_prop_cycle(s):\n        # N-th color cycle syntax can't go into the color cycle.\n        if isinstance(s, str) and re.match(\"^C[0-9]$\", s):\n>           raise ValueError(f\"Cannot put cycle reference ({s!r}) in prop_cycler\")\nE           ValueError: Cannot put cycle reference ('C0') in prop_cycler\n\nlib/matplotlib/rcsetup.py:285: ValueError\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_stackplot[png] - ValueError: C...\n1 failed, 1 skipped in 2.68s\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

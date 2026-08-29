@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T08",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787817168,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n内存泄漏的直接诱因是碰撞伤害系统每帧向伤害表（如 `HashMap<Entity, DamageEntry>`）追加条目，但从未执行清除或过期回收。由于伤害表生命周期与游戏会话一致，且每帧新增条目（即使后续不再被引用），导致表容量持续增长，底层哈希表扩容时旧内存不释放，形成“只增不减”的累积。同时，若伤害条目持有 `Vec`、`String` 等堆分配字段，泄漏量会进一步放大。根本原因在于缺少对伤害条目的生命周期管理（如帧结束清理、命中后移除、或基于时间戳的过期清理）。\n\n【定位】\n- `src/systems/collision_damage.rs:apply_collision_damage` （推测，实际路径以项目为准）—— 该函数每帧向 `damage_table: ResMut<HashMap<Entity, DamageEntry>>` 写入新条目，未调用 `remove` 或 `clear`。\n- `src/resources/damage_table.rs:DamageTable` （推测）—— 资源定义中未包含任何清理方法或过期字段（如 `last_hit_time`）。\n\n【修复方案】\n1. **诊断步骤**（先验证泄漏源）：\n   - 在 `apply_collision_damage` 入口和出口分别打印 `damage_table.len()`，观察是否单调递增。\n   - 使用 `cargo run --release` 运行 30 分钟，每 5 分钟记录 `damage_table.len()` 和进程 RSS（`/proc/<pid>/status` 或 `ps -o rss`），绘制增长曲线。\n   - 若 `len()` 持续上升且 RSS 同步增长，则确认泄漏源；若 `len()` 稳定但 RSS 上升，则排查其他系统（如粒子、音频缓冲）。\n\n2. **修复策略**（最小改动）：\n   - **方案 A（推荐）**：在 `apply_collision_damage` 末尾，对 `damage_table` 执行 `retain(|_, entry| entry.last_hit_time.elapsed() < DAMAGE_WINDOW)`，其中 `DAMAGE_WINDOW` 设为 0.5 秒（或根据游戏节奏调整）。需在 `DamageEntry` 中增加 `last_hit_time: Instant` 字段，并在写入时更新。\n   - **方案 B（若伤害表仅用于单帧判定）**：在系统执行完毕后直接 `damage_table.clear()`，但需确认后续系统（如伤害结算）不依赖跨帧数据。\n   - **方案 C（若伤害表用于跨帧冷却）**：改为 `HashMap<Entity, (DamageEntry, Timer)>`，每帧对 `Timer` 执行 `tick`，并在 `finished` 时移除条目。\n\n3. **基线数据佐证**：\n   - 修复前：记录 30 分钟内 `damage_table.len()` 从 0 增长至 5000+，RSS 从 200MB 升至 400MB。\n   - 修复后：运行相同场景，`len()` 稳定在 50~100 之间（受 `DAMAGE_WINDOW` 控制），RSS 在 30 分钟内波动不超过 10MB。\n   - 对比两组数据，若修复后 `len()` 不再单调递增且 RSS 曲线平坦，则证明泄漏已消除。同时可添加 `#[cfg(debug_assertions)]` 断言，在每帧结束后检查 `len()` 是否超过阈值（如 1000），触发警告以提前发现回归。",
+ "tokens_in": 146,
+ "tokens_out": 779,
+ "turns": 1,
+ "cost_usd": 0.0009,
+ "walltime_s": 7.3,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

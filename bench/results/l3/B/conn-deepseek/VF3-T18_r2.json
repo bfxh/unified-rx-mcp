@@ -1,0 +1,109 @@
+{
+ "task_id": "VF3-T18",
+ "arm": "model_plus_rx",
+ "run_idx": 2,
+ "ts": 1787819126,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n1. **移动方向用了世界坐标系固定向量**：`vehicle_move_system` 中按键（上箭头/W）直接映射为世界坐标 Z 轴方向的目标速度，未将输入方向经相机朝向（`camera.transform.rotation`）旋转到屏幕相对方向。相机旋转后，屏幕\"上\"对应的世界方向随之改变，导致按键方向与画面脱节——表现为\"横着走\"。\n\n2. **转向与运动脱节**：转向按固定角速度直接拧车头（`body.angular_velocity` 固定值），未与当前线速度方向耦合。车头朝向与实际运动方向不一致时，玩家看到车头转向但车身仍沿旧方向滑行，产生\"脱节感\"。\n\n3. **静止车辆缓慢下沉**：`wheel_suspension_system` 的悬挂弹簧在静止时若未施加足够支撑力（或阻尼/刚度参数在零速度分支下失效），重力持续作用使刚体缓慢穿透地形。典型原因是悬挂力计算未包含\"静止支撑\"项（仅按压缩速度阻尼，无静态平衡力），或地形碰撞体与车辆刚体间存在微小穿透后无恢复力。\n\n【定位】\n\n- `crates/app/src/main.rs:vehicle_move_system`（移动向量世界坐标固定方向 + 固定角速度转向）\n- `crates/app/src/main.rs:wheel_suspension_system`（悬挂弹簧静止支撑缺失，导致下沉）\n- `crates/app/src/main.rs:215`（系统注册处，确认上述两系统在调度链中）\n\n【修复方案】\n\n1. **移动方向改为相机相对**：在 `vehicle_move_system` 中，取 `camera.transform.rotation` 的 Yaw 分量（绕 Y 轴旋转），将输入向量（上=前、下=后、左/右=侧向）乘以该旋转矩阵，得到世界空间目标速度方向。仅用 Yaw 避免俯仰影响水平移动。\n\n2. **转向改为速度耦合**：将固定角速度改为\"目标速度方向与车头朝向的夹角差\"驱动的比例角速度——`angular_velocity.y = clamp(angle_diff * gain, -max_steer, max_steer)`。车头平滑转向实际运动方向，消除脱节。\n\n3. **悬挂增加静止支撑**：在 `wheel_suspension_system` 中，当车轮压缩量在静止区间（速度≈0）时，施加与重力抵消的静态支撑力（`force = -gravity_mass`），并保留弹簧阻尼项；同时给地形碰撞体加微小 `margin` 防止数值穿透累积。\n\n4. **统一验证**：修改后运行 `crates/app/tests/headless_m3.rs`（其注释明确\"与 vehicle_move_system 相同语义\"），确认 W 键沿车头前向、相机旋转后按键方向仍与屏幕一致、静止车辆不再下沉。",
+ "tokens_in": 32267,
+ "tokens_out": 1683,
+ "turns": 14,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_stat",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "engine_query",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.01056,
+ "walltime_s": 27.8,
+ "notes": [
+  "round0: 3 calls 6521ch (3.2s)",
+  "round1: 2 calls 352ch (1.8s)",
+  "round2: 2 calls 373ch (1.4s)",
+  "round3: 2 calls 290ch (1.2s)",
+  "round4: 2 calls 276ch (5.9s)",
+  "round5: 2 calls 5433ch (7.1s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "fail"
+ }
+}

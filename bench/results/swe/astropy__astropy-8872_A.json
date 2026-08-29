@@ -1,0 +1,73 @@
+{
+ "instance_id": "astropy__astropy-8872",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\astropy__astropy-8872",
+ "tokens_in": 16010,
+ "tokens_out": 779,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": "pipe",
+   "ms": 2,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 16.3,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "none",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 0,
+  "sr_applied": 0,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\nastropy/units/quantity.py\n<<<<<<< SEARCH\n    def __new__(cls, value, unit=None, dtype=None, copy=True, order=None,\n                subok=False, ndmin=0):\n=======\n    def __new__(cls, value, unit=None, dtype=None, copy=True, order=None,\n                subok=False, ndmin=0):\n        if dtype is None and isinstance(value, np.float16):\n            dtype = np.float16\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate only special-cases float16 input, while gold patch changes general dtype handling for all integer/object inputs, addressing broader root cause."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "no-env"
+ }
+}

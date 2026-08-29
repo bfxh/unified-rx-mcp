@@ -1,0 +1,84 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-14894",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-14894",
+ "tokens_in": 16026,
+ "tokens_out": 986,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_stat",
+   "round": 4,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 12.3,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "sklearn/svm/base.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: sklearn/svm/base.py\n<<<<<<< SEARCH\n        dual_coef_indices = np.nonzero(dual_coef)[0]\n        dual_coef_indices_size = dual_coef_indices.size\n        if dual_coef_indices_size > 0:\n            dual_coef_indices, dual_coef_indptr = \\\n                _sort_sparse_indices(dual_coef_indices, dual_coef_indptr)\n            self.dual_coef_ = sp.csr_matrix(\n                (dual_coef, dual_coef_indices, dual_coef_indptr),\n                shape=(n_class, n_SV))\n        else:\n            self.dual_coef_ = sp.csr_matrix((n_class, 0))\n=======\n        dual_coef_indices = np.nonzero(dual_coef)[0]\n        dual_coef_indices_size = dual_coef_indices.size\n        if dual_coef_indices_size > 0:\n            dual_coef_indices, dual_coef_indptr = \\\n                _sort_sparse_indices(dual_coef_indices, dual_coef_indptr)\n            self.dual_coef_ = sp.csr_matrix(\n                (dual_coef, dual_coef_indices, dual_coef_indptr),\n                shape=(n_class, n_SV))\n        else:\n            self.dual_coef_ = sp.csr_matrix((n_class, 0))\n            self.support_vectors_ = sp.csr_matrix((0, n_features))\n            self.support_ = np.empty(0, dtype=np.int32)\n            self.n_support_ = np.zeros(n_class, dtype=np.int32)\n            self._intercept_ = np.zeros(n_class)\n            return\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate patch modifies a different code section (dense fit) and does not address the ZeroDivisionError in _sparse_fit where n_SV is zero."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "base_tail": "\n            n_class = 1\n        n_SV = self.support_vectors_.shape[0]\n    \n        dual_coef_indices = np.tile(np.arange(n_SV), n_class)\n>       dual_coef_indptr = np.arange(0, dual_coef_indices.size + 1,\n                                     dual_coef_indices.size / n_class)\nE       ZeroDivisionError: float division by zero\n\nsklearn/svm/base.py:290: ZeroDivisionError\n1 failed, 1 warning in 1.85s\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

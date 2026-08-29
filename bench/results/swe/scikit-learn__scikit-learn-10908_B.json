@@ -1,0 +1,98 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-10908",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-10908",
+ "tokens_in": 69185,
+ "tokens_out": 961,
+ "turns": 11,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 212
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 27
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 427
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": 77
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 76,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 77,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 15.6,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "none",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 0,
+  "sr_applied": 0,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 3,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"code_search\">\n<｜｜DSML｜｜parameter name=\"query\" string=\"true\">def get_feature_names</｜｜DSML｜｜parameter>\n<｜｜DSML｜｜parameter name=\"root\" string=\"true\">C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-10908\\sklearn\\feature_extraction\\text.py</｜｜DSML｜｜parameter>\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate patch is empty; no code changes provided to address the issue."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ }
+}

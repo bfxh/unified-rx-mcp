@@ -1,0 +1,89 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-14894",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-14894",
+ "tokens_in": 28204,
+ "tokens_out": 774,
+ "turns": 9,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 25
+  },
+  {
+   "tool": "bug_locate",
+   "round": 5,
+   "ms": 0
+  },
+  {
+   "tool": "semantic_search",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 11.3,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "sklearn/svm/base.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: sklearn/svm/base.py\n<<<<<<< SEARCH\n        self.dual_coef_ = sp.csr_matrix(\n            (dual_coef_data, dual_coef_indices,\n             dual_coef_indptr),\n            shape=(n_class, dual_coef_indices.size / n_class))\n=======\n        if dual_coef_indices.size > 0:\n            self.dual_coef_ = sp.csr_matrix(\n                (dual_coef_data, dual_coef_indices,\n                 dual_coef_indptr),\n                shape=(n_class, dual_coef_indices.size / n_class))\n        else:\n            self.dual_coef_ = sp.csr_matrix([])\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches handle the empty support_vectors_ case by setting dual_coef_ to an empty csr_matrix, preventing ZeroDivisionError. The candidate's condition on dual_coef_indices.size is equivalent to checking n_SV."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

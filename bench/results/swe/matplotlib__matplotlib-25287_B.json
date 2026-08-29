@@ -1,0 +1,99 @@
+{
+ "instance_id": "matplotlib__matplotlib-25287",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-25287",
+ "tokens_in": 39439,
+ "tokens_out": 1074,
+ "turns": 11,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 358
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 38
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 36
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 34
+  },
+  {
+   "tool": "bug_locate",
+   "round": 5,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": 32
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 35,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 12.1,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 2,
+  "sr_applied": 2,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/lib/matplotlib/axis.py b/lib/matplotlib/axis.py\nindex c0e706e..8ce1dd6 100644\n--- a/lib/matplotlib/axis.py\n+++ b/lib/matplotlib/axis.py\n@@ -2255,7 +2255,9 @@ class XAxis(Axis):\n             transform=mtransforms.blended_transform_factory(\n                 self.axes.transAxes, mtransforms.IdentityTransform()),\n             fontsize=mpl.rcParams['xtick.labelsize'],\n-            color=mpl.rcParams['xtick.color'],\n+            color=(mpl.rcParams['xtick.color']\n+                   if mpl.rcParams['xtick.labelcolor'] == 'inherit'\n+                   else mpl.rcParams['xtick.labelcolor']),\n         )\n         self.offset_text_position = 'bottom'\n \n@@ -2515,7 +2517,9 @@ class YAxis(Axis):\n             transform=mtransforms.blended_transform_factory(\n                 self.axes.transAxes, mtransforms.IdentityTransform()),\n             fontsize=mpl.rcParams['ytick.labelsize'],\n-            color=mpl.rcParams['ytick.color'],\n+            color=(mpl.rcParams['ytick.color']\n+                   if mpl.rcParams['ytick.labelcolor'] == 'inherit'\n+                   else mpl.rcParams['ytick.labelcolor']),\n         )\n         self.offset_text_position = 'left'\n \n"
+ },
+ "answer": "```sr\npath: lib/matplotlib/axis.py\n<<<<<<< SEARCH\n            color=mpl.rcParams['xtick.color'],\n=======\n            color=(mpl.rcParams['xtick.color']\n                   if mpl.rcParams['xtick.labelcolor'] == 'inherit'\n                   else mpl.rcParams['xtick.labelcolor']),\n>>>>>>> REPLACE\n```\n\n```sr\npath: lib/matplotlib/axis.py\n<<<<<<< SEARCH\n            color=mpl.rcParams['ytick.color'],\n=======\n            color=(mpl.rcParams['ytick.color']\n                   if mpl.rcParams['ytick.labelcolor'] == 'inherit'\n                   else mpl.rcParams['ytick.labelcolor']),\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches change offsetText color to use labelcolor when not 'inherit', with identical logic and placement."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "ftb_pass": true,
+  "ftb_tail": "otlib/_fontconfig_pattern.py:92\n  /mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/matplotlib__matplotlib-25287/lib/matplotlib/_fontconfig_pattern.py:92: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'\n    parser.resetCache()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR lib/matplotlib/tests/test_axes.py - pyparsing.warnings.PyparsingDepreca...\nERROR lib/matplotlib/tests/test_axes.py - pyparsing.warnings.PyparsingDepreca...\n10 warnings, 2 errors in 1.02s\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

@@ -1,0 +1,84 @@
+{
+ "instance_id": "django__django-15280",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15280",
+ "tokens_in": 14973,
+ "tokens_out": 8654,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 42.5,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 4,
+  "sr_applied": 3,
+  "sr_failed": [
+   "django/db/models/query_utils.py: search-not-found"
+  ],
+  "sr_fuzzy": 1,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py\nindex b13c7b6..9c1378e 100644\n--- a/django/db/models/sql/query.py\n+++ b/django/db/models/sql/query.py\n@@ -276,13 +276,13 @@ class Query(BaseExpression):\n         result = self.clone()\n         memo[id(self)] = result\n         return result\n-\n     def get_compiler(self, using=None, connection=None, elide_empty=True):\n+        super().get_compiler(using=using, connection=connection, elide_empty=elide_empty)\n         if using is None and connection is None:\n             raise ValueError(\"Need either using or connection\")\n         if using:\n             connection = connections[using]\n-        return connection.ops.compiler(self.compiler)(self, connection, using, elide_empty)\n+        return connection.ops.compiler(self.compiler)(self, connection, using)\n \n     def get_meta(self):\n         \"\"\"\n"
+ },
+ "answer": "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"fs_list\">\n<｜｜DSML｜｜parameter name=\"path\" string=\"true\">django/db/models/query_utils.py</｜｜DSML｜｜parameter>\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
+ "judge": {
+  "same_issue_area": false,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate patch modifies query compiler handling unrelated to prefetch deferred fields issue; gold patch fixes reverse relation caching in related descriptors."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "unparseable-ftb"
+ },
+ "repair": {
+  "skip": "base-already-green"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

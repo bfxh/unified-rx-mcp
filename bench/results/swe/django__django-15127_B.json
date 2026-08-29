@@ -1,0 +1,227 @@
+{
+ "instance_id": "django__django-15127",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127",
+ "tokens_in": 37257,
+ "tokens_out": 849,
+ "turns": 10,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 26
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 42
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": 1150
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": 240
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 15.0,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 2,
+  "sr_applied": 2,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": true,
+  "candidate_diff": "diff --git a/django/contrib/messages/storage/base.py b/django/contrib/messages/storage/base.py\nindex 0142206..a46c57c 100644\n--- a/django/contrib/messages/storage/base.py\n+++ b/django/contrib/messages/storage/base.py\n@@ -38,7 +38,7 @@ class Message:\n \n     @property\n     def level_tag(self):\n-        return LEVEL_TAGS.get(self.level, '')\n+        return utils.get_level_tags().get(self.level, '')\n \n \n class BaseStorage:\n"
+ },
+ "answer": "```sr\npath: django/contrib/messages/storage/base.py\n<<<<<<< SEARCH\nfrom django.conf import settings\nfrom django.contrib.messages import constants, utils\n\nLEVEL_TAGS = utils.get_level_tags()\n=======\nfrom django.conf import settings\nfrom django.contrib.messages import constants, utils\n\nLEVEL_TAGS = utils.get_level_tags()\n>>>>>>> REPLACE\n```\n\n```sr\npath: django/contrib/messages/storage/base.py\n<<<<<<< SEARCH\n    @property\n    def level_tag(self):\n        return LEVEL_TAGS.get(self.level, '')\n=======\n    @property\n    def level_tag(self):\n        return utils.get_level_tags().get(self.level, '')\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate only changes level_tag to fetch fresh tags each call, but doesn't update LEVEL_TAGS on setting change. Gold patch updates LEVEL_TAGS via signal, addressing root cause."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "ftb_pass": false,
+  "ftb_tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.002s\n\nFAILED (failures=1)\n",
+  "verified": false
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 8,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.002s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "\\Temp\\opencode\\swe\\django__django-15127\\django\\test\\utils.py\", line 437, in inner\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\n                     ^^^^^^^^^^^^^^^\nAttributeError: module 'django.contrib.messages.storage.base' has no attribute 'LEVEL_TAGS'\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (errors=1)\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.002s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.002s\n\nFAILED (failures=1)\n"
+   }
+  ],
+  "walltime_s": 8.9
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 8,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   }
+  ],
+  "walltime_s": 5.3
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 8,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15127\\tests\\messages_tests\\tests.py\", line 33, in test_override_settings_level_tags\n    self.assertEqual(base.LEVEL_TAGS, self.message_tags)\nAssertionError: {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'} != {20: 'info', 10: '', 30: '', 40: 'bad', 25: '', 12: 'custom'}\n- {10: 'debug', 20: 'info', 25: 'success', 30: 'warning', 40: 'error'}\n+ {10: '', 12: 'custom', 20: 'info', 25: '', 30: '', 40: 'bad'}\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+   }
+  ],
+  "walltime_s": 5.0
+ }
+}

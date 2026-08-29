@@ -1,0 +1,94 @@
+{
+ "task_id": "VF3-T08",
+ "arm": "model_plus_rx",
+ "run_idx": 2,
+ "ts": 1787817619,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n碰撞伤害系统在 `crates/app/src/main.rs` 中维护一张跨帧累积的伤害表（`HashMap`，键为碰撞对），每帧对仍在碰撞的条目做 `×0.9` 衰减并累加新值，超过阈值才施加伤害。但该表**只增不删**——当一对实体停止碰撞后，其条目不再被写入，却永远不会被移除。长时间游玩中，车辆与地形/碎片/其他物体反复接触，每次接触都会产生新的碰撞对键，导致表条目数随游玩时长单调增长，内存缓慢上涨不回落。\n\n【定位】\n- `crates/app/src/main.rs:34` — `collision_damage_system` 的注释明确说明\"跨帧碰撞伤害累积\"，该函数内部维护的伤害累积表缺少清理逻辑（推测：表条目仅在碰撞发生时写入/更新，无任何 `remove` 或 `retain` 调用）。\n\n【修复方案】\n1. **诊断步骤**：\n   - 在 `collision_damage_system` 末尾添加临时日志：每 600 帧（10 秒）打印 `damage_table.len()`，观察是否单调增长。\n   - 用 `cargo run --release` 运行 10 分钟，记录内存峰值（任务管理器或 `heaptrack`），确认与表条目数正相关。\n   - 用 `cargo clippy` 检查是否有未使用的 `HashMap` 字段，辅助确认表生命周期。\n\n2. **修复策略（最小改动）**：\n   - 在 `collision_damage_system` 每帧末尾，对伤害表执行 `retain(|_, v| *v > 0.0)` 或按时间戳清理：为每个条目记录最后更新时间，超过 N 帧（如 60 帧）未更新的条目直接移除。\n   - 若表键为 `(Entity, Entity)` 对，可改为每帧从 Avian 碰撞事件中重建表（先 `clear()` 再填充），彻底杜绝残留条目。\n   - 若表键包含 `Entity`，还需在实体被销毁时（`Despawn` 事件）同步移除对应条目，防止悬垂键。\n\n3. **基线数据佐证**：\n   - 修复前：记录 0/5/10/15 分钟时 `damage_table.len()` 与进程 RSS 内存，绘制增长曲线。\n   - 修复后：相同场景、相同时长重复测量，确认表条目数稳定在常数（如 < 50），RSS 内存曲线趋于水平。\n   - 对比修复前后 15 分钟内存增量，若修复后增量 < 修复前增量的 10%，且表条目数不再增长，即可判定修复有效。",
+ "tokens_in": 24731,
+ "tokens_out": 1305,
+ "turns": 11,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_stat",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00811,
+ "walltime_s": 15.7,
+ "notes": [
+  "round0: 3 calls 4535ch (1.9s)",
+  "round1: 1 calls 192ch (1.1s)",
+  "round2: 2 calls 1085ch (1.6s)",
+  "round3: 1 calls 192ch (1.1s)",
+  "round4: 1 calls 192ch (1.3s)",
+  "round5: 2 calls 800ch (1.8s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

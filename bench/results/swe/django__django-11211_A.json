@@ -1,0 +1,290 @@
+{
+ "instance_id": "django__django-11211",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-11211",
+ "tokens_in": 11744,
+ "tokens_out": 11933,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 57.0,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 19,
+  "sr_applied": 0,
+  "sr_failed": [
+   "django/db/models/fields/related_descriptors.py: search-not-found",
+   "django/db/models/fields/related_descriptors.py: search-not-found",
+   "django/db/models/fields/related_descriptors.py: search-not-found",
+   "django/db/models/fields/related_descriptors.py: search-not-found",
+   "django/db/models/fields/related_descriptors.py: search-not-found",
+   "django/db/models/fields/related_descriptors.py: search-not-found",
+   "django/db/models/fields/related_descriptors.py: search-not-found",
+   "django/db/models/fields/related_descriptors.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: django/db/models/fields/related_descriptors.py\n<<<<<<< SEARCH\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n=======\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n>>>>>>> REPLACE\n```\n\n```sr\npath: django/db/models/fields/related_descriptors.py\n<<<<<<< SEARCH\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n=======\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n>>>>>>> REPLACE\n```\n\n```sr\npath: django/db/models/fields/related_descriptors.py\n<<<<<<< SEARCH\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n=======\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n>>>>>>> REPLACE\n```\n\n```sr\npath: django/db/models/fields/related_descriptors.py\n<<<<<<< SEARCH\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n=======\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n>>>>>>> REPLACE\n```\n\n```sr\npath: django/db/models/fields/related_descriptors.py\n<<<<<<< SEARCH\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n=======\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n>>>>>>> REPLACE\n```\n\n```sr\npath: django/db/models/fields/related_descriptors.py\n<<<<<<< SEARCH\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n=======\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n>>>>>>> REPLACE\n```\n\n```sr\npath: django/db/models/fields/related_descriptors.py\n<<<<<<< SEARCH\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n=======\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n>>>>>>> REPLACE\n```\n\n```sr\npath: django/db/models/fields/related_descriptors.py\n<<<<<<< SEARCH\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n=======\n    def get_prefetch_queryset(self, instances, queryset=None):\n        if queryset is not None:\n            raise ValueError(\"Custom queryset can't be used for this lookup.\")\n        rel_obj_attr = self.field.get_local_related_value\n        instance_attr = self.field.get_foreign_related_value\n        instances_dict = {instance_attr(inst): inst for inst in instances}\n        queryset = self.get_queryset()\n        # Since we're going to assign directly in the cache,\n        # we must manage the reverse relation cache manually.\n        rel_obj_cache_name = self.field.get_cache_name()\n        for rel_obj in queryset:\n            instance = instances_dict[rel_obj_attr(rel_obj)]\n            setattr(instance, rel_obj_cache_name, rel_obj)\n        return queryset, rel_obj_attr, instance_attr, True, self.field.get_cache_name(), False\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": false,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate patch is empty/invalid, containing only search/replace markup with no actual changes. It does not address the UUIDField get_prep_value issue that the gold patch fixes."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "le: Article object (8239c0ca-0cf0-4c73-b1ac-3a92db000510)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (8239c0ca-0cf0-4c73-b1ac-3a92db000510)>\n\n- [None]\n+ [<Article: Article object (8239c0ca-0cf0-4c73-b1ac-3a92db000510)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (1e77812e-213b-4a10-9951-b7e5b169c7e4)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (1e77812e-213b-4a10-9951-b7e5b169c7e4)>\n\n- [None]\n+ [<Article: Article object (1e77812e-213b-4a10-9951-b7e5b169c7e4)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (ef22bb09-c642-4d98-b6ce-9271056c96fe)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (ef22bb09-c642-4d98-b6ce-9271056c96fe)>\n\n- [None]\n+ [<Article: Article object (ef22bb09-c642-4d98-b6ce-9271056c96fe)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (e2d7e235-d005-4ccb-a0d0-68fbcbfabb46)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (e2d7e235-d005-4ccb-a0d0-68fbcbfabb46)>\n\n- [None]\n+ [<Article: Article object (e2d7e235-d005-4ccb-a0d0-68fbcbfabb46)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (b7b105c7-7b98-44ae-b8b0-3255f1a43de2)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (b7b105c7-7b98-44ae-b8b0-3255f1a43de2)>\n\n- [None]\n+ [<Article: Article object (b7b105c7-7b98-44ae-b8b0-3255f1a43de2)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   }
+  ],
+  "walltime_s": 129.5
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/db/models/fields/related_descriptors.py: search-not-found(best=0.76)",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (f4441c3e-cc16-45f0-b568-562702f9f2f7)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (f4441c3e-cc16-45f0-b568-562702f9f2f7)>\n\n- [None]\n+ [<Article: Article object (f4441c3e-cc16-45f0-b568-562702f9f2f7)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (ae0055db-8daa-429e-bcbb-f32647b31218)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (ae0055db-8daa-429e-bcbb-f32647b31218)>\n\n- [None]\n+ [<Article: Article object (ae0055db-8daa-429e-bcbb-f32647b31218)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/db/models/fields/related_descriptors.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (2f2c8600-1634-42e9-8602-ccacc767b9d9)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (2f2c8600-1634-42e9-8602-ccacc767b9d9)>\n\n- [None]\n+ [<Article: Article object (2f2c8600-1634-42e9-8602-ccacc767b9d9)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/db/models/fields/related_descriptors.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (b85146cb-d8ee-4500-98a4-36be17d3b1e0)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (b85146cb-d8ee-4500-98a4-36be17d3b1e0)>\n\n- [None]\n+ [<Article: Article object (b85146cb-d8ee-4500-98a4-36be17d3b1e0)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   }
+  ],
+  "walltime_s": 122.3
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (d9df455c-8e17-4569-866e-dce564c2cccc)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (d9df455c-8e17-4569-866e-dce564c2cccc)>\n\n- [None]\n+ [<Article: Article object (d9df455c-8e17-4569-866e-dce564c2cccc)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (8e52c076-1af0-4111-ae6f-9eb0b5c0bf95)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (8e52c076-1af0-4111-ae6f-9eb0b5c0bf95)>\n\n- [None]\n+ [<Article: Article object (8e52c076-1af0-4111-ae6f-9eb0b5c0bf95)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/fields/related_descriptors.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found",
+     "django/contrib/contenttypes/fields.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (f3329988-b864-4966-96cf-526a1629e68b)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (f3329988-b864-4966-96cf-526a1629e68b)>\n\n- [None]\n+ [<Article: Article object (f3329988-b864-4966-96cf-526a1629e68b)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ango-11211\\tests\\prefetch_related\\tests.py\", line 892, in test_prefetch_GFK_uuid_pk\n    self.assertEqual([c.content_object_uuid for c in qs], [article])\nAssertionError: Lists differ: [None] != [<Article: Article object (d03572ba-20e4-403b-99d4-64512a359b3d)>]\n\nFirst differing element 0:\nNone\n<Article: Article object (d03572ba-20e4-403b-99d4-64512a359b3d)>\n\n- [None]\n+ [<Article: Article object (d03572ba-20e4-403b-99d4-64512a359b3d)>]\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (failures=1)\nDestroying test database for alias 'default'...\n\n"
+   }
+  ],
+  "walltime_s": 111.4
+ }
+}

@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T09",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787817189,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n当前每个模块实例都克隆了 mesh 和材质句柄，导致 GPU 侧资源（顶点缓冲、索引缓冲、材质参数缓冲）和 CPU 侧句柄管理开销随实例数量线性增长。在 Bevy 中，`Mesh` 和 `StandardMaterial` 是资源（`Asset`），克隆句柄（`Handle`）本身是轻量的（引用计数），但若克隆的是 `Mesh` 或 `Material` 的**数据**（例如通过 `mesh.clone()` 或 `material.clone()` 直接复制资源内容），则会产生独立的 GPU 缓冲和 CPU 数据副本。几百个模块意味着几百份重复的几何数据和材质参数，显存/内存线性上涨即由此而来。\n\n【定位】\n- `path:src/systems/spawn_module.rs`（推测，若实际为 `spawn` 相关系统）: 模块实例化时对 `Mesh` 和 `StandardMaterial` 的克隆调用（如 `mesh.clone()` / `material.clone()`）。\n- `path:src/components/module.rs`（推测）: 模块组件中存储的 `Handle<Mesh>` 和 `Handle<StandardMaterial>` 字段，若直接持有资源数据而非句柄，则问题更严重。\n\n【修复方案】\n1. **改为共享句柄**：在模块生成系统中，仅克隆 `Handle<Mesh>` 和 `Handle<StandardMaterial>`（引用计数增加，不复制数据）。确保所有模块引用同一个 `Mesh` 和 `Material` 资源（例如通过 `asset_server.load(...)` 或 `assets.add(...)` 后复用句柄）。\n2. **若需差异化外观**：使用 `Material` 的实例化参数（如 `StandardMaterial` 的 `base_color`、`emissive` 等）通过 `bevy::render::mesh::Mesh` 的 `attributes` 或 `Material` 的 `uniform` 传递，避免复制整个材质资源。可考虑使用 `Material` 的 `per-entity` 数据（如 `bevy_pbr::Material` 的 `prepare` 方法）或 `InstanceBuffer` 实现实例化渲染。\n3. **启用 GPU 实例化**：若模块几何完全相同，使用 `bevy::render::mesh::Mesh` 的 `instance_buffer` 或 `bevy::ecs::bundle::InstanceBundle`，将几百个模块的变换矩阵（位置、旋转、缩放）打包到一个实例缓冲中，GPU 侧仅保留一份几何数据，显存占用从 O(N) 降为 O(1)（几何部分），材质句柄共享后材质参数缓冲也降为 O(1)。\n\n**收益量级**：\n- 显存：从 O(N) 降为 O(1)（几何+材质），N=几百时，显存占用可减少 99% 以上（假设每个模块几何约 1MB，几百个模块从几百 MB 降至几 MB）。\n- 内存（CPU）：句柄克隆仅增加引用计数，内存开销从 O(N) 降为 O(N) 的极小常数（每个句柄约 8 字节），但不再复制几何数据，CPU 内存同样从 O(N) 降为 O(1)（几何部分）。\n- 渲染性能：实例化可减少 draw call 数量，从 N 次降为 1 次，GPU 吞吐量提升显著（尤其对几百个模块，draw call 开销可减少 90% 以上）。",
+ "tokens_in": 133,
+ "tokens_out": 755,
+ "turns": 1,
+ "cost_usd": 0.00087,
+ "walltime_s": 7.3,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass",
+  "R3": "unverifiable"
+ }
+}

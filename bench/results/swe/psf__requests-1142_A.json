@@ -1,0 +1,227 @@
+{
+ "instance_id": "psf__requests-1142",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142",
+ "tokens_in": 9588,
+ "tokens_out": 594,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 9.5,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "requests/models.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: requests/models.py\n<<<<<<< SEARCH\n        if body:\n            content_length = str(len(body))\n            if content_length not in self.headers:\n                self.headers['Content-Length'] = content_length\n=======\n        if body and method not in ('GET', 'HEAD'):\n            content_length = str(len(body))\n            if content_length not in self.headers:\n                self.headers['Content-Length'] = content_length\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate only avoids adding Content-Length for GET/HEAD when body is present, but still adds '0' for empty body, unlike gold which removes default '0' for GET/HEAD."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "llections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 1 warning in 0.16s\n\n===STDERR===\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": true,
+  "rounds_used": 5,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 2,
+    "fails": [
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found",
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "op working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.28s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\test_requests.py::RequestsTestCase::test_no_content_length\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-1142\\\\test_requests.py::RequestsTestCase::test_no_content_length' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 5,
+  "ptb_pass": true,
+  "walltime_s": 43.5
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "requests/models.py: search-not-found",
+     "tests/test_requests.py: file-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ls.py:616: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:569\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:569: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.09s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "ls.py:618: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:571\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:571: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.09s\n\n===STDERR===\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "ls.py:642: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:595\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:595: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.09s\n\n===STDERR===\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "ls.py:642: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:595\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:595: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.09s\n\n===STDERR===\n"
+   }
+  ],
+  "walltime_s": 15.3
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "requests/models.py: search-not-found(best=0.73)"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ls.py:609: DeprecationWarning: invalid escape sequence \\*\n    \"\"\"Returns the json-encoded content of a response, if any.\n\nrequests\\models.py:562\n  C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\requests\\models.py:562: SyntaxWarning: \"is\" with a literal. Did you mean \"==\"?\n    if self.status_code is 0:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_no_content_length - Assertion...\n1 failed, 3 warnings in 0.11s\n\n===STDERR===\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "op working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.14s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\test_requests.py::RequestsTestCase::test_no_content_length\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-1142\\\\test_requests.py::RequestsTestCase::test_no_content_length' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/models.py: search-ambiguous(x2)"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "op working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.14s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\test_requests.py::RequestsTestCase::test_no_content_length\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-1142\\\\test_requests.py::RequestsTestCase::test_no_content_length' in any of [<Module test_requests.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/models.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "op working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n1 warning, 1 error in 0.14s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-1142\\test_requests.py::RequestsTestCase::test_no_content_length\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\psf__requests-1142\\\\test_requests.py::RequestsTestCase::test_no_content_length' in any of [<Module test_requests.py>])\n\n"
+   }
+  ],
+  "walltime_s": 15.5
+ }
+}

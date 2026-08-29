@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T11",
+ "arm": "bare_model",
+ "run_idx": 0,
+ "ts": 1787817224,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n1. **部件拼接失败**：存档重建时，载具部件的 `Entity` ID 会重新分配，但拼接逻辑可能仍依赖旧的 ID 或 `Parent` 关系缓存（例如 `Children` 组件或自定义的 `PartConnection` 组件中存储的旧实体引用）。重建后这些引用失效，导致 `Query` 无法匹配或 `EntityRef` 无效，从而拒绝连接。\n2. **ESC 归队逻辑单一**：当前归队流程可能只尝试一种路径（如直接移动部件到载具根节点），未处理部件被其他模块遮挡、物理约束冲突或距离过远等情况，失败后无回退或重试机制。\n3. **新玩法缺失**：系统没有“孤立模块提升为新车”的入口，因为模块与载具的绑定关系（如 `VehicleRoot` 标记）在重建后未重新建立，且缺少检测“孤立”状态的逻辑（如无父级且距离主载具超过阈值）。\n\n【定位】\n- `src/systems/vehicle_reassembly.rs:attempt_connect`（推测：拼接校验逻辑，可能使用 `Entity` 直接比较而非 `EntityHash` 或 `GlobalTransform` 距离）\n- `src/systems/vehicle_reassembly.rs:esc_return_to_formation`（推测：ESC 归队唯一路径，无分支处理）\n- `src/components/vehicle.rs:PartConnection`（推测：存储连接关系的组件，可能包含旧 `Entity` 引用）\n- `src/systems/vehicle_spawn.rs:rebuild_from_save`（推测：存档重建时未重新生成 `PartConnection` 或 `Parent` 关系）\n\n【修复方案】\n1. **修复拼接失败**：\n   - 在 `rebuild_from_save` 中，重建后遍历所有部件，重新生成 `PartConnection` 组件，使用新 `Entity` ID 并更新 `Parent` 关系。\n   - 在 `attempt_connect` 中，改用 `GlobalTransform` 位置差（阈值如 0.1 米）和 `Rotation` 对齐判断，而非依赖 `Entity` 引用；若 `PartConnection` 缺失则视为可连接。\n2. **增强 ESC 归队**：\n   - 将 `esc_return_to_formation` 改为多阶段尝试：先尝试直接移动，若失败则检测最近空闲锚点（如载具边缘的 `AttachmentPoint`），再尝试逐步逼近（每帧移动一小步直到碰撞解除）。\n   - 增加失败回退：若所有尝试失败，将部件标记为“游离状态”，允许玩家手动拖拽。\n3. **实现“提升为新车”**：\n   - 添加 `IsolatedModule` 标记组件，在 `rebuild_from_save` 后检测无 `Parent` 且距离主载具根节点超过 20 米的部件，自动添加该标记。\n   - 新增输入映射（如 `N` 键），触发 `promote_to_vehicle` 系统：移除 `IsolatedModule`，创建新的 `VehicleRoot` 实体，将部件及其子实体重新挂载，并初始化新的载具控制组件（如 `VehicleController`）。",
+ "tokens_in": 171,
+ "tokens_out": 689,
+ "turns": 1,
+ "cost_usd": 0.0008,
+ "walltime_s": 6.9,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "fail",
+  "R3": "fail"
+ }
+}

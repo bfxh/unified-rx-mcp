@@ -1,0 +1,79 @@
+{
+ "instance_id": "mwaskom__seaborn-3069",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\mwaskom__seaborn-3069",
+ "tokens_in": 16814,
+ "tokens_out": 1447,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_stat",
+   "round": 5,
+   "ms": 1
+  }
+ ],
+ "walltime_s": 18.3,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 2,
+  "sr_applied": 2,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 0,
+  "grounded_author": true,
+  "candidate_diff": "diff --git a/seaborn/_core/plot.py b/seaborn/_core/plot.py\nindex 4f0290a..463f9ff 100644\n--- a/seaborn/_core/plot.py\n+++ b/seaborn/_core/plot.py\n@@ -25,7 +25,7 @@ from seaborn._marks.base import Mark\n from seaborn._stats.base import Stat\n from seaborn._core.data import PlotData\n from seaborn._core.moves import Move\n-from seaborn._core.scales import Scale\n+from seaborn._core.scales import Scale, Nominal\n from seaborn._core.subplots import Subplots\n from seaborn._core.groupby import GroupBy\n from seaborn._core.properties import PROPERTIES, Property\n@@ -1644,6 +1644,40 @@ class Plotter:\n                         hi = cast(float, hi) + 0.5\n                     ax.set(**{f\"{axis}lim\": (lo, hi)})\n \n+                # Nominal scale adjustments\n+                scale = p._scales.get(axis_key)\n+                if isinstance(scale, Nominal):\n+                    # Invert y axis for nominal scales\n+                    if axis == \"y\":\n+                        ax.invert_yaxis()\n+\n+                    # Hide grid for nominal scales\n+                    ax.grid(False)\n+\n+                    # Set margins to 0 and add invisible artist with sticky edges\n+                    # to extend the axis to +/- 0.5 from first/last tick\n+                    ax.set(**{f\"{axis}margin\": 0})\n+                    ax.margins(**{axis: 0})\n+\n+                    # Get the axis object\n+                    mpl_axis = getattr(ax, f\"{axis}axis\")\n+\n+                    # Add invisible artist with sticky edges to extend the axis\n+                    # This ensures the scale is drawn to +/- 0.5 from first/last tick\n+                    if axis == \"x\":\n+                        artist = ax.axvspan(0, 0, visible=False)\n+                    else:\n+                        artist = ax.axhspan(0, 0, visible=False)\n+\n+                    # Get the data limits and set sticky edges\n+                    lo, hi = mpl_axis.get_view_interval()\n+                    if axis == \"x\":\n+                        artist.set_xdata([lo - 0.5, hi + 0.5])\n+                        artist.sticky_edges.x[:] = [lo - 0.5, hi + 0.5]\n+                    else:\n+                        artist.set_ydata([lo - 0.5, hi + 0.5])\n+                        artist.sticky_edges.y[:] = [lo - 0.5, hi + 0.5]\n+\n         engine_default = None if p._target is not None else \"tight\"\n         layout_engine = p._layout_spec.get(\"engine\", engine_default)\n         set_layout_engine(self._figure, layout_engine)\n"
+ },
+ "answer": "```sr\npath: seaborn/_core/plot.py\n<<<<<<< SEARCH\n    def _finalize_figure(self, p: Plot) -> None:\n\n        for sub in self._subplots:\n            ax = sub[\"ax\"]\n            for axis in \"xy\":\n                axis_key = sub[axis]\n\n                # Axis limits\n                if axis_key in p._limits:\n                    convert_units = getattr(ax, f\"{axis}axis\").convert_units\n                    a, b = p._limits[axis_key]\n                    lo = a if a is None else convert_units(a)\n                    hi = b if b is None else convert_units(b)\n                    if isinstance(a, str):\n                        lo = cast(float, lo) - 0.5\n                    if isinstance(b, str):\n                        hi = cast(float, hi) + 0.5\n                    ax.set(**{f\"{axis}lim\": (lo, hi)})\n\n        engine_default = None if p._target is not None else \"tight\"\n        layout_engine = p._layout_spec.get(\"engine\", engine_default)\n        set_layout_engine(self._figure, layout_engine)\n=======\n    def _finalize_figure(self, p: Plot) -> None:\n\n        for sub in self._subplots:\n            ax = sub[\"ax\"]\n            for axis in \"xy\":\n                axis_key = sub[axis]\n\n                # Axis limits\n                if axis_key in p._limits:\n                    convert_units = getattr(ax, f\"{axis}axis\").convert_units\n                    a, b = p._limits[axis_key]\n                    lo = a if a is None else convert_units(a)\n                    hi = b if b is None else convert_units(b)\n                    if isinstance(a, str):\n                        lo = cast(float, lo) - 0.5\n                    if isinstance(b, str):\n                        hi = cast(float, hi) + 0.5\n                    ax.set(**{f\"{axis}lim\": (lo, hi)})\n\n                # Nominal scale adjustments\n                scale = p._scales.get(axis_key)\n                if isinstance(scale, Nominal):\n                    # Invert y axis for nominal scales\n                    if axis == \"y\":\n                        ax.invert_yaxis()\n\n                    # Hide grid for nominal scales\n                    ax.grid(False)\n\n                    # Set margins to 0 and add invisible artist with sticky edges\n                    # to extend the axis to +/- 0.5 from first/last tick\n                    ax.set(**{f\"{axis}margin\": 0})\n                    ax.margins(**{axis: 0})\n\n                    # Get the axis object\n                    mpl_axis = getattr(ax, f\"{axis}axis\")\n\n                    # Add invisible artist with sticky edges to extend the axis\n                    # This ensures the scale is drawn to +/- 0.5 from first/last tick\n                    if axis == \"x\":\n                        artist = ax.axvspan(0, 0, visible=False)\n                    else:\n                        artist = ax.axhspan(0, 0, visible=False)\n\n                    # Get the data limits and set sticky edges\n                    lo, hi = mpl_axis.get_view_interval()\n                    if axis == \"x\":\n                        artist.set_xdata([lo - 0.5, hi + 0.5])\n                        artist.sticky_edges.x[:] = [lo - 0.5, hi + 0.5]\n                    else:\n                        artist.set_ydata([lo - 0.5, hi + 0.5])\n                        artist.sticky_edges.y[:] = [lo - 0.5, hi + 0.5]\n\n        engine_default = None if p._target is not None else \"tight\"\n        layout_engine = p._layout_spec.get(\"engine\", engine_default)\n        set_layout_engine(self._figure, layout_engine)\n>>>>>>> REPLACE\n```\n\n```sr\npath: seaborn/_core/plot.py\n<<<<<<< SEARCH\nfrom seaborn._core.scales import Scale\n=======\nfrom seaborn._core.scales import Scale, Nominal\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate addresses nominal scale limits, grid, and inversion but uses a hacky invisible artist approach that may not correctly set limits, unlike gold's direct tick-based limit calculation."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "base_tail": "minal_x_axis_tweaks' in any of [<Module test_plot.py>])\n\nERROR: not found: /mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_y_axis_tweaks\n(no name '/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_y_axis_tweaks' in any of [<Module test_plot.py>])\n\n",
+  "ftb_pass": true,
+  "ftb_tail": "3069/tests/_core/test_plot.py::TestScaling::test_nominal_x_axis_tweaks\n(no name '/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_x_axis_tweaks' in any of [<Module test_plot.py>])\n\nERROR: not found: /mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_y_axis_tweaks\n(no name '/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/mwaskom__seaborn-3069/tests/_core/test_plot.py::TestScaling::test_nominal_y_axis_tweaks' in any of [<Module test_plot.py>])\n\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

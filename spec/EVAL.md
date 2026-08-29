@@ -10,10 +10,10 @@
 
 | # | 假设 | 面向 | 证明指标 | 当前证据 |
 |---|---|---|---|---|
-| H1 | 探索下沉为本地调用 → API 模型省轮次省 token | API 成本/质量 | 同任务 A/B：解决率 Δ、平均轮次、input tokens、$、墙钟 | 无 → L3 待测 |
+| H1 | 探索下沉为本地调用 → API 模型省轮次省 token | API 成本/质量 | 同任务 A/B：解决率 Δ、平均轮次、input tokens、$、墙钟 | ✅ S14 双通道交叉复现：Δsolved +6.7pp(deepseek-chat, n=90/90) 与 +10pp(glm-4.5-flash)；可核验性决定性差异稳定（裸模型文件引用存在率 0%，工具组 63%/23%） |
 | H2 | hallucination_guard 拦得住假声明 | 质量 | guard 判 verified/refuted 与真实 file:line 的一致率 ≥90% | 结构在，未测一致率 |
-| H3 | bug_scan/std_check/ui_check 在扫描器层面有真查准率 | 真实项目 | 标注库上 precision ≥70%（1 FP ≤2 TP） | 无 → L2 待测 |
-| H4 | lesson 记忆复利：同型任务重复犯错率下降 | 长期 | 召回后同类错误复发计数下降 | 结构在，未测 |
+| H3 | bug_scan/std_check/ui_check 在扫描器层面有真查准率 | 真实项目 | 标注库上 precision ≥70%（1 FP ≤2 TP） | ✅ S18 首测：案底 FP 复检 0 命中（修复保持）、panic 家族 VF3 现场覆盖 ✓；4 规则 precision≈1.0 但三条 WEAK(n=1)——样本量不足如实亮黄灯（bench/h3_score.py） |
+| H4 | lesson 记忆复利：同型任务重复犯错率下降 | 长期 | 召回后同类错误复发计数下降 | ✅ S20 缩影首测：B 臂 8 个全 fail 任务注入教训复跑——solved 0/8→3/8，fail 点 18→5（-72%），n 小作方向性证据 |
 | H5 | fail-closed 沙盒 + 写授权 = 可托管性 | 安全 | 安全模糊集 100% 拒绝 | ✅ 本轮已固化为 pytest |
 
 **一句话对外定位**：给 API 智能体的"本地证据层"——模型出决策，工具出事实；
@@ -87,9 +87,9 @@ unified-rx 是工具箱，不能直接跑 SWE-bench——要测的是**它给模
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | P0 | 安全模糊集入库 pytest；本评分卡/EVAL 定稿 | ✅ 本轮完成 |
-| P1 | 从 VoxelForge 系 git log 固化 30 条标注 bug 库（含干净样本）；bug_scan P/R 首测 | 待做 |
-| P2 | replay-A/B runner（复用 server.py 的 stdio 协议 + `_mcp_probe` 思路），出第一份增益报告 | 待做 |
-| P3 | 外锚：SWE-bench Verified 抽样 / GitTaskBench 子集 | 重仓可选 |
+| P1 | 从 VoxelForge 系 git log 固化 30 条标注 bug 库（含干净样本）；bug_scan P/R 首测 | ✅ S26+S27 完成：30 条自标注语料（S26）+ **32 快照独立人工标注**（S27：评审者逐行语义判 safe/unsafe，独立于 scan 输出）。泛化测量：definite 家族零 FP；clue 召回审计揪出 indexing 正则漏 `[x.f as usize]` 缺口→已修（召回 1/3→3/3，真快照回归锁死）；clue 全量上报为设计使然不计 FP |
+| P2 | replay-A/B runner（复用 server.py 的 stdio 协议 + `_mcp_probe` 思路），出第一份增益报告 | ✅ S14 完成：ab_run.py 实跑 12×3 双臂 72 run 全判，报告见 UPGRADE.md S14 / bench/results/l3/summary.json |
+| P3 | 外锚：SWE-bench Verified 抽样 / GitTaskBench 子集 | ✅ S25 闭环：执行失败回喂修复轮（≤3 轮），verified A 1→3 / B 2→3（29 feasible）；判官 vs 执行 13/15 一致且分歧双向纠错（S24） |
 
 ## 附：A/B 判分 rubric 模板
 
@@ -101,3 +101,4 @@ judge 流程:   对照 diff+运行结果逐条 R→pass/fail/unverifiable
 抽检:         每 10 条随机 1 条人工复核；不一致则修 rubric 再批量
 记录:         turns/tokens_in/tokens_out/cost$/walltime/工具调用序列
 ```
+

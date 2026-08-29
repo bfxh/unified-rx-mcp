@@ -1,0 +1,21 @@
+{
+ "task_id": "VF3-T14",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787818891,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n当前质心计算实现（推测位于 `physics/centroid.rs` 或 `vehicle/mod.rs` 中的 `compute_centroid` 函数）直接对各个模块的**位置向量取算术平均**，未乘以各模块的质量权重。这导致质量大的重舱（如电池舱、动力舱）和质量小的轻舱（如储物舱）对质心位置产生相同影响，质心被错误地拉向几何中心而非质量中心。在 M3 阶段，模块质量差异显著（重舱可达轻舱的 5-10 倍），因此该错误直接导致驾驶手感（转向响应、侧倾力矩）和倾翻阈值（质心高度、横向偏移）严重失真。\n\n【定位】\n- `physics/centroid.rs:compute_centroid` （推测，需确认实际文件；若不存在则搜索 `centroid` 或 `center_of_mass` 相关符号）\n- `vehicle/mod.rs:Module` 结构体中的 `mass` 字段（推测，用于存储各模块质量）\n- `vehicle/mod.rs:Vehicle::modules` 集合（推测，用于遍历模块）\n\n【修复方案】\n1. **修改质心计算逻辑**：在 `compute_centroid` 中，将当前“位置向量求和后除以模块数”改为“各模块位置向量乘以各自质量后求和，再除以总质量”。公式：`C = Σ(m_i * p_i) / Σ(m_i)`。\n2. **确保质量数据有效**：在 `Module` 初始化或加载时，验证 `mass` 字段为正数且非零；若存在零质量模块，需在计算前过滤或报错，避免除零。\n3. **更新调用方**：检查所有调用 `compute_centroid` 的地方（如 `physics/dynamics.rs` 中的力矩计算、`control/steering.rs` 中的转向响应），确认它们传入的是修复后的质心坐标，无需额外改动。\n4. **添加单元测试**：在 `physics/centroid.rs` 的测试模块中，构造两个模块（质量比 3:1，位置对称），断言质心偏向重模块一侧 3/4 处，验证修复正确性。\n\n（注：若实际代码中质心计算已存在于其他文件，请以实际符号为准；上述路径为基于常见 Bevy 项目结构的推测。）",
+ "tokens_in": 147,
+ "tokens_out": 511,
+ "turns": 1,
+ "cost_usd": 0.0006,
+ "walltime_s": 5.1,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "unverifiable"
+ }
+}

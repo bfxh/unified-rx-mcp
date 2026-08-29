@@ -1,23 +1,28 @@
 # -*- coding: utf-8 -*-
 """tests/test_v2.py —— unified-rx-v2 全量测试（P3 增强后）
 
-覆盖：注册表/协议/fs/pure/scan/ide/guard/learn/ops/search/collab/engine。
+覆盖：注册表/协议/fs/scan/ide/guard/learn/ops/search/engine。
+S15 起移除 pure/collab 域与 cmd_cheatsheet（废物清理，见 UPGRADE.md S15）。
 运行：python -m pytest tests/ -q
 """
 import os
 import sys
+import threading
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import registry
+import server  # noqa: F401 (S3 协议层测试用)
 import tools  # noqa: F401
 
 
 def test_registry_tool_count():
-    """工具面收敛：≤40 组合工具（183 → 35 目标）。"""
+    """工具面收敛：attack 域加入后 42（39+3），上限放宽到 50。"""
     n = registry.tool_count()
-    assert 20 <= n <= 40, f"工具数 {n} 超出收敛范围（目标 35±5）"
+    assert 20 <= n <= 50, f"工具数 {n} 超出收敛范围"
 
 
 def test_registry_groups():
@@ -58,7 +63,8 @@ def test_fs_sandbox():
         os.environ["UNIFIED_RX_SANDBOX"] = ""
         r = registry.call("fs_read", {"path": str(Path(__file__))})
         assert not r["ok"], "未配置沙盒时应一律拒绝（fail-closed）"
-        os.environ["UNIFIED_RX_SANDBOX"] = r"D:\开发"
+        os.environ["UNIFIED_RX_SANDBOX"] = os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__)))   # 自指仓库根（平台无关）
         r2 = registry.call("fs_read", {"path": r"C:\Windows\win.ini"})
         assert not r2["ok"], "沙盒外不应可读"
         r3 = registry.call("fs_stat", {"path": __file__})
@@ -66,23 +72,6 @@ def test_fs_sandbox():
     finally:
         if old is not None:
             os.environ["UNIFIED_RX_SANDBOX"] = old
-
-
-def test_pure_actions():
-    """纯函数关键动作。"""
-    r = registry.call("pure_funcs", {"action": "add", "a": 2, "b": 3})
-    assert r["ok"] and r["result"]["value"] == 5
-    r = registry.call("pure_funcs", {"action": "upper", "s": "abc"})
-    assert r["result"]["value"] == "ABC"
-    r = registry.call("pure_funcs", {"action": "is_prime", "n": 17})
-    assert r["result"]["value"] is True
-    r = registry.call("pure_funcs", {"action": "div", "a": 1, "b": 0})
-    assert not r["ok"], "除零应报错"
-
-
-def test_pure_batch():
-    r = registry.call("pure_batch", {"action": "add", "inputs": [{"a": 1, "b": 2}, {"a": 3, "b": 4}]})
-    assert r["ok"] and r["result"]["count"] == 2
 
 
 def test_scan_bug_scan(tmp_path):
@@ -96,7 +85,7 @@ def test_scan_bug_scan(tmp_path):
 
 
 def test_scan_rust_rules(tmp_path):
-    """P3: Rust 生产规则（unwrap/panic 分级）。"""
+    """S4-D1: Rust 规则分级——崩溃类 high，线索类 info+kind=clue。"""
     f = Path(tmp_path) / "main.rs"
     f.write_text(
         "fn main() {\n"
@@ -108,14 +97,31 @@ def test_scan_rust_rules(tmp_path):
     r = registry.call("bug_scan", {"path": str(f)})  # 单文件扫，绕开目录遍历
     assert r["ok"]
     rules = {i["rule"]: i.get("severity") for i in r["result"]["issues"]}
-    assert rules.get("unwrap") == "high", f"unwrap 应为 high: {rules}"
-    assert rules.get("expect") == "medium", f"expect 应为 medium: {rules}"
-    rules = {i["rule"]: i.get("severity") for i in r["result"]["issues"]}
-    assert rules.get("unwrap") == "high", f"unwrap 应为 high: {rules}"
-    assert rules.get("expect") == "medium", f"expect 应为 medium: {rules}"
-    assert rules.get("panic") == "high", f"panic 应为 high: {rules}"
-    assert rules.get("as_cast") == "medium", f"as_cast 应为 medium: {rules}"
-    assert r["result"]["by_severity"].get("high", 0) >= 2
+    kinds = {i["rule"]: i.get("kind") for i in r["result"]["issues"]}
+    assert rules.get("unwrap") == "info" and kinds.get("unwrap") == "clue", f"unwrap 应为 info/clue: {rules}"
+    assert rules.get("expect") == "info", f"expect 应为 info（线索）: {rules}"
+    assert rules.get("panic") == "high", f"panic 应为 high（确定性）: {rules}"
+    assert rules.get("as_cast") == "info", f"as_cast 应为 info（线索）: {rules}"
+    assert r["result"]["by_severity"].get("high", 0) == 1, "仅 panic 一条 high"
+
+
+def test_scan_rust_test_mod_downgrade(tmp_path):
+    """S4-D1: #[cfg(test)] mod 内的 unwrap 行级降级为 low；mod 外保持 info。"""
+    f = Path(tmp_path) / "mixed.rs"
+    f.write_text(
+        "pub fn prod() -> u32 { maybe().unwrap() }\n"
+        "#[cfg(test)]\n"
+        "mod tests {\n"
+        "    #[test]\n"
+        "    fn t() { assert_eq!(maybe().unwrap(), 1); }\n"
+        "}\n", encoding="utf-8")
+    r = registry.call("bug_scan", {"path": str(f)})
+    assert r["ok"]
+    by_line = {i["line"]: i for i in r["result"]["issues"] if i["rule"] == "unwrap"}
+    assert len(by_line) == 2, f"应有两处 unwrap: {by_line}"
+    prod = by_line[1]; test = by_line[5]
+    assert prod["severity"] == "info" and prod.get("kind") == "clue", f"L1 生产区应为 info/clue: {prod}"
+    assert test["severity"] == "low" and "降级" in test["msg"], f"L5 测试 mod 应降级: {test}"
 
 
 def test_scan_rust_test_dir_downgrade(tmp_path):
@@ -131,11 +137,36 @@ def test_scan_rust_test_dir_downgrade(tmp_path):
             assert i["severity"] == "low", f"tests 里 unwrap 应 low: {i}"
 
 
+def test_bug_scan_panic_in_test_downgraded(tmp_path):
+    """S12 语境诚实化：panic! 在 tests 目录/cfg(test) 内降级为 clue（VF3 实证 21/21 在测试区）。"""
+    d = tmp_path / "src" / "tests"
+    d.mkdir(parents=True)
+    f = d / "t.rs"
+    f.write_text('fn x() { panic!("boom"); }\n', encoding="utf-8")
+    r = registry.call("bug_scan", {"path": str(tmp_path)})
+    hits = [i for i in r["result"]["issues"] if i["rule"] == "panic"]
+    assert hits and all(h["severity"] == "low" and "测试上下文" in h["msg"] for h in hits)
+
+
 def test_scan_std_check(tmp_path):
     f = Path(tmp_path) / "a.py"
     f.write_text("TODO: finish this\n", encoding="utf-8")
     r = registry.call("std_check", {"path": str(tmp_path)})
     assert r["ok"] and r["result"]["total"] >= 1
+
+
+def test_scan_eval_exec_member_call_not_flagged(tmp_path):
+    """源码审计实测教训：RegExp.prototype.exec(/x/) 不是动态执行，不得报 eval_exec。"""
+    import json
+    safe = Path(tmp_path) / "safe.js"
+    safe.write_text('const m = /a(b)c/.exec(text); const t = re.test(x);\n', encoding="utf-8")
+    r = registry.call("bug_scan", {"path": str(safe)})
+    hits = [h for h in r["result"]["issues"] if h["rule"] == "eval_exec"]
+    assert not hits, f"成员调用被误报: {json.dumps(hits, ensure_ascii=False)}"
+    evil = Path(tmp_path) / "evil.js"
+    evil.write_text("eval(userInput);\nexecSync(cmd);\n", encoding="utf-8")
+    r2 = registry.call("bug_scan", {"path": str(evil)})
+    assert any(h["rule"] == "eval_exec" for h in r2["result"]["issues"])
 
 
 def test_ui_check_godot(tmp_path):
@@ -196,33 +227,11 @@ def test_lesson_add_recall(tmp_path):
     assert r2["result"]["matched"] >= 1, f"应匹配到教训: {r2}"
 
 
-def test_ops_cost():
-    r = registry.call("cost_report", {})
-    assert r["ok"] and "total_calls" in r["result"]
-
-
 def test_search_code(tmp_path):
     f = Path(tmp_path) / "demo.rs"
     f.write_text("fn compute_damage() -> i32 { 42 }\n", encoding="utf-8")
     r = registry.call("code_search", {"query": "damage 计算", "root": str(tmp_path)})
     assert r["ok"] and r["result"]["total"] >= 1
-
-
-def test_collab_pipeline(tmp_path):
-    f = Path(tmp_path) / "t.py"
-    f.write_text("print('hi')\n", encoding="utf-8")
-    r = registry.call("pipeline", {"preset": "audit_repo", "path": str(tmp_path)})
-    assert r["ok"] and r["result"]["steps"] == 2
-
-
-def test_collab_parallel(tmp_path):
-    f = Path(tmp_path) / "t.py"
-    f.write_text("print('hi')\n", encoding="utf-8")
-    r = registry.call("parallel", {"tasks": [
-        {"tool": "bug_scan", "args": {"path": str(tmp_path)}},
-        {"tool": "std_check", "args": {"path": str(tmp_path)}},
-    ]})
-    assert r["ok"] and r["result"]["count"] == 2
 
 
 def test_engine_status():
@@ -231,8 +240,12 @@ def test_engine_status():
 
 
 def test_engine_query_vf():
-    """P2: codegraph 真实查询（VoxelForge 已索引）。"""
-    r = registry.call("engine_query", {"query": "place_free", "root": r"D:\开发\VoxelForge",
+    """P2: codegraph 真实查询（VoxelForge 已索引）。环境无关仓自动跳过。"""
+    vf_root = r"D:\开发\VoxelForge"
+    if not (os.path.isdir(vf_root) and
+            os.path.exists(os.path.join(vf_root, ".codegraph"))):
+        pytest.skip("需要本机 VoxelForge+codegraph 索引（外部资产）")
+    r = registry.call("engine_query", {"query": "place_free", "root": vf_root,
                                        "limit": 3})
     assert r["ok"], r
     assert r["result"]["engine"] == "codegraph", f"应走 codegraph: {r['result'].get('engine')}"
@@ -290,3 +303,115 @@ def test_small_results_untouched():
     r = registry.call("fs_list", {"path": str(d), "depth": 1})
     out = r["result"]
     assert "truncated" not in out and "next_cursor" not in out
+
+
+# ── S3-B2/B3：logging 通知 + 取消登记 ───────────────
+def test_registry_notifier_hook():
+    """notify() 走注入出口；未注入时静默不抛。"""
+    import registry as reg
+    got = []
+    reg.set_notifier(lambda level, msg: got.append((level, msg)))
+    try:
+        from tools.engine import engine_query  # noqa: F401 触发注册
+        registry.call("engine_query", {"query": "sandbox roots",
+                                       "root": os.path.dirname(os.path.dirname(os.path.abspath(__file__)))})
+        assert any("BM25" in m for _, m in got), f"降级应发通知: {got}"
+    finally:
+        reg.set_notifier(None)
+    # 未注入：不应抛
+    registry.call("engine_query", {"query": "sandbox roots",
+                                   "root": os.path.dirname(os.path.dirname(os.path.abspath(__file__)))})
+
+
+def test_server_cancel_flag_lifecycle():
+    """S10 后登记表唯一事实源=registry：登记后可取，cancelled 置位，完成后清理。
+    server.cancel_flag 仅是委托薄出口。"""
+    import server
+    ev = registry.register_cancel(999)
+    try:
+        assert server.cancel_flag(999) is ev and not ev.is_set()
+        assert server.registry.set_cancelled(999) is True
+        assert server.cancel_flag(999).is_set()
+        registry.release_cancel(999)
+        assert server.cancel_flag(999) is None, "完成/取消后应清理登记"
+    finally:
+        registry.release_cancel(999)
+
+
+def test_server_handle_logging_setlevel():
+    """logging/setLevel 有应答（S3 能力协商）。"""
+    r = server._handle({"jsonrpc": "2.0", "id": 7, "method": "logging/setLevel",
+                        "params": {"level": "info"}})
+    assert r["id"] == 7 and r["result"] == {}
+
+
+def test_server_initialize_capabilities_s3():
+    """initialize capabilities 声明 listChanged + logging。"""
+    r = server._handle({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+    caps = r["result"]["capabilities"]
+    assert caps["tools"]["listChanged"] is True and "logging" in caps
+
+
+# ── S5-C2：扫描指纹缓存 ───────────────
+def test_scan_cache_warm_faster_and_consistent(tmp_path):
+    """二次扫描走缓存：结果一致 + 明显提速；mtime/size 变化即失效。"""
+    import time as _time
+    from tools.scan import scan_cache_clear
+    d = tmp_path / "_s5"
+    d.mkdir()
+    for i in range(30):
+        (d / f"c{i}.py").write_text("v = missing_x\n", encoding="utf-8")
+    scan_cache_clear()
+    r1 = registry.call("bug_scan", {"path": str(d)})
+    scan_cache_clear()  # 只压一次冷跑
+    r1 = registry.call("bug_scan", {"path": str(d)})  # 重建缓存
+    t0 = _time.perf_counter()
+    r2 = registry.call("bug_scan", {"path": str(d)})
+    warm_ms = (_time.perf_counter() - t0) * 1000
+    assert warm_ms < 10, f"30 文件热扫应 <10ms: {warm_ms:.1f}ms"
+    a, b = r1["result"], r2["result"]
+    assert a["total"] == b["total"] and a["by_rule"] == b["by_rule"], "缓存前后结果必须一致"
+    # 修改文件（size 变化）→ 失效重扫且反映新内容
+    f = d / "c0.py"
+    f.write_text("w = missing_y\n", encoding="utf-8")
+    r3 = registry.call("bug_scan", {"path": str(d)})
+    msgs = str(r3["result"]["issues"])
+    assert "missing_y" in msgs and "missing_x\n".strip() not in str(
+        [i for i in r3["result"]["issues"] if i.get("file", "").endswith("c0.py")]
+    ), "改后必须重扫新内容"
+
+
+def test_std_check_cached_consistent(tmp_path):
+    """std_check 同样走指纹缓存且结果一致。"""
+    from tools.scan import scan_cache_clear
+    d = tmp_path / "_s5std"
+    d.mkdir()
+    (d / "m.py").write_text("delay = 1500\n", encoding="utf-8")
+    scan_cache_clear()
+    r1 = registry.call("std_check", {"path": str(d)})
+    r2 = registry.call("std_check", {"path": str(d)})
+    assert r1["result"]["findings"] == r2["result"]["findings"]
+
+
+# ── S6-D2：locate_edit 引用计数 + E1 bench 骨架 ───────────────
+def test_locate_edit_reference_count(tmp_path):
+    """locate_edit 返回 references_in_scan 全库计数事实。"""
+    d = tmp_path / "_refs"
+    d.mkdir()
+    (d / "a.py").write_text("def handler():\n    pass\n\nhandler()\nhandler()\n", encoding="utf-8")
+    (d / "b.py").write_text("from a import handler\nprint(handler)\n", encoding="utf-8")
+    r = registry.call("locate_edit", {"path": str(d), "query": "handler", "limit": 5})
+    out = r["result"]
+    # a.py: def 1 + 调用 2 = 3；b.py: import 1 + print 1 = 2 → 全库共 5
+    assert out["references_in_scan"] == 5, f"handler 出现 5 次: {out}"
+    assert len(out["hits"]) >= 1
+
+
+def test_bench_corpus_and_dryrun():
+    """bench 标注库可加载 + dry-run 退出码 0（CI 门禁）。"""
+    import subprocess, sys as _sys
+    bench = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "bench" / "replay_ab.py"
+    r = subprocess.run([sys.executable, "-X", "utf8", str(bench), "--dry-run"],
+                       capture_output=True, text=True, encoding="utf-8")
+    assert r.returncode == 0, f"dry-run 失败: {r.stderr[-300:]}"
+    assert "CORPUS OK" in r.stdout

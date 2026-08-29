@@ -1,0 +1,110 @@
+{
+ "task_id": "VF3-T09",
+ "arm": "model_plus_rx",
+ "run_idx": 2,
+ "ts": 1787817675,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n模块实例化路径中，每个摆放的模块实体都独立创建了 `Mesh3d` 与 `MeshMaterial3d<StandardMaterial>` 组件，且 mesh 与材质句柄（`Handle<Mesh>` / `Handle<StandardMaterial>`）在 spawn 时被逐实例克隆。Bevy 的 `Handle` 是强引用计数句柄，克隆句柄本身不复制 GPU 资源，但**每个模块若各自调用 mesh 生成函数（如 `terrain.rs:137` 的 mesh 构建函数）或各自 `add_asset` 创建独立资源，则每个实例都会在 `Assets<Mesh>` / `Assets<StandardMaterial>` 中注册一份独立资源**，导致显存/内存随模块数量线性增长。同时，相同几何与材质的模块无法被 Bevy 自动合批（合批要求共享同一 `Handle`），进一步放大 draw call 与内存开销。\n\n【定位】\n- `crates/app/src/main.rs:1334` — `commands.spawn((PreviewGrid, Mesh3d(mesh), MeshMaterial3d(grid_mat.clone()), ...))`：预览网格 spawn 时克隆材质句柄（(推测) 模块摆放路径存在同类模式）\n- `crates/app/src/terrain.rs:137` — `) -> (Handle<Mesh>, Handle<StandardMaterial>)`：mesh/材质生成函数，每次调用创建新资源（(推测) 模块摆放复用此函数或类似路径）\n- `docs/legacy/v1-docs/ROADMAP.md:452` — 规划中的 `MeshLibrary`（模块 Mesh 缓存按 DefId 索引），证实当前缺失该缓存层\n\n【修复方案】\n1. **引入 `MeshLibrary` 资源缓存**（按 `DefId` 索引）：在 `setup_assembly` / `load_module_defs` 阶段一次性生成并注册所有模块类型的 `Handle<Mesh>` 与 `Handle<StandardMaterial>`，存入 `HashMap<DefId, (Handle<Mesh>, Handle<StandardMaterial>)>` 资源。\n2. **模块摆放改为查表复用句柄**：spawn 模块实体时从 `MeshLibrary` 取出共享句柄，不再调用 mesh 生成函数或克隆新资源。仅 `Transform` 与 `dims` 缩放不同，几何与材质完全共享。\n3. **材质按颜色/类型去重**：若模块存在少量颜色变体，按 `(DefId, color)` 组合缓存材质句柄，避免每实例新建材质。\n4. **收益量级**：显存/内存占用从 **O(模块数 × 每模块几何+材质)** 降为 **O(模块类型数 × 每类型几何+材质)**。以几百个模块、几十种类型估算，内存/显存可降低 **90%–98%**（几百份重复资源收敛为几十份）；同时因句柄共享，Bevy 自动合批生效，draw call 数量也同步下降，渲染性能同步受益。",
+ "tokens_in": 38040,
+ "tokens_out": 1618,
+ "turns": 14,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "bug_scan",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "bug_scan",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "ast_scan",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.01205,
+ "walltime_s": 20.2,
+ "notes": [
+  "round0: 2 calls 2438ch (2.4s)",
+  "round1: 2 calls 2347ch (2.5s)",
+  "round2: 3 calls 4564ch (3.1s)",
+  "round3: 2 calls 355ch (1.8s)",
+  "round4: 2 calls 7675ch (1.5s)",
+  "round5: 2 calls 3912ch (2.2s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "pass"
+ },
+ "judge_error": "verdict 键不符: ['rid'] != ['R1', 'R2', 'R3']"
+}

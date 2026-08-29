@@ -1,0 +1,41 @@
+{"id": "L1787838181", "text": "物理地形类问题的正确要点：正确指出 parry HeightField 以自身原点为中心且 scale 表示全宽——此前 scale=1 配平移(-30,-30) 的用法导致物理碰撞面只有西南角约1m²（关键机制参考：HeightField 中心语义+全宽scale误用）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "物理地形类问题的正确要点：正确指出 parry HeightField 以自身原点为中心且 scale 表示全宽——此前 scale=1 配平移(-30,-30) 的用法导致物理碰撞面只有西南角约1m²（关键机制参考：HeightField 中心语义+全宽scale误用）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "启动路径类问题的正确要点：指出根因：代码里以『exe 上溯固定两级』假设仓库布局，dist 目录层级变化后越过仓库根，找不到 data/modules.ron 就静默换兜底定义（关键机制参考：fixed two-level upward path assumption）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "启动路径类问题的正确要点：指出根因：代码里以『exe 上溯固定两级』假设仓库布局，dist 目录层级变化后越过仓库根，找不到 data/modules.ron 就静默换兜底定义（关键机制参考：fixed two-level upward path assumption）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "启动路径类问题的正确要点：指出根因：代码里以『exe 上溯固定两级』假设仓库布局，dist 目录层级变化后越过仓库根，找不到 data/modules.ron 就静默换兜底定义（关键机制参考：fixed two-level upward path assumption）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "碎片归属类问题的正确要点：根因=root 移除后 vehicle 归属引用悬空（残留组件仍指向已销毁实体），需显式清理/重挂归属（关键机制参考：dangling vehicle attribution after root removal）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "悬挂物理类问题的正确要点：拿起时清零线速度/角速度；放置落点向上取整格 ceil 防嵌地（关键机制参考：zero velocity on pickup; ceil placement）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "驾驶交互类问题的正确要点：转向锁死识别为输入状态/驱动方向映射错误或转向窗口互斥问题，给出状态清理方案（关键机制参考：steering state lock）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "驾驶交互类问题的正确要点：转向锁死识别为输入状态/驱动方向映射错误或转向窗口互斥问题，给出状态清理方案（关键机制参考：steering state lock）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "驾驶交互类问题的正确要点：转向锁死识别为输入状态/驱动方向映射错误或转向窗口互斥问题，给出状态清理方案（关键机制参考：steering state lock）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "Blender 插件类问题的正确要点：cell_of 取整语义错误：round 在半格边界错位，改 floor 对齐格心约定（关键机制参考：cell_of round half-cell offset -> floor）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "Blender 插件类问题的正确要点：cell_of 取整语义错误：round 在半格边界错位，改 floor 对齐格心约定（关键机制参考：cell_of round half-cell offset -> floor）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "Blender 插件类问题的正确要点：cell_of 取整语义错误：round 在半格边界错位，改 floor 对齐格心约定（关键机制参考：cell_of round half-cell offset -> floor）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "地形渲染+挂点过滤类问题的正确要点：黑面根因=三角面绕序相反使法线朝下(-Y)被背面剔除，需统一绕序/法线朝上（关键机制参考：triangle winding reversed, normal culling）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "地形渲染+挂点过滤类问题的正确要点：挂点消失=埋地过滤过粗误杀斜坡上坡侧挂点，判据改为整格全埋才过滤（关键机制参考：buried-filter too coarse -> fully-buried-cell only）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "载具重组类问题的正确要点：ESC 归队扩为三级回退，末级 attach 收养兜底（关键机制参考：three-level fallback with attach adoption）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "载具重组类问题的正确要点：ESC 归队扩为三级回退，末级 attach 收养兜底（关键机制参考：three-level fallback with attach adoption）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "载具重组类问题的正确要点：promote_island：格邻接连通组件判定+边表重建+碎片豁免+写存档字段（B 键入口）（关键机制参考：island promotion via component detection）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "数据标准校验类问题的正确要点：指出叠轮/穿模根因在占格与悬挂驱动判据未过滤非法组合（顶装格不参与悬挂驱动/岩体占格拦截属同批修复亦可提及）（关键机制参考：stacked wheels root cause = occupancy/suspension filters）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "数据标准校验类问题的正确要点：至少命中两条具体规则：轮胎单格无 Top 挂点只能接结构舱类；驾驶舱 HP>=200；通用域/形状连通性校验任二（关键机制参考：wheel top-mount rule + cab HP floor (+connectivity)）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "数据标准校验类问题的正确要点：指出叠轮/穿模根因在占格与悬挂驱动判据未过滤非法组合（顶装格不参与悬挂驱动/岩体占格拦截属同批修复亦可提及）（关键机制参考：stacked wheels root cause = occupancy/suspension filters）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "插件数据写入类问题的正确要点：防御=写前探测既有内容合法性（损坏文件拒绝追加防污染）+BOM 容忍读取（关键机制参考：reject append on corrupt file; BOM tolerant）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "插件数据写入类问题的正确要点：防御=写前探测既有内容合法性（损坏文件拒绝追加防污染）+BOM 容忍读取（关键机制参考：reject append on corrupt file; BOM tolerant）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "插件数据写入类问题的正确要点：防御=写前探测既有内容合法性（损坏文件拒绝追加防污染）+BOM 容忍读取（关键机制参考：reject append on corrupt file; BOM tolerant）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "放置交互类问题的正确要点：根因=落点沿视线/射线方向外推，斜视时会穿透表面到背面；应改为沿命中面法线方向外推（关键机制参考：normal-direction offset instead of view ray）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "放置交互类问题的正确要点：根因=落点沿视线/射线方向外推，斜视时会穿透表面到背面；应改为沿命中面法线方向外推（关键机制参考：normal-direction offset instead of view ray）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "生成与放置修正批类问题的正确要点：初始埋车=出生点需固定平台且 startup 碰撞体与所选地形模式一致（关键机制参考：spawn platform + collider matches terrain mode）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "生成与放置修正批类问题的正确要点：初始埋车=出生点需固定平台且 startup 碰撞体与所选地形模式一致（关键机制参考：spawn platform + collider matches terrain mode）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "操控一致性类问题的正确要点：静止穿地=冻结贴地校准：最低格底面抬至高于地形/岩面最大高度约 0.05m（关键机制参考：frozen snap above terrain max +0.05m）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "操控一致性类问题的正确要点：静止穿地=冻结贴地校准：最低格底面抬至高于地形/岩面最大高度约 0.05m（关键机制参考：frozen snap above terrain max +0.05m）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "建造态物理语义类问题的正确要点：载具默认 RigidBodyDisabled 冻结不受重力拖走；驾驶键解冻、松手约 2.5s 且低速才重新冻结（关键机制参考：default frozen, drive unfreezes, 2.5s refreeze）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "建造态物理语义类问题的正确要点：载具默认 RigidBodyDisabled 冻结不受重力拖走；驾驶键解冻、松手约 2.5s 且低速才重新冻结（关键机制参考：default frozen, drive unfreezes, 2.5s refreeze）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "UI 设置与滚轮类问题的正确要点：中键滚轮缩放与物品栏滚轮事件分工不串扰（按按钮/焦点区分分发）（关键机制参考：middle-wheel zoom separated from inventory wheel）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "手持物理类问题的正确要点：拿起瞬间停用/移除该模块刚体使其彻底脱离重力模拟，放下再恢复（关键机制参考：disable rigid body while held）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "手持物理类问题的正确要点：拿起瞬间停用/移除该模块刚体使其彻底脱离重力模拟，放下再恢复（关键机制参考：disable rigid body while held）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "插件工作区集成类问题的正确要点：以 WorkSpaceTool 形式接入左侧 T 工具栏并提供快速面板入口（关键机制参考：WorkSpaceTool integration in T panel）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "插件工作区集成类问题的正确要点：以 WorkSpaceTool 形式接入左侧 T 工具栏并提供快速面板入口（关键机制参考：WorkSpaceTool integration in T panel）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "插件工作区集成类问题的正确要点：以 WorkSpaceTool 形式接入左侧 T 工具栏并提供快速面板入口（关键机制参考：WorkSpaceTool integration in T panel）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "结构重构类问题的正确要点：拆分边界=几何工具函数入 geom.rs、地形生成入 terrain.rs，行数显著下降（参考 1969→1591 行）（关键机制参考：extract geom.rs + terrain.rs boundaries）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "结构重构类问题的正确要点：拆分边界=几何工具函数入 geom.rs、地形生成入 terrain.rs，行数显著下降（参考 1969→1591 行）（关键机制参考：extract geom.rs + terrain.rs boundaries）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}
+{"id": "L1787838181", "text": "拿取性能类问题的正确要点：延迟根因=拿起后的跟随逻辑等下一拍/条件成熟才生效，应拿起瞬间立即绑定实体跟手（零感知延迟）（关键机制参考：instant entity follow on pickup）。此前同类缺陷分析曾在此处判错。", "ts": 1787838181, "recall_count": 0}

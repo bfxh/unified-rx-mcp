@@ -1,0 +1,84 @@
+{
+ "instance_id": "matplotlib__matplotlib-24026",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-24026",
+ "tokens_in": 15573,
+ "tokens_out": 692,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 2,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 9.4,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "lib/matplotlib/stackplot.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: lib/matplotlib/stackplot.py\n<<<<<<< SEARCH\n    # Color cycle from cycler\n    if colors is None:\n        colors = [next(axes._get_lines.prop_cycler)['color']\n                  for _ in range(len(labels))]\n    else:\n        # If colors is provided, set the prop cycle to use it\n        axes.set_prop_cycle(color=colors)\n=======\n    # Color cycle from cycler\n    if colors is None:\n        colors = [next(axes._get_lines.prop_cycler)['color']\n                  for _ in range(len(labels))]\n    else:\n        # If colors is provided, convert CN aliases to actual colors\n        colors = [axes._get_lines._get_patches_for_fill.get_next_color()\n                  if isinstance(c, str) and c.startswith('C')\n                  else c for c in colors]\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate converts CN aliases but doesn't avoid set_prop_cycle; gold uses itertools.cycle and get_next_color, preserving cycler. Candidate may still fail for non-CN colors or alter cycler."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "base_tail": "9]$\", s):\n>           raise ValueError(f\"Cannot put cycle reference ({s!r}) in prop_cycler\")\nE           ValueError: Cannot put cycle reference ('C0') in prop_cycler\n\nlib/matplotlib/rcsetup.py:285: ValueError\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_stackplot[png] - ValueError: C...\n1 failed, 1 skipped in 3.98s\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

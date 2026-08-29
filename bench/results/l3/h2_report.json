@@ -1,0 +1,2419 @@
+{
+ "root": "D:\\开发\\VoxelForge-V3",
+ "arms": {
+  "A": {
+   "claims": 652,
+   "wide_agreement": 1.0,
+   "strict_agreement": 1.0,
+   "samples": [
+    {
+     "claim": "src/physics/terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/world/terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/plugins/terrain_plugin.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/terrain_collider.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "world/terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/terrain_collider.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics/terrain_collider.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/map/terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics/terrain_collider.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics/terrain_collider.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/map/terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics/terrain_collider.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/asset_loader.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/singleton.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/plugins/inventory.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/plugins/app.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/inventory/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/app.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/pickup.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/components/vehicle.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/vehicle_cleanup.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/state/m3_state.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/ui/context_menu.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/components/vehicle.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/pickup.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/vehicle_cleanup.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/state/m3_state.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/ui/context_menu.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/vehicle/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/vehicle/destruction.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/pickup/system.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/state_machine.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/input/mouse.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/input/mouse.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/ui/vehicle_menu.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/state_machine.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/vehicle.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/vehicle/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/fragment.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/pickup.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/interaction.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/state_machine.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/state.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/context_menu.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "context_menu.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/vehicle.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/fragment.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/pickup.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/state_machine.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/gameplay/context_menu.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/suspension.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/vehicle.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "interaction/pickup.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "interaction/pickup.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "placement/snap.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/suspension.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/suspension.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/grabbing.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/placement.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/suspension.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/suspension.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/grabbing.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/grabbing.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/input.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/camera.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/module_interaction.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/states/game_state.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/gate.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/movement.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/damage.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/input.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/camera.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/module_interaction.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/suspension.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/resources/input_map.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/collision.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/save/load.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics/center_of_mass.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/ui/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/game/input.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/save.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/ui.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/input.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/save.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/ui.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/input.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/save/load.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/save/schema.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics/center_of_mass.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/ui/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/game/input.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/save/load.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/save/schema.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/physics/center_of_mass.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/ui/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/game/input.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "export_glb.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "exporter.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export_plugin/export_utils.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export_plugin/export_utils.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export_plugin/glb_exporter.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_export_plugin/coordinate_converter.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "collision_damage.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "collision_damage.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "collision_damage.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/collision_damage.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/resources/damage_table.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "collision_damage.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "collision_damage.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "collision_damage.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/render/src/mesh.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/render/src/material.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/scene/src/module.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/spawn_module.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/components/module.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "module_spawn_system.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "module_plugin.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain_mesh.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "attachment_filter.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_dissolve.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_graph.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain_render.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "attachment_filter.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_dissolve.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "island_integrity.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain_render.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain_mesh.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "attachment_filter.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_dissolve.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_graph.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_graph.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/vehicle_reassembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/vehicle_reassembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/components/vehicle.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/vehicle_spawn.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/recall.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/components/part.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/input.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "snap_system.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "rejoin_system.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "save_load.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_root.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/validation.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/components/module.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/validation.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/asset_loader/src/module_parser.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/asset_loader/src/validation.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "validation.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "validation.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/validation.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/components/module.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/systems/validation.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "tests/validation_test.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/export.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/export.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/ui_panel.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/utils.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/export_ron.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/panel_ui.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "game_engine/src/modules_loader.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/export_ron.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/export_ron.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/ui_panel.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "blender_addon/grid_utils.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/centroid.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/centroid.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/rigid_body.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/centroid.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/centroid.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle/mod.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/dynamics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "control/steering.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/centroid.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/centroid.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/centroid.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/rigid_body.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "physics/torque.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/placement/raycast.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/placement/ghost.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "src/placement/confirm.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    }
+   ]
+  },
+  "B": {
+   "claims": 727,
+   "wide_agreement": 1.0,
+   "strict_agreement": 1.0,
+   "samples": [
+    {
+     "claim": "terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/terrain.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/terrain.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:235",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:235",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain.rs:207",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:354",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:373",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:354",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:373",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:1664",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "rust_core/src/module/registry.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "definition.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:354",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:1664",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:387",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:373",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:387",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:373",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:373",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:373",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:1703",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:373",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:1703",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\core\\src\\assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\core\\src\\assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\core\\src\\assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "stress_matrix.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/tests/stress_matrix.rs:136",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "stress_matrix.rs:136",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "interaction.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_controller.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/vehicle_physics.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "geom.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/vehicle_physics.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:1781",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/geom.rs:11",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:1781",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "geom.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/vehicle_physics.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:20",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:636",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/vehicle_physics.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/vehicle_physics.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "vehicle_physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\app\\src\\vehicle_physics.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:572",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\core\\src\\assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\core\\src\\assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\core\\tests\\save_fuzz.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\addons\\blender_exporter\\export_glb.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\addons\\blender_exporter\\export_glb.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/blender_mount_points.py",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/blender_mount_points.py",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/blender_mount_points.py",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/test_plugin_headless.py",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\blender_plugin\\export_glb.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\blender_plugin\\export_glb.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\blender_plugin\\__init__.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:34",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:215",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:34",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/tests/stress.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:34",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:34",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:34",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:73",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:706",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:234",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:12",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/terrain.rs:137",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:706",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:234",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain.rs:137",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain.rs:137",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:1334",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/terrain.rs:137",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\app\\src\\terrain.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\core\\src\\assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "\\VoxelForge-V3\\crates\\core\\src\\assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/terrain.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:927",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/terrain.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:927",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "assembly.rs:927",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "stress_matrix.rs:225",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:796",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:191",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/tests/stress_matrix.rs:225",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:796",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "main.rs:796",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/tests/stress_matrix.rs:225",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:191",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:191",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/tests/stress_matrix.rs:225",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:661",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "stress_matrix.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "stress.rs:310",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:797",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:72",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:116",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/tests/stress.rs:310",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:1106",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/ui.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/ui.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:116",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs:240",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs:108",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs:240",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs:108",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:4",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/blender_mount_points.py:202",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/blender_mount_points.py:202",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs:108",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/placement.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "assembly.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "assembly.rs:57",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs:108",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/assembly.rs:57",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:407",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/placement.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:407",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/app/src/main.rs:407",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs:192",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/blender_mount_points.py",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs:192",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/blender_mount_points.py:208",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "crates/core/src/module.rs",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    },
+    {
+     "claim": "validation_test.rs",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "/export_modules.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "/export_modules.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "/panel_grid.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "/export_modules.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "/export_modules.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "/panel_utils.py",
+     "exists": false,
+     "guard": "refuted",
+     "wide_ok": true
+    },
+    {
+     "claim": "tools/blender_mount_points.py",
+     "exists": true,
+     "guard": "verified",
+     "wide_ok": true
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T10",
+ "arm": "bare_model",
+ "run_idx": 2,
+ "ts": 1787817215,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n1. **地形纯黑色切面**：地形渲染使用背面剔除（`CullMode::Back`），当摄像机位于地形背面（法线反方向）时，背面被剔除，正面因深度冲突或法线翻转导致全黑。常见于地形网格法线未统一或顶点顺序错误，或使用单面材质（`Material` 未设置 `double_sided: true`）。\n2. **斜坡上坡侧挂点不显示**：挂点过滤逻辑基于地形法线与挂点法线的点积（`dot(normal, up) > threshold`），斜坡上坡侧法线方向与挂点法线夹角过大，被误判为“不可挂载”而过滤掉。过滤阈值未考虑斜坡角度，或未使用“挂点法线 vs 地形表面切线”的投影判断。\n3. **碎片数归零绕过孤岛豁免**：车辆解散逻辑仅检查“碎片总数 == 0”，未检查“车辆是否仍为连通图”。当手动移除所有碎片（包括核心碎片）时，碎片数归零，直接触发解散，绕过“孤岛豁免”（即车辆仍由至少一个连通组件构成时不应解散）。\n4. **孤岛车完整性判定**：当前使用“碎片数量”或“是否存在核心”作为完整性依据，未使用图论连通性。需改为“边连通图断裂才解散”，即车辆碎片图（节点=碎片，边=连接约束）中，若移除某碎片后图分裂为多个连通分量，且车辆不再满足“单一连通组件”条件，才解散。\n\n【定位】\n- 地形渲染：`terrain_render.rs:TerrainMaterial`（推测，材质未设置 `double_sided`）或 `terrain_mesh.rs:build_terrain_mesh`（法线生成逻辑，推测）。\n- 挂点过滤：`attachment_filter.rs:filter_attachment_points`（推测，点积阈值判断）。\n- 解散逻辑：`vehicle_dissolve.rs:check_dissolve_condition`（推测，仅检查碎片数）。\n- 连通性判定：`vehicle_graph.rs:is_connected`（推测，未实现或未调用）。\n\n【修复方案】\n1. **地形黑色切面**：\n   - 在 `TerrainMaterial` 中设置 `double_sided: true`（或 `CullMode::None`），确保背面可见。\n   - 检查 `build_terrain_mesh` 中法线生成：确保所有三角形顶点顺序为逆时针（面向外部），并统一法线方向（如使用 `compute_flat_normals` 后验证 `dot(normal, face_center - mesh_center) > 0`）。\n2. **斜坡挂点过滤**：\n   - 修改 `filter_attachment_points`：将过滤条件从“挂点法线与地形法线点积”改为“挂点法线与地形表面切线（`tangent`）的夹角”，或放宽阈值（如 `dot > 0.2` 改为 `dot > -0.2`），并增加“挂点是否位于地形表面上方”的射线检测（`raycast` 从挂点向下，命中地形则保留）。\n   - 对斜坡上坡侧，额外允许“挂点法线与地形法线夹角 < 90°”的情况（即允许侧向挂载）。\n3. **碎片数归零绕过豁免**：\n   - 在 `check_dissolve_condition` 中，先检查“车辆是否仍存在至少一个核心碎片（`is_core`）”，若存在则不解散。\n   - 若碎片数归零但车辆仍有核心，则跳过解散；若核心也被移除，则正常解散。\n4. **孤岛车完整性改为边连通图**：\n   - 在 `vehicle_graph.rs` 中实现 `is_connected` 函数：构建碎片图（节点=碎片，边=连接约束），使用 BFS/DFS 从任意碎片出发，若访问节点数 == 碎片总数，则连通。\n   - 在 `check_dissolve_condition` 中，将“碎片数 == 0”条件替换为“`!is_connected(vehicle)` 且 `碎片数 > 0`”，即仅当图断裂（存在多个连通分量）时才解散。若碎片数为 0 但车辆仍连通（如仅剩核心），则不解散。",
+ "tokens_in": 190,
+ "tokens_out": 950,
+ "turns": 1,
+ "cost_usd": 0.0011,
+ "walltime_s": 9.0,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "fail",
+  "R3": "fail"
+ }
+}

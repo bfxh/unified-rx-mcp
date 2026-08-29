@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T07",
+ "arm": "bare_model",
+ "run_idx": 2,
+ "ts": 1787817155,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n该缺陷涉及 Blender 插件（Python）中两个独立问题：\n1. **层级导出错误**：插件在导出 parent-children 层级时，未正确处理物体变换的累积（world matrix 未应用或应用顺序错误），导致子物体位置/旋转偏移，进而造成形状缺失、挂点（empty 或 armature 骨骼）不全。同时，GLB 导出时可能未将 Blender 的 Z-up 坐标转换为 GLB 的 Y-up，或未正确设置场景根节点，导致内容错乱。\n2. **坐标偏移半格**：在将 Blender 世界坐标转换为格子坐标时，使用了 `int()` 或 `floor()` 直接截断，未考虑浮点精度误差（如 0.5 边界值），导致偶尔偏移半格。\n\n【定位】\n- `blender_export_plugin/export_utils.py:export_hierarchy` （推测，负责遍历场景树并导出节点）\n- `blender_export_plugin/export_utils.py:apply_world_transform` （推测，负责计算世界矩阵）\n- `blender_export_plugin/glb_exporter.py:export_scene` （推测，负责 GLB 场景根节点与坐标轴转换）\n- `blender_export_plugin/coordinate_converter.py:world_to_grid` （推测，负责坐标转换，存在 `int()` 截断逻辑）\n\n【修复方案】\n1. **层级导出**：\n   - 在遍历场景树时，对每个物体显式获取 `obj.matrix_world`，并确保子物体使用 `parent.matrix_world.inverted() @ child.matrix_world` 计算局部变换，避免累积误差。\n   - 导出 GLB 时，在场景根节点应用 `Z-up → Y-up` 的旋转矩阵（`mathutils.Matrix.Rotation(-90, 4, 'X')`），并确保所有节点变换均基于该根节点。\n   - 挂点（empty/armature）需作为独立节点导出，并显式包含其 world transform，不可省略或合并到父节点。\n2. **坐标偏移**：\n   - 将 `world_to_grid` 中的 `int(x)` 改为 `round(x)`，并在转换前对坐标值加上一个极小 epsilon（如 `1e-6`）以消除浮点误差。\n   - 若格子尺寸非 1，需先除以格子尺寸再 `round()`，并确保所有坐标转换使用同一精度常量。\n3. **验证**：修复后，在 Blender 中创建多层嵌套物体并导出，检查 GLB 在外部查看器中层级、挂点、坐标是否一致；对随机坐标点进行 1000 次转换测试，确认无半格偏移。",
+ "tokens_in": 160,
+ "tokens_out": 598,
+ "turns": 1,
+ "cost_usd": 0.0007,
+ "walltime_s": 5.7,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

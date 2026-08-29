@@ -1,0 +1,10 @@
+{"id": "YA-001", "source": "product-data-audit", "date": "2026-08-27", "file": "YanData/config.json:21", "rule_expect": "api_key_sk", "verdict": "tp", "note": "sk 前缀 51 字符真实活跃供应商 key，掩码留证；检测规则当时为值形状 api_key_sk"}
+{"id": "YA-002", "source": "product-data-audit", "date": "2026-08-27", "file": "YanData/config.json:22", "rule_expect": "api_key_sk", "verdict": "tp", "note": "sk 前缀 35 字符真实 key"}
+{"id": "YA-003", "source": "product-data-audit", "date": "2026-08-27", "file": "YanData/config.json:140", "rule_expect": "api_key_sk", "verdict": "tp", "note": "同一 key 的第二处落位（apiKeys 顶层副本），每次出现独立计真阳"}
+{"id": "YA-004", "source": "product-data-audit", "date": "2026-08-27", "file": "YanData/config.json:148", "rule_expect": "api_key_sk", "verdict": "tp", "note": "同上"}
+{"id": "YA-005", "source": "product-data-audit", "date": "2026-08-27", "file": "YanData/config.json:465", "rule_expect": "api_key_sk", "verdict": "tp", "note": "providerConfigs 内第三处落位"}
+{"id": "YA-006", "source": "product-data-audit", "date": "2026-08-27", "file": "YanData/config.json:484", "rule_expect": "api_key_sk", "verdict": "tp", "note": "同上"}
+{"id": "YA-007", "source": "synthetic-replay-of-real-shape", "date": "2026-08-27", "file": "tests/test_appaudit.py (mini-app settings.json)", "rule_expect": "secret_by_key", "verdict": "tp", "note": "无前缀 id.secret 型凭据值形状抓不到；键名指认捕获。真实同型例：产品 config 内 df11...49 键（手动走查发现于补记）——该键同时证明旧审计层漏报是真实风险"}
+{"id": "YA-008", "source": "synthetic", "date": "2026-08-27", "file": "tests/test_appaudit.py (mini-app private.pem)", "rule_expect": "private_key_block", "verdict": "tp", "note": ".pem 扩展名盲区修复后可在真实凭据文件类型上命中"}
+{"id": "YA-100", "source": "methodology-record", "date": "2026-08-27", "rule_expect": null, "note": "opencode 内核 1.18.11 对上游 1.18.23 为显式钉版——非文本规则可判项，排除出统计"}
+{"id": "YA-101", "source": "source-audit-manual", "date": "2026-08-27", "file": "main/bootstrap.js:4095", "rule_expect": null, "note": "provider:get-secret 明文回传为源码级人工实锤；AST 不理解 IPC 语义层——该类问题属于更大颗粒层，记录边界"}

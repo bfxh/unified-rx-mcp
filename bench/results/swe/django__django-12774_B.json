@@ -1,0 +1,247 @@
+{
+ "instance_id": "django__django-12774",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774",
+ "tokens_in": 34968,
+ "tokens_out": 1155,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 1012
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 202
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": 222
+  },
+  {
+   "tool": "fs_read",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 13.4,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "django/db/models/query.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: django/db/models/query.py\n<<<<<<< SEARCH\n    def in_bulk(self, id_list=None, *, field_name=\"pk\"):\n        \"\"\"\n        Return a dictionary mapping each of the given IDs to the object with\n        that ID. If `id_list` isn't provided, evaluate the entire QuerySet.\n        \"\"\"\n        if self.query.is_sliced:\n            raise TypeError(\"Cannot use 'limit' or 'offset' with in_bulk().\")\n        opts = self.model._meta\n        unique_fields = [\n            constraint.fields[0]\n            for constraint in opts.total_unique_constraints\n            if len(constraint.fields) == 1\n        ]\n        if field_name != \"pk\" and (\n            field_name not in opts.unique_together\n            and field_name not in unique_fields\n            and field_name not in opts.unique_fields\n            and field_name not in [field.name for field in opts.fields if field.unique]\n        ):\n            raise ValueError(\n                \"in_bulk()'s field_name must be a unique field but %r isn't.\"\n                % field_name\n            )\n        if id_list is not None:\n            if not id_list:\n                return {}\n            filter_key = f\"{field_name}__in\"\n            return self.filter(**{filter_key: id_list})\n        return self\n=======\n    def in_bulk(self, id_list=None, *, field_name=\"pk\"):\n        \"\"\"\n        Return a dictionary mapping each of the given IDs to the object with\n        that ID. If `id_list` isn't provided, evaluate the entire QuerySet.\n        \"\"\"\n        if self.query.is_sliced:\n            raise TypeError(\"Cannot use 'limit' or 'offset' with in_bulk().\")\n        opts = self.model._meta\n        unique_fields = [\n            constraint.fields[0]\n            for constraint in opts.total_unique_constraints\n            if len(constraint.fields) == 1\n        ]\n        if field_name != \"pk\" and (\n            field_name not in opts.unique_together\n            and field_name not in unique_fields\n            and field_name not in opts.unique_fields\n            and field_name not in [field.name for field in opts.fields if field.unique]\n        ):\n            raise ValueError(\n                \"in_bulk()'s field_name must be a unique field but %r isn't.\"\n                % field_name\n            )\n        if id_list is not None:\n            if not id_list:\n                return {}\n            filter_key = f\"{field_name}__in\"\n            return self.filter(**{filter_key: id_list})\n        return self\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches allow in_bulk() for single-field UniqueConstraints by checking total_unique_constraints. Candidate also checks unique_together and unique_fields, but core fix matches gold."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ne 7, in <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 709\n    if batch_size and batch_size < len(id_list):\nIndentationError: unexpected indent\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": " <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 718\n    qs = self.filter(**{filter_key: id_list}).order_by()\nIndentationError: unexpected indent\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": " <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 718\n    qs = self.filter(**{filter_key: id_list}).order_by()\nIndentationError: unexpected indent\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": " <module>\n    from django.db import models\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\__init__.py\", line 25, in <module>\n    from django.db.models.manager import Manager\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\manager.py\", line 6, in <module>\n    from django.db.models.query import QuerySet\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 718\n    qs = self.filter(**{filter_key: id_list}).order_by()\nIndentationError: unexpected indent\n"
+   }
+  ],
+  "walltime_s": 16.6
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.005s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+   }
+  ],
+  "walltime_s": 11.3
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.003s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "django/db/models/query.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-12774\\django\\db\\models\\query.py\", line 693, in in_bulk\n    raise ValueError(\"in_bulk()'s field_name must be a unique field but %r isn't.\" % field_name)\nValueError: in_bulk()'s field_name must be a unique field but 'year' isn't.\n\n----------------------------------------------------------------------\nRan 1 test in 0.004s\n\nFAILED (errors=1)\nDestroying test database for alias 'default'...\n\n"
+   }
+  ],
+  "walltime_s": 13.0
+ }
+}

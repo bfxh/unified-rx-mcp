@@ -1,0 +1,94 @@
+{
+ "task_id": "VF3-T17",
+ "arm": "model_plus_rx",
+ "run_idx": 0,
+ "ts": 1787819037,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n1. **新开局载具埋入山体**：开局载具生成时只按逻辑格坐标放置，未对地形高度做采样与抬升。生成点落在山体内部时，载具 root 模块直接嵌入地形，无“贴地抬升”逻辑。\n\n2. **拿起模块时本体与 ghost 同时可见**：拿起动作只把模块从装配中移除并生成 ghost 预览，但原实体未隐藏/销毁，导致本体与半透明 ghost 重叠显示。\n\n3. **R 旋转只换逻辑格、GLB 外观不转**：旋转仅更新了 `GridRotation` 逻辑状态（cells 不变），但未同步更新实体 Transform 的旋转分量，GLB 模型外观停留在原朝向。\n\n4. **埋地挂点与已占用邻格仍显示可连接提示**：连接点提示的过滤条件只检查“外露边缘 + 距离”，未排除“目标格已被占用”和“目标格埋入地形”两种情况，导致无效挂点仍高亮。\n\n5. **轮子可装到车顶**：轮子类别（`Category::Wheel`）的挂点过滤未限制“必须朝下/贴地”，候选挂点包含车顶顶面，且未做“轮子只能装底面”的类别约束。\n\n【定位】\n\n- `crates/app/src/main.rs:spawn_vehicle_entity`（开局载具生成，无地形采样抬升）——(推测，依据 docs 中 `spawn_vehicle_entity` 符号)\n- `crates/app/src/main.rs:pick_snap_feedback`（拿起/预览/放置交互，本体未隐藏）——(推测，依据 STANDARDS.md 中 `pick_snap_feedback` 符号)\n- `crates/app/src/main.rs:rotate_around_y`（R 键旋转，仅更新 rot24 未同步 Transform）——(推测，依据 EDITOR_MODE.md 中 `rotate_around_y` 符号)\n- `crates/app/src/main.rs:1204`（连接点显示：仅按 5 米外露边缘过滤，未排除占用格/埋地格）\n- `crates/app/src/main.rs:497`（轮子候选位过滤：注释明确“轮子不上车顶”但实现未生效，候选正上方顶面位未被排除）\n- `crates/core/src/module.rs:46`（`Category::Wheel` 枚举，挂点类别约束缺失）\n\n【修复方案】\n\n1. **载具埋山**：在 `spawn_vehicle_entity` 生成 root 模块后，对 root 格坐标做地形高度采样（raycast 向下或查高度图），将载具整体抬升到地形表面之上（root 底面贴地），再放置其余模块。\n\n2. **本体与 ghost 重叠**：拿起模块时，将原实体 `Visibility` 设为 Hidden（或 Despawn 原实体），仅保留 ghost 预览；放置成功后再生成新实体，取消拿起则恢复原实体可见。\n\n3. **R 旋转外观不转**：在 `rotate_around_y` 更新 rot24 后，同步更新该实体 `Transform.rotation`（绕 Y 轴按象限步进 90°），使 GLB 模型与逻辑格朝向一致。\n\n4. **无效挂点提示**：在连接点显示过滤条件中追加两条：① 目标格已被装配占用则跳过；② 目标格中心低于地形表面（埋地）则跳过。仅对“外露 + 未占用 + 未埋地”的挂点显示可连接提示。\n\n5. **轮子装车顶**：在轮子候选挂点过滤中，排除法向朝上的顶面挂点（仅允许朝下/侧面挂点），并校验目标格下方无载具模块（即轮子必须位于载具最底部外侧）。若模块定义含 `layer`/`accepts` 约束，则对 `Category::Wheel` 强制“仅底面挂点可连”。\n\n以上改动均集中在 `crates/app/src/main.rs` 的交互与生成系统，核心 `assembly.rs` 无需改动。",
+ "tokens_in": 40542,
+ "tokens_out": 1541,
+ "turns": 11,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.01264,
+ "walltime_s": 19.2,
+ "notes": [
+  "round0: 5 calls 10787ch (3.5s)",
+  "round1: 1 calls 192ch (1.3s)",
+  "round2: 1 calls 157ch (0.9s)",
+  "round3: 1 calls 151ch (2.0s)",
+  "round4: 1 calls 133ch (1.0s)",
+  "round5: 1 calls 133ch (1.0s)"
+ ],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

@@ -24,10 +24,30 @@ import tools  # noqa: F401
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.0.0"
+SERVER_VERSION = "2.3.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
+
+# S3-B3+S10：取消登记唯一事实源迁移至 registry（__main__/import 双世界陷阱见 registry 注释）
+def cancel_flag(msg_id):
+    """兼容出口：等价 registry.cancel_flag。"""
+    return registry.cancel_flag(msg_id)
+
+
+def _notify(method, params):
+    """S3-B2 服务器 → 客户端通知（logging/progress/cancelled 语义复用同一出口）。"""
+    _send({"jsonrpc": "2.0", "method": method, "params": params})
+
+
+def log_msg(level, message, logger="unified-rx"):
+    """S3-B2 MCP logging 能力：协议内通知而非 stderr（宿主日志面板可见）。"""
+    if level not in ("debug", "info", "warning", "error"):
+        level = "info"
+    try:
+        _notify("notifications/message", {"level": level, "logger": logger, "data": str(message)})
+    except Exception:
+        pass  # 通知失败绝不拖垮主流程
 
 
 def _read_line():
@@ -61,12 +81,21 @@ def _handle(msg):
             "id": msg_id,
             "result": {
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}},
+                # S3: capabilities 声明 logging；tools.listChanged 供宿主订阅工具面变化
+                "capabilities": {"tools": {"listChanged": True}, "logging": {}},
                 "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
             },
         }
     if method == "notifications/initialized":
         return None
+    if method == "notifications/cancelled":
+        # S3-B3/S10：客户端取消请求 → 置位 registry 层旗标，长任务（local_run 等）轮询退出
+        rid = (params or {}).get("requestId")
+        registry.set_cancelled(rid)
+        return None
+    if method == "logging/setLevel":
+        # S3-B2：级别协商（实现为全部放行，过滤留给 log_msg 调用方）
+        return {"jsonrpc": "2.0", "id": msg_id, "result": {}}
     if method == "ping":
         return {"jsonrpc": "2.0", "id": msg_id, "result": {}}
     if method == "tools/list":
@@ -79,7 +108,15 @@ def _handle(msg):
         name = params.get("name", "")
         args = params.get("arguments") or {}
         # __authorized 授权由 registry.call 的 requires_auth 统一强制（UPGRADE-A1）
-        result = registry.call(name, args)
+        # S10：绑定请求上下文——工具内部（local_run 取消轮询）可查 cancel_flag(request_id)
+        registry.set_request_context(msg_id)
+        # S12：progressToken 透传（MCP 规范 notifications/progress）
+        ptoken = (params.get("_meta") or {}).get("progressToken")
+        registry.set_progress_context(ptoken)
+        try:
+            result = registry.call(name, args)
+        finally:
+            registry.clear_request_context()
         if result.get("ok"):
             content = [{"type": "text", "text": json.dumps(result["result"], ensure_ascii=False)}]
         else:
@@ -99,7 +136,9 @@ def _handle(msg):
 def selftest():
     """注册表自检：工具数 + 每个工具 schema 合法 + 抽样调用。"""
     # fail-closed 下自检自身也会被拦：未显式配沙盒时临时放开（仅本进程）
-    os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
+    # S43 安全修复：缺省不再 "*" 全开——忘配沙盒 = fail-closed 拒绝
+    # （S0 设计本意；可信宿主须显式 UNIFIED_RX_SANDBOX="*" 或列白名单）
+    os.environ.setdefault("UNIFIED_RX_SANDBOX", "__URX_UNSET__")
     n = registry.tool_count()
     print(f"SELFTEST tools={n}")
     groups = registry.groups()
@@ -115,6 +154,16 @@ def selftest():
 def main():
     if "--selftest" in sys.argv:
         sys.exit(selftest())
+    # 通知 stdout 由 main 持有；log_msg 从任意线程安全发送
+    registry.set_notifier(lambda level, msg: log_msg(level, msg))
+
+    def _send_progress(token, progress, message=None):
+        p = {"progressToken": token, "progress": progress}
+        if message:
+            p["message"] = str(message)[:120]
+        _send({"jsonrpc": "2.0", "method": "notifications/progress", "params": p})
+
+    registry.set_progress_sender(_send_progress)
     # 协议主循环：tools/call 交给线程池执行，主循环继续读 stdin。
     # 慢工具（local_run/fs_list/engine_query）不再阻塞 ping/keepalive，
     # 否则 Hermes 会判定服务器失联并重连，最终把 in-flight 调用掐成 300s 超时。
@@ -131,6 +180,8 @@ def main():
             continue
         if msg.get("method") == "tools/call":
             msg_id = msg.get("id")
+            # S3-B3/S10：登记可取消旗标；完成/取消后清理（实现已迁至 registry）
+            ev = registry.register_cancel(msg_id)
 
             def _done(fut, _id=msg_id):
                 try:
@@ -140,6 +191,7 @@ def main():
                             "error": {"code": -32603, "message": str(e)}}
                 if resp is not None:
                     _send(resp)
+                registry.release_cancel(_id)
 
             executor.submit(_handle, msg).add_done_callback(_done)
             continue

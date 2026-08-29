@@ -1,0 +1,99 @@
+{
+ "task_id": "VF3-T19",
+ "arm": "model_plus_rx",
+ "run_idx": 0,
+ "ts": 1787819154,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n1. **建造态散件被重力拖走**：`vehicle_freeze_system`（`crates/app/src/main.rs:1432`）虽已实现\"默认冻结（RigidBodyDisabled）\"，但冻结判定仅覆盖\"载具整体\"（Vehicle 根实体），未递归覆盖建造模式下**散件/未挂载模块**（独立 RigidBody 实体）。散件在建造态仍持有 `RigidBody::Dynamic` + `GravityScale > 0`，物理引擎照常积分，导致被重力拖走。\n2. **拼接目标对不上逻辑格**：散件被重力拖走后，其 `Transform` 已偏离逻辑格坐标（整数格对齐），`try_place_module` 的吸附计算基于实时物理位置而非冻结时的逻辑格快照，故拼接目标始终错位。\n3. **松开方向键车滑很远**：`vehicle_freeze_system` 的\"驾驶解冻→停止回冻\"状态机中，回冻条件仅检测\"无方向键输入\"，未检测**实际速度是否归零**。松开键瞬间速度仍非零，回冻时直接 `RigidBodyDisabled` 会保留残余线速度/角速度，物理引擎在下一帧按惯性继续滑动。\n4. **地形无层次感且岩块无碰撞**：`build_terrain`（`crates/app/src/terrain.rs:134`）仅生成单一高度场（低频噪声），无远景起伏/台地/岩石群分层；`ground_collider_for_mode` 只给地面平面生成碰撞体，`rock_cells` 仅生成视觉 Mesh，未附加 `Collider` 组件。\n\n【定位】\n\n- `crates/app/src/main.rs:vehicle_freeze_system` — 冻结范围仅覆盖载具根实体，未递归冻结散件；回冻条件缺速度归零判定。\n- `crates/app/src/main.rs:vehicle_move_system` — 驾驶输入解冻逻辑未同步处理散件。\n- `crates/app/src/terrain.rs:build_terrain` — 高度场仅单层低频噪声，无台地/远景起伏分层。\n- `crates/app/src/terrain.rs:ground_collider_for_mode` — 仅地面平面有碰撞，岩块无碰撞体。\n- `crates/app/src/terrain.rs:rock_cells` — 岩块仅生成视觉 Mesh，未附加 `Collider`。\n- `crates/app/src/main.rs:try_place_module`（(推测) 调用链）— 吸附计算基于实时物理 Transform，未使用冻结逻辑格快照。\n\n【修复方案】\n\n**一、建造态冻结语义（最小改动）**\n\n1. **递归冻结散件**：在 `vehicle_freeze_system` 中，除冻结载具根实体外，遍历 `Children` 递归查找所有带 `RigidBody` 的散件实体，统一设为 `RigidBodyDisabled`；同时记录每个散件的逻辑格坐标（`GridPos` 组件或 `Transform.translation` 取整）到 `FrozenGridSnapshot` 组件。\n2. **回冻条件加速度归零**：在\"停止回冻\"分支中，先检查 `LinearVelocity.length_squared() < EPS`（建议 `EPS = 0.01`）且 `AngularVelocity.length_squared() < EPS`，满足后才执行 `RigidBodyDisabled`；否则保持 `Dynamic` 并施加阻尼（`LinearDamping = 2.0`）加速减速。\n3. **拼接吸附改用冻结快照**：`try_place_module` 的吸附计算改为读取 `FrozenGridSnapshot` 中的逻辑格坐标，而非实时物理 Transform；散件在建造态下物理位置被冻结，逻辑格坐标即为冻结时快照值，保证对齐。\n\n**二、地形升级方案**\n\n1. **分层高度场**：在 `build_terrain` 中叠加三层噪声——低频大尺度起伏（波长 200~400m，振幅 8~15m）作为远景山体；中频台地噪声（波长 50~100m，阶梯量化 `floor(h / step) * step`，step=3m）生成台地地貌；高频细节噪声（波长 5~15m，振幅 0.5~1m）作为地表细节。\n2. **岩块碰撞**：在 `rock_cells` 生成岩块 Mesh 时，为每个岩块实体附加 `Collider::convex_hull(vertices)`（或 `Collider::cuboid` 近似），并设置 `RigidBody::Static` + `Friction = 0.8`，确保岩块有真实碰撞。\n3. **岩石群生成**：在 `build_terrain` 末尾，按台地边缘/山脚区域用泊松盘采样生成 3~8 块成组岩石（尺寸 0.5~3m 随机），复用 `rock_cells` 的生成逻辑并附加碰撞体。",
+ "tokens_in": 26931,
+ "tokens_out": 1835,
+ "turns": 12,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "project_scan",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00929,
+ "walltime_s": 19.4,
+ "notes": [
+  "round0: 2 calls 575ch (0.9s)",
+  "round1: 1 calls 157ch (0.9s)",
+  "round2: 2 calls 4399ch (1.9s)",
+  "round3: 2 calls 4493ch (2.3s)",
+  "round4: 2 calls 2080ch (1.5s)",
+  "round5: 2 calls 352ch (1.3s)"
+ ],
+ "judge": {
+  "R1": "fail",
+  "R2": "fail",
+  "R3": "fail"
+ }
+}

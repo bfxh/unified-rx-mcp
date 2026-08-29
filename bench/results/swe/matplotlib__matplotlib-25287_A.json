@@ -1,0 +1,79 @@
+{
+ "instance_id": "matplotlib__matplotlib-25287",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\matplotlib__matplotlib-25287",
+ "tokens_in": 10904,
+ "tokens_out": 524,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 7.5,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 2,
+  "sr_applied": 2,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 0,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/lib/matplotlib/axis.py b/lib/matplotlib/axis.py\nindex c0e706e..ef57f58 100644\n--- a/lib/matplotlib/axis.py\n+++ b/lib/matplotlib/axis.py\n@@ -2255,7 +2255,9 @@ class XAxis(Axis):\n             transform=mtransforms.blended_transform_factory(\n                 self.axes.transAxes, mtransforms.IdentityTransform()),\n             fontsize=mpl.rcParams['xtick.labelsize'],\n-            color=mpl.rcParams['xtick.color'],\n+            color=(mpl.rcParams['xtick.labelcolor']\n+                   if mpl.rcParams['xtick.labelcolor'] != 'inherit'\n+                   else mpl.rcParams['xtick.color']),\n         )\n         self.offset_text_position = 'bottom'\n \n@@ -2515,7 +2517,9 @@ class YAxis(Axis):\n             transform=mtransforms.blended_transform_factory(\n                 self.axes.transAxes, mtransforms.IdentityTransform()),\n             fontsize=mpl.rcParams['ytick.labelsize'],\n-            color=mpl.rcParams['ytick.color'],\n+            color=(mpl.rcParams['ytick.labelcolor']\n+                   if mpl.rcParams['ytick.labelcolor'] != 'inherit'\n+                   else mpl.rcParams['ytick.color']),\n         )\n         self.offset_text_position = 'left'\n \n"
+ },
+ "answer": "```sr\npath: lib/matplotlib/axis.py\n<<<<<<< SEARCH\n            color=mpl.rcParams['xtick.color'],\n=======\n            color=(mpl.rcParams['xtick.labelcolor']\n                   if mpl.rcParams['xtick.labelcolor'] != 'inherit'\n                   else mpl.rcParams['xtick.color']),\n>>>>>>> REPLACE\n```\n\n```sr\npath: lib/matplotlib/axis.py\n<<<<<<< SEARCH\n            color=mpl.rcParams['ytick.color'],\n=======\n            color=(mpl.rcParams['ytick.labelcolor']\n                   if mpl.rcParams['ytick.labelcolor'] != 'inherit'\n                   else mpl.rcParams['ytick.color']),\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches change offsetText color to use labelcolor unless 'inherit', then fallback to tick color. Candidate is functionally identical to gold."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "base_tail": "precated - use 'reset_cache'\n    parser.resetCache()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR lib/matplotlib/tests/test_axes.py - pyparsing.warnings.PyparsingDepreca...\nERROR lib/matplotlib/tests/test_axes.py - pyparsing.warnings.PyparsingDepreca...\n10 warnings, 2 errors in 1.20s\n",
+  "ftb_pass": true,
+  "ftb_tail": "otlib/_fontconfig_pattern.py:92\n  /mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe/matplotlib__matplotlib-25287/lib/matplotlib/_fontconfig_pattern.py:92: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'\n    parser.resetCache()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR lib/matplotlib/tests/test_axes.py - pyparsing.warnings.PyparsingDepreca...\nERROR lib/matplotlib/tests/test_axes.py - pyparsing.warnings.PyparsingDepreca...\n10 warnings, 2 errors in 0.71s\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

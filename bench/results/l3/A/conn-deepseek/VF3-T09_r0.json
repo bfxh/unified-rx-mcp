@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T09",
+ "arm": "bare_model",
+ "run_idx": 0,
+ "ts": 1787817182,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n当前每个模块实例都持有独立的 `MeshHandle` 和 `MaterialHandle`，且这些句柄指向的底层 GPU 资源（顶点缓冲、索引缓冲、材质参数缓冲）在克隆时被复制。当实例数量达到数百时，GPU 显存占用随实例数线性增长，且 CPU 侧 `Assets<Mesh>` / `Assets<StandardMaterial>` 中的克隆资源也同步膨胀，导致内存与显存双重线性上涨。核心问题是：**同一几何体/材质被重复上传到 GPU，未利用实例化（instancing）或共享资源机制**。\n\n【定位】\n- `crates/render/src/mesh.rs:Mesh::clone`（推测：克隆时复制 `VertexBuffer` / `IndexBuffer` 数据）\n- `crates/render/src/material.rs:StandardMaterial::clone`（推测：克隆时复制材质参数缓冲）\n- `crates/scene/src/module.rs:Module::spawn`（推测：每个模块调用 `meshes.add(...)` 和 `materials.add(...)` 创建独立资源）\n\n【修复方案】\n1. **共享静态资源**：将模块的 mesh 和材质定义为 `static` 或 `OnceLock<Handle<Mesh>>` / `OnceLock<Handle<StandardMaterial>>`，在首次使用时创建一次，后续所有实例仅持有 `Handle` 引用（`Handle` 本身是轻量级 ID，不复制 GPU 数据）。\n2. **启用实例化渲染**：若模块几何体完全相同，改用 `Mesh::from(InstancedMesh)` 或使用 `bevy_instancing` 插件，将每个实例的变换矩阵（`Transform`）打包进一个动态 uniform buffer，仅上传一次几何体，GPU 侧通过 `instance_index` 读取变换。这可将显存占用从 `O(N * mesh_size)` 降为 `O(mesh_size + N * 16B)`。\n3. **材质去重**：若材质参数相同，使用 `Material::from(shared_handle)` 共享；若参数有差异，仅克隆参数缓冲（通常 < 1KB），而非整个材质资源。\n4. **资源生命周期管理**：确保 `Assets` 中未使用的资源被 `AssetServer` 自动回收（设置 `AssetServerSettings` 的 `watch_for_changes` 和 `reload_unchanged_watchers`），避免克隆残留。\n\n**收益量级**：\n- 显存：从 `O(N * mesh_size)` 降至 `O(mesh_size + N * 16B)`，若每个 mesh 约 1MB，N=500 时从 500MB 降至约 1MB + 8KB，**降低约 99.8%**。\n- 内存：CPU 侧 `Assets` 中资源数量从 `N` 个降为 `1` 个，内存占用减少约 `(N-1) * mesh_size`，同样接近 99% 降幅。\n- 若仅做共享（不做实例化），显存降为 `O(mesh_size)`，但 CPU 仍需每实例一个 `Transform`，收益约 99% 显存 + 少量 CPU 内存。",
+ "tokens_in": 133,
+ "tokens_out": 692,
+ "turns": 1,
+ "cost_usd": 0.0008,
+ "walltime_s": 6.8,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

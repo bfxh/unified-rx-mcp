@@ -1,0 +1,228 @@
+{
+ "instance_id": "pylint-dev__pylint-4661",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661",
+ "tokens_in": 10802,
+ "tokens_out": 649,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": "pipe",
+   "ms": 2,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 10.0,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "none",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 0,
+  "sr_applied": 0,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "path: pylint/config.py",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate patch is empty; no actual code changes provided to address XDG compliance."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "====================\nERROR tests/lint/unittest_lint.py\n1 error in 0.16s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 2,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.08s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.07s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.08s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.08s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   }
+  ],
+  "walltime_s": 53.1
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 2,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.10s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.10s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.10s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.10s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   }
+  ],
+  "walltime_s": 50.0
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 2,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.11s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.10s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.10s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "e[level:], package, level)\ntests\\lint\\unittest_lint.py:49: in <module>\n    import appdirs\nE   ModuleNotFoundError: No module named 'appdirs'\n=========================== short test summary info ===========================\nERROR tests/lint/unittest_lint.py\n1 error in 0.10s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-4661\\tests\\lint\\unittest_lint.py::test_pylint_home\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-4661\\\\tests\\\\lint\\\\unittest_lint.py::test_pylint_home' in any of [<Module unittest_lint.py>])\n\n"
+   }
+  ],
+  "walltime_s": 47.8
+ }
+}

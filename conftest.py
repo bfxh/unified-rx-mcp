@@ -8,10 +8,12 @@ import os
 import tempfile
 
 # pytest 默认跑在 fail-closed 沙盒内：未设置时 = 项目根 + 专用 tmp 前缀
+# （runner 上真实工作区不存在，用 checkout 根替代——等价且可移植）
 _TMP_BASE = os.path.join(tempfile.gettempdir(), "unified-rx-pytest")
 os.makedirs(_TMP_BASE, exist_ok=True)
+_WORKSPACE = os.path.dirname(os.path.abspath(__file__))
 os.environ.setdefault("UNIFIED_RX_SANDBOX", os.pathsep.join([
-    r"D:\开发",           # 真实工作区
+    _WORKSPACE,           # 真实工作区（本机=D:\开发，CI=checkout 根）
     _TMP_BASE,            # pytest 夹具专用前缀（进程内显式授权）
 ]))
 os.environ["UNIFIED_RX_SANDBOX"] = os.environ["UNIFIED_RX_SANDBOX"].replace(os.pathsep, ";")

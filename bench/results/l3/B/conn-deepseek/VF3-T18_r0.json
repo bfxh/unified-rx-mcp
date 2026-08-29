@@ -1,0 +1,99 @@
+{
+ "task_id": "VF3-T18",
+ "arm": "model_plus_rx",
+ "run_idx": 0,
+ "ts": 1787819086,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n1. **移动方向用了世界坐标系固定方向**：`vehicle_move_system` 中按键（上箭头/W）直接映射到世界坐标系的固定轴向（如 `Vec3::Z` 或 `Vec3::X`），未将输入向量乘以相机朝向（`camera.transform.forward` 的水平投影）或载具局部前向。当镜头旋转后，按键方向与屏幕显示方向脱节，出现\"按上箭头车横着走\"。\n2. **转向与运动脱节**：转向按固定角速度直接写入 `body.angular_velocity`（或 `rotation`），未与当前线速度方向/载具朝向耦合，导致转向角速度与实际运动方向不一致。\n3. **静止车辆缓慢下沉**：`wheel_suspension_system` 或重力/地形碰撞处理中，静止时悬挂弹簧的支撑力计算与重力积分存在残余误差（如半隐式 Euler 积分每帧累积微小下沉量），或地形高度采样与物理体底部存在固定偏移，导致静止车辆缓慢穿透地形。\n\n【定位】\n- `crates/app/src/main.rs:vehicle_move_system`（输入→移动向量映射，未乘相机朝向）\n- `crates/app/src/main.rs:vehicle_move_system`（转向角速度写入，未与运动方向耦合）\n- `crates/app/src/main.rs:wheel_suspension_system`（悬挂支撑力/地形高度采样，静止下沉）\n- `crates/app/src/main.rs:215`（系统注册处，确认上述系统存在）\n- `docs/legacy/root-notes/OLD-解决 VoxelForge 文档问题.md:19498`（历史记录证实 `apply_throttle` 曾用世界 Z 轴而非载具前向，属同类缺陷）\n\n【修复方案】\n1. **移动方向改为相机相对**：在 `vehicle_move_system` 中，取 `camera.transform.forward` 投影到水平面（Y=0）并归一化作为\"前向基准\"，将输入向量 `(up, down, left, right)` 映射为 `forward * input_z + right * input_x`，再施加到载具线速度。若希望\"车头跟随移动方向\"，则用载具局部前向替代相机前向（二选一，建议相机相对以匹配屏幕直觉）。\n2. **转向与运动耦合**：将转向改为\"目标航向角\"驱动——根据当前线速度方向与输入转向键计算目标 yaw，用比例控制（`yaw_error * k`）生成角速度，而非固定角速度直写；同时限制角速度上限（参考 `docs/TERRATECH_REFERENCE.md:102` 的 10 rad/s 上限）。\n3. **静止下沉修复**：在 `wheel_suspension_system` 中，当载具线速度低于阈值（如 0.05 m/s）且悬挂压缩量稳定时，将重力项与弹簧支撑力做显式平衡（支撑力 = 重力分量），并在地形高度采样处加一个极小 epsilon 抬升，消除积分累积下沉；或对静止载具冻结 Y 轴速度（复用 `vehicle_freeze_system` 的冻结逻辑）。",
+ "tokens_in": 34493,
+ "tokens_out": 1597,
+ "turns": 12,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.01107,
+ "walltime_s": 18.7,
+ "notes": [
+  "round0: 3 calls 6521ch (3.1s)",
+  "round1: 2 calls 379ch (1.7s)",
+  "round2: 1 calls 157ch (0.8s)",
+  "round3: 2 calls 271ch (1.1s)",
+  "round4: 2 calls 6193ch (3.0s)",
+  "round5: 1 calls 176ch (1.3s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "fail"
+ }
+}

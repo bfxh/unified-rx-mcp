@@ -1,0 +1,109 @@
+{
+ "instance_id": "django__django-15280",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15280",
+ "tokens_in": 93193,
+ "tokens_out": 1253,
+ "turns": 13,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 547
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 239
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 222
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 232
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": 228
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": 224
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 2
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 228,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 222,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 248,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 18.5,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "none",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 0,
+  "sr_applied": 0,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 3,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"code_search\">\n<｜｜DSML｜｜parameter name=\"query\" string=\"true\">def prefetch_related_objects</｜｜DSML｜｜parameter>\n<｜｜DSML｜｜parameter name=\"root\" string=\"true\">C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-15280\\django\\db\\models\\query.py</｜｜DSML｜｜parameter>\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate patch contains only a code search invocation with no actual diff or fix. It does not address the deferred field caching issue described in the problem."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "skip": "unparseable-ftb"
+ },
+ "repair": {
+  "skip": "base-already-green"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

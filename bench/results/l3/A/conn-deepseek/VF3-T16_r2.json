@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T16",
+ "arm": "bare_model",
+ "run_idx": 2,
+ "ts": 1787818929,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n1. **模型方向错误**：Blender 默认使用右手坐标系（Z 轴向上），而 Bevy 的 GLB 加载遵循 glTF 规范（Y 轴向上）。若 Blender 导出时未设置 `-Z` 为前向、`Y` 为向上的轴转换，模型会绕 X 轴旋转 90 度，导致“躺倒”。\n2. **无头环境注册问题**：Bevy 的 `AssetServer` 在无头模式（`MinimalPlugins`）下默认不注册 GLB 加载器，且 `RenderPlugin` 未启用时，`GltfAssetPlugin` 依赖的 `RenderAssetPlugin` 不会自动加载，导致资产无法解析。\n3. **链路缺失**：从 core 数据到 Blender 插件的导出流程未定义统一的轴约定与元数据传递（如单位、法线方向），导致游戏内加载后无法对齐。\n\n【定位】\n- `Blender 插件导出脚本`：`export_glb.py`（推测，需确认实际路径）——轴转换设置缺失。\n- `Bevy 资产注册`：`bevy::gltf::GltfPlugin`（`bevy_gltf` crate）——无头模式下未显式添加。\n- `Bevy 无头启动`：`App::new().add_plugins(MinimalPlugins)`（推测，需确认实际入口）——缺少 `AssetPlugin` 与 `GltfPlugin`。\n\n【修复方案】\n1. **Blender 导出轴修正**：在导出脚本中显式设置 `bpy.context.scene.transform.rotation_mode = 'XYZ'`，并调用 `bpy.ops.export_scene.gltf(axis_forward='-Z', axis_up='Y')`，确保模型在 glTF 坐标系中正确朝前。\n2. **无头环境注册**：在无头启动代码中，显式添加 `AssetPlugin` 和 `GltfPlugin`（即使无渲染），并确保 `AssetServer` 使用 `FileAssetIo` 或自定义 IO 以读取 GLB 文件。\n3. **链路统一**：在 core 数据定义中增加 `orientation` 字段（如 `forward: Vec3`），Blender 插件读取该字段并应用到导出前的旋转，游戏内加载后通过 `Transform::from_rotation` 校正，保证端到端一致。",
+ "tokens_in": 163,
+ "tokens_out": 535,
+ "turns": 1,
+ "cost_usd": 0.00063,
+ "walltime_s": 5.4,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

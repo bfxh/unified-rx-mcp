@@ -1,0 +1,82 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-10908",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-10908",
+ "tokens_in": 13559,
+ "tokens_out": 3231,
+ "turns": 7,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  }
+ ],
+ "walltime_s": 23.5,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 5,
+  "sr_applied": 4,
+  "sr_failed": [
+   "sklearn/feature_extraction/text.py: search-not-found",
+   "sklearn/feature_extraction/text.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 0,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/sklearn/feature_extraction/text.py b/sklearn/feature_extraction/text.py\nindex 9b1ebd6..d282cb4 100644\n--- a/sklearn/feature_extraction/text.py\n+++ b/sklearn/feature_extraction/text.py\n@@ -993,6 +993,8 @@ class CountVectorizer(BaseEstimator, VectorizerMixin):\n \n     def get_feature_names(self):\n         \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n+        if not hasattr(self, 'vocabulary_'):\n+            self._validate_vocabulary()\n         self._check_vocabulary()\n \n         return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n"
+ },
+ "answer": "```sr\npath: sklearn/feature_extraction/text.py\n<<<<<<< SEARCH\n    def get_feature_names(self):\n        \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n        self._check_vocabulary()\n\n        return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                     key=itemgetter(1))]\n=======\n    def get_feature_names(self):\n        \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n        self._check_vocabulary()\n\n        return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                     key=itemgetter(1))]\n>>>>>>> REPLACE\n```\n\nWait, I need to actually modify the code. The issue is that `get_feature_names` calls `_check_vocabulary()` which raises `NotFittedError` when `vocabulary_` is not set. But if `vocabulary` was provided to the constructor, we should be able to call `get_feature_names` without fitting.\n\nLet me look at the `_validate_vocabulary` method and `_check_vocabulary` method to understand the flow.\n\n```sr\npath: sklearn/feature_extraction/text.py\n<<<<<<< SEARCH\n    def get_feature_names(self):\n        \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n        self._check_vocabulary()\n\n        return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                     key=itemgetter(1))]\n=======\n    def get_feature_names(self):\n        \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n        self._check_vocabulary()\n\n        return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                     key=itemgetter(1))]\n>>>>>>> REPLACE\n```\n\nI need to see the `_check_vocabulary` and `_validate_vocabulary` methods. Let me look at the actual code around those methods.\n\n```sr\npath: sklearn/feature_extraction/text.py\n<<<<<<< SEARCH\n    def _check_vocabulary(self):\n        \"\"\"Check if vocabulary is fitted\"\"\"\n        if not hasattr(self, 'vocabulary_'):\n            raise NotFittedError(self.__class__.__name__ + \" - Vocabulary wasn't fitted.\")\n=======\n    def _check_vocabulary(self):\n        \"\"\"Check if vocabulary is fitted\"\"\"\n        if not hasattr(self, 'vocabulary_'):\n            raise NotFittedError(self.__class__.__name__ + \" - Vocabulary wasn't fitted.\")\n>>>>>>> REPLACE\n```\n\nI need to see the actual code. Let me look at the `_validate_vocabulary` method and how `vocabulary_` gets set.\n\n```sr\npath: sklearn/feature_extraction/text.py\n<<<<<<< SEARCH\n    def _validate_vocabulary(self):\n        vocabulary = self.vocabulary\n        if vocabulary is not None:\n            if isinstance(vocabulary, set):\n                vocabulary = sorted(vocabulary)\n            if not isinstance(vocabulary, Mapping):\n                if not isinstance(vocabulary, Iterable):\n                    raise ValueError(\"Vocabulary should be a list of unicode strings or byte strings or a mapping\")\n                else:\n                    vocab = {}\n                    for i, term in enumerate(vocabulary):\n                        if isinstance(term, bytes):\n                            term = term.decode(\"utf-8\")\n                        if isinstance(term, str):\n                            if term in vocab:\n                                raise ValueError(\"Duplicate term in vocabulary: %r\" % term)\n                            vocab[term] = i\n                        else:\n                            raise ValueError(\"Vocabulary should be a list of unicode strings or byte strings or a mapping\")\n                    vocabulary = vocab\n            else:\n                vocab = {}\n                for term, index in vocabulary.items():\n                    if isinstance(term, bytes):\n                        term = term.decode(\"utf-8\")\n                    if isinstance(term, str):\n                        vocab[term] = index\n                    else:\n                        raise ValueError(\"Vocabulary should be a list of unicode strings or byte strings or a mapping\")\n                vocabulary = vocab\n            if not vocabulary:\n                raise ValueError(\"empty vocabulary passed to fit\")\n            self.vocabulary_ = vocabulary\n=======\n    def _validate_vocabulary(self):\n        vocabulary = self.vocabulary\n        if vocabulary is not None:\n            if isinstance(vocabulary, set):\n                vocabulary = sorted(vocabulary)\n            if not isinstance(vocabulary, Mapping):\n                if not isinstance(vocabulary, Iterable):\n                    raise ValueError(\"Vocabulary should be a list of unicode strings or byte strings or a mapping\")\n                else:\n                    vocab = {}\n                    for i, term in enumerate(vocabulary):\n                        if isinstance(term, bytes):\n                            term = term.decode(\"utf-8\")\n                        if isinstance(term, str):\n                            if term in vocab:\n                                raise ValueError(\"Duplicate term in vocabulary: %r\" % term)\n                            vocab[term] = i\n                        else:\n                            raise ValueError(\"Vocabulary should be a list of unicode strings or byte strings or a mapping\")\n                    vocabulary = vocab\n            else:\n                vocab = {}\n                for term, index in vocabulary.items():\n                    if isinstance(term, bytes):\n                        term = term.decode(\"utf-8\")\n                    if isinstance(term, str):\n                        vocab[term] = index\n                    else:\n                        raise ValueError(\"Vocabulary should be a list of unicode strings or byte strings or a mapping\")\n                vocabulary = vocab\n            if not vocabulary:\n                raise ValueError(\"empty vocabulary passed to fit\")\n            self.vocabulary_ = vocabulary\n>>>>>>> REPLACE\n```\n\nI need to actually see the code. Let me try to read the file.\n\n```sr\npath: sklearn/feature_extraction/text.py\n<<<<<<< SEARCH\n    def get_feature_names(self):\n        \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n        self._check_vocabulary()\n\n        return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                     key=itemgetter(1))]\n=======\n    def get_feature_names(self):\n        \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n        self._check_vocabulary()\n\n        return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                     key=itemgetter(1))]\n>>>>>>> REPLACE\n```\n\nI need to modify `get_feature_names` to call `_validate_vocabulary` if `vocabulary_` is not set but `vocabulary` was provided. Let me look at the `transform` method which does this:\n\n```python\nif not hasattr(self, 'vocabulary_'):\n    self._validate_vocabulary()\n```\n\nSo the fix should be to add similar logic to `get_feature_names`:\n\n```python\ndef get_feature_names(self):\n    \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n    if not hasattr(self, 'vocabulary_'):\n        self._validate_vocabulary()\n    self._check_vocabulary()\n\n    return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                 key=itemgetter(1))]\n```\n\nBut wait, `_validate_vocabulary` only sets `vocabulary_` if `self.vocabulary` is not None. If `self.vocabulary` is None, then `vocabulary_` won't be set, and `_check_vocabulary` will still raise `NotFittedError`. That's the correct behavior.\n\nLet me look at the actual code more carefully. I need to see the `_validate_vocabulary` method and the `get_feature_names` method in the actual file.\n\n```sr\npath: sklearn/feature_extraction/text.py\n<<<<<<< SEARCH\n    def get_feature_names(self):\n        \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n        self._check_vocabulary()\n\n        return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                     key=itemgetter(1))]\n=======\n    def get_feature_names(self):\n        \"\"\"Array mapping from feature integer indices to feature name\"\"\"\n        if not hasattr(self, 'vocabulary_'):\n            self._validate_vocabulary()\n        self._check_vocabulary()\n\n        return [t for t, i in sorted(six.iteritems(self.vocabulary_),\n                                     key=itemgetter(1))]\n>>>>>>> REPLACE\n```\n\nThis should be the fix. The `_validate_vocabulary` method will set `vocabulary_` if `self.vocabulary` is provided, and `_check_vocabulary` will still raise `NotFittedError` if no vocabulary was provided and the vectorizer hasn't been fitted.",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches add the same validation call before checking vocabulary, resolving the NotFittedError when vocabulary is provided."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "base_tail": "ture_names)\n>       assert_false(cv.fixed_vocabulary_)\nE       AttributeError: 'CountVectorizer' object has no attribute 'fixed_vocabulary_'\n\nsklearn/feature_extraction/tests/test_text.py:547: AttributeError\n=========================== short test summary info ============================\nFAILED sklearn/feature_extraction/tests/test_text.py::test_feature_names - At...\n1 failed, 3 warnings in 2.74s\n",
+  "ftb_pass": true,
+  "ftb_tail": ".                                                                        [100%]\n1 passed, 3 warnings in 1.08s\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ }
+}

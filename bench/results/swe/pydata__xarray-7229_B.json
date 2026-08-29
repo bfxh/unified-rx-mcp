@@ -1,0 +1,98 @@
+{
+ "instance_id": "pydata__xarray-7229",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pydata__xarray-7229",
+ "tokens_in": 58895,
+ "tokens_out": 735,
+ "turns": 11,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 47
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 48
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_stat",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": "pipe",
+   "ms": 2,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 2,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 42,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 14.8,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "none",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 0,
+  "sr_applied": 0,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 3,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "I need to find the `where` function. Let me search for it more specifically in the computation module.\n\n<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"code_search\">\n<｜｜DSML｜｜parameter name=\"query\" string=\"true\">where keep_attrs</｜｜DSML｜｜parameter>\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate patch contains no actual code changes; only tool-call markup and search query. No diff provided to fix the issue."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair_plain": {
+  "skip": "infra: No module named pytest"
+ },
+ "repair_signals": {
+  "skip": "infra: No module named pytest"
+ }
+}

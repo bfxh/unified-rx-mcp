@@ -9,18 +9,15 @@
 import re
 
 # Bevy UI 死按钮/空容器模式（Bevy 0.18/0.19）
+# S6：死按钮检测升级为结构化函数 find_dead_buttons（Marker-Query 跨 system 验证），
+# 不再放正则误报——BEVY_UI_PATTERNS 只留无歧义模式。
 BEVY_UI_PATTERNS = [
     # 空 with_children（无子节点，UI 布局无效）
     (r"\.with_children\(\s*\)", "空 with_children()——无子节点（UI 无效）"),
-    # Button 无交互处理（spawn 了 Button 但没后续 query 处理）
-    (r"spawn\(\s*\(\s*[^)]*\bButton\b[^)]*\)", "Button 无后续交互处理（疑似死按钮）"),
     # 旧式 TextBundle（Bevy 0.15+ 用 Text::new）
     (r"TextBundle\s*\{", "旧式 TextBundle——Bevy 0.15+ 推荐 Text::new（API 迁移）"),
     # 旧式 TextStyle 直接构建
     (r"TextStyle\s*\{", "TextStyle 手动构建——Bevy 0.15+ 推荐 TextFont/TextColor 组件"),
-    # 颜色硬编码（UI 质感问题）
-    (r"Color::rgb\(\s*0\.[0-9]+\s*,\s*0\.[0-9]+\s*,\s*0\.[0-9]+\s*\)",
-     "Color::rgb 硬编码颜色（建议设计 token 统一）"),
 ]
 
 # Bevy 系统/资源常见错误
@@ -30,13 +27,61 @@ BEVY_CODE_PATTERNS = [
     (r"EventReader<[^>]+>\.iter\(", "EventReader.iter——Bevy 0.13+ 用 .read()（旧 API）"),
 ]
 
+def find_dead_buttons(src):
+    """Bevy UI 死按钮检测（S6 修正版）。
+
+    正确语义：spawn((Button, Marker, ...)) 后必须存在 Query<...With<Marker>...Interaction>
+    （可在任意 system）。此前只看 spawn 同处有没有后续处理，
+    把"Marker 组件 + 跨 system 查询"这一 Bevy 标准模式全部误报（VoxelForge ui.rs 9/9 全误报）。
+
+    返回误报修正后的 [(line, marker_name)]。
+    """
+    issues = []
+    lines = src.split("\n")
+    for i, line in enumerate(lines):
+        # 只认 "Button," 独立元组成员行（spawn((Button,\n Marker,...)）或同行 (Button, Marker,
+        if not re.search(r"\(?(Button,\s*(?:[A-Z][A-Za-z0-9_]*\s*[\{,])?)", line):
+            continue
+        is_lone = line.strip() == "Button," or line.strip().endswith("(Button,")
+        marker = None
+        if is_lone:
+            scan = range(i + 1, min(i + 3, len(lines)))
+        else:
+            # 同行：Button 后面的 token 就是 marker
+            m = re.search(r"Button,\s*([A-Z][A-Za-z0-9_]*)", line)
+            scan = None
+            if m and m.group(1) != "Node":
+                marker = m.group(1)
+                return_check = True
+        if is_lone:
+            for j in scan:
+                mm = re.match(r"\s*([A-Z][A-Za-z0-9_]+)\s*[\{,]", lines[j])
+                if mm and mm.group(1) != "Button":
+                    marker = mm.group(1)
+                    break
+                if lines[j].strip().startswith((")", "//")):
+                    break
+        else:
+            pass
+        if not marker:
+            continue
+        # 全文找该 Marker 的交互查询（With<Marker> 或 &Marker 与 Interaction 同现）
+        if re.search(r"With<" + marker + r">", src) or \
+           re.search(r"&" + marker + r"[^\n]{0,80}Interaction|Interaction[^\n]{0,80}&" + marker, src):
+            continue
+        issues.append((i + 1, marker))
+    return issues
+
 
 def bevy_rules():
-    """返回 (name, pattern, msg, severity) 列表，供 bug_scan/ui_check 使用。"""
+    """返回 (name, pattern, msg, severity) 列表，供 bug_scan/ui_check 使用。
+
+    S4-D1：文本 API 迁移类全是线索（kind 由 scan.py 补），确定性崩溃才 high。
+    """
     return [
-        ("bevy_old_system", r"\.add_system\(", "add_system 旧 API——Bevy 0.13+ 用 .add_systems", "medium"),
-        ("bevy_old_startup", r"\.add_startup_system\(", "add_startup_system 旧 API——用 .add_systems(Startup, ...)", "medium"),
-        ("bevy_event_iter", r"EventReader<[^>]+>\.iter\(", "EventReader.iter 旧 API——用 .read()", "medium"),
-        ("bevy_text_old", r"TextBundle\s*\{", "TextBundle 旧式——用 Text::new", "medium"),
-        ("bevy_query_single", r"\.single\(\)", "query.single() 多实体 panic——用 iter", "low"),
+        ("bevy_old_system", r"\.add_system\(", "add_system 旧 API——用 .add_systems（迁移线索）", "info"),
+        ("bevy_old_startup", r"\.add_startup_system\(", "add_startup_system 旧 API——用 .add_systems(Startup, ...)（迁移线索）", "info"),
+        ("bevy_event_iter", r"EventReader<[^>]+>\.iter\(", "EventReader.iter 旧 API——用 .read()（迁移线索）", "info"),
+        ("bevy_text_old", r"TextBundle\s*\{", "TextBundle 旧式——用 Text::new（迁移线索）", "info"),
+        ("bevy_query_single", r"\.single\(\)", "query.single() 多实体 panic——用 iter（线索）", "low"),
     ]

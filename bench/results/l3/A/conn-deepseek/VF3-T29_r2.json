@@ -1,0 +1,21 @@
+{
+ "task_id": "VF3-T29",
+ "arm": "bare_model",
+ "run_idx": 2,
+ "ts": 1787819177,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n当前存档系统在反序列化与清洗阶段缺乏系统性畸形输入验证，历史缺陷（悬空边、越界索引、NaN 质量）表明仅依赖单元测试覆盖正常路径，未对恶意 RON 存档进行批量、可复现的对抗性测试。这导致毒档可能触发 panic（如索引越界、unwrap 失败）或静默污染状态（如 NaN 质量、悬空边残留），且回归风险高。\n\n【定位】\n- `crates/save_system/src/deserialize.rs:from_ron_str`（推测：反序列化入口，需确认实际路径）\n- `crates/save_system/src/sanitize.rs:sanitize_world`（推测：清洗逻辑，需确认实际路径）\n- `crates/save_system/tests/fuzz_poison.rs`（新增测试文件，需创建）\n\n【修复方案】\n1. **构建毒档生成器**（新增 `crates/save_system/tests/fuzz_poison.rs`）：\n   - 定义 `PoisonCase` 枚举：`NaNQuality`、`OutOfBoundsIndex`、`DanglingEdge`、`NegativeMass`、`MalformedRon`、`TypeMismatch`、`MissingField`、`DuplicateEntity`。\n   - 为每类生成最小化 RON 字符串，例如 `NaN` 用 `f64::NAN` 序列化，越界索引用 `usize::MAX`，悬空边用不存在的实体 ID。\n   - 使用 `proptest` 或 `arbitrary` 生成随机组合（如随机字段缺失 + 随机数值边界），确保覆盖交叉畸形。\n\n2. **断言面设计**（在测试中统一使用 `assert!` 与 `catch_unwind`）：\n   - **无 panic 断言**：对每个毒档调用 `from_ron_str` 与 `sanitize_world`，用 `std::panic::catch_unwind` 包裹，断言 `Result` 为 `Ok` 或 `Err`（不允许 panic）。\n   - **状态纯净断言**：若反序列化成功，断言清洗后世界满足不变量：所有实体质量 `is_finite()`、所有边索引在实体范围内、无重复实体 ID、无 NaN 字段。\n   - **错误路径断言**：对 `MalformedRon` 类毒档，断言返回 `Err` 且错误信息包含具体原因（如 `\"invalid index\"`），而非静默丢弃。\n\n3. **集成与回归**：\n   - 在 `Cargo.toml` 的 `[dev-dependencies]` 添加 `proptest` 与 `serde_json`（用于 RON 转 JSON 对比）。\n   - 将 fuzz 测试纳入 CI（如 `cargo test --test fuzz_poison`），并设置固定随机种子（如 `ProptestConfig { cases: 1000, ..Default::default() }`）保证可复现。\n   - 对现有清洗逻辑补充防御性检查（如 `sanitize_world` 中先验证索引范围再访问），确保毒档被拒绝而非部分修复。",
+ "tokens_in": 173,
+ "tokens_out": 698,
+ "turns": 1,
+ "cost_usd": 0.00081,
+ "walltime_s": 7.1,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

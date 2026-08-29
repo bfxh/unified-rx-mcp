@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T08",
+ "arm": "bare_model",
+ "run_idx": 2,
+ "ts": 1787817175,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n内存泄漏的直接诱因是碰撞伤害系统在每帧更新时向伤害表（如 `HashMap<Entity, DamageEntry>` 或 `Vec<DamageEvent>`）追加新条目，但从未根据实体销毁、伤害结算完成或时间过期等条件移除旧条目。随着游戏时间增长，表中累积的无效条目持续占用堆内存，且由于 `HashMap` 的容量不会自动收缩，即使偶尔清空部分条目，其内部桶数组也可能保持较大容量，导致内存“只涨不落”的假象。此外，若伤害条目持有 `Entity` 或组件引用，而对应实体已销毁，这些引用会阻止相关资源被回收，加剧泄漏。\n\n【定位】\n- `collision_damage.rs:apply_collision_damage`（推测：每帧碰撞检测后写入伤害表的函数，证据：缺陷描述明确指向“碰撞伤害系统每帧累积条目”）\n- `collision_damage.rs:DamageTable`（推测：存储伤害条目的容器类型，证据：描述中“伤害表只在增加时写入”）\n- `collision_damage.rs:cleanup_damage_table`（推测：应存在但缺失的清理函数，证据：描述中“从未见清除”）\n\n【修复方案】\n1. **诊断步骤（先验证再改码）**：\n   - 在 `apply_collision_damage` 入口和 `DamageTable` 的 `insert` 方法内添加计数日志（如 `info!(\"damage_entries: {}\", table.len())`），运行 10 分钟，观察计数是否单调递增。\n   - 使用 `bevy::diagnostic::FrameTimeDiagnosticsPlugin` 或外部 profiler（如 `perf`）记录堆内存曲线，确认增长与伤害条目数正相关。\n   - 检查 `DamageTable` 中条目的生命周期：打印每个条目的 `Entity` 是否仍存在于 `World`（通过 `world.get_entity(entity).is_some()`），确认大量条目指向已销毁实体。\n\n2. **修复策略（最小改动）**：\n   - 在 `DamageTable` 中为每个条目增加 `expires_at`（基于 `Time` 的帧数或秒数）字段，并在 `apply_collision_damage` 末尾调用新增的 `cleanup_damage_table` 函数，该函数遍历表并移除 `expires_at < now` 或实体已不存在的条目。\n   - 若伤害结算在特定系统（如 `damage_resolution`）完成后立即失效，则在该系统末尾调用 `table.retain(|_, entry| entry.pending)`，将已结算条目标记为 `pending=false` 并移除。\n   - 若表容量仍不收缩，可在清理后调用 `table.shrink_to_fit()`（仅当 `len()` 远小于 `capacity()` 时执行，避免每帧开销）。\n\n3. **基线数据佐证**：\n   - 修复前：记录 30 分钟游戏后 `DamageTable.len()` 为 N，堆内存为 M MB。\n   - 修复后：相同场景下 30 分钟后 `len()` 稳定在某个小常数（如 < 100），堆内存曲线趋于平缓（波动 < 5%）。\n   - 对比修复前后 `len()` 随时间的变化斜率：修复前为正且持续，修复后为 0 或周期性归零。同时用 `bevy` 的 `MemoryDiagnosticsPlugin` 记录 `allocated_bytes`，确认修复后不再单调上升。",
+ "tokens_in": 146,
+ "tokens_out": 770,
+ "turns": 1,
+ "cost_usd": 0.00089,
+ "walltime_s": 7.5,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "fail",
+  "R3": "unverifiable"
+ }
+}

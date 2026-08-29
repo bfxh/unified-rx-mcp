@@ -1,0 +1,87 @@
+{
+ "instance_id": "scikit-learn__scikit-learn-12973",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-12973",
+ "tokens_in": 14855,
+ "tokens_out": 622,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_stat",
+   "round": 5,
+   "ms": 1
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 9.2,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 2,
+  "sr_applied": 1,
+  "sr_failed": [
+   "sklearn/linear_model/least_angle.py: search-not-found(best=0.70)"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/sklearn/linear_model/least_angle.py b/sklearn/linear_model/least_angle.py\nindex 03b34a0..3cd7926 100644\n--- a/sklearn/linear_model/least_angle.py\n+++ b/sklearn/linear_model/least_angle.py\n@@ -1479,7 +1479,7 @@ class LassoLarsIC(LassoLars):\n         self.eps = eps\n         self.fit_path = True\n \n-    def fit(self, X, y, copy_X=True):\n+    def fit(self, X, y, copy_X=None):\n         \"\"\"Fit the model using X, y as training data.\n \n         Parameters\n"
+ },
+ "answer": "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"fs_read\">\n<｜｜DSML｜｜parameter name=\"path\" string=\"true\">C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\scikit-learn__scikit-learn-12973\\sklearn\\linear_model\\least_angle.py</｜｜DSML｜｜parameter>\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate only changes signature to None but omits the critical logic to use self.copy_X when None, leaving behavior broken."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "base_tail": " 1.76405235,  0.40015721,  0.97873798,  2.2408932 ,  1.86755799],\\n       [-0.97727788,  0.95008842, -0.1513572...336,  1.10028434,  1.29802197,  2.69622405],\\n       [-0.07392467, -0.65855297, -0.51423397, -1.01804188, -0.07785476]]))\nE        +    where <function array_equal at 0x717070591b90> = np.array_equal\n\nsklearn/linear_model/tests/test_least_angle.py:719: AssertionError\n1 failed in 2.66s\n",
+  "ftb_pass": true,
+  "ftb_tail": "08932 ,  1.86755799],\\n       [-0.97727788,  0.95008842, -0.1513572...336,  1.10028434,  1.29802197,  2.69622405],\\n       [-0.07392467, -0.65855297, -0.51423397, -1.01804188, -0.07785476]]), array([[ 1.76405235,  0.40015721,  0.97873798,  2.2408932 ,  1.86755799],\\n       [-0.97727788,  0.95008842, -0.1513572...336,  1.10028434,  1.29802197,  2.69622405],\\n       [-0.07392467, -0.65855297, -0.51423397, -1.01804188, -0.07785476]]))\nE        +    where <function array_equal at 0x7389869d1c20> = np.array_equal\n\nsklearn/linear_model/tests/test_least_angle.py:719: AssertionError\n1 failed in 2.02s\n",
+  "ptb_total": 25,
+  "ptb_pass": true,
+  "verified": true
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ }
+}

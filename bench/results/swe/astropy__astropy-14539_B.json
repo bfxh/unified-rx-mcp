@@ -1,0 +1,99 @@
+{
+ "instance_id": "astropy__astropy-14539",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\astropy__astropy-14539",
+ "tokens_in": 48299,
+ "tokens_out": 1927,
+ "turns": 11,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 663
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 87
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 554
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_read",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_stat",
+   "round": 5,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 132,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 90,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 21.1,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "astropy/io/fits/diff.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: astropy/io/fits/diff.py\n<<<<<<< SEARCH\n    def _diff_table_data(self, tablea, tableb):\n        \"\"\"\n        Compare the data in two HDU objects of BinTable type.\n        \"\"\"\n        if tablea.data is None and tableb.data is None:\n            return\n\n        if tablea.data is None or tableb.data is None:\n            self.diff_data = True\n            self.diff_extras.append(\"One table has data, the other does not.\")\n            return\n\n        if len(tablea.data) != len(tableb.data):\n            self.diff_data = True\n            self.diff_extras.append(\n                \"Table data has different number of rows:\"\n                f\" {len(tablea.data)} != {len(tableb.data)}\"\n            )\n            return\n\n        if tablea.data.dtype.names != tableb.data.dtype.names:\n            self.diff_data = True\n            self.diff_extras.append(\n                \"Table data has different column names:\"\n                f\" {tablea.data.dtype.names} != {tableb.data.dtype.names}\"\n            )\n            return\n\n        # Compare the table data column by column\n        for column in tablea.data.dtype.names:\n            if column not in tableb.data.dtype.names:\n                self.diff_data = True\n                self.diff_extras.append(\n                    f\"Column {column} not found in second table data.\"\n                )\n                continue\n\n            cola = tablea.data[column]\n            colb = tableb.data[column]\n\n            # Check if the column is a variable-length array\n            if isinstance(cola, np.ndarray) and cola.dtype.kind == \"O\":\n                # Compare each row separately for VLAs\n                for row in range(len(cola)):\n                    if not np.array_equal(cola[row], colb[row]):\n                        self.diff_data = True\n                        self.diff_extras.append(\n                            f\"Column {column} data differs in row {row}:\"\n                        )\n                        self._diff_values(cola[row], colb[row])\n                continue\n\n            if not np.array_equal(cola, colb):\n                self.diff_data = True\n                self.diff_extras.append(\n                    f\"Column {column} data differs:\"\n                )\n                self._diff_values(cola, colb)\n=======\n    def _diff_table_data(self, tablea, tableb):\n        \"\"\"\n        Compare the data in two HDU objects of BinTable type.\n        \"\"\"\n        if tablea.data is None and tableb.data is None:\n            return\n\n        if tablea.data is None or tableb.data is None:\n            self.diff_data = True\n            self.diff_extras.append(\"One table has data, the other does not.\")\n            return\n\n        if len(tablea.data) != len(tableb.data):\n            self.diff_data = True\n            self.diff_extras.append(\n                \"Table data has different number of rows:\"\n                f\" {len(tablea.data)} != {len(tableb.data)}\"\n            )\n            return\n\n        if tablea.data.dtype.names != tableb.data.dtype.names:\n            self.diff_data = True\n            self.diff_extras.append(\n                \"Table data has different column names:\"\n                f\" {tablea.data.dtype.names} != {tableb.data.dtype.names}\"\n            )\n            return\n\n        # Compare the table data column by column\n        for column in tablea.data.dtype.names:\n            if column not in tableb.data.dtype.names:\n                self.diff_data = True\n                self.diff_extras.append(\n                    f\"Column {column} not found in second table data.\"\n                )\n                continue\n\n            cola = tablea.data[column]\n            colb = tableb.data[column]\n\n            # Check if the column is a variable-length array\n            if isinstance(cola, np.ndarray) and cola.dtype.kind == \"O\":\n                # Compare each row separately for VLAs\n                for row in range(len(cola)):\n                    if not np.array_equal(cola[row], colb[row]):\n                        self.diff_data = True\n                        self.diff_extras.append(\n                            f\"Column {column} data differs in row {row}:\"\n                        )\n                        self._diff_values(cola[row], colb[row])\n                continue\n\n            if not np.array_equal(cola, colb):\n                self.diff_data = True\n                self.diff_extras.append(\n                    f\"Column {column} data differs:\"\n                )\n                self._diff_values(cola, colb)\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate patch is incomplete/truncated and does not provide a valid unified diff. It cannot be evaluated as equivalent to the gold patch."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": false,
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair_signals": {
+  "skip": "base-already-green"
+ },
+ "repair_plain": {
+  "skip": "base-already-green"
+ }
+}

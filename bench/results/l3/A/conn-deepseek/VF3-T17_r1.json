@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T17",
+ "arm": "bare_model",
+ "run_idx": 1,
+ "ts": 1787818942,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n1. **载具埋山**：生成时仅按地形高度采样（如 `terrain_height`）放置载具，未考虑载具底盘高度与地形坡度/碰撞体，导致底盘低于山体表面。\n2. **本体与 ghost 同时可见**：拿起模块时未隐藏原实体（`original_entity`），仅生成 ghost，且 ghost 渲染层未与本体隔离。\n3. **R 旋转只换逻辑格**：旋转仅更新了网格坐标（`grid_pos`），未同步更新模型节点（`ModelInstance`）的 `Transform.rotation`，GLB 外观未跟随。\n4. **埋地挂点/已占用邻格仍显示可连接**：连接提示的可见性判断只检查了目标格是否为空，未检查目标格是否被占用、挂点是否被地形遮挡（高度差/碰撞）。\n5. **轮子装到车顶**：模块挂点类型（`SocketType`）未区分“地面/侧面/顶部”，或放置校验未限制挂点朝向，导致任意挂点可接受任意模块。\n\n【定位】\n- `spawn_vehicle` / `spawn_at_terrain`（推测）：`crates/vehicle/src/spawn.rs:spawn_vehicle`\n- `pickup_module` / `spawn_ghost`：`crates/building/src/placement.rs:pickup_module`\n- `rotate_module`：`crates/building/src/placement.rs:rotate_module`\n- `show_connection_hint`：`crates/building/src/connection.rs:update_connection_hints`\n- `can_attach` / `socket_type_check`：`crates/building/src/attachment.rs:can_attach`\n\n【修复方案】\n1. **载具埋山**：在 `spawn_vehicle` 中，获取地形高度后，再叠加载具底盘最小离地间隙（如 `chassis_offset`），并做一次射线检测（`raycast` 向下）确保底盘不穿透地形；若坡度大，则使用地形法线调整载具初始旋转。\n2. **本体与 ghost 同时可见**：在 `pickup_module` 中，将原实体 `Visibility` 设为 `Hidden`（或 `Despawn` 后暂存数据），仅保留 ghost 实体；放下时恢复原实体或销毁 ghost。\n3. **R 旋转只换逻辑格**：在 `rotate_module` 中，除了更新 `grid_pos`，同时更新 ghost 的 `Transform.rotation`（按 90° 增量），并确保 `ModelInstance` 的 `rotation` 与逻辑朝向一致。\n4. **连接提示误显**：在 `update_connection_hints` 中，增加两个条件：目标格必须未被占用（`grid_occupied` 为 `false`），且挂点与目标格的高度差小于阈值（如 0.5m），否则隐藏提示。\n5. **轮子装到车顶**：为 `SocketType` 增加 `Ground`/`Side`/`Top` 枚举，并在 `can_attach` 中校验挂点类型与模块类型匹配（如轮子只能挂 `Ground` 类型挂点）；若现有挂点未分类，则按挂点法线方向自动推断类型。",
+ "tokens_in": 177,
+ "tokens_out": 720,
+ "turns": 1,
+ "cost_usd": 0.00084,
+ "walltime_s": 7.1,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

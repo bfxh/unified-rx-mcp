@@ -1,0 +1,230 @@
+{
+ "instance_id": "pylint-dev__pylint-7277",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277",
+ "tokens_in": 12140,
+ "tokens_out": 713,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_read",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  },
+  {
+   "tool": "fs_read",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 13.9,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": false,
+  "patch_strategy": "",
+  "sr_blocks": 1,
+  "sr_applied": 0,
+  "sr_failed": [
+   "pylint/__init__.py: search-not-found"
+  ],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": ""
+ },
+ "answer": "```sr\npath: pylint/__init__.py\n<<<<<<< SEARCH\n    # Remove the first item from sys.path in case it's the current directory\n    # (which is the case when running pylint from the command line). This\n    # prevents pylint from importing the current directory's modules.\n    if sys.path and sys.path[0] in (\"\", \".\", os.getcwd()):\n        sys.path.pop(0)\n=======\n    # Remove the first item from sys.path in case it's the current directory\n    # (which is the case when running pylint from the command line). This\n    # prevents pylint from importing the current directory's modules.\n    if sys.path and sys.path[0] in (\"\", \".\", os.getcwd()):\n        sys.path.pop(0)\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": true,
+  "reason": "Both patches add the same conditional check before popping sys.path[0], ensuring only empty, '.', or cwd entries are removed."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "================\nERROR tests/test_self.py\n1 error in 0.17s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n",
+  "verified": false,
+  "why": "no-candidate-diff"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.11s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.12s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.11s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.12s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   }
+  ],
+  "walltime_s": 12.0
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.16s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.13s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.13s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.13s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   }
+  ],
+  "walltime_s": 12.7
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "none"
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": []
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.13s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.13s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.13s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": " from py._path.local import LocalPath  # type: ignore[import]\nE   ModuleNotFoundError: No module named 'py._path'; 'py' is not a package\n=========================== short test summary info ===========================\nERROR tests/test_self.py\n1 error in 0.13s\n\n===STDERR===\nERROR: not found: C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\pylint-dev__pylint-7277\\tests\\test_self.py::TestRunTC::test_modify_sys_path\n(no name 'C:\\\\Users\\\\lbx13\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\swe\\\\pylint-dev__pylint-7277\\\\tests\\\\test_self.py::TestRunTC::test_modify_sys_path' in any of [<Module tests/test_self.py>])\n\n"
+   }
+  ],
+  "walltime_s": 12.9
+ }
+}

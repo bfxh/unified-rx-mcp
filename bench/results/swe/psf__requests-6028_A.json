@@ -1,0 +1,223 @@
+{
+ "instance_id": "psf__requests-6028",
+ "arm": "A",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028",
+ "tokens_in": 13920,
+ "tokens_out": 8795,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": "pipe",
+   "ms": 1,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 46.5,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": true,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 71,
+  "sr_applied": 0,
+  "sr_failed": [
+   "requests/adapters.py: search-not-found(best=0.69)"
+  ],
+  "sr_fuzzy": 1,
+  "dsml_final_recovered": 1,
+  "grounded_author": false,
+  "candidate_diff": "diff --git a/requests/models.py b/requests/models.py\nindex dfbea85..4791f5e 100644\n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -563,15 +563,15 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n             # Recompute Content-Length\n             self.prepare_content_length(self.body)\n \n-    def prepare_cookies(self, cookies):\n-        \"\"\"Prepares the given HTTP cookie data.\n-\n-        This function eventually generates a ``Cookie`` header from the\n-        given cookies using cookielib. Due to cookielib's design, the header\n-        will not be regenerated if it already exists, meaning this function\n-        can only be called once for the life of the\n-        :class:`PreparedRequest <PreparedRequest>` object. Any subsequent calls\n-        to ``prepare_cookies`` will have no actual effect, unless the \"Cookie\"\n+    def prepare_content_length(self, body):\n+        \"\"\"Prepare Content-Length header based on request method and body\"\"\"\n+        if body is not None:\n+            length = super_len(body)\n+            if length:\n+                self.headers['Content-Length'] = builtin_str(length)\n+        elif (self.method not in ('GET', 'HEAD') and\n+                self.headers.get('Content-Length') is None):\n+            self.headers['Content-Length'] = '0'\n         header is removed beforehand.\n         \"\"\"\n         if isinstance(cookies, cookielib.CookieJar):\n"
+ },
+ "answer": "```sr\npath: requests/adapters.py\n<<<<<<< SEARCH\n        if isinstance(proxy, basestring):\n            proxy = {'http': proxy, 'https': proxy}\n\n        if proxy:\n            proxy_headers = self.proxy_headers(proxy)\n=======\n        if isinstance(proxy, basestring):\n            proxy = {'http': proxy, 'https': proxy}\n\n        if proxy:\n            proxy_headers = self.proxy_headers(proxy)\n            if proxy_headers and 'Proxy-Authorization' in proxy_headers:\n                # If Proxy-Authorization header is set, ensure it's used for\n                # both http and https proxies\n                if 'http' in proxy and 'https' not in proxy:\n                    proxy['https'] = proxy['http']\n                elif 'https' in proxy and 'http' not in proxy:\n                    proxy['http'] = proxy['https']\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": false,
+  "same_root_cause": false,
+  "fix_equivalent": false,
+  "reason": "Candidate patch modifies prepare_cookies/prepare_content_length, unrelated to proxy authentication bug. Gold patch fixes URL parsing with auth in prepend_scheme_if_needed."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "base_tail": "needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.16s\n\n===STDERR===\n[2026-08-29 09:43:46,282] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n",
+  "ftb_pass": false,
+  "ftb_tail": "ownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\tests\\conftest.py'.\ntests\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:135: in <module>\n    from .models import Request, Response, PreparedRequest\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\models.py\", line 598\nE       server's response to an HTTP request.\nE             ^\nE   SyntaxError: unterminated string literal (detected at line 598)\n",
+  "verified": false
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 8,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\tests\\conftest.py'.\ntests\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:135: in <module>\n    from .models import Request, Response, PreparedRequest\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\models.py\", line 598\nE       server's response to an HTTP request.\nE             ^\nE   SyntaxError: unterminated string literal (detected at line 598)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.12s\n\n===STDERR===\n[2026-08-28 11:05:03,790] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.09s\n\n===STDERR===\n[2026-08-28 11:05:12,152] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "s.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\tests\\conftest.py'.\ntests\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:135: in <module>\n    from .models import Request, Response, PreparedRequest\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\models.py\", line 657\nE       if isinstance(fragment, str):\nE   IndentationError: unexpected indent\n"
+   }
+  ],
+  "walltime_s": 22.2
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 8,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\tests\\conftest.py'.\ntests\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:135: in <module>\n    from .models import Request, Response, PreparedRequest\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\models.py\", line 598\nE       server's response to an HTTP request.\nE             ^\nE   SyntaxError: unterminated string literal (detected at line 598)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.11s\n\n===STDERR===\n[2026-08-29 15:54:06,800] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.12s\n\n===STDERR===\n[2026-08-29 15:54:10,520] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.11s\n\n===STDERR===\n[2026-08-29 15:54:14,035] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   }
+  ],
+  "walltime_s": 11.7
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 8,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "ownRaisedWarning\n  config = pluginmanager.hook.pytest_cmdline_parse(\nImportError while loading conftest 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\tests\\conftest.py'.\ntests\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:135: in <module>\n    from .models import Request, Response, PreparedRequest\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\models.py\", line 598\nE       server's response to an HTTP request.\nE             ^\nE   SyntaxError: unterminated string literal (detected at line 598)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-29 15:33:00,417] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.11s\n\n===STDERR===\n[2026-08-29 15:33:03,041] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.12s\n\n===STDERR===\n[2026-08-29 15:33:05,694] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   }
+  ],
+  "walltime_s": 9.4
+ }
+}

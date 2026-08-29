@@ -10,32 +10,28 @@ import registry
 import tools  # noqa: F401
 
 
-def test_cost_report_has_data():
-    """T1: registry 自动打点后 cost_report 有数据。"""
-    r = registry.call("cost_report", {})
+def test_usage_stats_supersedes_cost_report():
+    """T1+S15: registry 自动打点 → usage_stats 是调用统计唯一出口（cost_report 已并入）。"""
+    r = registry.call("usage_stats", {"top": 3})
     assert r["ok"], r
     assert "total_calls" in r["result"]
+    assert isinstance(r["result"]["freq_top"], list)
     # 至少刚才的调用被记录了
     assert r["result"]["total_calls"] >= 1
 
 
-def test_cost_report_status():
-    r = registry.call("cost_report", {"action": "status"})
-    assert r["ok"] and r["result"]["exists"] is True
-
-
-def test_scan_log_trend_compat():
-    """T2: 兼容旧版字符串 ts。"""
+def test_scan_log_trend_and_projection_shape():
+    """T2/T5 合并: scan_log trend action 兼容旧字符串 ts（S15 起 trend 唯一出口）。"""
     r = registry.call("scan_log", {"action": "trend"})
     assert r["ok"], r
     assert isinstance(r["result"]["trend"], list)
 
 
 def test_backup_requires_root():
-    """T3: backup 无 root 明确报错。"""
+    """T3: backup 无 root 正确拒绝（错误语义统一后为顶层 ok:false）。"""
     r = registry.call("backup", {})
-    assert r["ok"]  # 函数正常返回（error 在 result 里）
-    assert "root" in r["result"].get("error", "")
+    assert not r["ok"], f"缺 root 应拒绝: {r}"
+    assert "root" in r.get("error", "")
 
 
 def test_usage_stats():
@@ -44,14 +40,6 @@ def test_usage_stats():
     assert r["ok"], r
     assert r["result"]["total_calls"] >= 1
     assert isinstance(r["result"]["freq_top"], list)
-
-
-def test_trend_analysis():
-    """T5: 趋势分析。"""
-    r = registry.call("trend_analysis", {"days": 7})
-    assert r["ok"], r
-    assert r["result"]["trend"] in ("stable", "improving", "worsening")
-    assert isinstance(r["result"]["series"], list)
 
 
 def test_project_health():

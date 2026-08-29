@@ -1,0 +1,260 @@
+{
+ "instance_id": "psf__requests-6028",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028",
+ "tokens_in": 25464,
+ "tokens_out": 3104,
+ "turns": 8,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": 1
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 0
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 0
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": 171
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 24,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 26.5,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 5,
+  "sr_applied": 5,
+  "sr_failed": [],
+  "sr_fuzzy": 1,
+  "dsml_final_recovered": 1,
+  "grounded_author": true,
+  "candidate_diff": "diff --git a/requests/models.py b/requests/models.py\nindex dfbea85..108c0e5 100644\n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -17,7 +17,7 @@ import encodings.idna\n \n from urllib3.fields import RequestField\n from urllib3.filepost import encode_multipart_formdata\n-from urllib3.util import parse_url\n+from urllib3.util import parse_url, parse_url as _parse_url\n from urllib3.exceptions import (\n     DecodeError, ReadTimeoutError, ProtocolError, LocationParseError)\n \n@@ -308,6 +308,8 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n         self.hooks = default_hooks()\n         #: integer denoting starting position of a readable file-like body.\n         self._body_position = None\n+        #: proxy authentication info extracted from URL (for Python 3.8.12+)\n+        self._proxy_auth = None\n \n     def prepare(self,\n             method=None, url=None, headers=None, files=None, data=None,\n@@ -357,6 +359,12 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n             raise UnicodeError\n         return host\n \n+    def prepare_url(self, url, params):\n+        \"\"\"Prepares the given HTTP URL.\"\"\"\n+        #: Accept objects that have string representations.\n+        #: We're unable to blindly call unicode/str functions\n+        #: as this will include the bytestring indicator (b'')\n+        #: on python 3.x.\n     def prepare_url(self, url, params):\n         \"\"\"Prepares the given HTTP URL.\"\"\"\n         #: Accept objects that have string representations.\n@@ -369,9 +377,6 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n         else:\n             url = unicode(url) if is_py2 else str(url)\n \n-        # Remove leading whitespaces from url\n-        url = url.lstrip()\n-\n         # Don't do any URL preparation for non-HTTP schemes like `mailto`,\n         # `data` etc to work around exceptions from `url_parse`, which\n         # handles RFC 3986 only.\n@@ -380,19 +385,16 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n             return\n \n         # Support for unicode domain names and paths.\n-        try:\n-            scheme, auth, host, port, path, query, fragment = parse_url(url)\n-        except LocationParseError as e:\n-            raise InvalidURL(*e.args)\n+        scheme, auth, host, port, path, query, fragment = parse_url(url)\n \n         if not scheme:\n-            error = (\"Invalid URL {0!r}: No scheme supplied. Perhaps you meant http://{0}?\")\n+            error = (\"Invalid URL {0!r}: No schema supplied. Perhaps you meant http://{0}?\")\n             error = error.format(to_native_string(url, 'utf8'))\n \n             raise MissingSchema(error)\n \n         if not host:\n-            raise InvalidURL(\"Invalid URL %r: No host supplied\" % url)\n+            raise InvalidURL(\"Invalid URL {0!r}: No host supplied\".format(url))\n \n         # In general, we want to try IDNA encoding the hostname if the string contains\n         # non-ASCII characters. This allows users to automatically get the correct IDNA\n@@ -443,6 +445,15 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n         url = requote_uri(urlunparse([scheme, netloc, path, None, query, fragment]))\n         self.url = url\n \n+        # Handle proxy authentication for Python 3.8.12+ where urllib3's\n+        # parse_url no longer includes auth in the netloc for proxy URLs.\n+        # See https://docs.python.org/3/whatsnew/3.8.html#notable-changes-in-python-3-8-12\n+        if self.proxies and self.url:\n+            parsed = _parse_url(self.url)\n+            if parsed.auth and parsed.hostname:\n+                # Store the auth info so it can be used by the adapter\n+                self._proxy_auth = parsed.auth\n+\n     def prepare_headers(self, headers):\n         \"\"\"Prepares the given HTTP headers.\"\"\"\n \ndiff --git a/requests/sessions.py b/requests/sessions.py\nindex 3f59cab..dcbbcab 100644\n--- a/requests/sessions.py\n+++ b/requests/sessions.py\n@@ -31,6 +31,7 @@ from .utils import (\n     requote_uri, get_environ_"
+ },
+ "answer": "```sr\npath: requests/models.py\n<<<<<<< SEARCH\nfrom urllib3.util import parse_url\n=======\nfrom urllib3.util import parse_url, parse_url as _parse_url\n>>>>>>> REPLACE\n```\n\n```sr\npath: requests/models.py\n<<<<<<< SEARCH\n    def prepare_url(self, url, params):\n        \"\"\"Prepares the given HTTP URL.\"\"\"\n        #: Accept objects that have string representations.\n        #: We're unable to blindly call unicode/str functions\n        #: as this will include the bytestring indicator (b'')\n        #: on python 3.x.\n        #: https://github.com/psf/requests/pull/2238\n        if isinstance(url, bytes):\n            url = url.decode('utf8')\n        else:\n            url = unicode(url) if is_py2 else str(url)\n\n        # Don't do any URL preparation for non-HTTP schemes like `mailto`,\n        # `data` etc to work around exceptions from `url_parse`, which\n        # handles RFC 3986 only.\n        if ':' in url and not url.lower().startswith('http'):\n            self.url = url\n            return\n\n        # Support for unicode domain names and paths.\n        scheme, auth, host, port, path, query, fragment = parse_url(url)\n\n        if not scheme:\n            error = (\"Invalid URL {0!r}: No schema supplied. Perhaps you meant http://{0}?\")\n            error = error.format(to_native_string(url, 'utf8'))\n\n            raise MissingSchema(error)\n\n        if not host:\n            raise InvalidURL(\"Invalid URL {0!r}: No host supplied\".format(url))\n\n        # In general, we want to try IDNA encoding the hostname if the string contains\n        # non-ASCII characters. This allows users to automatically get the correct IDNA\n        # behaviour. For strings containing only ASCII characters, we need to also verify\n        # it doesn't start with a wildcard (*), before allowing the unencoded hostname.\n        if not unicode_is_ascii(host):\n            try:\n                host = self._get_idna_encoded_host(host)\n            except UnicodeError:\n                raise InvalidURL('URL has an invalid label.')\n        elif host.startswith((u'*', u'.')):\n            raise InvalidURL('URL has an invalid label.')\n\n        # Carefully reconstruct the network location\n        netloc = auth or ''\n        if netloc:\n            netloc += '@'\n        netloc += host\n        if port:\n            netloc += ':' + str(port)\n\n        # Bare domains aren't valid URLs.\n        if not path:\n            path = '/'\n\n        if is_py2:\n            if isinstance(scheme, str):\n                scheme = scheme.encode('utf-8')\n            if isinstance(netloc, str):\n                netloc = netloc.encode('utf-8')\n            if isinstance(path, str):\n                path = path.encode('utf-8')\n            if isinstance(query, str):\n                query = query.encode('utf-8')\n            if isinstance(fragment, str):\n                fragment = fragment.encode('utf-8')\n\n        if isinstance(params, (str, bytes)):\n            params = to_native_string(params)\n\n        enc_params = self._encode_params(params)\n        if enc_params:\n            if query:\n                query = '%s&%s' % (query, enc_params)\n            else:\n                query = enc_params\n\n        url = requote_uri(urlunparse([scheme, netloc, path, None, query, fragment]))\n        self.url = url\n=======\n    def prepare_url(self, url, params):\n        \"\"\"Prepares the given HTTP URL.\"\"\"\n        #: Accept objects that have string representations.\n        #: We're unable to blindly call unicode/str functions\n        #: as this will include the bytestring indicator (b'')\n        #: on python 3.x.\n        #: https://github.com/psf/requests/pull/2238\n        if isinstance(url, bytes):\n            url = url.decode('utf8')\n        else:\n            url = unicode(url) if is_py2 else str(url)\n\n        # Don't do any URL preparation for non-HTTP schemes like `mailto`,\n        # `data` etc to work around exceptions from `url_parse`, which\n        # handles RFC 3986 only.\n        if ':' in url and not url.lower().startswith('http'):\n            self.url = url\n            return\n\n        # Support for unicode domain names and paths.\n        scheme, auth, host, port, path, query, fragment = parse_url(url)\n\n        if not scheme:\n            error = (\"Invalid URL {0!r}: No schema supplied. Perhaps you meant http://{0}?\")\n            error = error.format(to_native_string(url, 'utf8'))\n\n            raise MissingSchema(error)\n\n        if not host:\n            raise InvalidURL(\"Invalid URL {0!r}: No host supplied\".format(url))\n\n        # In general, we want to try IDNA encoding the hostname if the string contains\n        # non-ASCII characters. This allows users to automatically get the correct IDNA\n        # behaviour. For strings containing only ASCII characters, we need to also verify\n        # it doesn't start with a wildcard (*), before allowing the unencoded hostname.\n        if not unicode_is_ascii(host):\n            try:\n                host = self._get_idna_encoded_host(host)\n            except UnicodeError:\n                raise InvalidURL('URL has an invalid label.')\n        elif host.startswith((u'*', u'.')):\n            raise InvalidURL('URL has an invalid label.')\n\n        # Carefully reconstruct the network location\n        netloc = auth or ''\n        if netloc:\n            netloc += '@'\n        netloc += host\n        if port:\n            netloc += ':' + str(port)\n\n        # Bare domains aren't valid URLs.\n        if not path:\n            path = '/'\n\n        if is_py2:\n            if isinstance(scheme, str):\n                scheme = scheme.encode('utf-8')\n            if isinstance(netloc, str):\n                netloc = netloc.encode('utf-8')\n            if isinstance(path, str):\n                path = path.encode('utf-8')\n            if isinstance(query, str):\n                query = query.encode('utf-8')\n            if isinstance(fragment, str):\n                fragment = fragment.encode('utf-8')\n\n        if isinstance(params, (str, bytes)):\n            params = to_native_string(params)\n\n        enc_params = self._encode_params(params)\n        if enc_params:\n            if query:\n                query = '%s&%s' % (query, enc_params)\n            else:\n                query = enc_params\n\n        url = requote_uri(urlunparse([scheme, netloc, path, None, query, fragment]))\n        self.url = url\n\n        # Handle proxy authentication for Python 3.8.12+ where urllib3's\n        # parse_url no longer includes auth in the netloc for proxy URLs.\n        # See https://docs.python.org/3/whatsnew/3.8.html#notable-changes-in-python-3-8-12\n        if self.proxies and self.url:\n            parsed = _parse_url(self.url)\n            if parsed.auth and parsed.hostname:\n                # Store the auth info so it can be used by the adapter\n                self._proxy_auth = parsed.auth\n>>>>>>> REPLACE\n```\n\n```sr\npath: requests/models.py\n<<<<<<< SEARCH\n    def __init__(self):\n        #: HTTP verb to send to the server.\n        self.method = None\n        #: HTTP URL to send the request to.\n        self.url = None\n        #: dictionary of HTTP headers.\n        self.headers = None\n        # The `CookieJar` used to create the Cookie header will be stored here\n        # after prepare_cookies is called\n        self._cookies = None\n        #: request body to send to the server.\n        self.body = None\n        #: dictionary of callback hooks, for internal usage.\n        self.hooks = default_hooks()\n        #: integer denoting starting position of a readable file-like body.\n        self._body_position = None\n=======\n    def __init__(self):\n        #: HTTP verb to send to the server.\n        self.method = None\n        #: HTTP URL to send the request to.\n        self.url = None\n        #: dictionary of HTTP headers.\n        self.headers = None\n        # The `CookieJar` used to create the Cookie header will be stored here\n        # after prepare_cookies is called\n        self._cookies = None\n        #: request body to send to the server.\n        self.body = None\n        #: dictionary of callback hooks, for internal usage.\n        self.hooks = default_hooks()\n        #: integer denoting starting position of a readable file-like body.\n        self._body_position = None\n        #: proxy authentication info extracted from URL (for Python 3.8.12+)\n        self._proxy_auth = None\n>>>>>>> REPLACE\n```\n\n```sr\npath: requests/sessions.py\n<<<<<<< SEARCH\nfrom .utils import (\n    requote_uri, get_environ_proxies, get_netrc_auth, should_bypass_proxies,\n    get_auth_from_url, rewind_body, resolve_proxies\n)\n=======\nfrom .utils import (\n    requote_uri, get_environ_proxies, get_netrc_auth, should_bypass_proxies,\n    get_auth_from_url, rewind_body, resolve_proxies\n)\nfrom .auth import _basic_auth_str\n>>>>>>> REPLACE\n```\n\n```sr\npath: requests/sessions.py\n<<<<<<< SEARCH\n    def send(self, request, **kwargs):\n        \"\"\"Send a given PreparedRequest.\n\n        :rtype: requests.Response\n        \"\"\"\n        # Set defaults that the hooks can utilize to ensure they always have\n        # the correct parameters to reproduce the previous request.\n        kwargs.setdefault('stream', self.stream)\n        kwargs.setdefault('verify', self.verify)\n        kwargs.setdefault('cert', self.cert)\n        if 'proxies' not in kwargs:\n            kwargs['proxies'] = resolve_proxies(\n                request, self.proxies, self.trust_env\n            )\n=======\n    def send(self, request, **kwargs):\n        \"\"\"Send a given PreparedRequest.\n\n        :rtype: requests.Response\n        \"\"\"\n        # Set defaults that the hooks can utilize to ensure they always have\n        # the correct parameters to reproduce the previous request.\n        kwargs.setdefault('stream', self.stream)\n        kwargs.setdefault('verify', self.verify)\n        kwargs.setdefault('cert', self.cert)\n        if 'proxies' not in kwargs:\n            kwargs['proxies'] = resolve_proxies(\n                request, self.proxies, self.trust_env\n            )\n\n        # Handle proxy authentication for Python 3.8.12+ where urllib3's\n        # parse_url no longer includes auth in the netloc for proxy URLs.\n        # See https://docs.python.org/3/whatsnew/3.8.html#notable-changes-in-python-3-8-12\n        proxy_auth = getattr(request, '_proxy_auth', None)\n        if proxy_auth and kwargs.get('proxies'):\n            # Extract username and password from the auth tuple\n            if isinstance(proxy_auth, tuple) and len(proxy_auth) == 2:\n                username, password = proxy_auth\n                # Add Proxy-Authorization header to the request\n                if username is not None:\n                    request.headers['Proxy-Authorization'] = _basic_auth_str(\n                        username, password or ''\n                    )\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Both address proxy auth parsing, but candidate modifies models.py and adds incomplete/incorrect changes, not the core utils.py fix."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "verified": false,
+  "why": "candidate-apply-failed: b'error: corrupt patch at <stdin>:90\\n'"
+ },
+ "repair": {
+  "verified": false,
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": false
+   },
+   {
+    "src": "fresh",
+    "applied": 0,
+    "fails": [
+     "requests/adapters.py: search-not-found",
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found",
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.15s\n\n===STDERR===\n[2026-08-28 11:05:35,719] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-28 11:05:38,740] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-28 11:05:42,391] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.10s\n\n===STDERR===\n[2026-08-28 11:05:46,584] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   }
+  ],
+  "walltime_s": 25.8
+ },
+ "repair_plain": {
+  "verified": false,
+  "variant": "plain",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": false
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found(best=0.60)",
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found",
+     "requests/utils.py: search-not-found(best=0.79)"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "sts\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:136: in <module>\n    from .api import request, get, head, post, patch, put, delete, options\nrequests\\api.py:13: in <module>\n    from . import sessions\nrequests\\sessions.py:28: in <module>\n    from .adapters import HTTPAdapter\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\adapters.py\", line 212\nE       the server's TLS certificate, or a string, in which case it must be a path\nE                 ^\nE   SyntaxError: unterminated string literal (detected at line 212)\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "sts\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:136: in <module>\n    from .api import request, get, head, post, patch, put, delete, options\nrequests\\api.py:13: in <module>\n    from . import sessions\nrequests\\sessions.py:28: in <module>\n    from .adapters import HTTPAdapter\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\adapters.py\", line 212\nE       the server's TLS certificate, or a string, in which case it must be a path\nE                 ^\nE   SyntaxError: unterminated string literal (detected at line 212)\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "sts\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:136: in <module>\n    from .api import request, get, head, post, patch, put, delete, options\nrequests\\api.py:13: in <module>\n    from . import sessions\nrequests\\sessions.py:28: in <module>\n    from .adapters import HTTPAdapter\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\adapters.py\", line 217\nE       the server's TLS certificate, or a string, in which case it must be a path\nE                 ^\nE   SyntaxError: unterminated string literal (detected at line 217)\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 1,
+    "repair_fails": []
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "sts\\conftest.py:15: in <module>\n    from requests.compat import urljoin\nrequests\\__init__.py:136: in <module>\n    from .api import request, get, head, post, patch, put, delete, options\nrequests\\api.py:13: in <module>\n    from . import sessions\nrequests\\sessions.py:28: in <module>\n    from .adapters import HTTPAdapter\nE     File \"C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\psf__requests-6028\\requests\\adapters.py\", line 217\nE       the server's TLS certificate, or a string, in which case it must be a path\nE                 ^\nE   SyntaxError: unterminated string literal (detected at line 217)\n"
+   }
+  ],
+  "walltime_s": 34.8
+ },
+ "repair_signals": {
+  "verified": false,
+  "variant": "signals",
+  "rounds_used": 9,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": false
+   },
+   {
+    "src": "fresh",
+    "applied": 1,
+    "fails": [
+     "requests/utils.py: search-not-found(best=0.79)",
+     "requests/adapters.py: search-not-found",
+     "requests/adapters.py: search-not-found",
+     "requests/adapters.py: search-not-found",
+     "requests/adapters.py: search-not-found"
+    ]
+   },
+   {
+    "round": 0,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.15s\n\n===STDERR===\n[2026-08-29 15:33:48,199] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 0,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 1,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.12s\n\n===STDERR===\n[2026-08-29 15:33:52,042] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 1,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found"
+    ]
+   },
+   {
+    "round": 2,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.11s\n\n===STDERR===\n[2026-08-29 15:33:54,650] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   },
+   {
+    "round": 2,
+    "repair_applied": 0,
+    "repair_fails": [
+     "requests/utils.py: search-not-found(best=0.73)"
+    ]
+   },
+   {
+    "round": 3,
+    "ftb_pass": false,
+    "tail": "tp://example.com/path?query\n\ntests\\test_utils.py:615: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\nFAILED tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\n2 failed in 0.11s\n\n===STDERR===\n[2026-08-29 15:33:57,385] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.\n"
+   }
+  ],
+  "walltime_s": 51.7
+ }
+}

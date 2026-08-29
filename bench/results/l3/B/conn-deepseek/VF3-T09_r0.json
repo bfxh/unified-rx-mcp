@@ -1,0 +1,99 @@
+{
+ "task_id": "VF3-T09",
+ "arm": "model_plus_rx",
+ "run_idx": 0,
+ "ts": 1787817635,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n每个模块实例在摆放时都独立克隆了 `Mesh` 和 `Material` 的 `Handle`，导致 GPU 显存与 CPU 内存随实例数线性增长。Bevy 的 `Handle<Mesh>`/`Handle<StandardMaterial>` 是**引用计数句柄**，同一资源可被多个实体共享——但当前代码在 `spawn` 时对每个实例重新 `add` 了 mesh 与材质资源（或对同一资源重复 `clone` 了底层数据），使每个实例都持有独立的 GPU 缓冲与材质参数块。几百个模块即产生几百份重复的顶点缓冲、索引缓冲与材质 uniform，显存/内存呈 O(N) 线性上涨。\n\n【定位】\n- `crates/app/src/main.rs:73` —— `mesh: Option<(Vec<Vec3i>, Handle<Mesh>)>` 结构字段，模块实例直接持有 `Handle<Mesh>`，未区分\"共享资源句柄\"与\"实例私有数据\"。\n- `crates/app/src/main.rs:build_demo_assembly`（约 L157 附近）—— 摆放模块时对每个实例执行 mesh/材质资源创建与绑定，未走资源缓存复用路径。\n- `docs/legacy/v1-docs/ROADMAP.md:452` —— 规划中的 `MeshLibrary`（按 `DefId` 索引的模块 Mesh 缓存）尚未落地，证实当前缺失共享资源层。\n\n【修复方案】\n1. **引入 `MeshLibrary` 资源**（按 `DefId` 缓存 `Handle<Mesh>` + `Handle<StandardMaterial>`）：首次遇到某 `DefId` 时创建并存入 `Assets<Mesh>`/`Assets<StandardMaterial>`，后续实例仅 `clone` 句柄（引用计数 +1，不复制 GPU 数据）。\n2. **实例实体只存 `DefId` + 变换**：将 `mesh: Option<(Vec<Vec3i>, Handle<Mesh>)>` 改为 `def_id: DefId`，渲染时通过 `MeshLibrary` 查表获取共享句柄，`Transform` 由实例位置/旋转决定。\n3. **材质统一走 `MeshLibrary`**：同 `DefId` 的模块共用同一材质句柄，仅当需要实例级换色时再创建少量变体（按颜色哈希缓存）。\n\n**收益量级预测**：显存/内存占用从 O(N) 降为 O(唯一模块种类数)。以几百个模块、几十种 `DefId` 为例，显存可降低 **90%~98%**（几百份重复顶点/索引缓冲收敛为几十份）；CPU 内存中句柄克隆开销可忽略，`Assets` 容器条目数从 N 降为 K（K≈模块种类数），内存下降同样量级。若后续配合 `Extract` 阶段实例化渲染（`Meshlet`/`InstanceBuffer`），可进一步将 draw call 从 N 降为 K，CPU 帧耗时同步下降。",
+ "tokens_in": 30435,
+ "tokens_out": 1460,
+ "turns": 12,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "bug_scan",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "ast_scan",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00982,
+ "walltime_s": 17.9,
+ "notes": [
+  "round0: 2 calls 2485ch (1.8s)",
+  "round1: 2 calls 2364ch (1.8s)",
+  "round2: 2 calls 2228ch (1.9s)",
+  "round3: 1 calls 192ch (1.4s)",
+  "round4: 2 calls 2360ch (2.1s)",
+  "round5: 2 calls 5566ch (1.6s)"
+ ],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

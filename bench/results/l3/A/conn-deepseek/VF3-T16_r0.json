@@ -1,0 +1,22 @@
+{
+ "task_id": "VF3-T16",
+ "arm": "bare_model",
+ "run_idx": 0,
+ "ts": 1787818915,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n1. **模型方向错误**：Blender 默认使用右手坐标系（Z 轴向上），而 Bevy 的 GLB 加载遵循 glTF 规范（Y 轴向上）。若 Blender 导出时未设置 `-Z` 为前向、`Y` 为向上，或未在导出面板勾选 `+Y Up`，会导致模型绕 X 轴旋转 90°，出现“躺倒”现象。\n2. **无头环境注册失败**：Bevy 的 `AssetServer` 在无头（headless）模式下默认不启用 `RenderPlugin`，而 GLB 网格/材质加载依赖 `RenderAssetPlugin`（如 `MeshPlugin`、`StandardMaterialPlugin`）。若未显式注册这些插件，或未在 `App` 构建时添加 `ImagePlugin`（处理 GLB 内嵌纹理），会导致资产加载时找不到对应处理器而报错。\n3. **链路断裂**：从 core 数据到 Blender 插件再到游戏内加载，缺少统一的坐标转换约定（如 Blender 导出脚本未强制设置 `axis_forward='-Z'`、`axis_up='Y'`），且游戏端未对加载后的 `Transform` 做补偿旋转。\n\n【定位】\n- `Blender 导出插件`：`addon/export_glb.py`（推测，需确认插件内 `bpy.ops.export_scene.gltf` 调用参数）\n- `Bevy 资产加载`：`src/main.rs`（推测，`App::new().add_plugins(DefaultPlugins.set(AssetPlugin {...}))` 或 `RenderPlugin` 配置处）\n- `Bevy 坐标补偿`：`src/systems/spawn_model.rs`（推测，`Transform::from_rotation(Quat::from_rotation_x(-PI/2))` 应用处）\n- `Bevy 无头注册`：`src/headless.rs`（推测，`MinimalPlugins` 与 `AssetPlugin` 组合处）\n\n【修复方案】\n1. **统一坐标约定**：在 Blender 导出插件中，强制设置 `bpy.ops.export_scene.gltf(filepath=..., axis_forward='-Z', axis_up='Y')`，确保导出模型符合 glTF 标准（Y 轴向上）。若插件已有此参数，则检查是否被用户覆盖。\n2. **游戏端补偿旋转**：在 `spawn_model.rs` 中，对加载的 `Scene` 根节点应用 `Transform::from_rotation(Quat::from_rotation_x(-PI/2))`，仅作为临时兼容方案（若导出已修正则移除）。\n3. **无头环境插件注册**：在 `headless.rs` 中，使用 `App::new().add_plugins(MinimalPlugins).add_plugin(AssetPlugin::default()).add_plugin(ImagePlugin::default())`，并显式添加 `MeshPlugin` 与 `StandardMaterialPlugin`（若需加载材质）。确保 `AssetServer` 能处理 GLB 内嵌资源。\n4. **验证链路**：在 core 数据定义处添加单元测试，断言导出 GLB 的根节点旋转为 `(0,0,0)`，并在游戏加载后打印 `Transform` 以确认无额外旋转。",
+ "tokens_in": 163,
+ "tokens_out": 733,
+ "turns": 1,
+ "cost_usd": 0.00085,
+ "walltime_s": 6.7,
+ "notes": [],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass",
+  "R3": "pass"
+ }
+}

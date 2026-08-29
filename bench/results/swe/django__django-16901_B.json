@@ -1,0 +1,160 @@
+{
+ "instance_id": "django__django-16901",
+ "arm": "B",
+ "model": "deepseek-chat",
+ "root": "C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-16901",
+ "tokens_in": 66348,
+ "tokens_out": 1493,
+ "turns": 13,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 908
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": 260
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 227
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": 208
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": 207
+  },
+  {
+   "tool": "code_search",
+   "round": 2,
+   "ms": 225
+  },
+  {
+   "tool": "fs_list",
+   "round": 3,
+   "ms": 1
+  },
+  {
+   "tool": "code_search",
+   "round": 3,
+   "ms": 236
+  },
+  {
+   "tool": "fs_list",
+   "round": 4,
+   "ms": 2
+  },
+  {
+   "tool": "fs_list",
+   "round": 5,
+   "ms": 0
+  },
+  {
+   "tool": "semantic_search",
+   "round": "pipe",
+   "ms": 0,
+   "dsml": true
+  },
+  {
+   "tool": "code_search",
+   "round": "pipe",
+   "ms": 196,
+   "dsml": true
+  }
+ ],
+ "walltime_s": 19.1,
+ "mech": {
+  "dsml_recovered": 0,
+  "patch_repaired": false,
+  "protocol": "sr",
+  "patch_ok": true,
+  "patch_strategy": "sr",
+  "sr_blocks": 1,
+  "sr_applied": 1,
+  "sr_failed": [],
+  "sr_fuzzy": 0,
+  "dsml_final_recovered": 2,
+  "grounded_author": true,
+  "candidate_diff": "diff --git a/django/db/models/sql/where.py b/django/db/models/sql/where.py\nindex aaab173..84dcfea 100644\n--- a/django/db/models/sql/where.py\n+++ b/django/db/models/sql/where.py\n@@ -129,13 +129,13 @@ class WhereNode(tree.Node):\n             # Convert if the database doesn't support XOR:\n             #   a XOR b XOR c XOR ...\n             # to:\n-            #   (a OR b OR c OR ...) AND (a + b + c + ...) == 1\n+            #   (a OR b OR c OR ...) AND (a + b + c + ...) % 2 == 1\n             lhs = self.__class__(self.children, OR)\n             rhs_sum = reduce(\n                 operator.add,\n                 (Case(When(c, then=1), default=0) for c in self.children),\n             )\n-            rhs = Exact(1, rhs_sum)\n+            rhs = Exact(1, rhs_sum % 2)\n             return self.__class__([lhs, rhs], AND, self.negated).as_sql(\n                 compiler, connection\n             )\n"
+ },
+ "answer": "```sr\npath: django/db/models/sql/where.py\n<<<<<<< SEARCH\n        if self.connector == XOR and not connection.features.supports_logical_xor:\n            # Convert if the database doesn't support XOR:\n            #   a XOR b XOR c XOR ...\n            # to:\n            #   (a OR b OR c OR ...) AND (a + b + c + ...) == 1\n            lhs = self.__class__(self.children, OR)\n            rhs_sum = reduce(\n                operator.add,\n                (Case(When(c, then=1), default=0) for c in self.children),\n            )\n            rhs = Exact(1, rhs_sum)\n            return self.__class__([lhs, rhs], AND, self.negated).as_sql(\n                compiler, connection\n            )\n=======\n        if self.connector == XOR and not connection.features.supports_logical_xor:\n            # Convert if the database doesn't support XOR:\n            #   a XOR b XOR c XOR ...\n            # to:\n            #   (a OR b OR c OR ...) AND (a + b + c + ...) % 2 == 1\n            lhs = self.__class__(self.children, OR)\n            rhs_sum = reduce(\n                operator.add,\n                (Case(When(c, then=1), default=0) for c in self.children),\n            )\n            rhs = Exact(1, rhs_sum % 2)\n            return self.__class__([lhs, rhs], AND, self.negated).as_sql(\n                compiler, connection\n            )\n>>>>>>> REPLACE\n```",
+ "judge": {
+  "same_issue_area": true,
+  "same_root_cause": true,
+  "fix_equivalent": false,
+  "reason": "Candidate uses modulo operator on rhs_sum, but Django's SQL compiler may not support '%' in this context; gold uses Mod() function for portability."
+ },
+ "judge_votes_n": 3,
+ "verify": {
+  "base_ftb_fail": true,
+  "ftb_pass": true,
+  "ftb_tail": "Testing against Django installed in 'C:\\Users\\lbx13\\AppData\\Local\\Temp\\opencode\\swe\\django__django-16901\\django'\nFound 1 test(s).\nSystem check identified no issues (0 silenced).\n",
+  "ptb_total": 6,
+  "ptb_pass": true,
+  "verified": true
+ },
+ "repair": {
+  "verified": true,
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 6,
+  "ptb_pass": true,
+  "walltime_s": 3.8
+ },
+ "repair_plain": {
+  "verified": true,
+  "variant": "plain",
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 6,
+  "ptb_pass": true,
+  "walltime_s": 1.6
+ },
+ "repair_signals": {
+  "verified": true,
+  "variant": "signals",
+  "rounds_used": 2,
+  "rounds": [
+   {
+    "src": "s23",
+    "applied": true
+   },
+   {
+    "round": 0,
+    "ftb_pass": true,
+    "tail": ""
+   }
+  ],
+  "ptb_total": 6,
+  "ptb_pass": true,
+  "walltime_s": 1.5
+ }
+}

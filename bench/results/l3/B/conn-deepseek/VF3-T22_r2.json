@@ -1,0 +1,108 @@
+{
+ "task_id": "VF3-T22",
+ "arm": "model_plus_rx",
+ "run_idx": 2,
+ "ts": 1787819314,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n\n**坐标错误根因**：`tools/blender_mount_points.py` 中挂点格坐标计算只取了 `obj.matrix_world.translation`（即物体原点平移），未将物体自身的旋转矩阵（`matrix_world.to_3x3()`）作用于挂点局部坐标。当模块物体带旋转（rotation_euler ≠ 0）或其原点不在世界原点时，挂点局部坐标未经旋转/平移合成直接当作世界坐标输出，导致格子坐标整体偏移或旋转错位。这与 `docs/legacy/v1-docs/CONNECTOR_DETAILED.md` 中已记录的同类缺陷（\"面调整点击标记选不中（scale≠1）→ 改 `_grid_to_world_matrix`（只平移）\"）同源——只处理平移、忽略旋转/缩放。\n\n**工作区集成缺失根因**：插件当前仅将连接点编辑工具注册为独立工具窗口（`blender_mount_points.py` 中独立 Operator/窗口面板），未注册到 Blender 左侧 T 面板（`VIEW3D_PT_tools_*` 类）或 N 侧栏（`VIEW3D_PT_*` 类）。虽然文件第 724 行附近存在\"左侧工具条（T 面板）：快速连接点工具\"的注释/占位，但该面板未实际注册到 `bpy.types.VIEW3D_MT_*` 或 `TOPBAR` 工作区上下文，导致左侧工具栏无入口。\n\n【定位】\n\n- `tools/blender_mount_points.py:68` — 挂点世界坐标计算：`z_world = (obj.matrix_world @ Vector((0, 0, 1))) - obj.matrix_world.translation`，仅取平移分量，未用 `matrix_world.to_3x3()` 旋转挂点局部坐标（证据：code_search 命中该行，且 CONNECTOR_DETAILED.md 记录同类\"只平移\"缺陷）\n- `tools/blender_mount_points.py:724` — 左侧工具条面板注释/占位（\"左侧工具条（T 面板）：快速连接点工具\"），未实际注册到 `bpy.types.VIEW3D_PT_tools_*`（证据：code_search 命中该行注释）\n- `docs/legacy/v1-docs/CONNECTOR_DETAILED.md:102` — 已记录同类坐标缺陷修复先例（\"改 `_grid_to_world_matrix`（只平移）\"），佐证坐标计算只处理平移的既有问题模式\n\n【修复方案】\n\n1. **坐标计算修复**（`blender_mount_points.py` 挂点导出/可视化函数）：\n   - 将挂点局部坐标 `local_pt` 通过 `world_pt = obj.matrix_world @ local_pt` 完整变换（matrix_world 已含旋转+平移+缩放），而非仅加 `obj.matrix_world.translation`。\n   - 若需格对齐，先对 `world_pt` 做 `round()` 到整数格，再减去 `obj.matrix_world.translation` 得到相对格坐标——确保旋转物体下格子坐标正确。\n   - 同步检查 `_grid_to_world_matrix` 相关辅助函数，确保其只做平移（不乘旋转），与挂点导出逻辑一致。\n\n2. **左侧工具栏集成**（`blender_mount_points.py`）：\n   - 新增 `class VIEW3D_PT_VoxelForge_MountPoints(bpy.types.Panel)`，设置 `bl_space_type = 'VIEW_3D'`、`bl_region_type = 'UI'`（N 侧栏）或 `'TOOLS'`（T 工具栏），`bl_category = \"VoxelForge\"`。\n   - 在 `register()` 中注册该 Panel，`unregister()` 中注销；面板内复用现有挂点编辑 Operator（`bl_idname` 不变），仅将 UI 布局从独立窗口迁移/镜像到面板。\n   - 保留独立窗口入口作为高级模式，面板提供常用操作（添加/删除/移动挂点、导出 RON）。\n\n3. **验证**：用带旋转（如 45°）且原点偏移的立方体测试，确认挂点格子坐标与 `matrix_world @ local` 一致；在左侧工具栏确认面板可见且操作与独立窗口等效。",
+ "tokens_in": 26858,
+ "tokens_out": 2031,
+ "turns": 14,
+ "tool_trace": [
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "bug_locate",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "engine_query",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "ast_scan",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "bug_scan",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.00949,
+ "walltime_s": 20.2,
+ "notes": [
+  "round0: 2 calls 2111ch (1.5s)",
+  "round1: 2 calls 396ch (2.5s)",
+  "round2: 2 calls 313ch (1.4s)",
+  "round3: 3 calls 6035ch (2.9s)",
+  "round4: 2 calls 354ch (1.6s)",
+  "round5: 2 calls 487ch (1.4s)"
+ ],
+ "judge": {
+  "R1": "fail",
+  "R2": "pass"
+ }
+}

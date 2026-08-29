@@ -1,0 +1,533 @@
+# -*- coding: utf-8 -*-
+"""swe_repair.py —— S25 真·闭环：测试执行失败输出回喂模型做修复轮。
+
+与 S24 的区别：S24 只"判分"，本模块把执行结果喂回模型让它改自己的补丁，
+直到 fail-to-pass 真转绿或轮次耗尽。
+
+用法：
+  python bench/swe_repair.py --run [--max-repairs 3]
+  python bench/swe_repair.py --summary
+
+对每个 feasible（有 venv）任务的 A/B 结果文件：
+  round0 = 已有 candidate_diff（S23 产物）；没有则走"定位+文件内容注入"产出 sr 块
+  loop   = apply → 跑 FTB → 失败则把【测试失败输出 + 触碰文件当前内容】喂回模型
+           换取修正的 sr 块 → 再跑；至多 --max-repairs 轮
+  终态 FTB 全 PASS 且 PTB 抽样不破 → repair.verified = True
+结果写回 result 文件的 "repair" 字段，幂等可重入。
+"""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, ROOT)
+sys.path.insert(0, HERE)
+
+import ab_run as AB
+import swe_p3
+import swe_verify as sv
+import registry
+
+MAX_FILES = 3
+FILE_CAP = 9000
+FTB_TAIL_CAP = 2500
+
+
+def log(msg):
+    print(msg, flush=True)
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
+def _chat(ch, model, msgs):
+    try:
+        return AB.chat(ch, model, msgs)
+    except SystemExit as e:
+        return {"choices": [{"message": {"content": f"(API FAIL) {e}"}}]}
+
+
+def _last_content(resp):
+    return ((resp.get("choices") or [{}])[0].get("message", {}).get("content") or "")
+
+
+def _touched_files(diff):
+    return sorted({m.group(1) for m in
+                   re.finditer(r"^diff --git a/(\S+) b/", diff, re.M)})[:MAX_FILES]
+
+
+def _locate_ok(root, path):
+    """S29：locate 轮的路径存在性检查必须锁在 root 内。"""
+    fp = swe_p3.safe_join(root, path)
+    return bool(fp) and os.path.isfile(fp)
+
+
+def _file_block(root, path):
+    fp = swe_p3.safe_join(root, path)
+    if fp is None:
+        return ""
+    try:
+        with open(fp, encoding="utf-8", errors="replace") as f:
+            c = f.read().replace("\r\n", "\n")
+    except OSError:
+        return ""
+    if len(c) > FILE_CAP:
+        c = c[:FILE_CAP // 2] + "\n…[middle truncated]…\n" + c[-FILE_CAP // 2:]
+    return f"===== ACTUAL CONTENT of {path} =====\n{c}"
+
+
+def _fresh_issue_block(inst):
+    return (f"[SWE issue · {inst['instance_id']}]\n"
+            f"{inst['issue'][:3500]}\n\n"
+            "Produce the fix as search/replace blocks (```sr with path:/"
+            "<<<<<<< SEARCH/=======/>>>>>>> REPLACE). First list the file(s) you "
+            "need to see, one per line as `path: <relpath>`, and I will show them.")
+
+
+def _locate_and_ground(inst, root, ch, model, msgs):
+    """定位轮 + 文件内容注入（S23 接地定稿的复用）。返回模型回复文本。"""
+    loc = _last_content(_chat(ch, model, msgs))
+    if swe_p3.parse_dsml(loc):
+        msgs.append({"role": "assistant", "content": loc})
+        outs = []
+        for fn, fa in swe_p3.parse_dsml(loc):
+            txt, _ = AB.exec_tool(fn, fa)
+            outs.append(f"$ {fn}\n{txt}")
+        msgs.append({"role": "user", "content": "[tool results]\n" +
+                     "\n\n".join(outs)[:20000] +
+                     "\n\nNow list the file path(s) as `path: <relpath>`."})
+        loc = _last_content(_chat(ch, model, msgs))
+    paths = []
+    for pm in re.finditer(r"^\s*path:\s*(\S+)\s*$", loc or "", re.M):
+        p = pm.group(1).replace("\\", "/").lstrip("/").strip(".,`;*\"'()[]")
+        if (p not in paths and len(paths) < MAX_FILES and _locate_ok(root, p)):
+            paths.append(p)
+    parts = [b for p in paths for b in [_file_block(root, p)] if b]
+    msgs.append({"role": "assistant", "content": loc})
+    if parts:
+        msgs.append({"role": "user", "content": "\n\n".join(parts)[:26000] +
+                     "\n\nOutput ONLY the final search/replace edit blocks, in "
+                     "EXACTLY this format:\n" + SR_TEMPLATE +
+                     "\nEvery block MUST start with a `path:` line. COPY SEARCH "
+                     "lines verbatim from these contents."})
+    else:
+        msgs.append({"role": "user", "content":
+                     "Output ONLY the final search/replace edit blocks (```sr) in "
+                     "the path:/SEARCH/=======/REPLACE format."})
+    return _last_content(_chat(ch, model, msgs))
+
+
+def _apply_and_diff(root, blocks):
+    """sr 块 → 应用 + git diff（apply_sr 还原后再打回，保证可测试态）。"""
+    applied, fails, gdiff, fz, grounds = swe_p3.apply_sr(root, blocks)
+    if gdiff.strip():
+        r = subprocess_apply(root, gdiff)
+        if r != 0:
+            return 0, fails, "", grounds
+    return applied, fails, gdiff, grounds
+
+
+def subprocess_apply(root, diff):
+    import subprocess
+    r = subprocess.run(["git", "-C", root, "apply", "--whitespace=nowarn", "-"],
+                       input=diff.replace("\r\n", "\n").encode(),
+                       capture_output=True, timeout=120)
+    return r.returncode
+
+
+SR_TEMPLATE = ("```sr\npath: <relpath>\n<<<<<<< SEARCH\n<exact lines copied from "
+               "the file>\n=======\n<replacement lines>\n>>>>>>> REPLACE\n```")
+
+
+def repair_loop(args):
+    ch = AB.load_channel(args.channel)
+    model = args.model
+    out_key = "repair_signals" if args.variant == "signals" else "repair_plain"
+    use_signals = args.variant == "signals"
+    insts = {d["instance_id"]: d for d in swe_p3.load_sample()}
+    import glob
+    files = sorted(glob.glob(os.path.join(sv.RESULTS_DIR, "*_A.json")) +
+                   glob.glob(os.path.join(sv.RESULTS_DIR, "*_B.json")))
+    if args.ids:
+        want = {x.strip() for x in args.ids.split(",")}
+        files = [f for f in files if json.load(open(f, encoding="utf-8"))
+                 ["instance_id"] in want]
+    base_cache = {}
+    done = 0
+    for fp in files:
+        rec = json.load(open(fp, encoding="utf-8"))
+        if out_key in rec and not args.force:
+            continue
+        iid = rec["instance_id"]
+        inst = insts.get(iid)
+        if inst is None or not (inst["repo"] in sv.PY_REPOS
+                                or iid in sv.WSL_TASKS):
+            continue
+        if not (inst.get("test_patch") and inst.get("ftb")):
+            continue
+        if iid in sv.WSL_TASKS:
+            # S41：WSL 任务修复覆盖（测试走 _run_tests 的 WSL 分支；
+            # settrace 断点在 WSL 不可用 → bps 信号缺失，frames/LSP 照常）
+            if not sv.build_env_wsl(inst):
+                continue
+            py = None
+        else:
+            py = sv._uv_py(os.path.join(sv.ENVS, iid.replace("/", "__")))
+            if not os.path.exists(py) or not sv._venv_py_ok(py):
+                # S42 推广：存在性 ≠ 能力（venv 缺 pytest 即不可用）
+                continue
+        root = os.path.join(sv.WORK, iid.replace("/", "__"))
+        if not os.path.isdir(root):
+            continue
+
+        t0 = time.time()
+        sv._restore(root)
+        r = subprocess.run(["git", "-C", root, "apply", "--whitespace=nowarn", "-"],
+                           input=inst["test_patch"].replace("\r\n", "\n").encode(),
+                           capture_output=True, timeout=120)
+        if r.returncode != 0:
+            rec[out_key] = {"skip": "test-patch-apply-failed"}
+            json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+            continue
+        ftb = list(inst.get("ftb") or [])
+        bkey = iid + "::base"
+        if bkey not in base_cache:
+            rc, tail = sv._run_tests(inst, py, root, ftb)
+            if rc is None:
+                # S42 推广：基础设施故障 → 如实 skip（区别于 base-green）
+                rec[out_key] = {"skip": tail[:120] if tail else "infra"}
+                json.dump(rec, open(fp, "w", encoding="utf-8"),
+                          ensure_ascii=False, indent=1)
+                continue
+            base_cache[bkey] = (rc != 0)
+        if not base_cache[bkey]:
+            rec[out_key] = {"skip": "base-already-green"}
+            json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+            continue
+
+        cand = (rec.get("mech") or {}).get("candidate_diff") or ""
+        rounds = []
+        diff = cand
+        cur = diff
+        if cur.strip():
+            rc = subprocess_apply(root, cur)
+            rounds.append({"src": "s23", "applied": rc == 0})
+            if rc != 0:
+                cur = ""
+        else:
+            rounds.append({"src": "none"})
+        if not cur.strip():
+            # 全新起点：定位 + 接地
+            msgs = [{"role": "system", "content":
+                     "You are a senior engineer fixing a real repository issue. "
+                     f"Repo root: {root}"},
+                    {"role": "user", "content": _fresh_issue_block(inst)}]
+            ans = _locate_and_ground(inst, root, ch, model, msgs)
+            blocks = swe_p3.parse_sr(ans)
+            applied, fails, gdiff, _ = _apply_and_diff(root, blocks)
+            rounds.append({"src": "fresh", "applied": applied, "fails": fails[:5]})
+            cur = gdiff
+
+        verified = False
+        for rnd in range(args.max_repairs + 1):
+            if cur.strip():
+                if not _applied_now(root, cur):
+                    subprocess_apply(root, cur)
+            rc, tail = sv._run_tests(inst, py, root, ftb)
+            if rc is None:
+                # S42 推广：基础设施故障 ≠ 测试失败——如实终止该任务的修复
+                rounds.append({"round": rnd, "infra": True, "reason": (tail or "")[:200]})
+                break
+            ftb_pass = (rc == 0)
+            rounds.append({"round": rnd, "ftb_pass": ftb_pass,
+                           "tail": (tail or "")[-600:] if not ftb_pass else ""})
+            if ftb_pass:
+                verified = True
+                break
+            # S50：诊断历史持久化（跨会话比对这轮修好了几个）
+            try:
+                from bench.diag_history import append_diag
+                dias = (swe_repair.registry.call('ide_diagnostics',
+                        {'path': root, 'files': files_show[:3]}) or {}
+                        ).get('result', {}).get('diagnostics') or []
+                append_diag(iid, 'repair', f'round{rnd}', dias)
+            except Exception:
+                pass
+            if rnd == args.max_repairs:
+                break
+            # 回喂：失败输出 + 触碰文件当前内容；signals 变体追加三路结构化信号
+            files_show = _touched_files(cur) if cur.strip() else []
+            msgs = [{"role": "system", "content":
+                     "You are a senior engineer. Your patch did NOT make the "
+                     "failing tests pass. Fix it."},
+                    {"role": "user", "content":
+                     f"[SWE issue · {iid}]\n{inst['issue'][:2500]}"}]
+            if cur.strip():
+                msgs.append({"role": "user", "content":
+                             "[YOUR PREVIOUS PATCH]\n" + cur[:3500]})
+            extra = ""
+            if use_signals:
+                frames_txt = _structured_frames(tail or "")
+                lsp_txt = _diag_section(root, files_show)
+                # S37：断点命中——补丁行的实际运行时 locals（pytest 在 settrace 下执行）
+                # S41：WSL 任务 settrace 不可用 → 该信号缺失（frames/LSP 照常）
+                bps_txt = ""
+                if cur.strip() and py:
+                    hits = _break_hits(root, py, _changed_lines(cur), list(ftb)[:6])
+                    bps_txt = _break_section(hits)
+                extra = (("\n\n" + frames_txt[:2500]) if frames_txt else "") + \
+                        (("\n\n" + lsp_txt[:1500]) if lsp_txt else "") + \
+                        (("\n\n" + bps_txt[:1500]) if bps_txt else "")
+            msgs.append({"role": "user", "content":
+                         "[TEST FAILURE OUTPUT]\n" + (tail or "")[:FTB_TAIL_CAP] +
+                         extra +
+                         "\n\n[CURRENT FILE CONTENTS]\n" +
+                         "\n\n".join(b for p in files_show
+                                     for b in [_file_block(root, p)] if b)[:22000] +
+                         "\n\nOutput ONLY corrected search/replace blocks, one per "
+                         "edit, in EXACTLY this format:\n" + SR_TEMPLATE +
+                         "\nEvery block MUST start with a `path:` line (one of: " +
+                         ", ".join(files_show[:MAX_FILES] or ["<relpath>"]) +
+                         "). COPY SEARCH lines verbatim from the current contents."})
+            ans = _last_content(_chat(ch, model, msgs))
+            if swe_p3.parse_dsml(ans):
+                outs = []
+                for fn, fa in swe_p3.parse_dsml(ans):
+                    txt, _ = AB.exec_tool(fn, fa)
+                    outs.append(f"$ {fn}\n{txt}")
+                msgs.append({"role": "assistant", "content": ans})
+                msgs.append({"role": "user", "content": "[tool results]\n" +
+                             "\n\n".join(outs)[:20000] +
+                             "\n\nNow output ONLY corrected ```sr blocks."})
+                ans = _last_content(_chat(ch, model, msgs))
+            blocks = swe_p3.parse_sr(ans)
+            applied, fails, gdiff, _ = _apply_and_diff(root, blocks)
+            rounds.append({"round": rnd, "repair_applied": applied,
+                           "repair_fails": fails[:5]})
+            cur = gdiff
+
+        ptb = {}
+        if verified:
+            ptb_list = (inst.get("ptb") or [])[:sv.PTB_CAP]
+            if ptb_list:
+                rc2, _ = sv._run_tests(inst, py, root, ptb_list)
+                ptb = {"ptb_total": len(ptb_list), "ptb_pass": rc2 == 0}
+            if ptb and not ptb["ptb_pass"]:
+                verified = False
+        sv._restore(root)
+        rec[out_key] = {"verified": verified, "variant": args.variant,
+                        "rounds_used": len(rounds), "rounds": rounds[:12],
+                        **ptb, "walltime_s": round(time.time() - t0, 1)}
+        json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        log(f"repair[{args.variant}] {os.path.basename(fp)} -> verified={verified} "
+            f"rounds={len(rounds)} ({rec[out_key]['walltime_s']}s)")
+        done += 1
+    log(f"[OK] repair done {done} files")
+
+
+def _structured_frames(text):
+    """S33/S34：把测试失败输出解析成结构化帧文本段（无帧返回空）。"""
+    from tools.ide import (_parse_py_traceback, _parse_java_trace,
+                           _parse_go_panic, _parse_pytest)
+    parts = []
+    pf, asserts = _parse_pytest(text)
+    if pf or asserts:
+        lines = ["[STRUCTURED · pytest]"]
+        for t in pf[:10]:
+            lines.append(f"- FAILED {t}")
+        for a in asserts[:5]:
+            lines.append(f"  E {a}")
+        parts.append("\n".join(lines))
+    frames, last = _parse_py_traceback(text)
+    if frames:
+        lines = ["[STRUCTURED FRAMES · python]"]
+        for f in frames[:8]:
+            lines.append(f"- {f['file']}:{f['line']} in {f['fn']}")
+        if last:
+            lines.append(f"  last: {last}")
+        parts.append("\n".join(lines))
+    jf, jl = _parse_java_trace(text)
+    if jf:
+        lines = ["[STRUCTURED FRAMES · java]"]
+        for f in jf[:8]:
+            lines.append(f"- {f['cls']} ({f['file']}:{f['line']})")
+        if jl:
+            lines.append(f"  last: {jl}")
+        parts.append("\n".join(lines))
+    gp = _parse_go_panic(text)
+    if gp:
+        lines = ["[STRUCTURED FRAMES · go]"]
+        for p in gp[:3]:
+            lines.append(f"- panic: {p['msg']}")
+            for b in p["backtrace"][:5]:
+                lines.append(f"  at {b['file']}:{b['line']}")
+        parts.append("\n".join(lines))
+    return "\n\n".join(parts)
+
+
+def _changed_lines(diff):
+    """候选 diff → {path: [(start, end)]}（新文件行号区间，S37 断点回喂用）。"""
+    out = {}
+    cur = None
+    for line in (diff or "").splitlines():
+        m = re.match(r"^diff --git a/(\S+) b/", line)
+        if m:
+            cur = m.group(1)
+            continue
+        m = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", line)
+        if m and cur:
+            start = int(m.group(1))
+            n = int(m.group(2) or 1)
+            if n:
+                out.setdefault(cur, []).append((start, start + n - 1))
+    return out
+
+
+def _break_hits(root, py, changed, test_ids, max_hits=12):
+    """S37：候选补丁行上跑断点记录器（pytest 在 settrace 下执行），
+    抓补丁行的实际运行时 locals——模型据此判断补丁算出的值对不对。"""
+    bps = []
+    for path, ranges in changed.items():
+        for a, _b in ranges[:4]:
+            bps.append({"file": path, "line": a})
+    if not bps or not test_ids:
+        return []
+    try:
+        r = registry.call("ide_break", {"path": root,
+                                        "cmd": [py, "-m", "pytest",
+                                                *test_ids],
+                                        "breakpoints": bps[:8],
+                                        "max_hits": max_hits})
+        res = r.get("result") or {}
+        return res.get("hits") or []
+    except Exception:
+        return []                    # 断点后端不可用 → 如实放弃该信号
+
+
+def _break_section(hits):
+    if not hits:
+        return ""
+    lines = ["[BREAKPOINT HITS · 补丁行运行时状态]"]
+    for h in hits[:6]:
+        locs = "; ".join(f"{k}={v}" for k, v in
+                         list(h.get("locals", {}).items())[:6])
+        lines.append(f"- line {h.get('bp_line')}: {locs}")
+        st = (h.get("stack") or [{}])[0]
+        if st.get("fn"):
+            lines.append(f"  in {st['fn']} ({st.get('file')}:{st.get('line')})")
+    return "\n".join(lines)
+
+
+def _diag_section(root, files):
+    """S46：修复轮静态信号——统一诊断（error+warning，clippy 随 ide_diagnostics
+    走同一通道）+ 触碰文件复杂度发现（code_review 复杂度透镜）。"""
+    try:
+        r = registry.call("ide_diagnostics", {"path": root, "files": files,
+                                              "include_lint": True})
+        res = r.get("result") or r
+        dias = res.get("diagnostics") or []
+        errs = [d for d in dias if d["severity"] == "error"]
+        warns = [d for d in dias if d["severity"] == "warning"][:6]
+        if not errs and not warns:
+            return ""
+        lines = ["[DIAGNOSTICS · 修复轮静态信号]"]
+        for d in errs[:8]:
+            lines.append(f"- ERROR [{d['source']}] {d['file']}:{d['line']} "
+                         f"{d['message']}")
+        for d in warns:
+            lines.append(f"- WARN  [{d['source']}] {d['file']}:{d['line']} "
+                         f"{d['message']}")
+        txt = "\n".join(lines)
+        cx = []
+        for f in (files or [])[:2]:
+            fp = os.path.join(root, f.replace("/", os.sep))
+            if not os.path.isfile(fp):
+                continue
+            try:
+                rr = registry.call("code_review", {"path": fp})
+                rr = rr.get("result") or rr
+                cx.extend(x for x in rr.get("findings") or []
+                          if x.get("lens") == "complexity")
+            except Exception:
+                continue
+        if cx:
+            txt += "\n[COMPLEXITY · 触碰文件]\n" + "\n".join(
+                f"- {x['file']}:{x['line']} {x['msg']}" for x in cx[:6])
+        return txt
+    except Exception:
+        return ""
+
+
+def _applied_now(root, diff):
+    """粗查：diff 是否已在工作树（避免重复 apply 失败）。"""
+    import subprocess
+    r = subprocess.run(["git", "-C", root, "apply", "--check", "-"],
+                       input=diff.replace("\r\n", "\n").encode(),
+                       capture_output=True, timeout=120)
+    return r.returncode != 0          # check 失败 = 已应用（上下文对不上）
+
+
+def summary():
+    """S38：signals vs plain 双变体配对对比（verified 口径）。"""
+    import glob
+    agg = {}
+    for fp in sorted(glob.glob(os.path.join(sv.RESULTS_DIR, "*_*.json"))):
+        if os.path.basename(fp) == "summary.json":
+            continue
+        d = json.load(open(fp, encoding="utf-8"))
+        a = agg.setdefault(d["arm"], {"n": 0, "sig_tried": 0, "sig": 0,
+                                      "plain_tried": 0, "plain": 0,
+                                      "both": 0, "flip": []})
+        a["n"] += 1
+        rs = d.get("repair_signals") or {}
+        rp = d.get("repair_plain") or {}
+        ok_s = "skip" not in rs and rs.get("verified") is True
+        ok_p = "skip" not in rp and rp.get("verified") is True
+        tr_s = "skip" not in rs and bool(rs)
+        tr_p = "skip" not in rp and bool(rp)
+        a["sig_tried"] += int(tr_s)
+        a["plain_tried"] += int(tr_p)
+        a["sig"] += int(ok_s)
+        a["plain"] += int(ok_p)
+        if tr_s and tr_p:
+            a["both"] += 1
+            if ok_s != ok_p:
+                a["flip"].append(f"{d['instance_id']}: "
+                                 f"{'plain→signals' if ok_s else 'signals→plain'}")
+    print(f"{'arm':<4}{'tried':>7}{'sig_ok':>8}{'plain_ok':>9}{'lift':>6}")
+    for name, s in sorted(agg.items()):
+        print(f"{name:<4}{s['sig_tried']:>7}{s['sig']:>8}{s['plain']:>9}"
+              f"{s['sig'] - s['plain']:>6}")
+        for f in s["flip"]:
+            print(f"  flip {f}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--run", action="store_true")
+    ap.add_argument("--summary", action="store_true")
+    ap.add_argument("--force", action="store_true")
+    ap.add_argument("--ids", default="")
+    ap.add_argument("--max-repairs", type=int, default=3)
+    ap.add_argument("--variant", choices=["signals", "plain"], default="signals",
+                    help="signals=三路结构化信号回喂；plain=仅原始失败输出（对照）")
+    ap.add_argument("--channel", default="conn-deepseek")
+    ap.add_argument("--model", default="deepseek-chat")
+    a = ap.parse_args()
+    if a.run:
+        repair_loop(a)
+    if a.summary:
+        summary()
+    if not (a.run or a.summary):
+        print(__doc__)
+
+
+if __name__ == "__main__":
+    main()

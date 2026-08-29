@@ -1,0 +1,10 @@
+{"id": "VF-001", "commit": "cc2e067", "file": "crates/app/src/main.rs", "symptom": "双击启动模块全丢——exe 回退路径手写两级越过仓库根，静默回退内置兜底定义", "pattern_hint": "path_logic_error", "rule_expect": null, "note": "文本扫描不可判，属逻辑级；排除出文本规则 precision 统计"}
+{"id": "VF-002", "commit": "c9aacd7", "file": "crates/app/src/terrain.rs", "symptom": "物理地面只有西南角 1m²（HeightField scale+平移错），车轮悬停/模块掉穿", "pattern_hint": "transform_math", "rule_expect": null, "note": "数学语义级，正则不可判；同上排除"}
+{"id": "VF-003", "commit": "7cdc1cf", "file": "crates/core/src/module.rs", "symptom": "mass<=0 → NaN 质心，Transform NaN 物理世界连锁失控", "pattern_hint": "nan_guard", "rule_expect": null, "note": "需数据流分析；排除"}
+{"id": "VF-004", "commit": "7cdc1cf", "file": "crates/app/src/ui.rs", "symptom": "UI 点击穿透丢模块（交互未阻断拾取）", "pattern_hint": "event_ordering", "rule_expect": null, "note": "系统序语义；排除"}
+{"id": "VF-005", "commit": "3f8ae16", "file": "crates/app/src/main.rs", "symptom": "悬挂残留驱动力与新速度驱动双重作用打架（W/S 转向窗口内互斥失败）", "pattern_hint": "state_leak", "rule_expect": null, "note": "排除"}
+{"id": "VF-006", "commit": "3f8ae16", "file": "crates/app/src/main.rs", "symptom": "冻结解冻全局误伤：开 A 车 B 车跟着 Dynamic 下陷漂移", "pattern_hint": "scope_error", "rule_expect": null, "note": "排除"}
+{"id": "VF-007", "commit": "d7a8c1b", "file": "crates/app/src/main.rs", "symptom": "初始载具埋进山体：startup 碰撞体与地形模式不一致", "pattern_hint": "init_mismatch", "rule_expect": null, "note": "排除"}
+{"id": "VF-008", "commit": "7cdc1cf", "file": "crates/app/src/main.rs", "symptom": "load 坏存档清洗不净：悬空 root 边 + next_vehicle 越界", "pattern_hint": "input_validation", "rule_expect": "panic_family", "note": "坏 RON 反序列化路径上 unwrap/panic 家族可命中（生产区 unwrap = clue 命中正确）", "verdict": "tp"}
+{"id": "VF-009", "commit": "ebafe80", "file": "crates/app/src/main.rs", "symptom": "M3 碎片检测失效：root 移除后 vehicle 归属判定悬空", "pattern_hint": "dangling_ref", "rule_expect": null, "note": "图语义；排除"}
+{"id": "VF-010", "commit": "c9aacd7", "file": "crates/app/src/terrain.rs", "symptom": "heightfield 渲染/碰撞两套采样不一致 → 视觉与物理地面错位", "pattern_hint": "dual_source_drift", "rule_expect": null, "note": "排除"}

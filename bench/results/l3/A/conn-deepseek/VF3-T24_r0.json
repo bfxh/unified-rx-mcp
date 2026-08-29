@@ -1,0 +1,21 @@
+{
+ "task_id": "VF3-T24",
+ "arm": "bare_model",
+ "run_idx": 0,
+ "ts": 1787819070,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\nBlender 5.x 中渲染引擎枚举名（如 `BLENDER_RENDER`、`CYCLES`、`EEVEE`）发生了重命名或新增（例如 `EEVEE_NEXT` 被合并为 `EEVEE`，或 `BLENDER_RENDER` 被标记为 legacy），而插件代码中使用了硬编码字符串或旧枚举常量进行判断。在批量导出时，部分机器因 GPU/配置差异触发不同渲染路径，导致在 5.x 上访问不存在的枚举值或调用已废弃 API，从而抛出 `KeyError` 或 `AttributeError` 异常。\n\n【定位】\n- `thumbnail_exporter.py:render_engine_check`（推测，若插件为单文件则定位到 `render_engine` 相关函数）\n- `thumbnail_exporter.py:batch_export`（推测，批量导出主循环中调用渲染引擎设置处）\n\n【修复方案】\n1. **使用 `bpy.types.RenderSettings.engine` 的字符串值进行兼容判断**，避免直接引用枚举常量。在设置渲染引擎前，先通过 `bpy.data.scenes[0].render.engine` 获取当前值，并检查其是否在已知的合法引擎列表中（如 `['BLENDER_RENDER', 'CYCLES', 'EEVEE', 'EEVEE_NEXT']`），若不在则回退到 `'CYCLES'` 或 `'BLENDER_RENDER'`。\n2. **封装一个 `get_safe_engine()` 函数**，内部使用 `hasattr` 或 `try/except` 检查 `bpy.types.RenderSettings` 中是否存在目标引擎属性（如 `cycles`、`eevee`），若不存在则返回默认引擎。\n3. **在批量导出循环中，每次设置引擎前调用该函数**，并捕获 `AttributeError`/`KeyError`，记录日志后跳过该文件，避免整个批次崩溃。\n4. **若插件依赖特定引擎的专属设置**（如 Cycles 采样数），需在设置前检查 `scene.render.engine` 是否匹配，不匹配则跳过专属参数设置，仅保留通用参数。",
+ "tokens_in": 146,
+ "tokens_out": 474,
+ "turns": 1,
+ "cost_usd": 0.00056,
+ "walltime_s": 5.1,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

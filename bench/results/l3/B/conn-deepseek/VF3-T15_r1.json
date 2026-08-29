@@ -1,0 +1,108 @@
+{
+ "task_id": "VF3-T15",
+ "arm": "model_plus_rx",
+ "run_idx": 1,
+ "ts": 1787818974,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [
+  "code_search",
+  "engine_query",
+  "kb_query",
+  "fs_list",
+  "fs_read",
+  "fs_stat",
+  "bug_scan",
+  "ast_scan",
+  "std_check",
+  "bug_locate",
+  "code_context",
+  "project_scan"
+ ],
+ "schema_bytes": 5120,
+ "answer": "【根因分析】\n斜坡场景斜视放置时 ghost 预览与实际落点摆到命中表面“下面”甚至地表另一侧，根因在 `geom.rs` 的落点外推逻辑：`surface_place_cell` 用命中点 `p` 沿命中面法线 `face` 外推一个格距得到候选格，随后 `lift_above_ground` 只做“向上抬升”修正。在斜坡上，命中面法线并非 +Y，而是带水平分量的斜向法线；此时沿该法线外推得到的候选格坐标会同时偏移水平方向，导致格坐标落在斜坡表面之下或越过坡脊到另一侧。而 `lift_above_ground` 仅修正 Y 分量（把格抬到地面之上），无法纠正水平方向的偏移，于是 ghost 与真实放置（共用同一 `surface_place_cell` 路径）一起错位。此外 `ray_aabb_face` 返回的 `face` 是体素面法线（轴对齐），与斜坡实际几何法线不一致，进一步放大了外推误差。\n\n【定位】\n- `crates/app/src/geom.rs:surface_place_cell`（外推逻辑：`p + face` 沿命中面法线外推一个格距）\n- `crates/app/src/geom.rs:lift_above_ground`（仅修正 Y 抬升，不纠正水平偏移）\n- `crates/app/src/geom.rs:ray_aabb_face`（返回轴对齐体素面法线，与斜坡几何法线不一致）\n- `crates/app/src/main.rs:1030`（调用 `surface_place_cell(&asm.0, p, face)` 的放置/预览入口）\n\n【修复方案】\n1. 在 `geom.rs` 的 `surface_place_cell` 中，将“沿命中面法线外推一个格距”改为“沿命中点法线的水平投影方向外推，再取整到格坐标”，即先计算 `p + face * 0.5` 得到表面上的参考点，再对该参考点做 `floor` 取整得到候选格，避免法线水平分量把格推到表面之下或坡脊另一侧。\n2. 在 `lift_above_ground` 中增加斜坡感知：对候选格做一次“向下射线探测”，取命中表面上方最近的可放置格（而非简单 +Y 抬升），确保 ghost 与真实放置都落在斜坡表面之上。\n3. 在 `ray_aabb_face` 中，对斜坡地形返回实际几何法线（而非轴对齐体素面法线），使 `face` 与命中表面一致，从源头消除外推方向偏差。\n4. 在 `main.rs:1030` 调用处，将 `surface_place_cell` 的结果与 `lift_above_ground` 的结果做一致性校验（二者应相等），若不等则取 `lift_above_ground` 结果，保证 ghost 预览与真实放置严格一致。",
+ "tokens_in": 27657,
+ "tokens_out": 1761,
+ "turns": 14,
+ "tool_trace": [
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 0,
+   "ms": null
+  },
+  {
+   "tool": "fs_read",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 1,
+   "ms": null
+  },
+  {
+   "tool": "fs_stat",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "fs_list",
+   "round": 2,
+   "ms": null
+  },
+  {
+   "tool": "code_context",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 3,
+   "ms": null
+  },
+  {
+   "tool": "ast_scan",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "bug_locate",
+   "round": 4,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  },
+  {
+   "tool": "code_search",
+   "round": 5,
+   "ms": null
+  }
+ ],
+ "cost_usd": 0.0094,
+ "walltime_s": 16.8,
+ "notes": [
+  "round0: 3 calls 4142ch (2.1s)",
+  "round1: 2 calls 987ch (1.4s)",
+  "round2: 2 calls 373ch (1.3s)",
+  "round3: 2 calls 1008ch (1.7s)",
+  "round4: 2 calls 984ch (1.5s)",
+  "round5: 2 calls 1513ch (2.1s)"
+ ],
+ "judge": {
+  "R1": "fail",
+  "R2": "unverifiable"
+ }
+}

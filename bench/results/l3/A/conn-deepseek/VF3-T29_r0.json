@@ -1,0 +1,21 @@
+{
+ "task_id": "VF3-T29",
+ "arm": "bare_model",
+ "run_idx": 0,
+ "ts": 1787819164,
+ "channel": "conn-deepseek",
+ "model": "deepseek-chat",
+ "tools_subset": [],
+ "schema_bytes": 0,
+ "answer": "【根因分析】\n当前存档系统缺乏针对恶意/畸形 RON 数据的系统性防御测试。历史缺陷（悬空边、越界索引、NaN 质量）表明反序列化与清洗逻辑存在未覆盖的边界路径，且缺少对 panic 与状态污染的显式断言。测试层未建立“毒档投喂”机制，导致回归风险累积。\n\n【定位】\n- `crates/save_system/src/deserialize.rs:from_ron_str` （反序列化入口，推测）\n- `crates/save_system/src/sanitize.rs:sanitize_world` （清洗逻辑，推测）\n- `crates/save_system/tests/fuzz_poison.rs` （新建测试文件，目标位置）\n\n【修复方案】\n1. **构建毒档生成器**：在 `tests/fuzz_poison.rs` 中实现 `PoisonFactory`，枚举以下畸形类别：\n   - 结构破坏：截断 RON、非法 token、重复字段、未知枚举变体。\n   - 语义毒化：悬空实体引用（`Entity` 指向不存在的索引）、组件索引越界、`f32::NAN`/`INFINITY` 质量值、负耐久度。\n   - 深度攻击：嵌套结构超过 100 层（触发栈溢出）、超大数组（内存压力）。\n2. **断言面设计**：\n   - **无 panic 断言**：对每个毒档调用 `from_ron_str` 与 `sanitize_world`，用 `catch_unwind` 包裹，断言不 panic。\n   - **状态纯净断言**：清洗后遍历所有实体/组件，断言无悬空边（引用实体存在）、索引在合法范围、所有数值为有限数（`is_finite()`）。\n   - **幂等性断言**：对清洗结果再次清洗，断言输出与首次清洗完全一致（防止二次污染）。\n3. **集成方式**：将毒档生成器与断言封装为 `#[test]` 函数，使用 `proptest` 或 `arbitrary` 生成随机组合，并固定 50 个手工构造的“经典毒档”作为回归基线。在 CI 中作为独立测试套件运行，失败时输出毒档 RON 原文便于复现。",
+ "tokens_in": 173,
+ "tokens_out": 497,
+ "turns": 1,
+ "cost_usd": 0.00059,
+ "walltime_s": 5.4,
+ "notes": [],
+ "judge": {
+  "R1": "pass",
+  "R2": "pass"
+ }
+}

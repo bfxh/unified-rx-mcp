@@ -10,7 +10,13 @@ P5 修复（2026-08-25）：Python AST 作用域感知（参数/方法/属性/�
 import os
 import re
 import ast
-import json
+import subprocess
+from collections import Counter, defaultdict
+
+from tools.fs import _resolve as _fs_resolve
+
+_SKIP_DIRS = ('.git', 'node_modules', 'target', '__pycache__', 'dist', 'build',
+              '.unified-rx-index', 'backups')
 
 from registry import tool
 from . import bevy  # Bevy 专项规则
@@ -79,7 +85,7 @@ def _scan_python(src, path):
     defined = set()
     imported = {}
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             defined.add(node.name)
             # 参数也算定义
             args = node.args
@@ -89,6 +95,13 @@ def _scan_python(src, path):
                 defined.add(args.vararg.arg)
             if args.kwarg:
                 defined.add(args.kwarg.arg)
+        elif isinstance(node, ast.ClassDef):
+            # S5 修复：ClassDef 没有 .args——此前带装饰器/类的 Python 文件直接 AttributeError 全扫崩
+            defined.add(node.name)
+            for base in node.bases:
+                for t in ast.walk(base):
+                    if isinstance(t, ast.Name):
+                        defined.add(t.id)
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             defined.add(node.id)
         elif isinstance(node, ast.Import):
@@ -146,42 +159,60 @@ def _scan_python(src, path):
 
 
 # ---------- bug_scan：Rust 生产规则 ----------
+# S4-D1 分级重构（L2 实测依据：文本密度与真缺陷修复无正相关）：
+#   - 文本线索类（unwrap/expect/as_cast/indexing）降为 info/clue——只当"可能有雷的位置"
+#   - 跨函数可判定/确定崩溃类保留 high（todo!/unimplemented!/panic!/unreachable!）
+#   - 新增 kind 字段：clue=线索流（不当质量分数用），definite=确定性风险
 _RUST_RULES = [
-    ("unwrap", r"\.unwrap\(\)", "unwrap()——None/Err 时直接 panic（生产代码应改为 ? / expect / match）", "high"),
-    ("expect", r"\.expect\(\s*\"", "expect()——带消息 panic（仍会崩溃；生产应返回 Result）", "medium"),
-    ("panic", r"\bpanic!\(", "panic!()——直接崩溃（生产代码应避免）", "high"),
-    ("unreachable", r"\bunreachable!\(", "unreachable!()——到达即 bug（生产代码应避免）", "high"),
-    ("todo_unimplemented", r"\b(todo!|unimplemented!)\(", "todo!/unimplemented!()——未实现即崩溃", "high"),
-    ("as_cast", r"\bas\s+(i64|i32|u64|u32|f64|f32|usize|isize)\b", "as 类型转换——截断/精度丢失风险（建议 try_from）", "medium"),
-    ("indexing", r"\[[a-zA-Z_][a-zA-Z0-9_]*\]", "索引访问——越界即 panic（建议 .get()）", "medium"),
+    ("unwrap", r"\.unwrap\(\)", "unwrap()——None/Err 时 panic（线索：确认有 ?/match 兜底即可忽略）", "info", "clue"),
+    ("expect", r"\.expect\(\s*\"", "expect()——带消息 panic（线索）", "info", "clue"),
+    ("panic", r"\bpanic!\(", "panic!()——直接崩溃", "high", "definite"),
+    ("unreachable", r"\bunreachable!\(", "unreachable!()——到达即 bug", "high", "definite"),
+    ("todo_unimplemented", r"\b(todo!|unimplemented!)\(", "todo!/unimplemented!()——未实现即崩溃", "high", "definite"),
+    ("as_cast", r"\bas\s+(i64|i32|u64|u32|f64|f32|usize|isize)\b", "as 类型转换——截断/精度丢失（线索：建议 try_from）", "info", "clue"),
+    ("indexing", r"\[[a-zA-Z_][a-zA-Z0-9_]*\]", "索引访问——越界即 panic（线索：建议 .get()）", "info", "clue"),
+    # S27 人工标注审计发现：[expr.field as usize] 成员+转换索引此前全部漏报
+    ("indexing", r"\[[^\]\[\n]{0,80}\bas\s+(usize|isize|i64|i32|u64|u32)\s*\]", "索引访问（含 as 转换）——越界即 panic（线索：建议 .get()）", "info", "clue"),
 ]
 
 
 def _scan_rust(src, path):
     issues = []
-    for rule, pat, msg, sev in _RUST_RULES:
+    for rule, pat, msg, sev, kind in _RUST_RULES:
         for m in re.finditer(pat, src):
             line = src.count("\n", 0, m.start()) + 1
             line_text = src.split("\n")[line - 1].strip()
             if line_text.startswith("//"):
                 continue
             issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
-                           "severity": sev})
-    # Bevy 代码规则（Rust 文件里也扫）
+                           "severity": sev, "kind": kind})
+    # Bevy 代码规则（Rust 文件里也扫；kind 统一补 clue——迁移类文本规则不当质量分数）
     for rule, pat, msg, sev in bevy.bevy_rules():
         for m in re.finditer(pat, src):
             line = src.count("\n", 0, m.start()) + 1
             issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
-                           "severity": sev})
-    # 测试目录降级
-    norm = path.replace("\\", "/")
-    norm_clean = norm.replace("_tmp/", "")
-    is_test = norm_clean.endswith("_test.rs") or re.search(r"/tests(?:/|$)", norm_clean)
-    if is_test:
-        for i in issues:
-            if i["rule"] in ("unwrap", "expect"):
-                i["severity"] = "low"
-                i["msg"] += "（测试代码，降级）"
+                           "severity": sev, "kind": "clue"})
+    # S4-D1 测试代码降级：tests 目录/文件名 *_test.rs 整个降；
+    # 文件内 #[cfg(test)] mod 之后（tests mod 起）的 clue 类命中按行号逐条降级
+    norm = path.replace("\\", "/").replace("_tmp/", "")
+    is_test_file = norm.endswith("_test.rs") or re.search(r"/tests(?:/|$)", norm)
+    m_test_mod = re.search(r"^#\[\s*cfg\s*\(\s*test\s*\)\s*\]", src, re.MULTILINE)
+    test_start_line = None
+    if not is_test_file and m_test_mod is not None:
+        # cfg(test) 属性行起（mod tests 紧随其后）视为测试区起点
+        test_start_line = src.count("\n", 0, m_test_mod.start()) + 1
+    for i in issues:
+        in_test = is_test_file or (test_start_line is not None and i["line"] >= test_start_line)
+        if in_test and i["rule"] in ("unwrap", "expect", "as_cast", "indexing"):
+            i["severity"] = "low"
+            i["kind"] = "clue"
+            i["msg"] += "（测试代码，降级）"
+        elif in_test and i["rule"] == "panic":
+            # S12 语境诚实化：panic! 在测试内通常就是断言/should_panic 用途。
+            # VF3 实证：21/21 个 high panic 全在测试区——高危分被测试打爆即失真。
+            i["severity"] = "low"
+            i["kind"] = "clue"
+            i["msg"] += "（测试上下文，通常为断言用途，降级）"
     return issues
 
 
@@ -189,7 +220,9 @@ def _scan_rust(src, path):
 _RE_RULES = [
     ("assert_always_true", r"assert\s+True\b", "恒真断言（永远通过，无意义）"),
     ("equal_float", r"==\s*\d+\.\d+", "浮点相等比较（精度风险）"),
-    ("eval_exec", r"\b(eval|exec)\s*\(", "eval/exec 动态执行（安全风险）"),
+    # (?<![.\w]) 排除成员调用：RegExp.prototype.exec(/x/) 是正则方法不是动态执行
+    # （源码审计实测误报：lib/dsml-tool-call.js 的 10 处全是 regex.exec）
+    ("eval_exec", r"(?<![.\w])(eval|exec|execSync)\s*\(", "eval/exec 动态执行（安全风险）"),
 ]
 
 
@@ -198,8 +231,50 @@ def _scan_generic(src, path, lang):
     for rule, pat, msg in _RE_RULES:
         for m in re.finditer(pat, src):
             line = src.count("\n", 0, m.start()) + 1
-            issues.append({"line": line, "rule": rule, "msg": msg, "file": path})
+            issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
+                           "severity": "medium", "kind": "clue"})
     return issues
+
+
+# ---------- S5-C2 内容指纹缓存 ----------
+# 文件级指纹（mtime_ns + size）→ 该文件上次扫描 issues。
+# 未变文件直接复用，免重复 open+parse；指纹含 mtime_ns+size 两要素，
+# 修改后任一变化即失效（NTFS mtime 精度 100ns，无 stale 风险）。
+import threading as _threading
+
+_SCAN_CACHE = {}
+_CACHE_LOCK = _threading.Lock()
+_CACHE_MAX = 8192
+
+
+def _file_fingerprint(fp):
+    try:
+        st = os.stat(fp)
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _cached_scan(func, fp, src):
+    """单文件扫描的缓存包装。func(src, fp) → issues list。"""
+    fp_norm = os.path.normcase(os.path.abspath(fp))
+    key = (fp_norm, func.__name__)
+    with _CACHE_LOCK:
+        hit = _SCAN_CACHE.get(key)
+    if hit is not None and hit[0] == _file_fingerprint(fp):
+        return hit[1]
+    result = func(src, fp)
+    with _CACHE_LOCK:
+        if len(_SCAN_CACHE) >= _CACHE_MAX:
+            _SCAN_CACHE.clear()  # 粗暴防膨胀：工具生命周期内够用
+        _SCAN_CACHE[key] = (_file_fingerprint(fp), result)
+    return result
+
+
+def scan_cache_clear():
+    """写操作后由调用方清缓存（外部改文件走 fs_write 时 registry 不感知内容）。"""
+    with _CACHE_LOCK:
+        _SCAN_CACHE.clear()
 
 
 @tool("bug_scan", "静态扫描 bug 模式（未定义变量/裸 except/浮点比较/eval/Rust/Bevy 等）", "scan",
@@ -219,16 +294,33 @@ def bug_scan(path, max_files=MAX_FILES):
         if not lang:
             continue
         files_scanned += 1
+        # S5-C2：按 (文件指纹, 扫描函数) 查缓存——命中则跳过读取与解析
+        if lang == "python":
+            scan_fn, cache_name = _scan_python, "_scan_python"
+        elif lang == "rust":
+            scan_fn, cache_name = _scan_rust, "_scan_rust"
+        else:
+            scan_fn, cache_name = None, "_generic"
+        fp_norm = os.path.normcase(os.path.abspath(fp))
+        with _CACHE_LOCK:
+            cached = _SCAN_CACHE.get((fp_norm, cache_name))
+        if cached is not None and cached[0] == _file_fingerprint(fp):
+            issues.extend(cached[1])
+            continue
         try:
             with open(fp, "r", encoding="utf-8", errors="replace") as f:
                 src = f.read()
         except OSError:
             continue
-        if lang == "python":
-            issues.extend(_scan_python(src, fp))
-        elif lang == "rust":
-            issues.extend(_scan_rust(src, fp))
-        issues.extend(_scan_generic(src, fp, lang))
+        if scan_fn is not None:
+            file_issues = _cached_scan(scan_fn, fp, src)
+        else:
+            file_issues = _scan_generic(src, fp, lang)
+            with _CACHE_LOCK:
+                if len(_SCAN_CACHE) >= _CACHE_MAX:
+                    _SCAN_CACHE.clear()
+                _SCAN_CACHE[(fp_norm, cache_name)] = (_file_fingerprint(fp), file_issues)
+        issues.extend(file_issues)
     by_rule = {}
     by_sev = {}
     for i in issues:
@@ -242,6 +334,24 @@ def bug_scan(path, max_files=MAX_FILES):
 
 
 # ---------- std_check ----------
+def _std_check_file(src, fp, lang):
+    """单文件 std 检查（S5 缓存单元）。"""
+    findings = []
+    lines = src.split("\n")
+    for idx, line in enumerate(lines, 1):
+        low = line.lower()
+        for w in _PLACEHOLDER_WORDS:
+            if w.lower() in low and not line.strip().startswith(("#", "//", "/*", "*")):
+                findings.append({"file": fp, "line": idx, "rule": "placeholder",
+                                 "msg": f"占位/假数据文字: {w}", "text": line.strip()[:80]})
+                break
+        m = re.search(r"=\s*(-?\d{3,}|[2-9]\d{2,})\b", line)
+        if m and lang in ("rust", "python", "go", "typescript", "javascript", "gdscript"):
+            findings.append({"file": fp, "line": idx, "rule": "magic_number",
+                             "msg": f"魔法数字: {m.group(1)}", "text": line.strip()[:80]})
+    return findings
+
+
 @tool("std_check", "工程标准检查（占位文字/魔法数字/未使用导入）", "scan",
       {"type": "object",
        "properties": {
@@ -259,34 +369,32 @@ def std_check(path, max_files=MAX_FILES):
         if not lang:
             continue
         files_scanned += 1
+        key = (os.path.normcase(os.path.abspath(fp)), "_std")
+        with _CACHE_LOCK:
+            cached = _SCAN_CACHE.get(key)
+        if cached is not None and cached[0] == _file_fingerprint(fp):
+            findings.extend(cached[1])
+            continue
         try:
             with open(fp, "r", encoding="utf-8", errors="replace") as f:
                 src = f.read()
         except OSError:
             continue
-        lines = src.split("\n")
-        for idx, line in enumerate(lines, 1):
-            low = line.lower()
-            for w in _PLACEHOLDER_WORDS:
-                if w.lower() in low and not line.strip().startswith(("#", "//", "/*", "*")):
-                    findings.append({"file": fp, "line": idx, "rule": "placeholder",
-                                     "msg": f"占位/假数据文字: {w}", "text": line.strip()[:80]})
-                    break
-            m = re.search(r"=\s*(-?\d{3,}|[2-9]\d{2,})\b", line)
-            if m and lang in ("rust", "python", "go", "typescript", "javascript", "gdscript"):
-                findings.append({"file": fp, "line": idx, "rule": "magic_number",
-                                 "msg": f"魔法数字: {m.group(1)}", "text": line.strip()[:80]})
+        file_findings = _std_check_file(src, fp, lang)
+        with _CACHE_LOCK:
+            _SCAN_CACHE[key] = (_file_fingerprint(fp), file_findings)
+        findings.extend(file_findings)
     return {"files": files_scanned, "total": len(findings), "findings": findings}
 
 
-# ---------- ui_check：多引擎（Bevy 重点）----------
+# ---------- ui_check：多引擎（Bevy 重点/Godot/Unity 死按钮/空容器模式） ----------
 _UI_PATTERNS = {
     "bevy": bevy.BEVY_UI_PATTERNS,
     "godot": [
         (r"Button\b[^:]*:\s*$", "Button 信号未连接（疑似死按钮）"),
     ],
     "unity": [
-        (r"new\s+Button\s*\([^)]*\)", "运行时 new Button（应引用场景中的）"),
+        (r"new\s+Button\s*\([^)]*\)", "运行时 new Button（应引用场景中的实例）"),
     ],
 }
 
@@ -321,6 +429,13 @@ def ui_check(path, max_files=MAX_FILES):
                 line = src.count("\n", 0, m.start()) + 1
                 issues.append({"file": fp, "line": line, "rule": "ui_pattern",
                                "msg": msg, "engine": engine})
+        # S6：Bevy 死按钮用结构化检测（Marker-Query 跨 system 验证，非同域正则）
+        if engine == "bevy":
+            from .bevy import find_dead_buttons
+            for ln, marker in find_dead_buttons(src):
+                issues.append({"file": fp, "line": ln, "rule": "ui_pattern",
+                               "msg": f"死按钮：{marker} spawn 后无任何 Query 交互处理",
+                               "engine": engine})
     return {"files": files_scanned, "total": len(issues), "issues": issues}
 
 
@@ -442,3 +557,278 @@ def project_scan(path, max_files=MAX_FILES, ui=True):
         "ui_check": {"total": ui_r.get("total", 0)},
         "summary": f"bug {bug.get('total', 0)} + std {std.get('total', 0)} + ui {ui_r.get('total', 0)}",
     }
+# -*- coding: utf-8 -*-
+"""S44：code_review —— 多透镜代码评审（找问题不再单一）+ diff 模式（只报改动）。"""
+
+_RE_SECRET = re.compile(
+    r"(?i)(password|passwd|api_?key|secret|token|access_key)\s*[=:]\s*[\"'][^\"']{6,}")
+_RE_DANGER = [
+    (re.compile(r"\beval\s*\("), "eval 动态执行"),
+    (re.compile(r"\bexec\s*\("), "exec 动态执行"),
+    (re.compile(r"\bos\.system\s*\("), "os.system shell 调用"),
+    (re.compile(r"subprocess\.[a-z_]+\([^)]*shell\s*=\s*True"), "subprocess shell=True"),
+    (re.compile(r"\.innerHTML\s*="), "innerHTML 直接赋值（XSS 面）"),
+    (re.compile(r"execute\s*\([^)]*[%+]"), "SQL 拼接执行"),
+]
+_RE_TODO = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b")
+_RE_FUNC_START = {
+    "python": re.compile(r"^(\s*)(?:async\s+)?def\s+(\w+)"),
+    "rust": re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)"),
+    "go": re.compile(r"^func\s+(?:\([^)]*\)\s*)?(\w+)"),
+    "javascript": re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)"),
+}
+_FUNC_LONG = 80
+# 24 空格（6 层）对 try/except 密集的基建代码是常规密度；28（7 层）才是真离群
+_NEST_SPACES = 28
+_PARAMS_MAX = 6
+
+
+def _lang_of_file(fp):
+    ext = os.path.splitext(fp)[1].lower().lstrip(".")
+    return {"py": "python", "rs": "rust", "go": "go", "js": "javascript",
+            "ts": "javascript", "jsx": "javascript", "tsx": "javascript"}.get(ext)
+
+
+def _func_spans(lines, lang):
+    """[(name, start_idx, end_idx, params)]——函数跨度与参数数（廉价比 AST 稳）。"""
+    pat = _RE_FUNC_START.get(lang)
+    if not pat:
+        return []
+    starts = []
+    for i, line in enumerate(lines):
+        m = pat.match(line)
+        if not m:
+            continue
+        name = next((g for g in m.groups() if g), None)
+        if not name:
+            continue
+        params = line.count(",") + 1 if "(" in line and ")" in line else 0
+        starts.append((name, i, params))
+    spans = []
+    for j, (name, i, params) in enumerate(starts):
+        end = starts[j + 1][1] if j + 1 < len(starts) else min(len(lines), i + _FUNC_LONG * 3)
+        spans.append((name, i, end, params))
+    return spans
+
+
+def _complexity_findings(lines, lang):
+    out = []
+    for name, i, end, params in _func_spans(lines, lang):
+        span = end - i
+        if span > _FUNC_LONG:
+            out.append((i + 1, f"函数 {name} 长 {span} 行（>{_FUNC_LONG}）——复杂度热点"))
+        if params > _PARAMS_MAX:
+            out.append((i + 1, f"函数 {name} 参数 {params} 个（>{_PARAMS_MAX}）"))
+        # S44 括号深度感知：多行调用的续行缩进不是逻辑嵌套（假阳性修正）
+        depth = 0
+        bracket = 0
+        for ln in lines[i:end]:
+            if bracket == 0:
+                stripped = len(ln) - len(ln.lstrip())
+                if ln.strip():
+                    depth = max(depth, stripped)
+            bracket += ln.count("(") + ln.count("[") + ln.count("{") \
+                - ln.count(")") - ln.count("]") - ln.count("}")
+            if bracket < 0:
+                bracket = 0
+        if depth >= _NEST_SPACES:
+            out.append((i + 1, f"函数 {name} 嵌套深 {depth} 空格（≥{_NEST_SPACES}）"))
+    return out
+
+
+def _review_file(fp, changed=None):
+    """单文件全透镜。changed=改动行区间列表时只报区间内的发现。"""
+    lang = _lang_of_file(fp)
+    try:
+        with open(fp, "r", encoding="utf-8", errors="replace") as f:
+            src = f.read()
+    except OSError:
+        return []
+    lines = src.split("\n")
+
+    def in_changed(ln):
+        return changed is None or any(a <= ln <= b for a, b in changed)
+
+    out = []
+    for i, line in enumerate(lines, 1):
+        if not in_changed(i):
+            continue
+        m = _RE_SECRET.search(line)
+        if m:
+            out.append({"lens": "security", "severity": "high", "file": fp,
+                        "line": i, "msg": f"疑似硬编码凭据: {m.group(1)}"})
+            continue
+        for pat, msg in _RE_DANGER:
+            if pat.search(line):
+                out.append({"lens": "security", "severity": "high", "file": fp,
+                            "line": i, "msg": msg})
+                break
+        m = _RE_TODO.search(line)
+        if m:
+            out.append({"lens": "todo", "severity": "info", "file": fp,
+                        "line": i, "msg": f"{m.group(1)} 标记"})
+    if lang:
+        for ln, msg in _complexity_findings(lines, lang):
+            if in_changed(ln):
+                out.append({"lens": "complexity", "severity": "low", "file": fp,
+                            "line": ln, "msg": msg})
+    return out
+
+
+def _dup_file_findings(root):
+    """S49 卫生透镜：内容完全相同的重复文件（md5 分组，≥2 成员即报）。
+    抓 data/ vs dist/data 式构建残留副本——**全文件类型**（.ron/.json 等数据
+    文件正是高发区，不能只看代码文件）。"""
+    import hashlib
+    groups = defaultdict(list)
+    # S49 修正：dist/build 不能跳——构建残留副本正是高发区（用户实测：
+    # data/modules.ron 与 dist/data/modules.ron 字节级相同）
+    keep_skip = ('.git', 'node_modules', '__pycache__', '.unified-rx-index')
+    for r, dirs, fs in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in keep_skip]
+        for fn in fs:
+            fp = os.path.join(r, fn)
+            try:
+                if os.path.getsize(fp) > 1024 * 1024:
+                    continue
+                with open(fp, "rb") as f:
+                    h = hashlib.md5(f.read()).hexdigest()
+                groups[h].append(fp)
+            except OSError:
+                continue
+    out = []
+    for h, members in groups.items():
+        if len(members) < 2:
+            continue
+        out.append({"lens": "duplication", "severity": "med",
+                    "file": members[0], "line": 0,
+                    "msg": "重复文件 ×{}: {}".format(
+                        len(members), ", ".join(members[1:])[:160])})
+    return out
+
+
+_TEST_LANG_EXTS = (".py", ".java", ".go")
+
+
+def _untested_findings(root, files):
+    """S49 卫生透镜：有测试约定的语言（py/java/go）源文件无对应测试文件。
+    rust 走内联 #[cfg(test)]，文件级约定不适用 → 如实排除。"""
+    repo_files = set()
+    for r, dirs, fs in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for fn in fs:
+            repo_files.add(fn.lower())
+    out, seen = [], set()
+    for fp in files:
+        ext = os.path.splitext(fp)[1].lower()
+        if ext not in _TEST_LANG_EXTS:
+            continue
+        stem = os.path.splitext(os.path.basename(fp))[0]
+        if stem.startswith("test_") or stem.endswith("_test") or stem == "conftest":
+            continue
+        cands = [f"test_{stem}{ext}", f"{stem}_test{ext}",
+                 f"test_{stem.replace('test_', '')}{ext}"]
+        if any(c in repo_files for c in cands):
+            continue
+        if stem in seen:
+            continue
+        seen.add(stem)
+        out.append({"lens": "coverage", "severity": "med", "file": fp,
+                    "line": 0, "msg": f"源文件 {stem} 无对应测试文件"})
+    return out[:30]
+
+
+def _git_changed_ranges(repo, base="HEAD"):
+    """git diff <base> 的改动行区间 {abspath: [(start,end)]}。base=HEAD（默认）/分支名。含未跟踪文件。"""
+    changed = {}
+    untracked = []
+    try:
+        r = subprocess.run(["git", "-C", repo, "diff", "-U0", "--no-color", base],
+                           capture_output=True, timeout=120)
+        out = (r.stdout or b"").decode(errors="replace")
+        cur = None
+        for line in out.splitlines():
+            m = re.match(r"^\+\+\+ b/(\S+)", line)
+            if m:
+                cur = os.path.abspath(os.path.join(repo, m.group(1)))
+                continue
+            m = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", line)
+            if m and cur:
+                start = int(m.group(1))
+                n = int(m.group(2) or 1)
+                if n:
+                    changed.setdefault(cur, []).append((start, start + n - 1))
+        r2 = subprocess.run(["git", "-C", repo, "ls-files", "--others",
+                             "--exclude-standard"], capture_output=True, timeout=60)
+        for f in (r2.stdout or b"").decode(errors="replace").splitlines():
+            if f.strip():
+                untracked.append(os.path.abspath(os.path.join(repo, f.strip())))
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return changed, untracked
+
+
+@tool("code_review", "多维代码评审：bug 模式 + 安全（硬编码凭据/危险调用）+ 复杂度"
+      "热点 + TODO；mode=diff 只报改动行（评审补丁）", "scan",
+      {"type": "object",
+       "properties": {
+           "path": {"type": "string", "description": "文件/目录/git 仓库根"},
+           "mode": {"type": "string", "enum": ["file", "diff"],
+                    "description": "diff=只评审 git 改动行（默认 file）"},
+           "base": {"type": "string",
+                    "description": "diff 基线（默认 HEAD；可传分支名评审整个 branch）"},
+           "max_files": {"type": "integer", "description": "文件上限（默认 60）"},
+       },
+       "required": ["path"]})
+def code_review(path, mode="file", max_files=60, base="HEAD"):
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
+    if os.path.isfile(path):
+        files, changed, untracked = [os.path.abspath(path)], None, []
+    elif os.path.isdir(path):
+        files = [os.path.abspath(p) for p in _iter_files(path, max_files)]
+        if mode == "diff" and os.path.isdir(os.path.join(path, ".git")):
+            changed, untracked = _git_changed_ranges(path, base)
+        else:
+            changed, untracked = None, []
+    else:
+        return {"error": f"路径不存在: {path}"}
+
+    findings = []
+    for fp in files:
+        ch = changed.get(fp) if changed is not None else None
+        if changed is not None and ch is None and fp not in untracked:
+            continue                     # diff 模式：只评审改动/新增文件
+        fch = changed.get(fp) if changed else None
+        findings.extend(_review_file(fp, fch))
+    # bug_scan 透镜（真扫描器复用）
+    target = files[0] if len(files) == 1 else path
+    try:
+        r = registry.call("bug_scan", {"path": target, "max_files": max_files})
+        res = r.get("result") or {}
+        for d in res.get("issues") or []:
+            fp = os.path.abspath(d["file"])
+            ch = changed.get(fp) if changed is not None else None
+            if changed is not None and (ch is None or not any(
+                    a <= d["line"] <= b for a, b in ch)):
+                continue
+            findings.append({"lens": "bug_scan", "severity":
+                             "high" if d.get("kind") == "definite" else "med",
+                             "file": fp, "line": d["line"], "msg": d["msg"][:160]})
+    except Exception:
+        pass                             # bug_scan 不可用 → 其余透镜照常
+    # S49 卫生透镜：重复文件 + 无测试源文件（仅目录模式；diff 评审改动不掺卫生面）
+    if mode == "file" and os.path.isdir(path):
+        findings.extend(_dup_file_findings(path))
+        findings.extend(_untested_findings(path, files))
+    by_lens = Counter(f["lens"] for f in findings)
+    hot = Counter(f["file"] for f in findings if f["severity"] in ("high", "med"))
+    return {"mode": mode, "files": len(files), "total": len(findings),
+            "by_lens": dict(by_lens),
+            "top_hotspots": [{"file": f, "findings": n} for f, n in
+                             hot.most_common(5)],
+            "findings": sorted(findings, key=lambda x: (
+                {"high": 0, "med": 1, "low": 2, "info": 3}[x["severity"]],
+                x["file"], x["line"]))[:200]}
