@@ -1043,3 +1043,24 @@ S46 接线的验证实验（signals 现含 clippy/复杂度 vs plain）：
   sys.path[0] 是 %TEMP%\\opencode）。这是自模拟抓出的第三个真 bug。
 - 直跑会话（无 conftest）沙盒 roots 为空 → 全拒 fail-closed 正确行为；
   探针显式注入 roots 验证。
+
+---
+
+## S51 · 五项 IDE 增强全部落地（2026-08-28）
+用户"全部开搞"：
+1. **LSP 诊断增量推送**：lsp.py 新增 notify_change（didChange 全文同步）+
+   refresh_if_stale（mtime 变了→推+短泵收新诊断）——ide_lsp diagnostics
+   每次拉取前自动检查 mtime，文件改了不再用陈旧内容出诊断
+2. **code_review --base <branch>**：diff 基线可传分支名（评审整个 feature
+   branch 而不只未提交改动）；_git_changed_ranges 接受 base 参数
+3. **ide_break 条件断点**：breakpoints 支持 cond（帧 locals 内 eval 求值，
+   失败=不命中宁缺毋假）；_norm_bps 透传 + runner tracer 条件检查
+4. **ide_build watch 模式**：watch=true 轮询指纹变化自动重跑（增量诊断
+   输出，120 轮硬上限防失控）；watch_poll 控制间隔
+5. **诊断历史持久化**：bench/diag_history.py——JSONL 追加每轮诊断摘要
+   （ts/iid/arm/phase/diags），diff_since() 跨会话比对；repair_loop
+   每轮自动追加
+
+诚实定界：#4 watch 是给修复循环/人用的（agent 按需调用 ide_build 已有
+缓存不需要 watch）；#5 数据已在 rec[out_key]["rounds"] 里，JSONL 是
+跨会话比对视图。235 passed。

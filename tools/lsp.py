@@ -104,7 +104,8 @@ class _Session:
         self.next_id = itertools.count(1)
         self.lock = threading.Lock()
         self.opened = set()
-        self.diagnostics = {}      # uri -> latest items
+        self.diagnostics = {}
+        self._open_mtimes = {}      # uri -> latest items
         self.last_used = time.time()
 
     def start(self):
@@ -248,6 +249,30 @@ class _Session:
             "textDocument": {"uri": _as_uri(path), "languageId": self.lang,
                              "version": 1, "text": text}})
         self.opened.add(path)
+        self._open_mtimes[path] = os.stat(path).st_mtime_ns
+
+    def notify_change(self, path):
+        """S50：文件落盘后推 didChange（全文同步）——服务端内容不再陈旧，
+        诊断增量推送的前提。版本号单调递增。"""
+        if path not in self.opened:
+            return
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            text = f.read(2_000_000)
+        self._version = getattr(self, "_version", 1) + 1
+        self._notify("textDocument/didChange", {
+            "textDocument": {"uri": _as_uri(path),
+                             "version": self._version},
+            "contentChanges": [{"text": text}]})
+
+    def refresh_if_stale(self, path):
+        """mtime 变了 → 推 didChange + 短泵收新诊断。返回是否推送。"""
+        cur = os.stat(path).st_mtime_ns
+        if cur == self._open_mtimes.get(path):
+            return False
+        self.notify_change(path)
+        self.pump(4.0)
+        self._open_mtimes[path] = os.stat(path).st_mtime_ns
+        return True
 
     def pump(self, seconds):
         """无上行请求地接收下行推送（publishDiagnostics 靠推不靠拉）。"""
@@ -412,6 +437,8 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True):
         if action == "diagnostics":
             sess = _get_session(lang, root)
             sess.ensure_open(real)
+            # S50：文件落盘后内容变了 → 先推 didChange（增量），再泵新诊断
+            sess.refresh_if_stale(real)
             # 发布式诊断靠推不靠拉：必须持续泵管道才收得到通知
             sess.pump(6.0)
             items = sess.diagnostics.get(_as_uri(real), [])

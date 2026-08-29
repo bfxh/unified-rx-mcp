@@ -88,3 +88,8 @@
 - 项目：unified-rx-mcp｜时间：2026-08-30T01:13
 - 决策：只删字节级相同且有 canonical 的 dist 副本（10 个，构建产物）；docs 归档与 bench one-off 不砍
 - 证据：清理后复扫 duplication 剩 2 对；234 passed
+
+## S51 · 五项 IDE 增强全落地
+- 项目：unified-rx-mcp｜时间：2026-08-30T01:35
+- 决策：LSP didChange 增量推送 + code_review base 分支 + 条件断点 + watch 模式 + 诊断历史 JSONL
+- 证据：235 passed；全部走真沙盒路径

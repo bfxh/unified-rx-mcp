@@ -136,10 +136,15 @@ def _cc_build(path, timeout, cxx=False):
            "path": {"type": "string", "description": "项目目录（含 Cargo.toml/go.mod/pom.xml/或源文件）"},
            "action": {"type": "string", "enum": ["check", "test", "lint"],
                       "description": "check=诊断；test=Rust 走 cargo test；lint=Rust 走 cargo clippy"},
+           "watch": {"type": "boolean",
+                     "description": "watch=轮询指纹变化自动重跑（输出每轮诊断，适合修错循环）"},
+           "watch_poll": {"type": "integer", "description": "watch 轮询间隔秒（默认 5）"},
            "timeout": {"type": "integer", "description": "秒（默认 600）"},
        },
        "required": ["path"]})
-def ide_build(path, action="check", timeout=600):
+def ide_build(path, action="check", timeout=600, watch=False, watch_poll=5):
+    if watch:
+        return _build_watch(path, action, timeout, watch_poll)
     """S44 ponytail：薄调度器 + 每语言构建器（原 95 行单体拆分）。"""
     try:
         path = _fs_resolve(path)
@@ -159,6 +164,24 @@ def ide_build(path, action="check", timeout=600):
     if _has_ext(path, (".java",)):
         return _javac_build(path, timeout)
     return _build_python(path, timeout)
+
+def _build_watch(path, action, timeout, poll):
+    """S50：watch 模式——指纹变化即重跑，输出增量诊断。Ctrl+C/超时退出。"""
+    import time
+    last = None
+    rounds = 0
+    while rounds < 120:
+        result = ide_build(path, action, timeout)
+        sig = result.get("total", 0)
+        if last is None or sig != last:
+            print(json.dumps({"round": rounds, "total": sig,
+                              "errors": len(result.get("errors") or [])},
+                             ensure_ascii=False), flush=True)
+            last = sig
+        time.sleep(poll)
+        rounds += 1
+    return {"error": "watch 轮询上限（120 轮）", "rounds": rounds}
+
 
 def _has_ext(path, exts):
     for _r, _d, fs in os.walk(path):

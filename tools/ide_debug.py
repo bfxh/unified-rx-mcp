@@ -165,6 +165,12 @@ def tracer(frame, event, arg):
     f = os.path.abspath(frame.f_code.co_filename)
     for b in bps:
         if os.path.abspath(b["file"]) == f and b["line"] == frame.f_lineno:
+            if b.get("cond"):
+                try:
+                    if not eval(b["cond"], {}, frame.f_locals):
+                        continue
+                except Exception:
+                    continue          # 条件求值失败 = 不命中（宁缺毋假）
             locs = {k: repr(v)[:120] for k, v in
                     list(frame.f_locals.items())[:12]}
             hits.append({"bp_line": b["line"], "locals": locs,
@@ -246,7 +252,10 @@ def _norm_bps(path, breakpoints):
     for b in breakpoints:
         bf = b["file"]
         babs = os.path.abspath(os.path.join(path, bf) if not os.path.isabs(bf) else bf)
-        out.append({"file": babs, "line": int(b["line"])})
+        entry = {"file": babs, "line": int(b["line"])}
+        if b.get("cond"):
+            entry["cond"] = str(b["cond"])   # S50：帧 locals 内求值的条件
+        out.append(entry)
     return out
 
 def _break_python(path, cmd, breakpoints, max_hits):

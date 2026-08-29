@@ -251,6 +251,15 @@ def repair_loop(args):
             if ftb_pass:
                 verified = True
                 break
+            # S50：诊断历史持久化（跨会话比对这轮修好了几个）
+            try:
+                from bench.diag_history import append_diag
+                dias = (swe_repair.registry.call('ide_diagnostics',
+                        {'path': root, 'files': files_show[:3]}) or {}
+                        ).get('result', {}).get('diagnostics') or []
+                append_diag(iid, 'repair', f'round{rnd}', dias)
+            except Exception:
+                pass
             if rnd == args.max_repairs:
                 break
             # 回喂：失败输出 + 触碰文件当前内容；signals 变体追加三路结构化信号

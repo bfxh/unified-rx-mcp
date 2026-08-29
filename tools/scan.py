@@ -738,12 +738,12 @@ def _untested_findings(root, files):
     return out[:30]
 
 
-def _git_changed_ranges(repo):
-    """git diff HEAD 的改动行区间 {abspath: [(start,end)]}。含未跟踪文件（全文件）。"""
+def _git_changed_ranges(repo, base="HEAD"):
+    """git diff <base> 的改动行区间 {abspath: [(start,end)]}。base=HEAD（默认）/分支名。含未跟踪文件。"""
     changed = {}
     untracked = []
     try:
-        r = subprocess.run(["git", "-C", repo, "diff", "-U0", "--no-color", "HEAD"],
+        r = subprocess.run(["git", "-C", repo, "diff", "-U0", "--no-color", base],
                            capture_output=True, timeout=120)
         out = (r.stdout or b"").decode(errors="replace")
         cur = None
@@ -775,10 +775,12 @@ def _git_changed_ranges(repo):
            "path": {"type": "string", "description": "文件/目录/git 仓库根"},
            "mode": {"type": "string", "enum": ["file", "diff"],
                     "description": "diff=只评审 git 改动行（默认 file）"},
+           "base": {"type": "string",
+                    "description": "diff 基线（默认 HEAD；可传分支名评审整个 branch）"},
            "max_files": {"type": "integer", "description": "文件上限（默认 60）"},
        },
        "required": ["path"]})
-def code_review(path, mode="file", max_files=60):
+def code_review(path, mode="file", max_files=60, base="HEAD"):
     try:
         path = _fs_resolve(path)
     except ValueError as e:
@@ -788,7 +790,7 @@ def code_review(path, mode="file", max_files=60):
     elif os.path.isdir(path):
         files = [os.path.abspath(p) for p in _iter_files(path, max_files)]
         if mode == "diff" and os.path.isdir(os.path.join(path, ".git")):
-            changed, untracked = _git_changed_ranges(path)
+            changed, untracked = _git_changed_ranges(path, base)
         else:
             changed, untracked = None, []
     else:
