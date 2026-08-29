@@ -259,3 +259,114 @@ def ide_rename(root, symbol, new_name, include_plan=False):
         "plan": plan if include_plan else None,
         "note": "L3 只建议不落盘；确认后可用 fs_write 应用",
     }
+
+
+@tool("ide_batch_edit", "跨文件行块批量替换：old_lines/new_lines 逐行精确匹配（可选 "
+      "fuzzy），默认 dry_run 返回 per-file 命中+diff 预览；apply=true 才落盘；"
+      "py 过语法门，原子写", "ide",
+      {"type": "object",
+       "properties": {
+           "path": {"type": "string", "description": "项目根（沙盒内）"},
+           "edits": {"type": "array",
+                     "description": "[{old_lines: [...], new_lines: [...], occ?: 1}]"},
+           "files": {"type": "array", "items": {"type": "string"},
+                     "description": "相对路径白名单（缺省=扫全项目代码文件，上限 500）"},
+           "fuzzy": {"type": "boolean", "description": "空白容忍匹配"},
+           "apply": {"type": "boolean", "description": "true=落盘（默认 dry_run）"},
+       },
+       "required": ["path", "edits"]},
+      requires_auth=True)
+def ide_batch_edit(path, edits, files=None, fuzzy=False, apply=False,
+                   __authorized=False):
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
+    if not os.path.isdir(path):
+        return {"error": f"不是目录: {path}"}
+    edits = edits or []
+    if not edits:
+        return {"error": "edits 为空"}
+    if files:
+        targets = []
+        for f in files:
+            try:
+                targets.append(_fs_resolve(os.path.join(path, f)))
+            except ValueError as e:
+                return {"error": str(e)}
+    else:
+        targets = list(_iter_files(path, 500))
+
+    matched, errors = [], []
+    written = 0
+    for p in targets:
+        try:
+            if os.path.getsize(p) > _MAX_EDIT_BYTES:
+                continue                      # 尺寸护栏：超大文件跳过不碰
+        except OSError:
+            continue
+        src = _read(p)
+        if src is None:
+            continue
+        had_bom = src.startswith("\ufeff")
+        if had_bom:
+            src = src[1:]
+        eol = _detect_eol(src)
+        sim = [ln[:-1] if ln.endswith("\r") else ln
+               for ln in src.split("\n")]
+        applied = 0
+        for e in edits:
+            old = e.get("old_lines") or []
+            new = e.get("new_lines") or []
+            occ = int(e.get("occ", 1) or 1)
+            if not old:
+                continue
+            found = _match_idx(sim, old, occ, fuzzy=False)
+            if found < 0 and fuzzy:
+                found = _match_idx(sim, old, occ, fuzzy=True)
+            if found < 0:
+                continue
+            sim[found:found + len(old)] = new
+            applied += 1
+        if applied == 0:
+            continue
+        out = eol.join(sim)
+        if had_bom:
+            out = "\ufeff" + out
+        entry = {"file": p, "applied": applied}
+        # py 语法门：单文件失败只跳过该文件，不挡批次
+        if os.path.splitext(p)[1].lower() == ".py":
+            src_parses = True
+            try:
+                ast.parse(src)
+            except SyntaxError:
+                src_parses = False
+            if src_parses:
+                try:
+                    ast.parse(out)
+                except SyntaxError as ex:
+                    entry["error"] = f"语法门: 第 {ex.lineno} 行无法编译——跳过"
+                    errors.append(entry)
+                    continue
+        if apply:
+            tmp = f"{p}.urxtmp{os.getpid()}"
+            try:
+                with open(tmp, "w", encoding="utf-8", newline="") as f:
+                    f.write(out)
+                os.replace(tmp, p)
+            except OSError as e:
+                entry["error"] = f"写入失败: {e}"
+                errors.append(entry)
+                continue
+            written += 1
+        else:
+            import difflib
+            diff = "".join(difflib.unified_diff(
+                src.splitlines(keepends=True), out.splitlines(keepends=True),
+                fromfile=p, tofile=p + " (batch dry_run)"))
+            entry["diff"] = diff[:MAX_CTX]
+        matched.append(entry)
+    return {"path": path, "scanned": len(targets),
+            "matched": len(matched), "applied_files": written,
+            "dry_run": not apply, "files": matched[:50], "errors": errors[:20],
+            "note": "dry_run 预览不落盘；apply=true 需 __authorized"}
