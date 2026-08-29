@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-"""tools/ide_edit.py —— 编辑面（S48 拆分）。"""
+"""tools/ide_edit.py —— 编辑面（S48 拆分；R1 写前防护）。
+
+写前两道门：
+- 语法门（默认开，仅 .py）：编辑结果 ast.parse 编译失败 → 整批拒绝不落盘
+  （诚实定界：rust/go 无 stdlib 语法器，不假装支持）
+- LSP 验证（validate=true 时）：未落盘内容推 LSP 泵诊断，有 error 拒写；
+  LSP 不可用时如实降级放行（不挡编辑）
+"""
+import ast
 import os
 import re
 
@@ -7,6 +15,7 @@ from registry import tool
 from tools.fs import _resolve as _fs_resolve
 from tools.ide_common import (_read, _lang_of, _iter_files,
                               _detect_eol, MAX_CTX)
+from tools.lsp import validate_content
 
 @tool("locate_edit", "定位：符号/关键词 → file:line + snippet（改代码引导）", "ide",
       {"type": "object",
@@ -78,17 +87,21 @@ def code_context(path, cursor_line=0, radius=30):
         "content": "\n".join(lines[start:end]),
     }
 
-@tool("ide_edit_multi", "多行修改：内容匹配应用（支持 occ 指定第几次出现；保留原行尾）", "ide",
+@tool("ide_edit_multi", "多行修改：内容匹配应用（支持 occ 指定第几次出现；保留原行尾）；"
+      "py 写前语法门默认开，validate=true 再加 LSP 写前验证", "ide",
       {"type": "object",
        "properties": {
            "root": {"type": "string", "description": "仓库根（可选）"},
            "file_path": {"type": "string", "description": "文件"},
            "edits": {"type": "array",
                      "description": "[{old_lines: [...], new_lines: [...], occ?: 1}]——old_lines 逐行精确匹配；occ 指定匹配第几次出现（默认 1）"},
+           "validate": {"type": "boolean",
+                        "description": "LSP 写前验证（error 拒写；LSP 不可用如实放行）"},
        },
        "required": ["file_path", "edits"]},
       requires_auth=True)
-def ide_edit_multi(file_path, edits, root=None, __authorized=False, dry_run=False):
+def ide_edit_multi(file_path, edits, root=None, __authorized=False,
+                   dry_run=False, validate=False):
     # S44 ponytail：old_lines/new_lines 顶层兼容参数砍除（全仓无调用方，edits 内用法不变）
     p = file_path
     if root and not os.path.isabs(p):
@@ -141,11 +154,33 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False, dry_run=Fals
             fromfile=file_path, tofile=file_path + " (dry_run)"))
         return {"applied": applied, "errors": sim_errors, "file": p,
                 "dry_run": True, "diff": diff[:MAX_CTX]}
+    # R1 语法门（默认开，仅 .py）：编辑结果必须可编译才落盘
+    if os.path.splitext(p)[1].lower() == ".py":
+        try:
+            ast.parse(out)
+        except SyntaxError as e:
+            return {"error": f"语法门: 编辑结果第 {e.lineno} 行无法编译 "
+                             f"({e.msg})——未落盘", "applied": 0}
+    # R1 LSP 写前验证（显式开启时）
+    validation = None
+    if validate:
+        v = validate_content(p, out)
+        if v.get("error"):
+            validation = {"skipped": v["error"]}       # LSP 不可用如实放行
+        elif v.get("errors"):
+            return {"error": f"写前验证: LSP 报告 {v['errors']} 个 error——未落盘",
+                    "applied": 0, "validation": v}
+        else:
+            validation = {"ok": True, "engine": v.get("engine"),
+                          "total": v.get("total")}
     # 写回：保留原行尾（I3 修复）
     with open(p, "w", encoding="utf-8", newline="") as f:
         f.write(out)
-    return {"applied": applied, "errors": sim_errors, "file": p,
-            "eol": "CRLF" if eol == "\r\n" else "LF"}
+    result = {"applied": applied, "errors": sim_errors, "file": p,
+              "eol": "CRLF" if eol == "\r\n" else "LF"}
+    if validation is not None:
+        result["validation"] = validation
+    return result
 
 @tool("ide_rename", "安全重命名：全库找引用→建议（L3 不落盘）", "ide",
       {"type": "object",
