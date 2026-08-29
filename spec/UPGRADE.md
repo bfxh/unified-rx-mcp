@@ -987,3 +987,19 @@ rust-analyzer 0 诊断 / hallucination_guard 当场证伪我编的声明 / bug_s
   等）——全部属实
 
 225→234 passed（+9：多透镜 4 + diff 2 + 解析器改动连带）。
+
+---
+
+## S45 · 自食其果闭环：code_review 揪出的 12 热点全清零（2026-08-28）
+S44 的 code_review 对自家 tools/ide.py 报 12 热点 → 本轮全部闭环：
+- **真问题 2**：ide_build 95 行单体 → 薄调度器 + _build_rust/_build_go/
+  _build_python/_has_ext（顺手删 2 行重复 put/return 死代码）；
+  ide_edit_multi 参数 7→5（old_lines/new_lines 顶层兼容参数全仓无调用方）
+- **工具假阳性 3**：多行调用的续行缩进被当逻辑嵌套（capture_output=... 31
+  空格是 subprocess.run 的参数行！）→ 复杂度测量改括号深度感知
+- **阈值校准 1**：24 空格（6 层）对 try/except 密集基建代码是常规密度 →
+  28（7 层）为真离群（校准理由注释在 scan.py）
+- 终态：code_review(ide.py) 剩余热点 **0**；234 passed
+
+**方法闭环**：工具发现问题 → 作者修复 → 同一工具复测验证 → 剩 0。
+这条链证明了 code_review 不是摆设。

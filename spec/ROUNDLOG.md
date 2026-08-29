@@ -59,3 +59,9 @@
 - 决策：聚合 bug/security/complexity/todo 四透镜 + diff 改动行模式；复用 bug_scan 不另造轮子
 - 证据：234 passed（+9 测试：透镜/diff/复杂度/todo）；本仓自评 12 复杂度热点全属实；scan.md 边界已记
 - 提交：待提交
+
+## S45 · code_review 12 热点全清零（自食其果闭环）
+- 项目：unified-rx-mcp｜时间：2026-08-29T14:05
+- 决策：真问题重构（单体拆分/参数砍）、假阳性修工具（括号深度感知）、阈值校准留注释
+- 证据：code_review(ide.py) 12→0；234 passed；工具链自验证闭环
+- 提交：待提交

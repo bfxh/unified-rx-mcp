@@ -156,15 +156,11 @@ def code_context(path, cursor_line=0, radius=30):
            "file_path": {"type": "string", "description": "文件"},
            "edits": {"type": "array",
                      "description": "[{old_lines: [...], new_lines: [...], occ?: 1}]——old_lines 逐行精确匹配；occ 指定匹配第几次出现（默认 1）"},
-           "old_lines": {"type": "array", "description": "兼容写法：单处修改的旧行（等价于 edits 里的一项 old_lines）"},
-           "new_lines": {"type": "array", "description": "兼容写法：单处修改的新行（等价于 edits 里的一项 new_lines）"},
        },
        "required": ["file_path", "edits"]},
       requires_auth=True)
-def ide_edit_multi(file_path, edits, root=None, __authorized=False, old_lines=None, new_lines=None, dry_run=False):
-    # 授权已由 registry.call 的 requires_auth 强制；此处信任进入即已授权
-    if old_lines or new_lines:
-        edits = (edits or []) + [{"old_lines": old_lines, "new_lines": new_lines or []}]
+def ide_edit_multi(file_path, edits, root=None, __authorized=False, dry_run=False):
+    # S44 ponytail：old_lines/new_lines 顶层兼容参数砍除（全仓无调用方，edits 内用法不变）
     p = file_path
     if root and not os.path.isabs(p):
         p = os.path.join(root, p)
@@ -432,17 +428,23 @@ def _parse_go_panic(text):
     return out
 
 
+def _collect_src(path, exts, cap=200):
+    """目录下按扩展名收集源文件（S44 拍平：walk 双层循环提出来）。"""
+    out = []
+    for r, dirs, fs in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for fn in fs:
+            if fn.endswith(tuple(e.lower() for e in exts)):
+                out.append(os.path.join(r, fn))
+    return out[:cap]
+
+
 def _javac_build(path, timeout):
     """松散 .java → javac 全量语法编译到临时 -d（无 mvn/gradle 时的诚实降级）。"""
     javac = shutil.which("javac")
     if not javac:
         return {"error": "未找到 javac（JDK 未安装或不在 PATH）"}
-    files = []
-    for r, dirs, fs in os.walk(path):
-        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
-        for fn in fs:
-            if fn.endswith(".java"):
-                files.append(os.path.join(r, fn))
+    files = _collect_src(path, (".java",))
     if not files:
         return {"error": "目录内无 .java 文件"}
     outd = os.path.join(path, ".urx_javac_out")
@@ -468,17 +470,12 @@ def _cc_build(path, timeout, cxx=False):
     if not exe:
         return {"error": f"未找到 {'g++/clang++' if cxx else 'gcc/clang'}"}
     exts = (".cpp", ".cc", ".cxx") if cxx else (".c",)
-    files = []
-    for r, dirs, fs in os.walk(path):
-        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
-        for fn in fs:
-            if fn.lower().endswith(exts):
-                files.append(os.path.join(r, fn))
+    files = _collect_src(path, exts)
     if not files:
         return {"error": f"目录内无 {'C++' if cxx else 'C'} 源文件"}
-    diags = []
     env = dict(os.environ)
     env["LC_ALL"] = "C"                   # gcc 本地化消息强制英文
+    diags = []
     for fp in files[:200]:
         try:
             r = subprocess.run([exe, "-fsyntax-only", fp], cwd=path,
@@ -486,8 +483,8 @@ def _cc_build(path, timeout, cxx=False):
                                env=env)
         except subprocess.TimeoutExpired:
             continue
-        out = (r.stderr or b"").decode(errors="replace")
-        diags.extend(_parse_gcc(out, path))
+        diags.extend(_parse_gcc(
+            (r.stderr or b"").decode(errors="replace"), path))
     return {"tool": "g++ --fsyntax-only" if cxx else "gcc --fsyntax-only",
             "exit": 0 if not any(d["level"] == "error" for d in diags) else 1,
             "ok": not any(d["level"] == "error" for d in diags),
@@ -507,75 +504,88 @@ def _cc_build(path, timeout, cxx=False):
        },
        "required": ["path"]})
 def ide_build(path, action="check", timeout=600):
+    """S44 ponytail：薄调度器 + 每语言构建器（原 95 行单体拆分）。"""
     try:
         path = _fs_resolve(path)
     except ValueError as e:
         return {"error": str(e)}
     if not os.path.isdir(path):
         return {"error": f"不是目录: {path}"}
-    # Java：pom.xml/build.gradle 存在但无 mvn/gradle → 如实降级 javac 松散编译
-    has_java = any(f.endswith(".java") for f in os.listdir(path)) or \
-        any(fn.endswith(".java") for _, _, fs in os.walk(path) for fn in fs)
-    if has_java and not os.path.isfile(os.path.join(path, "Cargo.toml")):
-        if os.path.isfile(os.path.join(path, "pom.xml")) and not shutil.which("mvn"):
-            pass                                          # 落到 javac 松散编译
-        return _javac_build(path, timeout)
-    exe = shutil.which("cargo")
     build_root = _find_build_root(path, ("Cargo.toml",))
-    if exe and build_root:
-        cached = _build_cache_get(("cargo", action, build_root))
-        if cached:
-            return cached
-        if action == "lint":
-            if shutil.which("cargo-clippy") is None:
-                return {"error": "clippy 未安装（rustup component add clippy）",
-                        "tool": "clippy"}
-            cmd = [exe, "clippy", "--message-format=short"]
-        elif action == "test":
-            cmd = [exe, "test", "--no-run", "--message-format=short"]
-        else:
-            cmd = [exe, "check", "--message-format=short"]
-        try:
-            r = subprocess.run(cmd, cwd=build_root, capture_output=True,
-                               timeout=timeout)
-        except subprocess.TimeoutExpired:
-            return {"error": f"超时（{timeout}s）", "tool": "cargo"}
-        out = (r.stdout or b"").decode(errors="replace") + "\n" + \
-              (r.stderr or b"").decode(errors="replace")
-        if action == "lint" and "no such subcommand" in out:
+    if build_root:
+        return _build_rust(path, build_root, action, timeout)
+    if os.path.isfile(os.path.join(path, "go.mod")):
+        return _build_go(path, timeout)
+    if _has_ext(path, (".cpp", ".cc", ".cxx")):
+        return _cc_build(path, timeout, cxx=True)
+    if _has_ext(path, (".c",)):
+        return _cc_build(path, timeout, cxx=False)
+    if _has_ext(path, (".java",)):
+        return _javac_build(path, timeout)
+    return _build_python(path, timeout)
+
+
+def _has_ext(path, exts):
+    for _r, _d, fs in os.walk(path):
+        for fn in fs:
+            if fn.lower().endswith(exts):
+                return True
+    return False
+
+
+def _build_rust(path, build_root, action, timeout):
+    exe = shutil.which("cargo")
+    if not exe:
+        return {"error": "Cargo.toml 存在但 cargo 不在 PATH"}
+    cached = _build_cache_get(("cargo", action, build_root))
+    if cached:
+        return cached
+    if action == "lint":
+        if shutil.which("cargo-clippy") is None:
             return {"error": "clippy 未安装（rustup component add clippy）",
                     "tool": "clippy"}
-        diags = _parse_cargo_short(out, build_root)
-        result = {"tool": "clippy" if action == "lint" else "cargo",
-                  "action": action, "build_root": build_root,
-                  "exit": r.returncode, "ok": r.returncode == 0,
-                  "total": len(diags),
-                  "errors": [d for d in diags if d["level"] == "error"],
-                  "warnings": [d for d in diags if d["level"] == "warning"][:50]}
-        _build_cache_put(("cargo", action, build_root), result)
-        return result
-        _build_cache_put(("cargo", action, build_root), result)
-        return result
-    if os.path.isfile(os.path.join(path, "go.mod")):
-        go = shutil.which("go")
-        if not go:
-            return {"error": "go.mod 存在但未找到 go 工具链"}
-        try:
-            r = subprocess.run([go, "build", "./..."], cwd=path,
-                               capture_output=True, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            return {"error": f"超时（{timeout}s）", "tool": "go"}
-        out = (r.stderr or b"").decode(errors="replace")
-        diags = _parse_go_build(out, path)   # go 错误格式 file:line:col: msg（无 level 词）
-        return {"tool": "go", "exit": r.returncode, "ok": r.returncode == 0,
-                "total": len(diags), "errors": diags,
-                "raw_tail": out[-2000:]}
-    if any(fn.lower().endswith((".cpp", ".cc", ".cxx")) for _, _, fs in
-           os.walk(path) for fn in fs):
-        return _cc_build(path, timeout, cxx=True)
-    if any(fn.lower().endswith(".c") for _, _, fs in os.walk(path) for fn in fs):
-        return _cc_build(path, timeout, cxx=False)
-    # Python：compileall 语法检查（找 path 下首个 .py 的目录语义由用户保证）
+        cmd = [exe, "clippy", "--message-format=short"]
+    elif action == "test":
+        cmd = [exe, "test", "--no-run", "--message-format=short"]
+    else:
+        cmd = [exe, "check", "--message-format=short"]
+    try:
+        r = subprocess.run(cmd, cwd=build_root, capture_output=True,
+                           timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return {"error": f"超时（{timeout}s）", "tool": "cargo"}
+    out = (r.stdout or b"").decode(errors="replace") + "\n" + \
+          (r.stderr or b"").decode(errors="replace")
+    if action == "lint" and "no such subcommand" in out:
+        return {"error": "clippy 未安装（rustup component add clippy）",
+                "tool": "clippy"}
+    diags = _parse_cargo_short(out, build_root)
+    result = {"tool": "clippy" if action == "lint" else "cargo",
+              "action": action, "build_root": build_root,
+              "exit": r.returncode, "ok": r.returncode == 0,
+              "total": len(diags),
+              "errors": [d for d in diags if d["level"] == "error"],
+              "warnings": [d for d in diags if d["level"] == "warning"][:50]}
+    _build_cache_put(("cargo", action, build_root), result)
+    return result
+
+
+def _build_go(path, timeout):
+    go = shutil.which("go")
+    if not go:
+        return {"error": "go.mod 存在但未找到 go 工具链"}
+    try:
+        r = subprocess.run([go, "build", "./..."], cwd=path,
+                           capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return {"error": f"超时（{timeout}s）", "tool": "go"}
+    out = (r.stderr or b"").decode(errors="replace")
+    diags = _parse_go_build(out, path)
+    return {"tool": "go", "exit": r.returncode, "ok": r.returncode == 0,
+            "total": len(diags), "errors": diags, "raw_tail": out[-2000:]}
+
+
+def _build_python(path, timeout):
     py = shutil.which("python") or shutil.which("py")
     if py is None:
         return {"error": "无可识别构建目标（Cargo.toml/go.mod/.java/.c/.cpp/.py）"}
@@ -772,27 +782,40 @@ def ide_break(path, cmd, breakpoints, max_hits=20):
                      "替代方案：ide_debug 的 panic 回溯帧（RUST_BACKTRACE=1）"}
 
 
-def _break_python(path, cmd, breakpoints, max_hits):
-    """python settrace 记录器：cmd = [python, target.py, ...] 或 [python, -m, 模块, ...]。"""
+def _norm_mode_target(cmd, path):
+    """S44 拍平：cmd → (mode, target, rest)，-m 模块/path 文件两式。"""
     if len(cmd) > 1 and cmd[1] == "-m":
-        mode = "module"
         target = cmd[2] if len(cmd) > 2 else ""
-        rest = list(cmd[3:])
         if not target:
-            return {"error": "-m 缺少模块名"}
-    else:
-        mode = "path"
-        target = cmd[1] if len(cmd) > 1 else ""
-        rest = list(cmd[2:])
-        t_abs = os.path.abspath(
-            os.path.join(path, target) if not os.path.isabs(target) else target)
-        if not os.path.isfile(t_abs):
-            return {"error": f"python 目标不存在: {t_abs}"}
-    bps = []
+            return None, None, []
+        return "module", target, list(cmd[3:])
+    target = cmd[1] if len(cmd) > 1 else ""
+    if mode_is_file_ok(path, target):
+        return "path", target, list(cmd[2:])
+    return None, None, []
+
+
+def mode_is_file_ok(path, target):
+    t_abs = os.path.abspath(
+        os.path.join(path, target) if not os.path.isabs(target) else target)
+    return os.path.isfile(t_abs)
+
+
+def _norm_bps(path, breakpoints):
+    out = []
     for b in breakpoints:
         bf = b["file"]
         babs = os.path.abspath(os.path.join(path, bf) if not os.path.isabs(bf) else bf)
-        bps.append({"file": babs, "line": int(b["line"])})
+        out.append({"file": babs, "line": int(b["line"])})
+    return out
+
+
+def _break_python(path, cmd, breakpoints, max_hits):
+    """python settrace 记录器：cmd = [python, target.py, ...] 或 [python, -m, 模块, ...]。"""
+    mode, target, rest = _norm_mode_target(cmd, path)
+    if mode is None:
+        return {"error": f"python 目标不存在或 -m 缺模块名: {cmd[1:3]}"}
+    bps = _norm_bps(path, breakpoints)
     runner = os.path.join(tempfile.gettempdir(), "opencode",
                           f"urx_trace_{os.getpid()}.py")
     os.makedirs(os.path.dirname(runner), exist_ok=True)
@@ -841,6 +864,44 @@ _LANG_BY_EXT = {".py": "python", ".rs": "rust"}
                             "description": "含 cargo clippy（Cargo.toml 存在时，默认 true）"},
        },
        "required": ["path"]})
+def _lsp_file_diags(path, rel):
+    """单文件 LSP 诊断 → 统一形状列表（异常=无信号）。"""
+    fp = os.path.abspath(os.path.join(path, rel.replace("/", os.sep)))
+    if not os.path.isfile(fp):
+        return [], None
+    lang = _LANG_BY_EXT.get(os.path.splitext(fp)[1].lower())
+    if not lang:
+        return [], None
+    try:
+        r = registry.call("ide_lsp", {"action": "diagnostics", "file": fp})
+        res = r.get("result") or {}
+        diags = [{"source": d.get("source") or f"{lang}-lsp", "file": rel,
+                  "line": int(d.get("line") or 0) + 1, "col": 0,
+                  "severity": _SEV_LSP.get(str(d.get("severity")), "warning"),
+                  "message": (d.get("message") or "")[:200]}
+                 for d in res.get("diagnostics") or []]
+        return diags, (f"{lang}-lsp" if diags else None)
+    except Exception:
+        return [], None                 # LSP 不可用 → 如实跳过该信号
+
+
+def _clippy_diags(path):
+    """clippy 诊断 → 统一形状列表（异常=无信号）。"""
+    if not os.path.isfile(os.path.join(path, "Cargo.toml")):
+        return [], None
+    try:
+        r = registry.call("ide_build", {"path": path, "action": "lint"})
+        res = r.get("result") or r
+        diags = [{"source": "clippy",
+                  "file": os.path.relpath(d["file"], path).replace("\\", "/"),
+                  "line": d["line"], "col": d.get("col", 0),
+                  "severity": d["level"], "message": d["msg"][:200]}
+                 for d in (res.get("warnings") or []) + (res.get("errors") or [])]
+        return diags, ("clippy" if diags else None)
+    except Exception:
+        return [], None
+
+
 def ide_diagnostics(path, files=None, include_lint=True, timeout=600):
     try:
         path = _fs_resolve(path)
@@ -848,44 +909,17 @@ def ide_diagnostics(path, files=None, include_lint=True, timeout=600):
         return {"error": str(e)}
     if not os.path.isdir(path):
         return {"error": f"不是目录: {path}"}
-    diags = []
-    engines = []
-    # 1) LSP：逐文件（会话在 lsp.py 内按 lang 缓存，不重复冷启动）
+    diags, engines = [], []
     for rel in (files or [])[:3]:
-        fp = os.path.abspath(os.path.join(path, rel.replace("/", os.sep)))
-        if not os.path.isfile(fp):
-            continue
-        lang = _LANG_BY_EXT.get(os.path.splitext(fp)[1].lower())
-        if not lang:
-            continue
-        try:
-            r = registry.call("ide_lsp", {"action": "diagnostics", "file": fp})
-            res = r.get("result") or {}
-            for d in res.get("diagnostics") or []:
-                sev = _SEV_LSP.get(str(d.get("severity")), "warning")
-                diags.append({"source": d.get("source") or f"{lang}-lsp",
-                              "file": rel, "line": int(d.get("line") or 0) + 1,
-                              "col": 0, "severity": sev,
-                              "message": (d.get("message") or "")[:200]})
-            if res.get("diagnostics"):
-                engines.append(f"{lang}-lsp")
-        except Exception:
-            continue                     # LSP 不可用 → 如实跳过该信号
-    # 2) clippy：Cargo.toml 存在时
-    if include_lint and os.path.isfile(os.path.join(path, "Cargo.toml")):
-        try:
-            r = registry.call("ide_build", {"path": path, "action": "lint"})
-            res = r.get("result") or r
-            for d in (res.get("warnings") or []) + (res.get("errors") or []):
-                rel = os.path.relpath(d["file"], path).replace("\\", "/")
-                diags.append({"source": "clippy", "file": rel,
-                              "line": d["line"], "col": d.get("col", 0),
-                              "severity": d["level"],
-                              "message": d["msg"][:200]})
-            if res.get("warnings") or res.get("errors"):
-                engines.append("clippy")
-        except Exception:
-            pass                         # clippy 不可用 → 如实跳过该信号
+        d, eng = _lsp_file_diags(path, rel)
+        diags.extend(d)
+        if eng:
+            engines.append(eng)
+    if include_lint:
+        d, eng = _clippy_diags(path)
+        diags.extend(d)
+        if eng:
+            engines.append(eng)
     errors = [d for d in diags if d["severity"] == "error"]
     return {"engine": "+".join(engines) or "none", "total": len(diags),
             "errors": len(errors), "diagnostics": diags[:200]}

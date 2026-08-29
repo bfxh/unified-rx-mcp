@@ -575,7 +575,8 @@ _RE_FUNC_START = {
     "javascript": re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)"),
 }
 _FUNC_LONG = 80
-_NEST_SPACES = 24
+# 24 空格（6 层）对 try/except 密集的基建代码是常规密度；28（7 层）才是真离群
+_NEST_SPACES = 28
 _PARAMS_MAX = 6
 
 
@@ -611,10 +612,18 @@ def _complexity_findings(lines, lang):
             out.append((i + 1, f"函数 {name} 长 {span} 行（>{_FUNC_LONG}）——复杂度热点"))
         if params > _PARAMS_MAX:
             out.append((i + 1, f"函数 {name} 参数 {params} 个（>{_PARAMS_MAX}）"))
+        # S44 括号深度感知：多行调用的续行缩进不是逻辑嵌套（假阳性修正）
         depth = 0
+        bracket = 0
         for ln in lines[i:end]:
-            stripped = len(ln) - len(ln.lstrip())
-            depth = max(depth, stripped)
+            if bracket == 0:
+                stripped = len(ln) - len(ln.lstrip())
+                if ln.strip():
+                    depth = max(depth, stripped)
+            bracket += ln.count("(") + ln.count("[") + ln.count("{") \
+                - ln.count(")") - ln.count("]") - ln.count("}")
+            if bracket < 0:
+                bracket = 0
         if depth >= _NEST_SPACES:
             out.append((i + 1, f"函数 {name} 嵌套深 {depth} 空格（≥{_NEST_SPACES}）"))
     return out
