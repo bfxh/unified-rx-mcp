@@ -25,7 +25,8 @@ from . import appaudit  # noqa: F401,E402  S8：智能体/桌面应用自查域�
 from . import astscan   # noqa: F401,E402  S9：结构化扫描域（Python AST / JS 词法-括号管线）
 from . import metrics   # noqa: F401,E402  S52：代码质量度量域（coverage/dep_graph/stability）
 from . import ide_test  # noqa: F401,E402  R2：统一测试入口（pytest/cargo/go → per-test 结果）
+from . import ide_doctor  # noqa: F401,E402  R4：一键项目体检（六项聚合 → 基线报告）
 
 __all__ = ["fs", "pure", "scan", "ide", "guard", "learn", "ops",
            "search", "game", "collab", "meta", "engine", "bevy", "attack",
-           "appaudit", "astscan", "metrics", "ide_test"]
+           "appaudit", "astscan", "metrics", "ide_test", "ide_doctor"]
