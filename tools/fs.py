@@ -94,8 +94,18 @@ def fs_write(path, content, __authorized=False):
             os.makedirs(d, exist_ok=True)
         except OSError as e:
             return {"error": f"创建目录失败: {e}"}
-    with open(p, "w", encoding="utf-8", newline="\n") as f:
-        f.write(content)
+    tmp = f"{p}.urxtmp{os.getpid()}"     # S62：原子写（tmp+replace），崩进程不留半截文件
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write(content)
+        os.replace(tmp, p)
+    except OSError as e:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
+        return {"error": f"写入失败: {e}"}
     return {"path": p, "size": len(content), "ok": True}
 
 

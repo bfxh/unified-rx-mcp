@@ -211,9 +211,19 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
         else:
             validation = {"ok": True, "engine": v.get("engine"),
                           "total": v.get("total")}
-    # 写回：保留原行尾（I3 修复）+ BOM 还原
-    with open(p, "w", encoding="utf-8", newline="") as f:
-        f.write(("\ufeff" + out) if had_bom else out)
+    # 写回：原子替换（tmp+os.replace，S62）+ 行尾保留（I3）+ BOM 还原
+    tmp = f"{p}.urxtmp{os.getpid()}"
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            f.write(("\ufeff" + out) if had_bom else out)
+        os.replace(tmp, p)
+    except OSError as e:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
+        return {"error": f"写入失败: {e}"}
     result = {"applied": applied, "errors": sim_errors, "file": p,
               "eol": "CRLF" if eol == "\r\n" else "LF"}
     if validation is not None:
