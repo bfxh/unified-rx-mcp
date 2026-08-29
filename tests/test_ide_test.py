@@ -54,6 +54,16 @@ def test_pytest_no_infra_is_error(tmp_path):
     assert not r["ok"] and "未检测到测试设施" in r["error"]
 
 
+def test_target_flag_injection_rejected(tmp_path):
+    """S60：target 以 '-' 开头 = argv 旗标注入（--junitxml 等）——必须拒绝。"""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text(
+        "def test_a():\n    assert True\n", encoding="utf-8")
+    for evil in ("--junitxml=C:/Temp/pwn.xml", "-x", "-p", "--collect-only"):
+        r = registry.call("ide_test", {"path": str(tmp_path), "target": evil})
+        assert not r["ok"] and "argv" in r["error"], evil
+
+
 # ---------- cargo（真迷你 crate） ----------
 
 def test_cargo_real_minimal_crate(tmp_path):
