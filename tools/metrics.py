@@ -166,13 +166,18 @@ def dep_graph(path, max_files=300):
     # 分类：内部依赖（项目内模块间）/ 外部依赖
     internal = {}
     external = {}
-    cycles = _find_cycles({rel: [d for d in imports if d in local_names]
+    # S55 修复：环检测节点用模块 stem——原 graph 键带 .py、依赖名不带，
+    # `if dep in graph` 永假 → 环检测自 S53 起是死代码（永不报警的假阴性）
+    def _stem(rel):
+        base = os.path.basename(rel)
+        return base[:-3] if base.endswith('.py') else base
+    cycles = _find_cycles({_stem(rel): [d for d in imports if d in local_names]
                            for rel, imports in graph.items()})
     for rel, imports in graph.items():
         internal[rel] = sorted(d for d in imports if d in local_names)
         external[rel] = sorted(d for d in imports if d not in local_names)
 
-    ext_count = Counter = sum(len(v) for v in external.values())
+    ext_count = sum(len(v) for v in external.values())
     int_count = sum(len(v) for v in internal.values())
     return {"total_files": len(graph), "internal_deps": int_count,
             "external_deps": ext_count, "cycles": cycles,
@@ -235,14 +240,25 @@ def module_stability(path, timeout=60):
     except (OSError, subprocess.TimeoutExpired):
         freq = {}
 
-    # 2) 测试文件存在性
-    test_files = set()
+    # 2) 测试文件与内容语料（S55：间接覆盖识别——registry 中介调用使工具名出现在
+    #    测试里；文件名启发式对此全盲，产生大量假阳性 risky）
+    # S55 修复：目录判定收紧为 test/tests/__tests__ 精确名——原『目录名含 test 即
+    # 全部计入』连项目自身文件都算测试（项目目录名带 test 时模块自我匹配成 has_test）
+    test_paths = []
     for r, dirs, fs in os.walk(path):
         dirs[:] = [d for d in dirs if d not in _SKIP]
+        parent = r.replace('\\', '/').split('/')[-1].lower()
+        in_test_dir = parent in ("test", "tests", "__tests__")
         for fn in fs:
-            if 'test' in r.replace('\\', '/').split('/')[-1].lower() or \
-               fn.startswith('test_'):
-                test_files.add(fn)
+            if in_test_dir or fn.startswith('test_') or fn.endswith('_test.py'):
+                test_paths.append(os.path.join(r, fn))
+    test_names = {os.path.basename(p) for p in test_paths}
+    corpus = ""
+    for p in test_paths[:300]:
+        try:
+            corpus += open(p, encoding='utf-8', errors='replace').read() + "\n"
+        except OSError:
+            pass
 
     # 3) 汇总评分
     modules = []
@@ -254,12 +270,20 @@ def module_stability(path, timeout=60):
             fp = os.path.join(r, fn)
             rel = os.path.relpath(fp, path).replace('\\', '/')
             try:
-                lc = sum(1 for l in open(fp, encoding='utf-8', errors='replace')
-                         if l.strip() and not l.strip().startswith('#'))
+                src = open(fp, encoding='utf-8', errors='replace').read()
             except OSError:
-                lc = 0
+                src = ""
+            lc = sum(1 for l in src.split('\n')
+                     if l.strip() and not l.strip().startswith('#'))
             commits = freq.get(rel, 0)
-            has_test = any(t == f"test_{fn}" or fn in t for t in test_files)
+            # has_test：专用测试文件名，或 模块名/其注册工具名 被测试内容引用
+            # （间接覆盖代理——如实定界：引用≠深度覆盖，非质量保证）
+            names = {fn[:-3]}
+            names.update(re.findall(r'@tool\(\s*["\']([a-z_]+)["\']', src))
+            has_test = any(t == f"test_{fn}" or fn in t for t in test_names)
+            if not has_test:
+                has_test = any(re.search(r'\b' + re.escape(n) + r'\b', corpus)
+                               for n in names)
             # 稳定性 = 低频提交 × 有测试 × 合理行数 = 绿灯
             if commits == 0 and has_test:
                 score = "stable"

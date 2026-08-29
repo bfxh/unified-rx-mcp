@@ -2,6 +2,8 @@
 """tools/ide_diag.py —— 统一诊断面（S48 拆分）。"""
 import os
 
+import registry  # 显式导入：_lsp_file_diags/_clippy_diags 依赖 registry.call（S55：拆分后缺此导入，
+                 # NameError 被 except Exception 静默吞掉，LSP+clippy 信号全空）
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
 
