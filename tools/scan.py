@@ -10,6 +10,10 @@ P5 修复（2026-08-25）：Python AST 作用域感知（参数/方法/属性/�
 import os
 import re
 import ast
+import subprocess
+from collections import Counter
+
+from tools.fs import _resolve as _fs_resolve
 
 from registry import tool
 from . import bevy  # Bevy 专项规则
@@ -550,3 +554,196 @@ def project_scan(path, max_files=MAX_FILES, ui=True):
         "ui_check": {"total": ui_r.get("total", 0)},
         "summary": f"bug {bug.get('total', 0)} + std {std.get('total', 0)} + ui {ui_r.get('total', 0)}",
     }
+# -*- coding: utf-8 -*-
+"""S44：code_review —— 多透镜代码评审（找问题不再单一）+ diff 模式（只报改动）。"""
+
+_RE_SECRET = re.compile(
+    r"(?i)(password|passwd|api_?key|secret|token|access_key)\s*[=:]\s*[\"'][^\"']{6,}")
+_RE_DANGER = [
+    (re.compile(r"\beval\s*\("), "eval 动态执行"),
+    (re.compile(r"\bexec\s*\("), "exec 动态执行"),
+    (re.compile(r"\bos\.system\s*\("), "os.system shell 调用"),
+    (re.compile(r"subprocess\.[a-z_]+\([^)]*shell\s*=\s*True"), "subprocess shell=True"),
+    (re.compile(r"\.innerHTML\s*="), "innerHTML 直接赋值（XSS 面）"),
+    (re.compile(r"execute\s*\([^)]*[%+]"), "SQL 拼接执行"),
+]
+_RE_TODO = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b")
+_RE_FUNC_START = {
+    "python": re.compile(r"^(\s*)(?:async\s+)?def\s+(\w+)"),
+    "rust": re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)"),
+    "go": re.compile(r"^func\s+(?:\([^)]*\)\s*)?(\w+)"),
+    "javascript": re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)"),
+}
+_FUNC_LONG = 80
+_NEST_SPACES = 24
+_PARAMS_MAX = 6
+
+
+def _lang_of_file(fp):
+    ext = os.path.splitext(fp)[1].lower().lstrip(".")
+    return {"py": "python", "rs": "rust", "go": "go", "js": "javascript",
+            "ts": "javascript", "jsx": "javascript", "tsx": "javascript"}.get(ext)
+
+
+def _func_spans(lines, lang):
+    """[(name, start_idx, end_idx, params)]——函数跨度与参数数（廉价比 AST 稳）。"""
+    pat = _RE_FUNC_START.get(lang)
+    if not pat:
+        return []
+    starts = []
+    for i, line in enumerate(lines):
+        m = pat.match(line)
+        if m:
+            params = line.count(",") + 1 if "(" in line and ")" in line else 0
+            starts.append((m.group(2), i, params))
+    spans = []
+    for j, (name, i, params) in enumerate(starts):
+        end = starts[j + 1][1] if j + 1 < len(starts) else min(len(lines), i + _FUNC_LONG * 3)
+        spans.append((name, i, end, params))
+    return spans
+
+
+def _complexity_findings(lines, lang):
+    out = []
+    for name, i, end, params in _func_spans(lines, lang):
+        span = end - i
+        if span > _FUNC_LONG:
+            out.append((i + 1, f"函数 {name} 长 {span} 行（>{_FUNC_LONG}）——复杂度热点"))
+        if params > _PARAMS_MAX:
+            out.append((i + 1, f"函数 {name} 参数 {params} 个（>{_PARAMS_MAX}）"))
+        depth = 0
+        for ln in lines[i:end]:
+            stripped = len(ln) - len(ln.lstrip())
+            depth = max(depth, stripped)
+        if depth >= _NEST_SPACES:
+            out.append((i + 1, f"函数 {name} 嵌套深 {depth} 空格（≥{_NEST_SPACES}）"))
+    return out
+
+
+def _review_file(fp, changed=None):
+    """单文件全透镜。changed=改动行区间列表时只报区间内的发现。"""
+    lang = _lang_of_file(fp)
+    try:
+        with open(fp, "r", encoding="utf-8", errors="replace") as f:
+            src = f.read()
+    except OSError:
+        return []
+    lines = src.split("\n")
+
+    def in_changed(ln):
+        return changed is None or any(a <= ln <= b for a, b in changed)
+
+    out = []
+    for i, line in enumerate(lines, 1):
+        if not in_changed(i):
+            continue
+        m = _RE_SECRET.search(line)
+        if m:
+            out.append({"lens": "security", "severity": "high", "file": fp,
+                        "line": i, "msg": f"疑似硬编码凭据: {m.group(1)}"})
+            continue
+        for pat, msg in _RE_DANGER:
+            if pat.search(line):
+                out.append({"lens": "security", "severity": "high", "file": fp,
+                            "line": i, "msg": msg})
+                break
+        m = _RE_TODO.search(line)
+        if m:
+            out.append({"lens": "todo", "severity": "info", "file": fp,
+                        "line": i, "msg": f"{m.group(1)} 标记"})
+    if lang:
+        for ln, msg in _complexity_findings(lines, lang):
+            if in_changed(ln):
+                out.append({"lens": "complexity", "severity": "low", "file": fp,
+                            "line": ln, "msg": msg})
+    return out
+
+
+def _git_changed_ranges(repo):
+    """git diff HEAD 的改动行区间 {abspath: [(start,end)]}。含未跟踪文件（全文件）。"""
+    changed = {}
+    untracked = []
+    try:
+        r = subprocess.run(["git", "-C", repo, "diff", "-U0", "--no-color", "HEAD"],
+                           capture_output=True, timeout=120)
+        out = (r.stdout or b"").decode(errors="replace")
+        cur = None
+        for line in out.splitlines():
+            m = re.match(r"^\+\+\+ b/(\S+)", line)
+            if m:
+                cur = os.path.abspath(os.path.join(repo, m.group(1)))
+                continue
+            m = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", line)
+            if m and cur:
+                start = int(m.group(1))
+                n = int(m.group(2) or 1)
+                if n:
+                    changed.setdefault(cur, []).append((start, start + n - 1))
+        r2 = subprocess.run(["git", "-C", repo, "ls-files", "--others",
+                             "--exclude-standard"], capture_output=True, timeout=60)
+        for f in (r2.stdout or b"").decode(errors="replace").splitlines():
+            if f.strip():
+                untracked.append(os.path.abspath(os.path.join(repo, f.strip())))
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return changed, untracked
+
+
+@tool("code_review", "多维代码评审：bug 模式 + 安全（硬编码凭据/危险调用）+ 复杂度"
+      "热点 + TODO；mode=diff 只报改动行（评审补丁）", "scan",
+      {"type": "object",
+       "properties": {
+           "path": {"type": "string", "description": "文件/目录/git 仓库根"},
+           "mode": {"type": "string", "enum": ["file", "diff"],
+                    "description": "diff=只评审 git 改动行（默认 file）"},
+           "max_files": {"type": "integer", "description": "文件上限（默认 60）"},
+       },
+       "required": ["path"]})
+def code_review(path, mode="file", max_files=60):
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
+    if os.path.isfile(path):
+        files, changed, untracked = [os.path.abspath(path)], None, []
+    elif os.path.isdir(path):
+        files = [os.path.abspath(p) for p in _iter_files(path, max_files)]
+        if mode == "diff" and os.path.isdir(os.path.join(path, ".git")):
+            changed, untracked = _git_changed_ranges(path)
+        else:
+            changed, untracked = None, []
+    else:
+        return {"error": f"路径不存在: {path}"}
+
+    findings = []
+    for fp in files:
+        ch = changed.get(fp) if changed is not None else None
+        if changed is not None and ch is None and fp not in untracked:
+            continue                     # diff 模式：只评审改动/新增文件
+        fch = changed.get(fp) if changed else None
+        findings.extend(_review_file(fp, fch))
+    # bug_scan 透镜（真扫描器复用）
+    target = files[0] if len(files) == 1 else path
+    try:
+        r = registry.call("bug_scan", {"path": target, "max_files": max_files})
+        res = r.get("result") or {}
+        for d in res.get("issues") or []:
+            fp = os.path.abspath(d["file"])
+            ch = changed.get(fp) if changed is not None else None
+            if changed is not None and (ch is None or not any(
+                    a <= d["line"] <= b for a, b in ch)):
+                continue
+            findings.append({"lens": "bug_scan", "severity":
+                             "high" if d.get("kind") == "definite" else "med",
+                             "file": fp, "line": d["line"], "msg": d["msg"][:160]})
+    except Exception:
+        pass                             # bug_scan 不可用 → 其余透镜照常
+    by_lens = Counter(f["lens"] for f in findings)
+    hot = Counter(f["file"] for f in findings if f["severity"] in ("high", "med"))
+    return {"mode": mode, "files": len(files), "total": len(findings),
+            "by_lens": dict(by_lens),
+            "top_hotspots": [{"file": f, "findings": n} for f, n in
+                             hot.most_common(5)],
+            "findings": sorted(findings, key=lambda x: (
+                {"high": 0, "med": 1, "low": 2, "info": 3}[x["severity"]],
+                x["file"], x["line"]))[:200]}

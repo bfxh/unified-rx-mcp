@@ -972,3 +972,18 @@ rust-analyzer 0 诊断 / hallucination_guard 当场证伪我编的声明 / bug_s
 边界：读工具（search/scan）无沙盒属设计取舍（跨项目检索是核心用法，
 须文档化——已入 skills/search.md·scan.md）；server 缺省拒绝对"开箱即用"
 不友好——换来了安全，值。
+
+---
+
+## S44 · code_review：找问题不再单一（2026-08-28）
+用户："找问题太单一了"。新工具 code_review（scan 域第 7 个，工具面 42）：
+- **多透镜聚合**：bug_scan（真扫描器复用）+ security（硬编码凭据/eval/exec/
+  os.system/shell=True/innerHTML/SQL 拼接）+ complexity（函数>80 行/参数>6/
+  嵌套≥24 空格）+ TODO/FIXME/HACK——一次调用出多维报告
+- **diff 模式**：只评审 git 改动行（含未跟踪文件），评审补丁不全仓扫；
+  发现按 severity 排序 + top_hotspots
+- 诚实边界：复杂度是行数/缩进近似非圈复杂度；security 是模式匹配非污点分析
+- 自食其果首测：对本仓 tools/ide.py 评审出 12 个复杂度热点（ide_build 95 行
+  等）——全部属实
+
+225→234 passed（+9：多透镜 4 + diff 2 + 解析器改动连带）。

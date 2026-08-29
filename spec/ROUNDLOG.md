@@ -53,3 +53,9 @@
 - 决策：缺省 fail-closed 恢复 S0 语义；可信宿主显式配置
 - 证据：未配置=拒 ✓ 配置后 12/16 工具真走查通过；230 passed
 - 提交：待提交
+
+## S44 · code_review 多透镜评审工具
+- 项目：unified-rx-mcp｜时间：2026-08-29T13:06
+- 决策：聚合 bug/security/complexity/todo 四透镜 + diff 改动行模式；复用 bug_scan 不另造轮子
+- 证据：234 passed（+9 测试：透镜/diff/复杂度/todo）；本仓自评 12 复杂度热点全属实；scan.md 边界已记
+- 提交：待提交
