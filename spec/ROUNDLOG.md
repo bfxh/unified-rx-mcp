@@ -47,3 +47,9 @@
 - 项目：unified-rx-mcp｜时间：2026-08-29T10:20
 - 决策：能力探针替代存在性检查；infra 故障与测试失败结构化区分；消费端 skip 语义
 - 证据：230 passed（+5 守卫测试）；verify/repair infra skip 端到端
+
+## S43b · MCP server 缺省沙盒全开修复（端到端验收抓出）
+- 项目：unified-rx-mcp｜时间：2026-08-29T12:38
+- 决策：缺省 fail-closed 恢复 S0 语义；可信宿主显式配置
+- 证据：未配置=拒 ✓ 配置后 12/16 工具真走查通过；230 passed
+- 提交：待提交

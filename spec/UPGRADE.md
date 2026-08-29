@@ -951,3 +951,24 @@ S42 教训制度化（用户指定推广）。三项落地：
 端到端。230 passed。
 **元教训**：S42 的 $V bug 之所以能藏两个版本，就是因为"存在性守卫+聚合数字"
 两层都看不出能力缺失——现在探针+infra 结构化把这条盲区焊死了。
+
+---
+
+## S43 续 · MCP server 缺省沙盒全开修复（真问题 #2，端到端验收抓出）（2026-08-28）
+全工具真走查（MCP server 模式，真 JSON-RPC 往返 ×16 工具）发现：
+**server.py setdefault("UNIFIED_RX_SANDBOX", "*")** —— 真实 MCP 宿主忘配
+沙盒 = 写/执行工具全盘裸奔，直接违背 S0 fail-closed 设计（fs._sandbox_roots
+注释原文"杜绝忘配 env 导致裸奔"被 server 的缺省值击穿）。
+
+**修复**：缺省改 "__URX_UNSET__" 哨兵 → 沙盒解析为不存在目录 → 全拒
+（fail-closed 语义恢复）；可信宿主须显式配置 "*" 或白名单。端到端验证：
+未配置 → ide_build 拒绝 ✓；显式配置 UNIFIED_RX_SANDBOX=D:\开发 → 全工具
+真走查 12/16 通过（locate_edit 6 命中 / cargo check 0 错 / clippy 0 警 /
+rust-analyzer 0 诊断 / hallucination_guard 当场证伪我编的声明 / bug_scan
+25 issues）✓。230 passed。
+
+**走查结论（大方点说）**：工具面在"配置正确的宿主"里真的一起能用——
+这不是单元测试的结论，是 MCP 协议层真往返的结论。同时留下的两个诚实
+边界：读工具（search/scan）无沙盒属设计取舍（跨项目检索是核心用法，
+须文档化——已入 skills/search.md·scan.md）；server 缺省拒绝对"开箱即用"
+不友好——换来了安全，值。

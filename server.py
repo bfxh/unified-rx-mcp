@@ -136,7 +136,9 @@ def _handle(msg):
 def selftest():
     """注册表自检：工具数 + 每个工具 schema 合法 + 抽样调用。"""
     # fail-closed 下自检自身也会被拦：未显式配沙盒时临时放开（仅本进程）
-    os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
+    # S43 安全修复：缺省不再 "*" 全开——忘配沙盒 = fail-closed 拒绝
+    # （S0 设计本意；可信宿主须显式 UNIFIED_RX_SANDBOX="*" 或列白名单）
+    os.environ.setdefault("UNIFIED_RX_SANDBOX", "__URX_UNSET__")
     n = registry.tool_count()
     print(f"SELFTEST tools={n}")
     groups = registry.groups()
