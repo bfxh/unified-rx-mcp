@@ -339,9 +339,25 @@ def _resolve_in_sandbox(path):
 _LANG_BY_EXT = {".rs": "rust", ".py": "python"}
 
 
+def _session_root(fp):
+    """会话根：向上找 .git（项目语义根）；找不到退回文件目录。
+
+    S60 修复：此前 root=文件所在目录 → src/ 与 tests/ 各起一个语言服务器，
+    跨文件 definition/references/impact 天然失明（会话分裂，结果残缺）。"""
+    cur = os.path.dirname(fp)
+    for _ in range(15):
+        if os.path.isdir(os.path.join(cur, ".git")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return os.path.dirname(fp)
+
+
 def _locate(lang, fp, line, col):
     """(session, uri, {line,character})——含 utf-16 列换算与 didOpen。"""
-    sess = _get_session(lang, os.path.dirname(fp))
+    sess = _get_session(lang, _session_root(fp))
     with open(fp, "r", encoding="utf-8", errors="replace") as f:
         lines_txt = f.readlines()
     txt = lines_txt[line] if 0 <= line < len(lines_txt) else ""
@@ -385,7 +401,7 @@ def validate_content(path, text, pump_s=4.0):
     if not lang:
         return {"error": f"validate 不支持扩展名 {os.path.splitext(real)[1]}"}
     try:
-        sess = _get_session(lang, os.path.dirname(real))
+        sess = _get_session(lang, _session_root(real))
         sess.ensure_open(real)
         sess._version = getattr(sess, "_version", 1) + 1
         sess._notify("textDocument/didChange", {
@@ -540,7 +556,7 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
     lang = _LANG_BY_EXT.get(os.path.splitext(real)[1].lower())
     if not lang:
         return {"error": f"不支持的扩展名 {os.path.splitext(real)[1]}；仅 .rs/.py 已接线"}
-    root = os.path.dirname(real)
+    root = _session_root(real)
 
     try:
         if action == "shutdown":
@@ -638,11 +654,19 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
             if not r:
                 return {"engine": f"{lang}-lsp", "applied": False,
                         "total": 0, "files": [], "note": "无可改引用"}
-            by_file = {}
+            by_file, rejected = {}, []
             for u, eds in (r.get("changes") or {}).items():
+                if not str(u).lower().startswith("file:"):
+                    rejected.append({"uri": str(u)[:60],
+                                     "error": "非 file: uri——拒绝落盘"})
+                    continue
                 by_file.setdefault(_uri_path(u), []).extend(eds)
             for wd in (r.get("documentChanges") or []):
-                u = (wd.get("textDocument") or {}).get("uri")
+                u = (wd.get("textDocument") or {}).get("uri") or ""
+                if not str(u).lower().startswith("file:"):
+                    rejected.append({"uri": str(u)[:60],
+                                     "error": "非 file: uri——拒绝落盘"})
+                    continue
                 by_file.setdefault(_uri_path(u), []).extend(wd.get("edits") or [])
             results, total = [], 0
             for fpath, eds in by_file.items():
@@ -665,7 +689,8 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
                 total += n
                 results.append({"file": real, "edits": n})
             return {"engine": f"{lang}-lsp", "applied": True, "total": total,
-                    "files": results}
+                    "files": results,
+                    **({"rejected": rejected} if rejected else {})}
 
         return {"error": f"未知 action: {action}"}
     except FileNotFoundError as e:

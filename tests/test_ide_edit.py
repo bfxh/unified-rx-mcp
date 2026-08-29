@@ -92,6 +92,29 @@ def test_ide_rename_plan(tmp_path):
     assert len(r2["plan"]) == 2
 
 
+# ---------- S60: BOM 匹配 / 语法门双侧语义 ----------
+
+def test_edit_bom_file_match_and_preserve(tmp_path):
+    """S60：BOM 文件此前因 \ufeff 行首导致 old_lines 永不匹配——必须可编辑且保留 BOM。"""
+    f = tmp_path / "bom.py"
+    with open(f, "w", encoding="utf-8-sig", newline="") as fh:
+        fh.write("x = 1\n")
+    r = ide_edit_multi(file_path=str(f), edits=[
+        {"old_lines": ["x = 1"], "new_lines": ["x = 2"]}])
+    assert r["applied"] == 1, r
+    raw = open(f, "rb").read()
+    assert raw.startswith(b"\xef\xbb\xbf") and b"x = 2" in raw
+
+
+def test_gate_skips_when_src_already_broken(tmp_path):
+    """原文件本就解析失败 → 门跳过（不拿假阳性挡编辑，也不让文件更烂由诊断管）。"""
+    f = tmp_path / "broken.py"
+    f.write_text("def broken(:\n    pass\n", encoding="utf-8")
+    r = ide_edit_multi(file_path=str(f), edits=[
+        {"old_lines": ["    pass"], "new_lines": ["    return 1"]}])
+    assert r["applied"] == 1, r
+
+
 # ---------- R1: 写前语法门 / LSP 验证 ----------
 
 def test_edit_syntax_gate_rejects_broken_py(tmp_path):

@@ -98,6 +98,29 @@ def test_rename_apply_writes_files(tmp_path, monkeypatch):
         _stop_sessions(mod)
 
 
+def test_rename_apply_rejects_non_file_uri(tmp_path, monkeypatch):
+    """S60：服务器回 untitled:/git: 等 uri → 拒绝落盘（scheme 混淆防线）。"""
+    m, mod = _fake_env(tmp_path, monkeypatch)
+    try:
+        fake_edit = {"range": {"start": {"line": 0, "character": 0},
+                               "end": {"line": 0, "character": 5}},
+                     "newText": "PWNED"}
+        monkeypatch.setattr(
+            mod, "_call_ready",
+            lambda *a, **k: {"changes": {"untitled:Untitled-1": [fake_edit],
+                                         "git:/x/y.py": [fake_edit]}})
+        r = registry.call_with_context(
+            "ide_lsp", {"action": "rename_apply", "file": m, "line": 0,
+                        "col": 0, "new_name": "pwn", "__authorized": True},
+            request_id="t")
+        assert r["ok"], r.get("error")
+        res = r["result"]
+        assert res["total"] == 0 and len(res["rejected"]) == 2
+        assert open(m, encoding="utf-8").read() == "alpha_beta()\n"  # 未被碰
+    finally:
+        _stop_sessions(mod)
+
+
 # ---------- ide_impact ----------
 
 def test_impact_aggregates_and_flags_tests(tmp_path, monkeypatch):

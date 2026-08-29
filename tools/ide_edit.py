@@ -113,6 +113,10 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
     src = _read(p)
     if src is None:
         return {"error": f"文件不可读: {p}"}
+    # S60：BOM 文件内容匹配修复——\ufeff 在行首导致 old_lines 永不匹配
+    had_bom = src.startswith("\ufeff")
+    if had_bom:
+        src = src[1:]
     eol = _detect_eol(src)
     lines = src.split("\n")
     # 去掉每行尾部的 \r（CRLF 时），统一成 \n 数组
@@ -154,13 +158,20 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
             fromfile=file_path, tofile=file_path + " (dry_run)"))
         return {"applied": applied, "errors": sim_errors, "file": p,
                 "dry_run": True, "diff": diff[:MAX_CTX]}
-    # R1 语法门（默认开，仅 .py）：编辑结果必须可编译才落盘
+    # R1 语法门（默认开，仅 .py）：双侧可编译性——原文件可解析才要求结果可解析；
+    # 原文件本就解析失败（BOM/编码损伤/已损坏）→ 跳过门，不让假阳性挡编辑
     if os.path.splitext(p)[1].lower() == ".py":
+        src_parses = True
         try:
-            ast.parse(out)
-        except SyntaxError as e:
-            return {"error": f"语法门: 编辑结果第 {e.lineno} 行无法编译 "
-                             f"({e.msg})——未落盘", "applied": 0}
+            ast.parse(src)
+        except SyntaxError:
+            src_parses = False
+        if src_parses:
+            try:
+                ast.parse(out)
+            except SyntaxError as e:
+                return {"error": f"语法门: 编辑结果第 {e.lineno} 行无法编译 "
+                                 f"({e.msg})——未落盘", "applied": 0}
     # R1 LSP 写前验证（显式开启时）
     validation = None
     if validate:
@@ -173,9 +184,9 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
         else:
             validation = {"ok": True, "engine": v.get("engine"),
                           "total": v.get("total")}
-    # 写回：保留原行尾（I3 修复）
+    # 写回：保留原行尾（I3 修复）+ BOM 还原
     with open(p, "w", encoding="utf-8", newline="") as f:
-        f.write(out)
+        f.write(("\ufeff" + out) if had_bom else out)
     result = {"applied": applied, "errors": sim_errors, "file": p,
               "eol": "CRLF" if eol == "\r\n" else "LF"}
     if validation is not None:

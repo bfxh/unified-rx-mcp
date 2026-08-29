@@ -74,6 +74,10 @@ def ide_test(path, target=None, timeout=600):
         return {"error": str(e)}
     if not os.path.isdir(path):
         return {"error": f"不是目录: {path}"}
+    # S60：target 防 argv 注入——旗标串进 pytest/cargo 命令行会改变执行语义
+    if target and target.startswith("-"):
+        return {"error": "target 不接受 '-' 旗标（防 argv 注入）——"
+                         "只收测试路径/名字/正则"}
     kind, root = _detect(path)
     if kind is None:
         return {"error": "未检测到测试设施（Cargo.toml / go.mod / pytest 配置或 test_*.py）"}
