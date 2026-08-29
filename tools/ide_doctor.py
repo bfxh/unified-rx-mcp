@@ -38,18 +38,36 @@ def _run_check(name, fn):
                 "elapsed_s": round(time.time() - t0, 2)}
 
 
+def _scan_changed(reg, files):
+    """S66 diff 模式：bug_scan 逐改动文件跑（文件级增量，输出兼容全仓形状）。"""
+    issues = []
+    for fp in files:
+        r = reg("bug_scan", {"path": fp})
+        if isinstance(r, dict) and r.get("ok"):
+            issues.extend((r.get("result") or {}).get("issues") or [])
+    return {"ok": True, "result": {"total": len(issues), "files": len(files),
+            "issues": issues[:200],
+            "definite": sum(1 for i in issues if i.get("kind") == "definite"),
+            "clue": sum(1 for i in issues if i.get("kind") != "definite")}}
+
+
 @tool("ide_doctor", "一键项目体检：bug_scan + code_review + 构建 + 测试 + 依赖环 + "
-      "模块稳定性 → 统一报告与 top 问题清单（任何仓库一条命令出基线）", "ide",
+      "模块稳定性 → 统一报告与 top 问题清单（任何仓库一条命令出基线）；"
+      "diff=true 只看 git 改动文件（修复轮快速迭代）", "ide",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目目录（沙盒内）"},
            "max_files": {"type": "integer", "description": "扫描上限（默认 300）"},
            "run_tests": {"type": "boolean",
                          "description": "是否跑测试（大仓库可关，默认 true）"},
+           "diff": {"type": "boolean",
+                    "description": "true=只评审 git 改动文件并跳过全仓检查"
+                                   "（dep/stability），修复轮快速体检"},
        },
        "required": ["path"]},
       requires_auth=True)
-def ide_doctor(path, max_files=300, run_tests=True, __authorized=False):
+def ide_doctor(path, max_files=300, run_tests=True, diff=False,
+               __authorized=False):
     """requires_auth：doctor 内部会跑测试与编译（ide_test/ide_build 是执行类）——
     确认 doctor 即确认其执行子调用；授权显式转发，不做工具间静默互信。"""
     try:
@@ -65,19 +83,67 @@ def ide_doctor(path, max_files=300, run_tests=True, __authorized=False):
             args = {**args, "__authorized": __authorized}
         return call(name, args)
 
-    checks = [
-        _run_check("bug_scan", lambda: reg(
-            "bug_scan", {"path": path, "max_files": max_files})),
-        _run_check("code_review", lambda: reg(
-            "code_review", {"path": path, "max_files": max_files})),
-        _run_check("build", lambda: reg("ide_build", {"path": path,
-                                                      "action": "check"})),
-    ]
+    def _git_changed():
+        """S66：改动文件清单（HEAD 相对 + 未跟踪）。非 git 仓库 → None。"""
+        import subprocess
+        try:
+            r1 = subprocess.run(
+                ["git", "-C", path, "diff", "--name-only", "HEAD"],
+                capture_output=True, timeout=60, text=True, encoding="utf-8",
+                errors="replace")
+            r2 = subprocess.run(
+                ["git", "-C", path, "status", "--porcelain"],
+                capture_output=True, timeout=60, text=True, encoding="utf-8",
+                errors="replace")
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if r1.returncode != 0 and r2.returncode != 0:
+            return None
+        names = set()
+        for ln in (r1.stdout or "").splitlines():       # name-only：裸路径
+            if ln.strip():
+                names.add(ln.strip())
+        for ln in (r2.stdout or "").splitlines():       # porcelain: XY path
+            if len(ln) > 3:
+                p = ln[3:]
+            elif ln.strip():
+                p = ln[2:].strip()
+            else:
+                continue
+            if " -> " in p:                              # 重命名取新名
+                p = p.split(" -> ", 1)[1]
+            names.add(p)
+        return sorted(os.path.join(path, n.replace("/", os.sep))
+                      for n in names
+                      if os.path.isfile(os.path.join(path, n.replace("/", os.sep))))
+
+    if diff:
+        changed = _git_changed()
+        if changed is None:
+            return {"error": "diff=true 需要 git 仓库（HEAD 可解析）"}
+        checks = [_run_check("bug_scan", lambda: _scan_changed(reg, changed[:60]))]
+        checks.append(_run_check("code_review", lambda: reg(
+            "code_review", {"path": path, "max_files": max_files,
+                            "mode": "diff"})))
+    else:
+        checks = [
+            _run_check("bug_scan", lambda: reg(
+                "bug_scan", {"path": path, "max_files": max_files})),
+            _run_check("code_review", lambda: reg(
+                "code_review", {"path": path, "max_files": max_files})),
+        ]
+    checks.append(_run_check("build", lambda: reg("ide_build", {"path": path,
+                                                      "action": "check"})))
     if run_tests:
         checks.append(_run_check("test", lambda: reg("ide_test", {"path": path})))
-    checks.append(_run_check("dep_graph", lambda: reg("dep_graph", {"path": path})))
-    checks.append(_run_check("stability", lambda: reg("module_stability",
-                                                      {"path": path})))
+    if diff:
+        # diff 模式：dep_graph/stability 是全仓语义，跳过（note 如实）
+        pass
+    else:
+        checks.append(_run_check("dep_graph", lambda: reg("dep_graph",
+                                                          {"path": path})))
+        checks.append(_run_check("stability", lambda: reg(
+            "module_stability", {"path": path})))
 
     problems = []      # (severity, text)
     warns = []
@@ -154,8 +220,9 @@ def ide_doctor(path, max_files=300, run_tests=True, __authorized=False):
         else:
             o["summary"] = c.get("summary", "")
         out_checks.append(o)
-    return {"path": path, "verdict": verdict,
+    return {"path": path, "verdict": verdict, "diff": diff,
             "problems": problems[:10], "warns": warns[:10],
             "checks": out_checks,
             "elapsed_s": round(sum(c["elapsed_s"] for c in checks), 2),
-            "note": "纯聚合不造新检测——单项深挖用各自工具"}
+            "note": ("diff 模式：dep/stability 全仓检查跳过"
+                     if diff else "纯聚合不造新检测——单项深挖用各自工具")}
