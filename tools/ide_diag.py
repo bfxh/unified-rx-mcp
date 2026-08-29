@@ -9,17 +9,7 @@ _SEV_LSP = {"error": "error", "warning": "warning", "info": "info", "hint": "hin
 
 _LANG_BY_EXT = {".py": "python", ".rs": "rust"}
 
-@tool("ide_diagnostics", "统一诊断通道：LSP 诊断 + cargo clippy 聚合（同一形状，"
-      "severity 归一，行号 1-based）——修复循环/agent 直接消费", "ide",
-      {"type": "object",
-       "properties": {
-           "path": {"type": "string", "description": "项目目录（沙盒内）"},
-           "files": {"type": "array", "items": {"type": "string"},
-                     "description": "相对路径列表（LSP 诊断目标；缺省跳过 LSP）"},
-           "include_lint": {"type": "boolean",
-                            "description": "含 cargo clippy（Cargo.toml 存在时，默认 true）"},
-       },
-       "required": ["path"]})
+
 def _lsp_file_diags(path, rel):
     """单文件 LSP 诊断 → 统一形状列表（异常=无信号）。"""
     fp = os.path.abspath(os.path.join(path, rel.replace("/", os.sep)))
@@ -40,6 +30,7 @@ def _lsp_file_diags(path, rel):
     except Exception:
         return [], None                 # LSP 不可用 → 如实跳过该信号
 
+
 def _clippy_diags(path):
     """clippy 诊断 → 统一形状列表（异常=无信号）。"""
     if not os.path.isfile(os.path.join(path, "Cargo.toml")):
@@ -56,6 +47,18 @@ def _clippy_diags(path):
     except Exception:
         return [], None
 
+
+@tool("ide_diagnostics", "统一诊断通道：LSP 诊断 + cargo clippy 聚合（同一形状，"
+      "severity 归一，行号 1-based）——修复循环/agent 直接消费", "ide",
+      {"type": "object",
+       "properties": {
+           "path": {"type": "string", "description": "项目目录（沙盒内）"},
+           "files": {"type": "array", "items": {"type": "string"},
+                     "description": "相对路径列表（LSP 诊断目标；缺省跳过 LSP）"},
+           "include_lint": {"type": "boolean",
+                            "description": "含 cargo clippy（Cargo.toml 存在时，默认 true）"},
+       },
+       "required": ["path"]})
 def ide_diagnostics(path, files=None, include_lint=True, timeout=600):
     try:
         path = _fs_resolve(path)

@@ -93,3 +93,9 @@
 - 项目：unified-rx-mcp｜时间：2026-08-30T01:35
 - 决策：LSP didChange 增量推送 + code_review base 分支 + 条件断点 + watch 模式 + 诊断历史 JSONL
 - 证据：235 passed；全部走真沙盒路径
+
+## S52 · 全电池验收 + 装饰器错绑修复
+- 项目：unified-rx-mcp｜时间：2026-08-30T01:53
+- 决策：AST 拆分把 @tool 绑到 _lsp_file_diags 而非 ide_diagnostics——registry._TOOLS 逐工具验证 handler 名应为拆分后标准步骤
+- 证据：VF3 cargo 0 错/clippy 0/bug_scan 492 info/装饰器修复后 ide_diagnostics 正常；235 passed
+- 提交：本次

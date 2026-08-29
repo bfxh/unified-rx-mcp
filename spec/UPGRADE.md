@@ -1064,3 +1064,23 @@ S46 接线的验证实验（signals 现含 clippy/复杂度 vs plain）：
 诚实定界：#4 watch 是给修复循环/人用的（agent 按需调用 ide_build 已有
 缓存不需要 watch）；#5 数据已在 rec[out_key]["rounds"] 里，JSONL 是
 跨会话比对视图。235 passed。
+
+---
+
+## S52 · 全电池验收 + ide_diagnostics 装饰器错绑修复（2026-08-28）
+**全电池**：cargo check 0 错 0 警 ✓ / clippy 0 ✓ / bug_scan 492（全 info/low）✓ /
+code_review 13 热点（geom 90L/materials 212L/textures 133L/main 118L）✓ /
+ide_diagnostics → **NameError 装饰器错绑**。
+
+**根因**：S48 AST 拆分把 @tool("ide_diagnostics") 装饰器绑到了
+_lsp_file_diags(path, rel) 而非 ide_diagnostics(path, files=...)。
+即 ide_diagnostics 工具调用时实际执行的是单文件诊断 helper——
+files 参数被拒（TypeError→registry 包装为参数错误）。
+
+**修复**：装饰器从 _lsp_file_diags 移到 ide_diagnostics。
+**验证**：ide_diagnostics(VF3) → engine=none（rust-analyzer 无诊断=正常），
+235 passed。
+
+**S48 教训新增**：AST 程序化切分时装饰器边界切割是最大风险——
+@tool 装饰器和 def 之间如果有其他顶层语句，切分脚本可能错绑。
+修法：拆分后必须 registry._TOOLS 逐工具验证 handler.__name__ == 预期。
