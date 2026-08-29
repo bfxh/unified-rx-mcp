@@ -23,7 +23,7 @@ from tools.ide_debug import _parse_pytest, _parse_rust_panic
 _RE_PYTEST_SUM = re.compile(
     r"(?:=\+\s*)?(?:(\d+) failed)?(?:.*?(\d+) passed)?(?:.*?(\d+) skipped)?"
     r"(?:.*?(\d+) error)?\s*(?:in\s+[\d.]+s)?\s*(?:=\+\s*)?$")
-_RE_PYTEST_FAILED_LINE = re.compile(r"^FAILED\s+(\S+)(?:\s+-\s+(.*))?$", re.M)
+_RE_PYTEST_FAILED_LINE = re.compile(r"^(?:FAILED|ERROR)\s+(\S+)(?:\s+-\s+(.*))?$", re.M)
 _RE_CARGO_TEST_LINE = re.compile(r"^test\s+(\S+)\s+\.\.\.\s+(ok|FAILED|ignored)\s*$", re.M)
 _RE_CARGO_RESULT = re.compile(
     r"test result:\s*(\w+)\.\s*(\d+) passed; (\d+) failed; (\d+) ignored")
@@ -87,7 +87,7 @@ def _base_result(kind, exit_code):
 
 
 def _run_pytest(path, root, target, timeout):
-    r = _exec([_which_py(), "-m", "pytest", "-q", "-rf", "--tb=short"]
+    r = _exec([_which_py(), "-m", "pytest", "-q", "-rfE", "--tb=short"]
               + ([target] if target else []), path, timeout)
     if r.get("error"):
         return r
@@ -109,8 +109,9 @@ def _run_pytest(path, root, target, timeout):
     def _num(word):
         mm = re.search(rf"(\d+) {word}", summ)
         return int(mm.group(1)) if mm else 0
-    res.update({"passed": _num("passed"), "failed": _num("failed"),
-                "skipped": _num("skipped") + _num("errors"), "collected":
+    res.update({"passed": _num("passed"),
+                "failed": _num("failed") + _num("errors"),  # 收集错误也是失败
+                "skipped": _num("skipped"), "collected":
                 _num("passed") + _num("failed") + _num("skipped") + _num("errors")})
     for m2 in _RE_PYTEST_FAILED_LINE.finditer(out):
         res["failures"].append({"test": m2.group(1), "msg": (m2.group(2) or "")[:200]})
