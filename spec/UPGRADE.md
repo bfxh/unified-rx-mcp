@@ -931,3 +931,23 @@ base_bad 17（全部真因可查）。与假跑时代的数字巧合一致——
 **元教训**：数字不变 ≠ 没有回归。逐 run 的 tail 检查（fake-tail 计数）
 才是回归检测的正解——已纳入 S42 手法。
 225 passed。
+
+---
+
+## S43 · 守卫全面硬化：能力探针 + infra 故障结构化（2026-08-28）
+S42 教训制度化（用户指定推广）。三项落地：
+
+1. **能力探针 `_venv_py_ok`**（带缓存）：venv python 存在性 ≠ 能力——必须
+   `import pytest` 通过才可用。verify() 与 swe_repair 的本地 venv 守卫全部
+   换用（半成品 venv → skip "no-env-pytest"，不再进流程产生假数据）
+2. **infra 故障结构化 `_is_infra_failure`**：签名（No module named pytest /
+   未找到命令 / command not found）命中 → `_run_tests` 返回
+   (None, "infra: ...")，与真实测试失败严格区分；pytest node-id 漂移
+   （ERROR: not found）不算 infra（纯测试失败）
+3. **消费端语义**：verify_one infra → skip（不记假测试失败）；repair_loop
+   基线与修复轮 infra → skip/终止（不再误标 base-green 或假 ftb_pass）
+
+测试：签名中英双语、node-id 漂移不误判、探针缓存、verify/repair infra skip
+端到端。230 passed。
+**元教训**：S42 的 $V bug 之所以能藏两个版本，就是因为"存在性守卫+聚合数字"
+两层都看不出能力缺失——现在探针+infra 结构化把这条盲区焊死了。

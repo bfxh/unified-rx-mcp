@@ -180,7 +180,8 @@ def repair_loop(args):
             py = None
         else:
             py = sv._uv_py(os.path.join(sv.ENVS, iid.replace("/", "__")))
-            if not os.path.exists(py):
+            if not os.path.exists(py) or not sv._venv_py_ok(py):
+                # S42 推广：存在性 ≠ 能力（venv 缺 pytest 即不可用）
                 continue
         root = os.path.join(sv.WORK, iid.replace("/", "__"))
         if not os.path.isdir(root):
@@ -198,8 +199,14 @@ def repair_loop(args):
         ftb = list(inst.get("ftb") or [])
         bkey = iid + "::base"
         if bkey not in base_cache:
-            rc, _ = sv._run_tests(inst, py, root, ftb)
-            base_cache[bkey] = (rc is not None and rc != 0)
+            rc, tail = sv._run_tests(inst, py, root, ftb)
+            if rc is None:
+                # S42 推广：基础设施故障 → 如实 skip（区别于 base-green）
+                rec[out_key] = {"skip": tail[:120] if tail else "infra"}
+                json.dump(rec, open(fp, "w", encoding="utf-8"),
+                          ensure_ascii=False, indent=1)
+                continue
+            base_cache[bkey] = (rc != 0)
         if not base_cache[bkey]:
             rec[out_key] = {"skip": "base-already-green"}
             json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
@@ -234,6 +241,10 @@ def repair_loop(args):
                 if not _applied_now(root, cur):
                     subprocess_apply(root, cur)
             rc, tail = sv._run_tests(inst, py, root, ftb)
+            if rc is None:
+                # S42 推广：基础设施故障 ≠ 测试失败——如实终止该任务的修复
+                rounds.append({"round": rnd, "infra": True, "reason": (tail or "")[:200]})
+                break
             ftb_pass = (rc == 0)
             rounds.append({"round": rnd, "ftb_pass": ftb_pass,
                            "tail": (tail or "")[-600:] if not ftb_pass else ""})

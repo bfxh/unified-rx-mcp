@@ -221,6 +221,10 @@ V={V}
 "$V" -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors {ids} 2>&1 | tail -20
 """
     rc, out, err = wsl_run(script)
+    # S42 推广：WSL 侧基础设施故障检测（签名已区分 pytest node-id 漂移）
+    infra = _is_infra_failure(out, err)
+    if infra:
+        return None, f"infra: {infra}"
     tail = (out or err)[-1200:]
     return rc, tail
 
@@ -243,6 +247,35 @@ if hasattr(sys.stdout, "reconfigure"):          # GBK 控制台兼容（uv 报�
 
 def _uv_py(env_dir):
     return os.path.join(env_dir, "Scripts", "python.exe")
+
+
+# ---- S42 推广：存在性 ≠ 能力——venv python 必须能 import pytest 才算可用 ----
+_VENV_PY_PROBE = {}
+
+
+def _venv_py_ok(py):
+    """能力探针（带缓存）：venv python 能 import pytest 才可信。"""
+    ent = _VENV_PY_PROBE.get(py)
+    if ent is None:
+        try:
+            r = subprocess.run([py, "-c", "import pytest"],
+                               capture_output=True, timeout=60)
+            ent = r.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            ent = False
+        _VENV_PY_PROBE[py] = ent
+    return ent
+
+
+# ---- S42 推广：基础设施故障 vs 测试失败 结构化区分 ----
+# 命中任一签名 → (None, "infra: ...")，verify_one 走 skip 而非记假测试失败
+_INFRA_SIGNS = ("No module named pytest", "未找到命令", "command not found",
+                "No module named uv")
+
+
+def _is_infra_failure(*chunks):
+    text = "\n".join(c or "" for c in chunks)
+    return next((s for s in _INFRA_SIGNS if s in text), None)
 
 
 def pull():
@@ -404,6 +437,10 @@ def _run_tests(inst, py, root, ftb, timeout=TEST_TIMEOUT):
         rc, out, err = _run(cmd, cwd=root, timeout=timeout)
     tail = ((out or "")[-1600:] + "\n===STDERR===\n" + (err or "")[-700:]) if rc \
         else (out or "")[-500:]
+    # S42 推广：基础设施故障 ≠ 测试失败——pytest 缺失等签名命中 → infra 标记
+    infra = _is_infra_failure(out, err)
+    if infra and rc != 0:
+        return None, f"infra: {infra}"
     return rc, tail
 
 
@@ -499,6 +536,9 @@ def verify(args):
         py = _uv_py(os.path.join(ENVS, rec["instance_id"].replace("/", "__")))
         if not os.path.exists(py):
             rec["verify"] = {"skip": "no-env"}
+        elif not _venv_py_ok(py):
+            # S42 推广：venv 存在但 pytest 不可用 → 半成品 env，如实 skip
+            rec["verify"] = {"skip": "no-env-pytest"}
         else:
             t0 = time.time()
             rec["verify"] = verify_one(rec, inst, py, cache)
