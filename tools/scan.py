@@ -18,6 +18,8 @@ from tools.fs import _resolve as _fs_resolve
 _SKIP_DIRS = ('.git', 'node_modules', 'target', '__pycache__', 'dist', 'build',
               '.unified-rx-index', 'backups')
 
+import registry  # S55 同类修复：code_review 的 bug_scan 透镜用 registry.call 却没导入，
+                 # NameError 被 except 吞掉——S44 起该透镜从未真正运行过
 from registry import tool
 from . import bevy  # Bevy 专项规则
 

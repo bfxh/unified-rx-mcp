@@ -50,7 +50,21 @@ def main():
         rid = msg.get("id")
         method = msg.get("method", "")
         if rid is None:
-            continue                                  # notification：吞掉
+            # R1：didOpen/didChange 按内容回 publishDiagnostics（写前验证的协议闭环）
+            if method in ("textDocument/didOpen", "textDocument/didChange"):
+                p = msg.get("params", {})
+                txt = (p.get("contentChanges") or [{}])[0].get("text", "")
+                diags = []
+                if "BROKEN_MARKER" in txt:
+                    diags = [{"range": {"start": {"line": 0, "character": 0},
+                                        "end": {"line": 0, "character": 1}},
+                              "severity": 1, "message": "fake broken",
+                              "source": "fake-lsp"}]
+                send({"jsonrpc": "2.0",
+                      "method": "textDocument/publishDiagnostics",
+                      "params": {"uri": p.get("textDocument", {}).get("uri"),
+                                 "diagnostics": diags}})
+            continue                                  # 其余通知：吞掉
         if method == "initialize":
             send({"jsonrpc": "2.0", "id": rid, "result": {"capabilities": {}}})
         elif method == "shutdown":

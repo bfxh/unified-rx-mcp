@@ -371,6 +371,44 @@ def _call_ready(sess, method, params, waits=(1.0, 2.0, 3.0, 5.0, 8.0)):
     return None
 
 
+def validate_content(path, text, pump_s=4.0):
+    """R1 写前验证：把【未落盘】的内容经 didChange 推给 LSP，泵回诊断。
+
+    返回 {"engine", "errors", "total", "diagnostics"}；LSP 不可用 →
+    {"error": ...}（调用方决定放行与否）。发现 error 时自动把磁盘内容
+    推回去，不留"验证态"内容污染后续会话诊断。"""
+    try:
+        real = _resolve_in_sandbox(path)
+    except PermissionError as e:
+        return {"error": str(e)}
+    lang = _LANG_BY_EXT.get(os.path.splitext(real)[1].lower())
+    if not lang:
+        return {"error": f"validate 不支持扩展名 {os.path.splitext(real)[1]}"}
+    try:
+        sess = _get_session(lang, os.path.dirname(real))
+        sess.ensure_open(real)
+        sess._version = getattr(sess, "_version", 1) + 1
+        sess._notify("textDocument/didChange", {
+            "textDocument": {"uri": _as_uri(real), "version": sess._version},
+            "contentChanges": [{"text": text[:2_000_000]}]})
+        sess.pump(pump_s)
+        items = sess.diagnostics.get(_as_uri(real), [])
+        errors = [d for d in items if d.get("severity") == 1]
+        if errors:
+            sess.notify_change(real)          # 还原磁盘内容，防验证态残留
+        ds = [{"severity": {1: "error", 2: "warning", 3: "info", 4: "hint"}.get(
+                  d.get("severity"), str(d.get("severity"))),
+               "line": d.get("range", {}).get("start", {}).get("line"),
+               "message": (d.get("message") or "")[:200],
+               "source": d.get("source")} for d in errors[:10]]
+        return {"engine": f"{lang}-lsp", "errors": len(errors),
+                "total": len(items), "diagnostics": ds}
+    except (LookupError, FileNotFoundError, RuntimeError, ConnectionError) as e:
+        return {"error": f"LSP 不可用: {e}"}
+    except Exception as e:                                  # noqa: BLE001
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
 @tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/symbols/diagnostics/rename_plan——rename 只出预案不落盘", "ide",
       {"type": "object",
        "properties": {
