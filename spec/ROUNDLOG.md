@@ -83,3 +83,8 @@
 - 决策：沙盒内真实断点会话；runner 缺 cwd sys.path 的第三真 bug 修复
 - 证据：locals {speed:7, step:14} + 栈帧捕获成功；225→230+ 测试全绿
 - 提交：本次
+
+## S50 · VF3 dist 陈旧副本清理 + bench 自扫
+- 项目：unified-rx-mcp｜时间：2026-08-30T01:13
+- 决策：只删字节级相同且有 canonical 的 dist 副本（10 个，构建产物）；docs 归档与 bench one-off 不砍
+- 证据：清理后复扫 duplication 剩 2 对；234 passed
