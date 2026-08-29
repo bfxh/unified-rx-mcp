@@ -1031,3 +1031,15 @@ S46 接线的验证实验（signals 现含 clippy/复杂度 vs plain）：
 能力，不是喂给模型的信息形态。信号机制保留（成本低、单点翻盘存在、
 换强模型后值得重测），**信号维度的进一步工程投入停止**——这是 S38
 负结果买来的边界，现在有三倍证据。
+
+---
+
+## S48 续 · 自模拟验收：ide_break 在真实沙盒下抓到运行时状态（2026-08-28）
+用户"你自己没有去模拟没有去调试"——实测回应：
+- 沙盒内（UNIFIED_RX_SANDBOX 含 unified-rx-pytest 前缀）跑 ide_break：
+  断点 app.py:3 命中 → locals {speed: "7", step: "14"} + 栈帧 drive ✓
+- **连带修复**：_BREAK_RUNNER 缺 `sys.path.insert(0, os.getcwd())`——
+  -m 模式下用户模块从 cwd 导入必然 ModuleNotFoundError（runner 的
+  sys.path[0] 是 %TEMP%\\opencode）。这是自模拟抓出的第三个真 bug。
+- 直跑会话（无 conftest）沙盒 roots 为空 → 全拒 fail-closed 正确行为；
+  探针显式注入 roots 验证。

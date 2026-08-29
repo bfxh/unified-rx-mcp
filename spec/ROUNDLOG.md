@@ -77,3 +77,9 @@
 - 决策：三轮独立 sweep 聚合净 −2——信号维度研究收口，不再 revisit
 - 证据：56 文件 ×2 变体重跑；A +1/B −2；168 配对 run 聚合 signals 13 vs plain 19
 - 提交：待提交
+
+## S48b · ide_break 自模拟验收
+- 项目：unified-rx-mcp｜时间：2026-08-30T00:55
+- 决策：沙盒内真实断点会话；runner 缺 cwd sys.path 的第三真 bug 修复
+- 证据：locals {speed:7, step:14} + 栈帧捕获成功；225→230+ 测试全绿
+- 提交：本次

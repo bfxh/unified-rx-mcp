@@ -11,9 +11,12 @@ import os
 import re
 import ast
 import subprocess
-from collections import Counter
+from collections import Counter, defaultdict
 
 from tools.fs import _resolve as _fs_resolve
+
+_SKIP_DIRS = ('.git', 'node_modules', 'target', '__pycache__', 'dist', 'build',
+              '.unified-rx-index', 'backups')
 
 from registry import tool
 from . import bevy  # Bevy 专项规则
@@ -594,9 +597,13 @@ def _func_spans(lines, lang):
     starts = []
     for i, line in enumerate(lines):
         m = pat.match(line)
-        if m:
-            params = line.count(",") + 1 if "(" in line and ")" in line else 0
-            starts.append((m.group(2), i, params))
+        if not m:
+            continue
+        name = next((g for g in m.groups() if g), None)
+        if not name:
+            continue
+        params = line.count(",") + 1 if "(" in line and ")" in line else 0
+        starts.append((name, i, params))
     spans = []
     for j, (name, i, params) in enumerate(starts):
         end = starts[j + 1][1] if j + 1 < len(starts) else min(len(lines), i + _FUNC_LONG * 3)
@@ -666,6 +673,69 @@ def _review_file(fp, changed=None):
                 out.append({"lens": "complexity", "severity": "low", "file": fp,
                             "line": ln, "msg": msg})
     return out
+
+
+def _dup_file_findings(root):
+    """S49 卫生透镜：内容完全相同的重复文件（md5 分组，≥2 成员即报）。
+    抓 data/ vs dist/data 式构建残留副本——**全文件类型**（.ron/.json 等数据
+    文件正是高发区，不能只看代码文件）。"""
+    import hashlib
+    groups = defaultdict(list)
+    # S49 修正：dist/build 不能跳——构建残留副本正是高发区（用户实测：
+    # data/modules.ron 与 dist/data/modules.ron 字节级相同）
+    keep_skip = ('.git', 'node_modules', '__pycache__', '.unified-rx-index')
+    for r, dirs, fs in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in keep_skip]
+        for fn in fs:
+            fp = os.path.join(r, fn)
+            try:
+                if os.path.getsize(fp) > 1024 * 1024:
+                    continue
+                with open(fp, "rb") as f:
+                    h = hashlib.md5(f.read()).hexdigest()
+                groups[h].append(fp)
+            except OSError:
+                continue
+    out = []
+    for h, members in groups.items():
+        if len(members) < 2:
+            continue
+        out.append({"lens": "duplication", "severity": "med",
+                    "file": members[0], "line": 0,
+                    "msg": "重复文件 ×{}: {}".format(
+                        len(members), ", ".join(members[1:])[:160])})
+    return out
+
+
+_TEST_LANG_EXTS = (".py", ".java", ".go")
+
+
+def _untested_findings(root, files):
+    """S49 卫生透镜：有测试约定的语言（py/java/go）源文件无对应测试文件。
+    rust 走内联 #[cfg(test)]，文件级约定不适用 → 如实排除。"""
+    repo_files = set()
+    for r, dirs, fs in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for fn in fs:
+            repo_files.add(fn.lower())
+    out, seen = [], set()
+    for fp in files:
+        ext = os.path.splitext(fp)[1].lower()
+        if ext not in _TEST_LANG_EXTS:
+            continue
+        stem = os.path.splitext(os.path.basename(fp))[0]
+        if stem.startswith("test_") or stem.endswith("_test") or stem == "conftest":
+            continue
+        cands = [f"test_{stem}{ext}", f"{stem}_test{ext}",
+                 f"test_{stem.replace('test_', '')}{ext}"]
+        if any(c in repo_files for c in cands):
+            continue
+        if stem in seen:
+            continue
+        seen.add(stem)
+        out.append({"lens": "coverage", "severity": "med", "file": fp,
+                    "line": 0, "msg": f"源文件 {stem} 无对应测试文件"})
+    return out[:30]
 
 
 def _git_changed_ranges(repo):
@@ -747,6 +817,10 @@ def code_review(path, mode="file", max_files=60):
                              "file": fp, "line": d["line"], "msg": d["msg"][:160]})
     except Exception:
         pass                             # bug_scan 不可用 → 其余透镜照常
+    # S49 卫生透镜：重复文件 + 无测试源文件（仅目录模式；diff 评审改动不掺卫生面）
+    if mode == "file" and os.path.isdir(path):
+        findings.extend(_dup_file_findings(path))
+        findings.extend(_untested_findings(path, files))
     by_lens = Counter(f["lens"] for f in findings)
     hot = Counter(f["file"] for f in findings if f["severity"] in ("high", "med"))
     return {"mode": mode, "files": len(files), "total": len(findings),
