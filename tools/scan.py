@@ -606,14 +606,83 @@ def _lang_of_file(fp):
             "ts": "javascript", "jsx": "javascript", "tsx": "javascript"}.get(ext)
 
 
-def _func_spans(lines, lang):
-    """[(name, start_idx, end_idx, params)]——函数跨度与参数数（廉价比 AST 稳）。"""
-    pat = _RE_FUNC_START.get(lang)
-    if not pat:
+def _symbol_spans(lines, lang):
+    """[(name, start_idx, end_idx, kind)]——顶层+嵌套符号清单（S70）。
+
+    kind：fn / type（rust struct/enum/trait/impl、python class）。
+    end_idx 为 1-based 末行（brace=闭合行；python=body 最后一行）。
+    brace 语言（rust/go/js）顶层符号用括号深度回 0 定真尾（S64 沿用）；
+    python 用缩进回归定 body 末行；嵌套符号（缩进 def/class）也列出。
+    """
+    if lang == "python":
+        pat = re.compile(r"^(\s*)(?:async\s+)?def\s+(\w+)|^(\s*)class\s+(\w+)")
+    elif lang == "rust":
+        pat = re.compile(r"^(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)"
+                         r"|^(?:pub(?:\([^)]*\))?\s+)?"
+                         r"(?:struct|enum|trait|impl)\s+(\w+)")
+    elif lang == "go":
+        pat = re.compile(r"^func\s+(?:\([^)]*\)\s*)?(\w+)|^type\s+(\w+)\s*")
+    elif lang == "javascript":
+        pat = re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)"
+                         r"|^\s*class\s+(\w+)")
+    else:
         return []
+    brace_lang = lang in ("rust", "go", "javascript")
     starts = []
     for i, line in enumerate(lines):
         m = pat.match(line)
+        if not m:
+            continue
+        name = m.group(m.lastindex) if m.lastindex else \
+            next((g for g in m.groups() if g), None)
+        if not name:
+            continue
+        kind = "fn"
+        if (lang == "python" and line.lstrip().startswith("class")) or \
+                (lang != "python" and re.search(r"\b(struct|enum|trait|impl)\s+\w", line)):
+            kind = "type"
+        starts.append((name, i, kind))
+    spans = []
+    for j, (name, i, kind) in enumerate(starts):
+        end = starts[j + 1][1] if j + 1 < len(starts) else \
+            min(len(lines), i + _FUNC_LONG * 4)
+        if brace_lang and lines[i][:1] not in (" ", "\t"):
+            cap = min(len(lines), i + _FUNC_LONG * 6)
+            depth = 0
+            opened = False
+            for k in range(i, cap):
+                depth += lines[k].count("{") - lines[k].count("}")
+                if "{" in lines[k]:
+                    opened = True
+                if opened and depth <= 0:
+                    end = k + 1
+                    break
+        elif lang == "python":
+            ind = len(lines[i]) - len(lines[i].lstrip())
+            last_body = i
+            for k in range(i + 1, len(lines)):
+                if lines[k].strip():
+                    cur = len(lines[k]) - len(lines[k].lstrip())
+                    if cur <= ind:
+                        break
+                    last_body = k
+            end = last_body + 1
+        spans.append((name, i, end, kind))
+    return spans
+
+
+def _func_spans(lines, lang):
+    """[(name, start_idx, end_idx, params)]——函数跨度与参数数（廉价比 AST 稳）。"""
+    starts = []
+    for i, line in enumerate(lines):
+        m = re.match(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)",
+                     line) if lang == "rust" else None
+        if lang == "python":
+            m = re.match(r"^(\s*)(?:async\s+)?def\s+(\w+)", line)
+        elif lang == "go":
+            m = re.match(r"^func\s+(?:\([^)]*\)\s*)?(\w+)", line)
+        elif lang == "javascript":
+            m = re.match(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)", line)
         if not m:
             continue
         # S66：python 模式组 1 是缩进、组 2 才是名字——取最后一个参与组
