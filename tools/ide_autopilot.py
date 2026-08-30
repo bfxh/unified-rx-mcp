@@ -9,6 +9,7 @@
 - 后台线程异常全捕获落快照（不许静默死）；体检用全量 doctor（基线已坏不静默）
 - VS Code 自动打开默认开，UNIFIED_RX_AUTOPILOT_VSCODE=0 关闭
 """
+import json
 import os
 import threading
 import time
@@ -19,6 +20,39 @@ from tools.fs import _resolve as _fs_resolve
 DEFAULT_ROOT = r"D:\开发"
 PROJECT_MARKERS = (".git", "Cargo.toml", "pyproject.toml", "go.mod")
 DEDUPE_WINDOW = 600.0
+
+# S71：快照持久化——跨进程/重启后从磁盘历史恢复（窗口内不重跑），
+# 并支撑 ide_health_trend 健康趋势
+HISTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "results", "autopilot_history.jsonl")
+
+
+def _persist(snap):
+    """快照摘要追加 JSONL（issues 全文不落，problems 前 3 条）。"""
+    try:
+        os.makedirs(os.path.dirname(HISTORY), exist_ok=True)
+        brief = {"status": snap.get("status"), "root": snap.get("root"),
+                 "finished": snap.get("finished"),
+                 "vscode_opened": snap.get("vscode_opened") or [],
+                 "error": snap.get("error"),
+                 "projects": [{"path": p.get("path"),
+                               "verdict": p.get("verdict"),
+                               "problems": (p.get("problems") or [])[:3]}
+                              for p in (snap.get("projects") or [])]}
+        with open(HISTORY, "a", encoding="utf-8") as f:
+            f.write(json.dumps(brief, ensure_ascii=False) + "\n")
+    except OSError:
+        pass                                  # 落盘失败不影响内存快照
+
+
+def _load_last():
+    """磁盘最后一条快照（无/损坏 → None）。"""
+    try:
+        with open(HISTORY, encoding="utf-8") as f:
+            lines = [l for l in f.read().splitlines() if l.strip()]
+        return json.loads(lines[-1]) if lines else None
+    except (OSError, ValueError):
+        return None
 
 _LOCK = threading.Lock()
 _SNAPSHOT = {
@@ -96,6 +130,7 @@ def _run_autopilot(root, vscode):
                 "vscode_opened": [], "error": f"{type(e).__name__}: {e}"[:200]}
     with _LOCK:
         _SNAPSHOT = snap
+    _persist(snap)
 
 
 def autopilot_run(root=None, force=False, sync=False, vscode=None):
@@ -112,6 +147,16 @@ def autopilot_run(root=None, force=False, sync=False, vscode=None):
                  and now - _SNAPSHOT["finished"] < DEDUPE_WINDOW)
         if fresh and not force:
             return dict(_SNAPSHOT, reused=True)
+        # S71 跨进程去重：内存无快照（重启）→ 从磁盘历史恢复
+        disk = _load_last()
+        if (_SNAPSHOT["status"] == "idle" and disk
+                and disk.get("status") == "done"
+                and disk.get("root") == root
+                and disk.get("finished")
+                and now - disk["finished"] < DEDUPE_WINDOW and not force):
+            disk["reused"] = True
+            _SNAPSHOT = disk
+            return dict(_SNAPSHOT)
         if not sync:
             if _thread_started and _SNAPSHOT["status"] == "running":
                 return dict(_SNAPSHOT, reused=True)
@@ -142,3 +187,47 @@ def autopilot_run(root=None, force=False, sync=False, vscode=None):
        }})
 def ide_auto_report(root=None, force=False, sync=False, vscode=None):
     return autopilot_run(root=root, force=force, sync=sync, vscode=vscode)
+
+
+@tool("ide_health_trend", "项目健康趋势：读自动驾驶历史（JSONL），输出最近 N 次"
+      "体检的时间线与 per-project verdict 变化——恶化/好转一眼可见", "ide",
+      {"type": "object",
+       "properties": {
+           "root": {"type": "string", "description": "只看该 root 的历史（缺省=全部）"},
+           "limit": {"type": "integer", "description": "最近 N 条（默认 10）"},
+       }})
+def ide_health_trend(root=None, limit=10):
+    points = []
+    try:
+        with open(HISTORY, encoding="utf-8") as f:
+            for ln in f.read().splitlines():
+                if not ln.strip():
+                    continue
+                try:
+                    rec = json.loads(ln)
+                except ValueError:
+                    continue
+                if root and rec.get("root") != root:
+                    continue
+                bad = sum(1 for p in (rec.get("projects") or [])
+                          if p.get("verdict") in ("issues", "error"))
+                warn = sum(1 for p in (rec.get("projects") or [])
+                           if p.get("verdict") == "warn")
+                points.append({"finished": rec.get("finished"),
+                               "status": rec.get("status"),
+                               "verdict": ("issues" if bad else
+                                           ("warn" if warn else "clean")),
+                               "projects": len(rec.get("projects") or []),
+                               "bad": bad, "warn": warn,
+                               "top_problems": [
+                                   pr for p in (rec.get("projects") or [])
+                                   for pr in (p.get("problems") or [])][:3]})
+    except OSError:
+        pass
+    points = points[-max(1, int(limit or 10)):]
+    trend = "flat"
+    if len(points) >= 2 and all("bad" in p for p in points[-2:]):
+        a, b = points[-2]["bad"], points[-1]["bad"]
+        trend = "worse" if b > a else ("better" if b < a else "flat")
+    return {"ok": True, "history": HISTORY, "total": len(points),
+            "points": points, "trend": trend}

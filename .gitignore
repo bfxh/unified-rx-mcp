@@ -11,3 +11,5 @@ backups/
 preflight-reports/
 _pytest_tmp/
 __pycache__/
+
+tools/results/

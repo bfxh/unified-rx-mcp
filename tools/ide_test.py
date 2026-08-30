@@ -128,6 +128,9 @@ def _run_pytest(path, root, target, timeout):
         if not f["msg"] and asserts:
             f["msg"] = asserts[0]
     res["note"] = "失败帧已可直喂修复轮（pytest -rf + E 断言行）"
+    if res["failures"]:
+        res["retry_hint"] = ("ide_test(path=..., target='"
+                             + res["failures"][0]["test"] + "')")
     return res
 
 
@@ -159,6 +162,9 @@ def _run_cargo(path, root, target, timeout):
         res["panic"] = p0.get("msg", "")
         res["panic_at"] = f"{p0.get('file')}:{p0.get('line')}"
         res["frames"] = p0.get("backtrace") or []
+    if res["failures"]:
+        res["retry_hint"] = ("ide_test(path=..., target='"
+                             + res["failures"][0]["test"] + "')")
     return res
 
 
