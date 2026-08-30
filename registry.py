@@ -12,6 +12,7 @@ import json
 import os
 import threading
 import time
+import traceback
 
 # UPGRADE-C1：出口信噪上限。列表结果默认最多保留 200 项，超出截断并附分页游标。
 # S10：字符串值同样设上限——大块文本（code_search 行内容等）不再裸奔打爆 token。
@@ -231,11 +232,49 @@ def _record_stats(tool_name, duration_ms):
         pass
 
 
-def _clamp(result, args):
-    """出口裁剪（UPGRADE-C1）：列表超限 → 截断 + next_cursor 分页游标。
+def _clamp_str(v):
+    """S70：保头 + 保尾——测试摘要（test result/summary）与 panic 消息
+    都在输出尾部，纯保头会把最关键的结尾截丢。"""
+    total = len(v)
+    head = MAX_STR_CHARS - 16 * 1024
+    tail = 16 * 1024
+    cut = total - head - tail
+    return v[:head] + f"\n…[truncated {cut} chars / {total} total]…\n" + v[-tail:]
 
-    只裁剪 result 内的 list 值；args.cursor 指定起点（客户端续读用）。
-    单值结果不裁剪——fs_read 已有自己的 1MB 上限。
+
+# S72：嵌套层递归深度上限（再深不再扫，防极深结构的递归开销）
+_CLAMP_MAX_DEPTH = 3
+
+
+def _clamp_nested(value, depth):
+    """S72：嵌套层钳制。旧版只扫 result 顶层且 break，嵌套在子 dict 里的
+    超大 list/str 完全漏网。嵌套层不引入 cursor 契约（避免与顶层分页语义
+    混淆），list 超限截断后打 sibling 标记：<k>_total_items / <k>_truncated，
+    消费方应缩小查询条件而非翻页。"""
+    if depth > _CLAMP_MAX_DEPTH:
+        return value
+    if isinstance(value, str) and len(value) > MAX_STR_CHARS:
+        return _clamp_str(value)
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            if isinstance(v, list) and len(v) > MAX_RESULT_ITEMS:
+                out[k] = [_clamp_nested(x, depth + 1) for x in v[:MAX_RESULT_ITEMS]]
+                out[f"{k}_total_items"] = len(v)
+                out[f"{k}_truncated"] = True
+            else:
+                out[k] = _clamp_nested(v, depth + 1)
+        return out
+    return value
+
+
+def _clamp(result, args):
+    """出口裁剪（UPGRADE-C1）：顶层 list 超限 → 截断 + next_cursor 分页游标。
+
+    args.cursor 指定起点（客户端续读用）。单值结果不裁剪——fs_read 已有自己的
+    1MB 上限。S10 契约保持：顶层 list 走 cursor 分页、末页不带 truncated；
+    S70：字符串保头保尾；S72：改为全字段独立处理 + 嵌套限深递归
+    （旧版单字段 break，第一个超限字段之后的大结果全部漏网）。
     """
     if not isinstance(result, dict):
         return result
@@ -244,30 +283,23 @@ def _clamp(result, args):
         cursor = int((args or {}).get("cursor") or 0)
     except (TypeError, ValueError):
         cursor = 0
-    out = dict(result)
+    out = {}
     for k, v in result.items():
-        # S10 扩展契约：单次只对一个超限字段做裁剪——列表走分页、字符串走截断
         if isinstance(v, list) and len(v) > MAX_RESULT_ITEMS:
+            # 顶层 list 保持 S10 分页契约：cursor 续读；truncated 仅当还有下一页
             start = max(0, min(cursor, len(v)))
             page = v[start:start + MAX_RESULT_ITEMS]
             nxt = start + MAX_RESULT_ITEMS
             out[k] = page
             out["total_items"] = len(v)
-            # truncated 契约：仅当【还有下一页】为 True；末页不带该字段（消费方以 next_cursor 为准）
             if nxt < len(v):
                 out["truncated"] = True
                 out["next_cursor"] = nxt
-            break  # 单次只对一个主字段裁剪，防多重截断语义混乱
+            continue
         if isinstance(v, str) and len(v) > MAX_STR_CHARS:
-            total = len(v)
-            # S70：保头 + 保尾——测试摘要（test result/summary）与 panic 消息
-            # 都在输出尾部，纯保头会把最关键的结尾截丢
-            head = MAX_STR_CHARS - 16 * 1024
-            tail = 16 * 1024
-            cut = total - head - tail
-            out[k] = (v[:head] + f"\n…[truncated {cut} chars / {total} total]…\n"
-                      + v[-tail:])
-            break
+            out[k] = _clamp_str(v)
+            continue
+        out[k] = _clamp_nested(v, 1)
     return out
 
 
@@ -327,7 +359,11 @@ def call(name, args):
         return {"ok": False, "error": f"参数错误: {e}"}
     except Exception as e:
         _record_stats(name, (time.time() - t0) * 1000)
-        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        # S72：附堆栈尾部（异常行 + 最近 3 帧）——单行 error 没有出错位置，
+        # 模型修 bug 只能瞎猜重试；traceback 可能巨大，钳到 1000 字符
+        tb_lines = traceback.format_exc().strip().splitlines()
+        detail = "\n".join(tb_lines[-4:])[:1000]
+        return {"ok": False, "error": f"{type(e).__name__}: {e}", "error_detail": detail}
 
 
 def tool_count():

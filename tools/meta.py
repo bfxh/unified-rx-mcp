@@ -80,6 +80,38 @@ _CHEATSHEET = {
 # 安全字符白名单（防 shell 注入：无 & | > < ; $ ` 等；含 \\ 供 Windows 路径）
 _ALLOWED = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /-_.:,=()\"'\\")
 
+# S72：local_run 出口解码与上限。
+# 旧版固定 GBK 解码且 stdout 只留尾部 3000 字符——UTF-8 输出乱码、
+# 编译/测试报错的关键行被砍。现在 UTF-8 优先、GBK 回退；
+# 失败（exit != 0）时放宽尾巴（UNIFIED_RX_RUN_TAIL_FAIL 可覆盖，默认 12000）。
+_RUN_TAIL_OK_OUT = 3000
+_RUN_TAIL_OK_ERR = 1000
+_RUN_TAIL_FAIL_OUT_DEFAULT = 12000
+_RUN_TAIL_FAIL_ERR = 4000
+
+
+def _run_decode(raw: bytes) -> str:
+    """S72：优先 UTF-8，失败按 GBK 回退（replace 兜底，永不抛异常）。"""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("gbk", errors="replace")
+
+
+def _run_tail(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[-limit:]
+
+
+def _run_caps(failed: bool):
+    """失败时放宽出口（报错内容是修 bug 的原料），成功时维持小尾巴防上下文膨胀。"""
+    if not failed:
+        return _RUN_TAIL_OK_OUT, _RUN_TAIL_OK_ERR
+    try:
+        out_cap = int(os.environ.get("UNIFIED_RX_RUN_TAIL_FAIL") or _RUN_TAIL_FAIL_OUT_DEFAULT)
+    except ValueError:
+        out_cap = _RUN_TAIL_FAIL_OUT_DEFAULT
+    return max(out_cap, _RUN_TAIL_OK_OUT), _RUN_TAIL_FAIL_ERR
+
 
 def _fill_defaults(domain, name, cmd, args):
     """填充占位符：优先 args，其次模板默认值。"""
@@ -199,8 +231,12 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
             t_err.join(timeout=2)
         except Exception:
             pass
-        out = b"".join(out_buf).decode("gbk", errors="replace")[-3000:]
-        err = b"".join(err_buf).decode("gbk", errors="replace")[-1000:]
+        # S72：UTF-8 优先解码（旧版固定 GBK，UTF-8 输出必乱码）；
+        # 失败时放宽尾巴——报错关键行是修 bug 的原料，成功时维持小尾巴
+        failed = proc.returncode not in (0, None)
+        out_cap, err_cap = _run_caps(failed)
+        out = _run_tail(_run_decode(b"".join(out_buf)), out_cap)
+        err = _run_tail(_run_decode(b"".join(err_buf)), err_cap)
         base = {"exit": proc.returncode, "stdout_tail": out,
                 "stderr_tail": err, "cmd": cmd}
         if cancelled:

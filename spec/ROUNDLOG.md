@@ -105,3 +105,9 @@
 - 决策：main 合入 feat 分支 + tag v2.3.0 + clone 到 D:\rj\MCP + workflow.md 固化流程；235→237 passed
 - 证据：D:\rj\MCP pytest 235 passed ✓；MCP 宿主配置模板写死；237 passed
 - 提交：5051c6d+ef0ba0e
+
+## S72 · 错误可修性三连修：堆栈尾部 + 嵌套钳制 + local_run 解码/上限
+- 项目：unified-rx-mcp｜时间：2026-08-31
+- 决策：宿主（Yan Agent/opencode）侧诊断实锤"token 被吞 + 多轮修不到根因"后，修本仓三处信息损失：①registry.call 异常附 error_detail（堆栈尾部 1000 字符），server ERROR 行拼 DETAIL——单行 error 模型看不到出错位置只能瞎猜；②_clamp 全字段独立处理 + 嵌套限深递归（旧版单字段 break，子 dict 里的大 list/str 漏网；顶层 S10 cursor 分页契约不变）；③local_run UTF-8 优先解码（旧版固定 GBK，UTF-8 输出乱码）+ 失败放宽尾巴 12000/4000（UNIFIED_RX_RUN_TAIL_FAIL 可覆盖，成功维持 3000/1000）。另修 server.py 缺 import time——S69/S71 自动体检线程启动即 NameError 被 except 静默吞，从未真正跑过；tools/__init__ __all__ 剔除不存在的 pure/collab（补 lsp）；code_review bug_scan 透镜静默 except 补协议日志
+- 证据：tests/test_s72_errors_clamp.py 13 测试；全量 pytest 382 passed；--selftest 55 工具/12 域/schema 0 bad
+- 提交：本次

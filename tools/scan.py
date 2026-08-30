@@ -949,8 +949,10 @@ def code_review(path, mode="file", max_files=60, base="HEAD", lens=None):
             findings.append({"lens": "bug_scan", "severity":
                              "high" if d.get("kind") == "definite" else "med",
                              "file": fp, "line": d["line"], "msg": d["msg"][:160]})
-    except Exception:
-        pass                             # bug_scan 不可用 → 其余透镜照常
+    except Exception as e:
+        # S72：静默吞异常违反 workflow.md 自己立的规矩——至少留一条协议日志
+        registry.notify("warning",
+                        f"code_review 的 bug_scan 透镜失败（其余透镜照常）: {type(e).__name__}: {e}")
     # S49 卫生透镜：重复文件 + 无测试源文件（仅目录模式；diff 评审改动不掺卫生面）
     if mode == "file" and os.path.isdir(path):
         findings.extend(_dup_file_findings(path))
