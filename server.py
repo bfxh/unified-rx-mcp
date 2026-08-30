@@ -14,6 +14,7 @@
 import sys
 import json
 import os
+import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -24,7 +25,7 @@ import tools  # noqa: F401
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.3.0"
+SERVER_VERSION = "2.4.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -131,7 +132,13 @@ def _handle(msg):
         if result.get("ok"):
             content = [{"type": "text", "text": json.dumps(result["result"], ensure_ascii=False)}]
         else:
-            content = [{"type": "text", "text": f"ERROR: {result.get('error')}"}]
+            # S72：附 error_detail（堆栈尾部）——单行 error 只有类型+消息，
+            # 模型修 bug 时看不到出错位置，只能瞎猜重试
+            text = f"ERROR: {result.get('error')}"
+            detail = result.get("error_detail")
+            if detail:
+                text += f"\nDETAIL: {detail}"
+            content = [{"type": "text", "text": text}]
         return {
             "jsonrpc": "2.0",
             "id": msg_id,
@@ -216,8 +223,6 @@ if __name__ == "__main__":
     # VS Code（去重窗口防多客户端弹窗风暴；UNIFIED_RX_AUTOPILOT_VSCODE=0 关闭）。
     # 只在 stdio 服务模式跑：测试直接 import server 不会触发。
     try:
-        import threading
-
         from tools.ide_autopilot import autopilot_run
 
         def _autopilot_boot():

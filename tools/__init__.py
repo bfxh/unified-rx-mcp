@@ -30,7 +30,7 @@ from . import ide_read    # noqa: F401,E402  S66：结构化读取（ide_outline
 from . import ide_vscode  # noqa: F401,E402  S68：VS Code 后手入口（open/diff）
 from . import ide_autopilot  # noqa: F401,E402  S69：开发目录自动驾驶（启动自动体检+打开）
 
-__all__ = ["fs", "pure", "scan", "ide", "guard", "learn", "ops",
-           "search", "game", "collab", "meta", "engine", "bevy", "attack",
-           "appaudit", "astscan", "metrics", "ide_test", "ide_doctor",
+__all__ = ["fs", "scan", "ide", "guard", "learn", "ops",
+           "search", "game", "meta", "engine", "bevy", "attack",
+           "appaudit", "astscan", "metrics", "lsp", "ide_test", "ide_doctor",
            "ide_read", "ide_vscode", "ide_autopilot"]
