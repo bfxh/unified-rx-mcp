@@ -260,7 +260,13 @@ def _clamp(result, args):
             break  # 单次只对一个主字段裁剪，防多重截断语义混乱
         if isinstance(v, str) and len(v) > MAX_STR_CHARS:
             total = len(v)
-            out[k] = v[:MAX_STR_CHARS] + f"\n…[truncated {total - MAX_STR_CHARS} chars / {total} total]"
+            # S70：保头 + 保尾——测试摘要（test result/summary）与 panic 消息
+            # 都在输出尾部，纯保头会把最关键的结尾截丢
+            head = MAX_STR_CHARS - 16 * 1024
+            tail = 16 * 1024
+            cut = total - head - tail
+            out[k] = (v[:head] + f"\n…[truncated {cut} chars / {total} total]…\n"
+                      + v[-tail:])
             break
     return out
 
