@@ -212,4 +212,19 @@ def main():
 
 
 if __name__ == "__main__":
+    # S69：开发目录自动驾驶——server 启动即后台自动体检全部项目 + 顺带打开
+    # VS Code（去重窗口防多客户端弹窗风暴；UNIFIED_RX_AUTOPILOT_VSCODE=0 关闭）。
+    # 只在 stdio 服务模式跑：测试直接 import server 不会触发。
+    try:
+        import threading
+
+        from tools.ide_autopilot import autopilot_run
+
+        def _autopilot_boot():
+            time.sleep(3.0)
+            autopilot_run()
+
+        threading.Thread(target=_autopilot_boot, daemon=True).start()
+    except Exception:                                        # noqa: BLE001
+        pass                                                  # 预热失败不影响服务
     main()

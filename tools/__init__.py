@@ -28,8 +28,9 @@ from . import ide_test  # noqa: F401,E402  R2：统一测试入口（pytest/carg
 from . import ide_doctor  # noqa: F401,E402  R4：一键项目体检（六项聚合 → 基线报告）
 from . import ide_read    # noqa: F401,E402  S66：结构化读取（ide_outline/ide_read_symbol）
 from . import ide_vscode  # noqa: F401,E402  S68：VS Code 后手入口（open/diff）
+from . import ide_autopilot  # noqa: F401,E402  S69：开发目录自动驾驶（启动自动体检+打开）
 
 __all__ = ["fs", "pure", "scan", "ide", "guard", "learn", "ops",
            "search", "game", "collab", "meta", "engine", "bevy", "attack",
            "appaudit", "astscan", "metrics", "ide_test", "ide_doctor",
-           "ide_read", "ide_vscode"]
+           "ide_read", "ide_vscode", "ide_autopilot"]

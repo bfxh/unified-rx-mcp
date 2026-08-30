@@ -12,6 +12,10 @@
    （Code.exe：D:\rj\KF\IDE\Microsoft VS Code\Code.exe）；**多项目联动检查**
    用 `ide_multi_check`（逐项目 doctor 全量汇总，issues 优先，
    `vscode: true` 直接把坏项目丢进编辑器）
+5b. **开发目录自动驾驶（S69）**：MCP server 启动即后台自动体检 D:\开发 下
+   全部项目（逐项目 doctor 全量）+ 顺带打开 VS Code——智能体一进来
+   `ide_auto_report` 直接取快照；去重窗口 10 分钟防弹窗风暴；
+   `UNIFIED_RX_AUTOPILOT_VSCODE=0` 可关自动打开
 6. **默认严苛（S62 固化为规范）**：新代码默认按最严格语义写，不靠事后补——
    - 写/执行类工具一律 `requires_auth=True`（跑编译/跑测试/跑程序=任意代码执行）
    - 工具返回 dict 含 `"error"` 键 ⇒ registry 恒转 ok:false（调用方只看 ok 一个字段）
