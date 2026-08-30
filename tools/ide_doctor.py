@@ -51,6 +51,54 @@ def _scan_changed(reg, files):
             "clue": sum(1 for i in issues if i.get("kind") != "definite")}}
 
 
+@tool("ide_multi_check", "多项目联动体检：逐项目 ide_doctor 全量（不含测试，可开）→ "
+      "汇总排序（issues/error 优先）；vscode=true 把非 clean 项目交给 VS Code（最后后手）。"
+      "注意：用全量而非 diff——联动体检要的是每项目『现在』的问题，基线已坏不静默", "ide",
+      {"type": "object",
+       "properties": {
+           "paths": {"type": "array", "items": {"type": "string"},
+                     "description": "项目目录列表（如稳定版+开发版+游戏项目）"},
+           "run_tests": {"type": "boolean",
+                         "description": "各项目是否跑测试（默认 false 快速）"},
+           "vscode": {"type": "boolean",
+                      "description": "true=非 clean 项目用 VS Code 打开"},
+       },
+       "required": ["paths"]},
+      requires_auth=True)
+def ide_multi_check(paths, run_tests=False, vscode=False, __authorized=False):
+    from registry import call
+
+    results = []
+    for p in paths:
+        r = call("ide_doctor", {"path": p, "run_tests": run_tests,
+                                "__authorized": True})
+        if r.get("ok"):
+            res = r["result"]
+            results.append({"path": res["path"], "verdict": res["verdict"],
+                            "problems": res["problems"][:5],
+                            "warns": res["warns"][:3],
+                            "elapsed_s": res["elapsed_s"]})
+        else:
+            results.append({"path": p, "verdict": "error",
+                            "problems": [str(r.get("error"))[:120]]})
+    order = {"issues": 0, "error": 0, "warn": 1, "clean": 2}
+    results.sort(key=lambda x: order.get(x["verdict"], 3))
+    opened = []
+    if vscode:
+        for x in results:
+            if x["verdict"] in ("issues", "error"):
+                v = call("ide_vscode", {"action": "open", "paths": [x["path"]],
+                                        "__authorized": True})
+                if v.get("ok"):
+                    opened.append(x["path"])
+    bad = sum(1 for x in results if x["verdict"] in ("issues", "error"))
+    warn = sum(1 for x in results if x["verdict"] == "warn")
+    return {"projects": results, "total": len(results), "bad": bad, "warn": warn,
+            "verdict": "issues" if bad else ("warn" if warn else "clean"),
+            "vscode_opened": opened,
+            "note": "diff 快速体检；单项深挖用 ide_doctor 全量，最后后手 = VS Code"}
+
+
 @tool("ide_doctor", "一键项目体检：bug_scan + code_review + 构建 + 测试 + 依赖环 + "
       "模块稳定性 → 统一报告与 top 问题清单（任何仓库一条命令出基线）；"
       "diff=true 只看 git 改动文件（修复轮快速迭代）", "ide",
