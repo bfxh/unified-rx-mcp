@@ -140,3 +140,29 @@ def test_local_run_ok_keeps_small_tail(tmp_path):
                                     "args": {"script": str(script)}, "__authorized": True})
     assert r["ok"] is True
     assert len(r["result"]["stdout_tail"]) <= 3000
+
+
+# ---------- S72b：requires_auth 工具的 __authorized 声明注入 ----------
+
+def test_requires_auth_tools_declare_authorized_flag():
+    """S72b：tools/list 的 schema 必须带 __authorized 声明（MCP 宿主可见）。
+
+    旧状：local_run/ide_edit_multi 只在 description 里提 __authorized，
+    schema 没有该参数 → 协议模式客户端永远不会传 → 写/执行类工具被永久拒绝。
+    """
+    schemas = {t["name"]: t["inputSchema"] for t in registry.list_tools()}
+    for name in ("local_run", "fs_write", "ide_edit_multi", "ide_build"):
+        props = schemas[name].get("properties", {})
+        assert "__authorized" in props, f"{name} 缺 __authorized 属性声明"
+        assert "__authorized" in schemas[name].get("required", []), \
+            f"{name} required 缺 __authorized"
+    assert "__authorized" not in schemas["fs_stat"].get("properties", {}), \
+        "只读工具不应被注入授权参数"
+
+
+def test_authorized_flag_still_enforced():
+    """S72b：schema 注入不放松 call 层强制——不显式授权仍被拒。"""
+    r = registry.call("local_run", {"domain": "python", "name": "script",
+                                    "args": {"script": "x.py"}})
+    assert r["ok"] is False
+    assert r.get("error"), r
