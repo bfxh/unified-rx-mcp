@@ -198,16 +198,29 @@ def tool(name, description="", group="misc", schema=None, requires_auth=False):
 
 
 def list_tools():
-    """MCP tools/list 输出：按注册顺序。"""
-    return [
-        {
-            "name": n,
-            "description": v["description"],
-            "inputSchema": v["schema"],
-            "_group": v["group"],
-        }
-        for n, v in _TOOLS.items()
-    ]
+    """MCP tools/list 输出：按注册顺序。
+
+    S72b：requires_auth 工具统一注入 __authorized 声明——部分工具（fs_write）
+    手工 schema 已带，local_run/ide_edit_multi 等只写在 description 里，MCP
+    宿主看不到参数就永远不会传 → 写/执行类工具在协议模式下被永久拒绝。
+    """
+    out = []
+    for n, v in _TOOLS.items():
+        schema = v["schema"]
+        if v.get("requires_auth"):
+            props = dict(schema.get("properties") or {})
+            req = list(schema.get("required") or [])
+            if "__authorized" not in props:
+                props["__authorized"] = {
+                    "type": "boolean",
+                    "description": "写/执行操作授权确认：必须显式传 true（防 AI 幻觉乱写）",
+                }
+            if "__authorized" not in req:
+                req.append("__authorized")
+            schema = {**schema, "properties": props, "required": req}
+        out.append({"name": n, "description": v["description"],
+                    "inputSchema": schema, "_group": v["group"]})
+    return out
 
 
 def groups():
