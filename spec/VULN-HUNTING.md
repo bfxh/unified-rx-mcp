@@ -162,6 +162,15 @@
   纯读先迁，attack/lsp 次之，写面最后）。形态：rx-mcp 原生实现该工具后即从
   tools/list 摘掉 Python 版（代理层"原生优先、其余转发"）；Python 侧同名工具保留
   薄壳转调（exe 缺失时报清晰错误，不静默降级）。
+  落地注记（S79，fs 读面已落）：首个迁移域 = fs_read/fs_stat/fs_list（rx-fs.exe +
+  Python 薄壳，包络契约逐字对齐：resolve 拒绝走 ValueError→ok:false，工具级错误走
+  result.error）。**薄壳转调模式使转发代理非必需**——宿主继续用 python 入口即自动
+  获得 Rust 实现，"转发代理"维持缓议（单 exe 入口只在全量迁移终点才有意义）。
+  迁移实测对齐两处 Python 怪癖：①fs::canonicalize 对不存在路径硬失败而
+  realpath(strict=False) 容忍 → 沙盒钳制补"最深存在祖先规范化+余尾拼接"的宽限
+  realpath；②fs_list 的 `depth or 1` 把字面 0 静默强制成 1 → Rust 侧归正为
+  0=仅根层（契约变化已在 skills/fs.md 声明）。验收：cargo 22 绿
+  （fs 13+json 6+taint 3）+ pytest 双解释器全绿（3.14=462+2s / 3.11=464）。
 - **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
   Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
   退役；Python 只剩测试电池与文档。

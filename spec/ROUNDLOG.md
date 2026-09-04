@@ -151,3 +151,12 @@
 - 顺带：Mimosa PreToolUse 钩子对重放测试 tarfile/extractall 与字面 ".." 的 advisory 经甄别记为误报（tar 源=自仓固定 commit 的 git archive + 成员白名单，".." 仅净化变量名），不阻断；钩子拦动态子进程派生致 rx-mcp 转发代理形态推迟 S79 评估，独立协议实现先行落地
 - 证据：tests/test_s78_rust_taint_tool.py 6 测（注册/schema/发现/naive 模式/沙盒拒绝/exe 缺失干净报错）；tests/test_s78_replay_s73.py 重放验收常驻 pytest；版本 2.5.11 → 2.6.0
 - 提交：本次
+
+## S79 · Rust 迁移路线图第一域落地：fs 读面三工具原生化（rust-fs）+ 最新语言版本政策
+- 项目：unified-rx-mcp｜时间：2026-09-05
+- 决策：应用户"以后编程语言基本上用最新的功能写代码，继续搞 Rust 迁移路线图"，①政策入 workflow.md：Rust 最新稳定工具链（1.97）+ edition 2021→**2024**；Python 以 3.14 为第一目标（宿主实际解释器，S78 钩子已实跑 3.14），3.11 全绿保留为回归网。②按路线图"纯读先迁"选 **fs 读面三工具 fs_read/fs_stat/fs_list**（fs_write 写面按纪律最后迁）。
+- 交付：①rust/src/fs.rs——三操作原生实现，契约逐字对齐：resolve 拒绝→退出码 2→壳 raise ValueError→registry ok:false（旧实现同包络），工具级错误（不是文件/过大/不是目录）→退出码 0+result.error（旧实现返回 dict 同包络）；universal newlines 归一（\r\n/\r→\n）与 1MB 上限逐字节复刻；②rust/src/sandbox.rs 重写——**宽限 realpath**（最深存在祖先 canonicalize+余尾拼接，对齐 realpath(strict=False)，fs_stat 的 exists:false 依赖此），沙盒根不再要求可解析（对齐 Python abspath 恒成功），拒绝消息与 Python 逐字一致，SandboxCfg 可构造（测试不依赖进程 env）；③bin/rx_fs.rs（read|stat|list）+ Python 薄壳 _rx_fs_call（退出码分流，exe 缺失/超时/非 JSON 清晰报错不静默降级，_rx_taint_exe 同纪律）；④edition 2024、crate 版 2.7.0。
+- 迁移实测踩坑（双实现对照实验定案）：①fs_list 深度语义 = depth=N 列 N+1 层，且 Python `depth or 1` 把字面 0 静默强制成 1——Rust 侧归正 0=仅根层（schema 语义归正，skills/fs.md 已声明）；②registry 对 {"error":...} 结果统一转 ok:false（error 顶层+result 保留）——薄壳测试初版预期写反被此抓住；③Mimosa 钩子拦整文件重写 fs.py（S62 的动态 tmp 路径被重新提交评分）→ 改小步 Edit、fs_write 一字未动。
+- 验收：cargo test 22 绿（fs 13+json 6+taint 3）；pytest 双解释器全绿：3.14=462 passed+2 skipped（pylsp 未装 3.14，旧有 skipif）、3.11=464 passed；release exe 已建（TEMP/rx-rs-target/release/rx-fs.exe，1.3MB）；版本 2.6.0 → 2.7.0
+- 证据：rust/tests/fs_test.rs 13 测（fail-closed/"*"/白名单/穿越/垃圾根/大小写/宽限 realpath/相对路径/换行归一/上限/深度钳制/排序与条目形状）；tests/test_s79_fs_rust.py 9 测（薄壳包络+行为+exe 缺失+schema 不变）
+- 提交：本次
