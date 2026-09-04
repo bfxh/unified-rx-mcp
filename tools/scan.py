@@ -151,7 +151,9 @@ def _scan_python(src, path):
                     "line": node.lineno, "rule": "eval_exec",
                     "msg": f"python 动态执行 {fn.id}()——注入面（裸调用）",
                     "file": path,
-                    "severity": "high" if hot else "medium",
+                    # S77：severity 词表统一 med——S74 排序表只认 med，
+                    # "medium" 落 info 档沉出第一页（记账靶场实测发现的暗门）
+                    "severity": "high" if hot else "med",
                     "kind": "definite" if hot else "clue"})
         # 未定义变量：只查 Load 上下文的 Name，且：
         #   - 是属性访问的一部分（node.xxx 的 xxx 不是 Name 节点，天然排除）
@@ -184,9 +186,12 @@ _RUST_RULES = [
     ("unreachable", r"\bunreachable!\(", "unreachable!()——到达即 bug", "high", "definite"),
     ("todo_unimplemented", r"\b(todo!|unimplemented!)\(", "todo!/unimplemented!()——未实现即崩溃", "high", "definite"),
     ("as_cast", r"\bas\s+(i64|i32|u64|u32|f64|f32|usize|isize)\b", "as 类型转换——截断/精度丢失（线索：建议 try_from）", "info", "clue"),
-    ("indexing", r"\[[a-zA-Z_][a-zA-Z0-9_]*\]", "索引访问——越界即 panic（线索：建议 .get()）", "info", "clue"),
+    # 左侧环视 (?<=[\w)\]])：真索引左侧必是标识符/右括号——排除字符串字面量
+    # 里的 "[server]" 日志前缀与 `= [`/`, [` 数组字面量（09-05 VoxelForge 高压
+    # 检查甄别：124 条 indexing 里大半是 println!("[server] …") 噪音）
+    ("indexing", r"(?<=[\w)\]])\[[a-zA-Z_][a-zA-Z0-9_]*\]", "索引访问——越界即 panic（线索：建议 .get()）", "info", "clue"),
     # S27 人工标注审计发现：[expr.field as usize] 成员+转换索引此前全部漏报
-    ("indexing", r"\[[^\]\[\n]{0,80}\bas\s+(usize|isize|i64|i32|u64|u32)\s*\]", "索引访问（含 as 转换）——越界即 panic（线索：建议 .get()）", "info", "clue"),
+    ("indexing", r"(?<=[\w)\]])\[[^\]\[\n]{0,80}\bas\s+(usize|isize|i64|i32|u64|u32)\s*\]", "索引访问（含 as 转换）——越界即 panic（线索：建议 .get()）", "info", "clue"),
 ]
 
 
@@ -246,7 +251,7 @@ def _scan_generic(src, path, lang):
         for m in re.finditer(pat, src):
             line = src.count("\n", 0, m.start()) + 1
             issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
-                           "severity": "medium", "kind": "clue"})
+                           "severity": "med", "kind": "clue"})  # S77：词表统一（原 medium 沉底）
     return issues
 
 

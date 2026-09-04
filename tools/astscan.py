@@ -39,13 +39,14 @@ def _scan_python_ast(src, fp):
         if isinstance(node, ast.Call):
             fn = node.func
             if isinstance(fn, ast.Name) and fn.id in _PY_SINKS_NAME:
-                # S13 准确率分级：字面量参数=静态可判（info）；动态变量/表达式=真风险（medium）
+                # S13 准确率分级：字面量参数=静态可判（info）；动态变量/表达式=真风险（med）
                 kind = "literal" if all(isinstance(a, ast.Constant) for a in node.args[:1]) \
                     else "dynamic"
                 issues.append({"file": fp, "line": node.lineno, "col": node.col_offset,
                                "rule": "py_dynamic_exec", "callee": fn.id,
                                "arg_kind": kind, "unit": "call",
-                               "severity": "info" if kind == "literal" else "medium"})
+                               # S77：词表统一 med（原 medium 被排序表当 info 沉底）
+                               "severity": "info" if kind == "literal" else "med"})
             elif isinstance(fn, ast.Attribute) and fn.attr in _PY_ATTR_SHELL:
                 issues.append({"file": fp, "line": node.lineno, "col": node.col_offset,
                                "rule": "shell_like_call",

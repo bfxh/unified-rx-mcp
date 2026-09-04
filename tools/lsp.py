@@ -534,7 +534,8 @@ def ide_impact(file, line=0, col=0, include_decl=True):
            "new_name": {"type": "string", "description": "rename_plan 用"},
            "include_decl": {"type": "boolean", "description": "references 是否含声明处"},
        },
-       "required": ["action"]})
+       "required": ["action"]},
+      manual_gate=True)  # S77：单工具混合读写——读开放，rename_apply 在 handler 内自查 __authorized
 def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
             __authorized=False):
     reap_idle()                                        # 接线空闲回收（此前是死代码）

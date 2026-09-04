@@ -135,3 +135,10 @@
 - 决策：应用户"找漏洞需要再次的加强，先写文档"，落 spec/VULN-HUNTING.md。定位：SCAN-POLICY 管纪律、EVAL 管度量、本文管能力建设，三者互不重复。内容：①现状盘点带数字（bug_scan 规则 19 条=Rust 8/通用 3/bevy 8、attack 域 3 工具、S74 排序、S75 盘点法、H3 门槛）；②短板 5 条诚实清单（规则靠踩坑无覆盖图/动态验证停留在口号/授权门无自审/误报无台账/结论无量化格式）；③P0 三项带验收标准——auth_gate_sweep 自审工具（全 55 工具双向查门，S75 人眼盘点法固化成工具）、规则入库三件套成文（规则+误报守卫+真仓第一页可见，S74 为范例档案见附录 A）、扫描量化记账（双靶场副本+四格数字进 ROUNDLOG+H3 样本扩容）；④P1 三项（Python AST 污点轻量版带回放验收：S73 的 3 真 55 误报为题库/规则覆盖矩阵"查不了"如实入表/协议层 fuzz 进电池）；⑤P2 三项方向（调用图定位/教训库召回/tag 前独立深扫常态化）；⑥明确不做：重型 SAST 进仓/宿主自扫/低质规则凑数/"扫了=没有"承诺。里程碑：S77=P0 三件、S78=P1a+c
 - 证据：纯文档轮，代码零改动，版本维持 2.5.10；现状数字全部来自当轮实查（grep/registry 探针）
 - 提交：本次
+
+## S77 · VULN-HUNTING P0 三件落地：门自审工具（当场抓到假门）+ 三件套成文 + 量化基线
+- 项目：unified-rx-mcp｜时间：2026-09-05
+- 决策：按 spec/VULN-HUNTING.md 里程碑施工 P0 三项。①P0-a auth_gate_sweep（attack 域第 4 工具）：全工具双向查门——漏拒绝（requires_auth 工具空参端到端调用必拒，授权检查先于 handler 零副作用）、漏声明（S72b schema 契约）、门参数未强制（收 __authorized 无任何声明=假门）、manifest 高权限段一致性；**首跑即抓到 ide_lsp**——handler 收 __authorized（仅 rename_apply 落盘手动查）却无 registry 强制，属单工具混合读写的合法手动门但元数据不可见 → registry.tool 新增 manual_gate 注册声明（声明紧挨实现防漂移），自审将手动门单独归类；②P0-b 规则三件套成文进 skills/workflow.md（真 bug 必答"能否静态化"；规则+误报守卫+真仓第一页可见缺一不收；manual_gate 纪律一并写入）；③P0-c 双靶场副本量化基线（禁自扫，copytree 排 .git 后再扫）：本仓副本 635 条{info 460/low 171/med 2/high 2}，high×2=bench 快照夹具故意 panic!（S73 已定性不暴露面，误报）；VoxelForge crates 副本 1282 条{info 542/low 738/med 1/high 1}，med=vehicle.rs:745 第一页 #1——VF 源码 878eff0"P0 物理正确性"重构后 S74 的 3 处 locked_axes 魔数消失（此前规则起了作用），总量 1808→1282 属源码演进非扫描缺陷（原件/副本 .rs 文件数 67=67 核实）
+- 顺带修：记账实测暴露 severity 词表暗门——astscan/scan 三处把 med 写成 "medium"，S74 排序表只认 med，这些命中被当 info 沉出第一页（S74 失效模式换个门又进来），统一为 med。接手并行会话对 bevy_query_single 消息文本的甄别更新（09-05 实查 11 处 .single() 全部正确 else-return 零真险，severity 维持 low）
+- 证据：tests/test_s77_auth_gate_sweep.py 4 测试（全清洁断言/挂门清单含 8 已知工具/纯函数坏样本三种必抓/manifest 双投影一致）；auth_gate_sweep 一键 56 工具 ok:True（挂门 17/手动门 1）；全量 pytest 415 passed
+- 提交：本次
