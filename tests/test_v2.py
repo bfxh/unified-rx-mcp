@@ -239,12 +239,17 @@ def test_engine_status():
     assert r["ok"] and "codegraph" in r["result"]
 
 
-def test_engine_query_vf():
-    """P2: codegraph 真实查询（VoxelForge 已索引）。环境无关仓自动跳过。"""
+def test_engine_query_vf(monkeypatch):
+    """P2: codegraph 真实查询（VoxelForge 已索引）。环境无关仓自动跳过。
+
+    S75 起 engine_query 的 root 过沙盒，本测试把沙盒指到 D:\\开发
+    （与生产一致，VoxelForge 才进得来）。
+    """
     vf_root = r"D:\开发\VoxelForge"
     if not (os.path.isdir(vf_root) and
             os.path.exists(os.path.join(vf_root, ".codegraph"))):
         pytest.skip("需要本机 VoxelForge+codegraph 索引（外部资产）")
+    monkeypatch.setenv("UNIFIED_RX_SANDBOX", r"D:\开发")
     r = registry.call("engine_query", {"query": "place_free", "root": vf_root,
                                        "limit": 3})
     assert r["ok"], r

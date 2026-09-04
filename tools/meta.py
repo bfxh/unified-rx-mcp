@@ -257,8 +257,10 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
            "name": {"type": "string", "description": "进程名（如 vxl_app.exe / blender.exe）"},
            "pid": {"type": "integer", "description": "kill 用：PID（可选，比 name 精确）"},
        },
-       "required": ["action"]})
-def process(action, name=None, pid=None):
+       "required": ["action"]},
+      requires_auth=True)  # S75：taskkill /F 可杀任意进程（含宿主自身），破坏性动作须显式授权
+def process(action, name=None, pid=None, __authorized=False):
+    del __authorized  # S75：执行授权由 registry.call 的 requires_auth 统一强制
     env = {**os.environ, "PYTHONUTF8": "1"}
     try:
         if action == "list":

@@ -11,9 +11,19 @@ import urllib.request
 import urllib.error
 
 from registry import tool
+from tools.fs import _resolve as _fs_resolve
 
 UMI_EXE = r"D:\rj\GJ\Umi-OCR_Paddle_v2.1.5\Umi-OCR.exe"
 UMI_HTTP_PORTS = (1224, 1225)
+
+
+def _ps_quote(path):
+    """S75：PowerShell 单引号字面量转义——'' 是唯一转义序列。
+
+    $bmp.Save('{shot}') 把路径拼进单引号字符串，路径含 ' 时原样拼接即可
+    逃逸字符串注入任意 PS 命令；转义后注入串变纯文件名字面量。
+    """
+    return path.replace("'", "''")
 
 
 def _umi_ocr_image(img_path):
@@ -114,9 +124,18 @@ def game_check(path, action="check"):
            "ocr": {"type": "boolean", "description": "是否调 Umi-OCR 读界面文字（需 Umi-OCR 运行中）"},
            "screenshot_path": {"type": "string", "description": "截图保存路径（默认 D:\\开发\\blender_verify.png）"},
        },
-       "required": []})
-def blender_verify(ocr=False, screenshot_path=None):
-    shot = screenshot_path or r"D:\开发\blender_verify.png"
+       "required": []},
+      requires_auth=True)  # S75：全屏截屏 + powershell 注入面，高危须显式授权
+def blender_verify(ocr=False, screenshot_path=None, __authorized=False):
+    del __authorized  # S75：全屏截屏=隐私面 + spawn powershell，执行授权由 registry.call 统一强制
+    # S75：显式路径过沙盒；默认路径是固定可信常量免检（与 S73 lesson 同纪律）
+    if screenshot_path:
+        try:
+            shot = _fs_resolve(screenshot_path)
+        except ValueError as e:
+            return {"error": str(e)}
+    else:
+        shot = r"D:\开发\blender_verify.png"
     blenders = []
     try:
         out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq blender.exe"],
@@ -137,7 +156,7 @@ def blender_verify(ocr=False, screenshot_path=None):
             "$bmp=New-Object System.Drawing.Bitmap($b.Width,$b.Height);"
             "$g=[System.Drawing.Graphics]::FromImage($bmp);"
             "$g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size);"
-            f"$bmp.Save('{shot}');"
+            f"$bmp.Save('{_ps_quote(shot)}');"
         )
         r = subprocess.run(["powershell", "-Command", ps], capture_output=True,
                            timeout=20, encoding="gbk", errors="replace")

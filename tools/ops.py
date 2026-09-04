@@ -22,6 +22,7 @@ import collections
 import re as _re
 
 from registry import tool
+from tools.fs import _resolve as _fs_resolve
 
 _HOME = os.path.join(os.path.expanduser("~"), ".unified-rx")
 _STATS_FILE = os.path.join(_HOME, "stats.jsonl")
@@ -74,11 +75,17 @@ def _norm_ts(v):
            "keep": {"type": "integer", "description": "保留快照份数（默认 7）"},
            "date": {"type": "string", "description": "rollback 用：YYYYMMDD 快照日期"},
        },
-       "required": []})
-def backup(root=None, action="list", keep=7, date=None):
+       "required": []},
+      requires_auth=True)  # S75：整目录打包读=隐私面（S73 app_clone 同级），须显式授权
+def backup(root=None, action="list", keep=7, date=None, __authorized=False):
+    del __authorized  # S75：执行授权由 registry.call 的 requires_auth 统一强制
     if not root:
         return {"error": "root 必填（项目根目录）"}
-    root = os.path.abspath(root)
+    # S75：root 喂给 os.walk 全量打包，路径必须钳进沙盒（S73 dep_graph 同纪律）
+    try:
+        root = _fs_resolve(root)
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     backup_dir = os.path.join(root, "backups")

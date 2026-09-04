@@ -50,14 +50,15 @@ def test_shell_injection_blocked():
 
 
 def test_process_list():
-    """P4: process list 能列进程。"""
-    r = registry.call("process", {"action": "list"})
+    """P4: process list 能列进程。（S75 挂授权门后带 __authorized）"""
+    r = registry.call("process", {"action": "list", "__authorized": True})
     assert r["ok"], r
     assert r["result"]["count"] > 0, "应有进程"
 
 
 def test_process_list_filter():
     """P4: 按名查进程。"""
-    r = registry.call("process", {"action": "list", "name": "python.exe"})
+    r = registry.call("process", {"action": "list", "name": "python.exe",
+                                  "__authorized": True})
     assert r["ok"], r
 
