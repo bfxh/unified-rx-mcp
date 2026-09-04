@@ -33,7 +33,8 @@ def test_code_coverage_runs_and_measures(tmp_path):
     (proj / "run.py").write_text(
         "from pkg.util import add\nprint(add(1, 2))\n", encoding="utf-8")
     r = call("code_coverage", {"script": str(proj / "run.py"),
-                               "source_dir": str(proj)})
+                               "source_dir": str(proj),
+                               "__authorized": True})
     assert r["exit"] == 0
     assert 0 < r["coverage_pct"] < 100
     util = [f for f in r["per_file"] if f["file"].endswith("util.py")]
@@ -42,10 +43,12 @@ def test_code_coverage_runs_and_measures(tmp_path):
 
 def test_code_coverage_error_paths(tmp_path):
     r = registry.call("code_coverage", {"script": str(tmp_path / "nope.py"),
-                                        "source_dir": str(tmp_path)})
+                                        "source_dir": str(tmp_path),
+                                        "__authorized": True})
     assert not r["ok"] and "不存在" in r["error"]
     r2 = registry.call("code_coverage", {"script": __file__,
-                                         "source_dir": str(tmp_path / "nodir")})
+                                         "source_dir": str(tmp_path / "nodir"),
+                                         "__authorized": True})
     assert not r2["ok"]
 
 

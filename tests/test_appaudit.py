@@ -56,7 +56,8 @@ def mini_app(tmp_path):
 
 
 def _clone(mini_app, sandbox):
-    r = registry.call("app_clone", {"source_dir": str(mini_app)})
+    r = registry.call("app_clone", {"source_dir": str(mini_app),
+                                    "__authorized": True})
     assert r["ok"] is True, r
     return r["result"]
 
@@ -75,15 +76,17 @@ def test_clone_happy_isolated(mini_app, sandbox):
 
 
 def test_clone_rejects_relative_and_missing(sandbox):
-    assert registry.call("app_clone", {"source_dir": ""})["ok"] is False
-    assert registry.call("app_clone", {"source_dir": "  \t"})["ok"] is False
-    assert registry.call("app_clone", {"source_dir": "./sub"})["ok"] is False
-    assert registry.call("app_clone", {"source_dir": str(Path.cwd()) + "\\no_such_dir_xyz"})["ok"] is False
+    assert registry.call("app_clone", {"source_dir": "", "__authorized": True})["ok"] is False
+    assert registry.call("app_clone", {"source_dir": "  \t", "__authorized": True})["ok"] is False
+    assert registry.call("app_clone", {"source_dir": "./sub", "__authorized": True})["ok"] is False
+    assert registry.call("app_clone", {"source_dir": str(Path.cwd()) + "\\no_such_dir_xyz",
+                                       "__authorized": True})["ok"] is False
 
 
 def test_clone_budget_truncates(mini_app, sandbox):
     r = registry.call("app_clone", {"source_dir": str(mini_app),
-                                    "max_files": 2, "max_bytes": 10 ** 12})
+                                    "max_files": 2, "max_bytes": 10 ** 12,
+                                    "__authorized": True})
     s = r["result"]
     assert s["truncated_by"] == "max_files" and s["files"] == 2
 

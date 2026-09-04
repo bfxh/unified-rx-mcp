@@ -13,6 +13,7 @@ import trace
 import io
 
 from registry import tool
+from tools.fs import _resolve as _fs_resolve
 
 _SKIP = {'.git', 'node_modules', 'target', '__pycache__', '.unified-rx-index',
          'dist', 'build', 'backups', 'manual_snaps'}
@@ -69,10 +70,16 @@ def _imports_of(fp):
            "args": {"type": "array", "items": {"type": "string"},
                     "description": "传给脚本的参数"},
        },
-       "required": ["script", "source_dir"]})
-def code_coverage(script, source_dir, args=None, timeout=120):
-    script = os.path.abspath(script)
-    source_dir = os.path.abspath(source_dir)
+       "required": ["script", "source_dir"]},
+      requires_auth=True)
+def code_coverage(script, source_dir, args=None, timeout=120, __authorized=False):
+    del __authorized  # 执行授权由 registry.call 的 requires_auth 统一强制
+    # S73：跑任意脚本 = 任意代码执行，路径必须过沙盒（深度扫描实锤：原版两者皆缺）
+    try:
+        script = _fs_resolve(script)
+        source_dir = _fs_resolve(source_dir)
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isfile(script):
         return {"error": f"脚本不存在: {script}"}
     if not os.path.isdir(source_dir):
@@ -154,7 +161,10 @@ def code_coverage(script, source_dir, args=None, timeout=120):
        },
        "required": ["path"]})
 def dep_graph(path, max_files=300):
-    path = os.path.abspath(path)
+    try:
+        path = _fs_resolve(path)         # S73：读路径同样过沙盒
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(path):
         return {"error": f"不是目录: {path}"}
     py_files = _walk_py(path, max_files)
@@ -233,7 +243,10 @@ from collections import defaultdict
        },
        "required": ["path"]})
 def module_stability(path, timeout=60):
-    path = os.path.abspath(path)
+    try:
+        path = _fs_resolve(path)         # S73：读路径同样过沙盒
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(os.path.join(path, '.git')):
         return {"error": "不是 git 仓库"}
 
