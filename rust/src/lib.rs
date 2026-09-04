@@ -14,5 +14,6 @@
 pub mod fs;
 pub mod json;
 pub mod sandbox;
+pub mod search;
 pub mod server;
 pub mod taint;

@@ -171,6 +171,17 @@
   realpath；②fs_list 的 `depth or 1` 把字面 0 静默强制成 1 → Rust 侧归正为
   0=仅根层（契约变化已在 skills/fs.md 声明）。验收：cargo 22 绿
   （fs 13+json 6+taint 3）+ pytest 双解释器全绿（3.14=462+2s / 3.11=464）。
+  落地注记（S80，code_search 已落）：第二步 = search 域 code_search 单工具
+  （rx-search.exe + Python 薄壳；code_semantic 留 S81）。**迁移契约靠双实现
+  对照实验定案**：200 文件上限的截断顺序并非"无契约"——Python os.walk 每层
+  先收本目录文件再下钻、目录内 scandir 顺序（NTFS=$UpCase 排序），Rust 初版
+  按字母序混排 DFS 使 bench/ 先于根目录源码烧光名额，语料全变、分数系统性
+  漂移；对齐后 8 查询（EN/CJK/混合/精确符号/不存在的词）文件+行号+分数
+  （±0.001）全 PARITY（tie 顺序按 tie 无关口径比——Python 侧 set 迭代本就
+  不稳定）。S12 进程内指纹缓存随 Python 实现退役：短命 exe 无从缓存，实测
+  冷调全流程 ~140ms vs 旧 Python 首查 297ms（缓存复查 8ms）。空查询契约
+  变化：total=0 → 显式拒绝（"query 必填"）。验收：cargo 32 绿
+  （fs 13+json 6+search 10+taint 3）+ pytest 双解释器全绿（3.14=472+2s / 3.11=474）。
 - **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
   Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
   退役；Python 只剩测试电池与文档。

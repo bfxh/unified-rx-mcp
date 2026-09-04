@@ -4,4 +4,4 @@ version = 4
 
 [[package]]
 name = "unified-rx-rs"
-version = "2.7.0"
+version = "2.8.0"

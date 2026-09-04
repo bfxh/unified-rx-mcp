@@ -3,11 +3,14 @@
 
 收敛自旧版 code_search(BM25) + explore_code/semantic_search/dep_graph/kb_query；
 kb_query 于 S15 移除（同引擎重复面，L3 实战 100+ 会话零调用）。
-纯 stdlib BM25（无 Rust 依赖，零嵌入模型）——检索质量够用且本地秒级。
+S80 起 BM25 引擎 Rust 原生化（rx-search.exe，见 rust/src/search.rs）：Python 侧
+只留薄壳转调；code_semantic 仍为本文件内纯 stdlib 实现（S81 再议迁移）。
 """
 import os
 import re
 import math
+import json
+import subprocess
 from collections import Counter
 
 from registry import tool
@@ -40,42 +43,6 @@ def _tokenize(text):
     return [t for t in tokens if t not in _STOPWORDS and len(t) > 1]
 
 
-def _index(root, max_files):
-    """构建倒排索引：token → [(file, count)]。返回 (idx, doc_len, doc_paths)。"""
-    idx = {}
-    doc_len = {}
-    doc_paths = []
-    count = 0
-    for r, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "target",
-                                                "__pycache__", "dist", "build",
-                                                ".unified-rx-index", "backups")]
-        for fn in files:
-            if count >= max_files:
-                break
-            ext = os.path.splitext(fn)[1].lower()
-            if ext not in (".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
-                           ".gd", ".cs", ".dart", ".lua", ".java", ".kt", ".md",
-                           ".toml", ".json", ".yaml", ".yml"):
-                continue
-            count += 1
-            fp = os.path.join(r, fn)
-            try:
-                with open(fp, "r", encoding="utf-8", errors="replace") as f:
-                    src = f.read()
-            except OSError:
-                continue
-            doc_paths.append(fp)
-            toks = _tokenize(src)
-            doc_len[fp] = len(toks)
-            seen = {}
-            for t in toks:
-                seen[t] = seen.get(t, 0) + 1
-            for t, c in seen.items():
-                idx.setdefault(t, []).append((fp, c))
-    return idx, doc_len, doc_paths
-
-
 def _fingerprints(root):
     """root 下参与索引文件的指纹表 {path: (mtime_ns, size)}——只 walk+stat，不读内容。"""
     fps = {}
@@ -100,54 +67,60 @@ def _fingerprints(root):
     return fps
 
 
-# S12：BM25 索引指纹缓存——重复查询免去 200 文件全量读解析（实测 VF3 首查 ~0.4s → 复查 <10ms）
-_IDX_CACHE = {}     # root -> {"key": hash, "data": (idx, doc_len, doc_paths)}
-_IDX_CACHE_MAX = 4
-_IDX_CACHE_ORDER = []
-
-
-def _get_index(root):
-    fps = _fingerprints(root)
-    key = hash(tuple(sorted(fps.items())))
-    ent = _IDX_CACHE.get(root)
-    if ent is not None and ent["key"] == key:
-        return ent["data"]
-    data = _index(root, _MAX_FILES)
-    if root not in _IDX_CACHE_ORDER:
-        _IDX_CACHE_ORDER.append(root)
-        while len(_IDX_CACHE_ORDER) > _IDX_CACHE_MAX:
-            old = _IDX_CACHE_ORDER.pop(0)
-            _IDX_CACHE.pop(old, None)
-    _IDX_CACHE[root] = {"key": key, "data": data}
-    return data
-
-
 _INDEX_EXTS = frozenset((
     ".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
     ".gd", ".cs", ".dart", ".lua", ".java", ".kt", ".md",
     ".toml", ".json", ".yaml", ".yml"))
 
 
-def _bm25(idx, doc_len, doc_paths, query, k=1.5, b=0.75):
-    q_toks = _tokenize(query)
-    if not q_toks:
-        return []
-    # S13 准确率：查询的原始词形（连续符号，如 load_module_defs）——用于命中行加权重排
-    raw_terms = {w.lower() for w in re.findall(r"[A-Za-z_][A-Za-z0-9_]{3,}", query)}
-    raw_terms |= set(re.findall(r"[\u4e00-\u9fff]{2,}", query))
-    N = max(1, len(doc_paths))
-    avgdl = sum(doc_len.values()) / max(1, len(doc_len))
-    scores = {}
-    for t in set(q_toks):
-        posts = idx.get(t, [])
-        df = len(posts)
-        idf = math.log(1 + (N - df + 0.5) / (df + 0.5))
-        for fp, tf in posts:
-            dl = doc_len.get(fp, 1)
-            denom = tf + k * (1 - b + b * dl / max(1, avgdl))
-            scores[fp] = scores.get(fp, 0) + idf * tf / denom
-    ranked = sorted(scores.items(), key=lambda x: -x[1])
-    return [(fp, s) for fp, s in ranked if s > 0], raw_terms
+_RX_EXE_NAME = "rx-search.exe"
+
+
+def _rx_search_exe():
+    """定位 rx-search.exe：UNIFIED_RX_RS_EXE 覆盖 → cargo 目标目录惯例路径。
+
+    与 tools/fs.py::_rx_fs_exe 同纪律：候选必须是已存在且文件名恰为
+    rx-search.exe 的常规文件（argv 固定前缀、list 形式、无 shell，
+    env 覆盖不构成任意命令执行面）。
+    """
+    cand = []
+    override = os.environ.get("UNIFIED_RX_RS_EXE")
+    if override:
+        cand.append(override)
+    tmp = os.environ.get("TEMP", r"C:\Temp")
+    cand += [os.path.join(tmp, "rx-rs-target", kind, _RX_EXE_NAME)
+             for kind in ("release", "debug")]
+    for c in cand:
+        if os.path.isfile(c) and os.path.basename(c) == _RX_EXE_NAME:
+            return c
+    return None
+
+
+def _rx_search_call(root, query, k):
+    """薄壳转调 rx-search.exe，返回结果 dict；用法级拒绝 raise ValueError。"""
+    exe = _rx_search_exe()
+    if not exe:
+        raise ValueError("rx-search.exe 不存在——先在 rust/ 下 cargo build --release "
+                         "（或设 UNIFIED_RX_RS_EXE 指向现有 exe）")
+    try:
+        cp = subprocess.run([exe, root, query, str(k)], capture_output=True,
+                            text=True, encoding="utf-8", errors="replace", timeout=120)
+    except subprocess.TimeoutExpired:
+        raise ValueError("rx-search 超时（120s）")
+    tail = (cp.stderr or "").strip()[-300:]
+    lines = (cp.stdout or "").strip().splitlines()
+    if not lines:
+        raise ValueError(f"rx-search 无输出（exit={cp.returncode}）: {tail}")
+    try:
+        out = json.loads(lines[-1])
+    except ValueError:
+        raise ValueError(f"rx-search 输出非 JSON: {lines[-1][:200]}")
+    if cp.returncode == 2:
+        # 用法级拒绝（缺参数）→ 与 fs 壳同走 ValueError 包络
+        raise ValueError(out.get("error") if isinstance(out, dict) else lines[-1])
+    if cp.returncode != 0:
+        raise ValueError(f"rx-search 执行失败（exit={cp.returncode}）: {tail}")
+    return out
 
 
 @tool("code_search", "语义代码检索（BM25 符号加权：中文/英文/标识符 → 文件:行）", "search",
@@ -162,39 +135,7 @@ def code_search(query, root=None, k=10):
     root = os.path.abspath(root or os.getcwd())
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
-    idx, doc_len, doc_paths = _get_index(root)
-    ranked, raw_terms = _bm25(idx, doc_len, doc_paths, query)
-    hits = []
-    cache = {}      # S13：fp→lines 复用（同一文件多命中免重复读盘）
-    for fp, score in ranked[:k * 2]:
-        try:
-            lines = cache.get(fp)
-            if lines is None:
-                with open(fp, "r", encoding="utf-8", errors="replace") as f:
-                    lines = f.readlines()
-                cache[fp] = lines
-        except OSError:
-            continue
-        best_line, best_score = 1, 0
-        q_toks = set(_tokenize(query))
-        for i, line in enumerate(lines, 1):
-            lt = set(_tokenize(line))
-            hit = len(lt & q_toks)
-            low = line.lower()
-            # 连续符号精确出现（raw term 原文在行内）给足额加分 → 精确符号置顶
-            for rt in raw_terms:
-                if rt in low:
-                    hit += 6
-                    break
-            if hit > best_score:
-                best_score, best_line = hit, i
-        if best_score == 0 and len(hits) >= k:
-            continue
-        hits.append({"file": fp, "line": best_line, "score": round(score, 3),
-                     "snippet": lines[best_line - 1].strip()[:120] if lines else ""})
-        if len(hits) >= k:
-            break
-    return {"query": query, "total": len(hits), "hits": hits}
+    return _rx_search_call(root, query, k)
 
 
 

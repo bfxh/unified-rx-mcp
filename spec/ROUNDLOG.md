@@ -160,3 +160,12 @@
 - 验收：cargo test 22 绿（fs 13+json 6+taint 3）；pytest 双解释器全绿：3.14=462 passed+2 skipped（pylsp 未装 3.14，旧有 skipif）、3.11=464 passed；release exe 已建（TEMP/rx-rs-target/release/rx-fs.exe，1.3MB）；版本 2.6.0 → 2.7.0
 - 证据：rust/tests/fs_test.rs 13 测（fail-closed/"*"/白名单/穿越/垃圾根/大小写/宽限 realpath/相对路径/换行归一/上限/深度钳制/排序与条目形状）；tests/test_s79_fs_rust.py 9 测（薄壳包络+行为+exe 缺失+schema 不变）
 - 提交：本次
+
+## S80 · search 域第一步：code_search 原生化（rx-search）——对照实验实锤遍历顺序契约
+- 项目：unified-rx-mcp｜时间：2026-09-05
+- 决策：按路线图"纯读先迁"继续，本轮迁 **code_search**（search 域读面主力；code_semantic 留 S81；_tokenize/_fingerprints/_INDEX_EXTS 因 code_semantic 依赖保留在 Python）。删码后 tools/search.py 354→约 300 行，死代码 _index/_get_index/_bm25/S12 指纹缓存三件套全部退役。
+- 交付：①rust/src/search.rs——手写分词器（camel/Pascal 状态机等价原正则 `[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+`：HTTPServer→HTTP+Server、ABCd→AB+Cd 的回溯语义逐例核对）+ 中文 bigram + 39 停用词；BM25（idf=ln(1+(N-df+0.5)/(df+0.5))，k=1.5/b=0.75）+ S13 行重排（查询 token 交集计数 + raw term（≥4 字符标识符/≥2 连续中文）行内精确出现 +6，多 raw term 只加一次）；无沙盒门（与 Python 版一致，S75 定性纯读=本职）；②bin/rx_search.rs（rx-search <root> <query> [k]；exit 0=结果含"不是目录"error，2=用法级"query 必填"）；③tools/search.py 手术式 Edit：code_search 改薄壳 _rx_search_call（与 _rx_fs_call 同纪律：argv 固定、basename 校验、exe 缺失清晰报错），engine.py 降级路径形状不变（file/line/score/snippet）；④crate 2.8.0、server.py 2.7.0→2.8.0。
+- 迁移实测踩坑（本轮最大发现）：**200 文件上限的截断顺序其实有契约**——对照实验首跑 8 查询全 DIFF：'notifySend' py_total=4 vs rs_total=1，py 命中根目录 server.py/registry.py 而 rs 全无。根因：Python os.walk 每层先收本目录文件再下钻（根目录源码优先入库），Rust 初版按字母序混排 DFS，bench/ 字节序排在 conftest.py 之前把 200 名额烧光、根目录源码根本没进语料 → N/df/avgdl 全变、分数系统性漂移。修复：walk 改"每层先文件后目录"（os.walk 结构）+ 目录内 NTFS upcase 排序（os.scandir 在 NTFS 按 $UpCase 返回，字节序会把大写文件排到小写目录前）+ 符号链接不下钻（followlinks=False）+ 读取失败名额照烧文档不入库（等价 OSError continue）。重跑 8 查询全 PARITY（文件多重集+行号+分数 ±0.001；tie 顺序按 tie 无关口径比——Python 侧 set 迭代本就不稳定）。
+- 契约变化（3 处，均有意为之并记档）：①空查询 total=0 → 显式拒绝"query 必填"；②engine.py BM25 降级路径 exe 缺失从"静默空结果"变 ValueError→ok:false（不静默降级政策）；③S12 进程内指纹缓存退役——短命 exe 无从缓存，实测冷调全流程 ~140ms（进程+建索引+查询，3 次取样 136-141ms）vs 旧 Python 首查 297ms（缓存复查 8.1ms）：零星调用形态下冷调快一倍，紧循环复查变慢属可接受代价。
+- 证据：rust/tests/search_test.rs 10 测（分词 camel/snake/整词/CJK bigram/停用词、raw_terms 最短长度、混合查询、行重排精确符号置顶、非目录、空查询、k 上限、**201 文件判别法**（a.py+z.py+sub/199 个——字母序混排必使 z.py 落榜、先文件后目录必入选）、跳过 .git 与 .txt）；tests/test_s80_search_rust.py 10 测（registry 包络+空查询 exit2+201 判别+exe 缺失+schema 不变+engine 位置参数兼容）；cargo 32 绿（fs 13+json 6+search 10+taint 3）；pytest 3.14=472 passed+2 skipped / 3.11=474 passed 全绿
+- 提交：本次
