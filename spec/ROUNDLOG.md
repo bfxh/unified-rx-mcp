@@ -123,3 +123,9 @@
 - 决策：接手另一会话（VoxelForge 实机踩坑：四轮弹跳床/ LockedAxes 魔数/Static 体带速度）沉淀未提交的 avian3d 规则 3 条（bevy.py），逐条核实规则与真仓命中属实后修三处缺口：①bevy_phys_static_with_velocity 第三分支无 spawn 锚——上一条 Dynamic spawn 的速度逗号 + 200 字符内另一条 Static spawn 会跨语句误连，补 spawn 元组锚；②bevy_phys_manual_support_force severity info→med——手写 Vec3::Y 支撑力各执行器封顶≠总和有界（四轮同压可叠 3×车重），是真实物理 bug 面不是提示；③bug_scan 交付前按严重度排序（scan.py）——registry 出口 200/页分页 + 文件序会让新规则命中沉到第 2 页之后（VoxelForge crates 实测 1808 条/10 页，排序前 med 命中完全不可见，"机器自动拦"失效），排序纪律与 code_review S65 出口一致
 - 证据：tests/test_bevy.py 6 测试（含跨语句 FP 守卫 + med 断言）；全量 pytest 397 passed；cursor 分页复验 VoxelForge 4 命中全部存在——med vehicle.rs:745 回到第一页，info sync.rs:371/397/591
 - 提交：本次
+
+## S75 · 权力面全面盘点：PS 注入实锤 + 破坏性/隐私面挂门 + manifest 动态高权限
+- 项目：unified-rx-mcp｜时间：2026-09-05
+- 决策：S74 落地后应用户"还有什么可以加强"做权力面全面盘点（全部 55 工具 × 授权门/沙盒/真实执行点三列交叉），实锤 4 处收口：①blender_verify 实锤双洞——screenshot_path 原样拼进 PowerShell 单引号字符串（$bmp.Save('{shot}')，路径含 ' 即逃逸注入任意 PS 命令）+ 全屏截屏=隐私面 + spawn powershell=执行面，全部无门 → requires_auth + screenshot_path 过沙盒（默认路径固定可信免检）+ _ps_quote 单引号转义（'' 成对）；②process 的 taskkill /F /IM|/PID 可杀任意进程（含宿主自身），argv 形式无 shell 注入但破坏性动作无门 → requires_auth（list 查询一并过门，工具级先例 code_coverage）；③backup action=backup 把任意 root 全量打包 zip（S73 app_clone 同级隐私面），root 只 abspath → requires_auth + root 过沙盒；④engine_query root 喂 codegraph CLI（-p）与 BM25 不钳 → 过沙盒（S73 dep_graph 同纪律）。capability_manifest 新增"高权限"段——从 list_tools 的 __authorized 声明（S72b）反向动态读出，新挂门工具自动进清单，落实前会话"eval 等标高权限"建议且免手工维护。盘点确认不动：game_check/bug_scan 等（纯读分析=本职）、ide_lsp（固定 cmd）、scan_log（写固定 ~/.unified-rx）、meta.py 命令白名单（无 & | ; $ `）
+- 证据：tests/test_s75_power_gates.py 14 测试（授权门×3、schema 声明×3、沙盒拒绝×3、_ps_quote 转义、无 Blender 干净返回 mock tasklist、备份 roundtrip、manifest 高权限含全部 7 个关键工具）；全量 pytest 411 passed
+- 提交：本次

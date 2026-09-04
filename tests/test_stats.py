@@ -29,7 +29,7 @@ def test_scan_log_trend_and_projection_shape():
 
 def test_backup_requires_root():
     """T3: backup 无 root 正确拒绝（错误语义统一后为顶层 ok:false）。"""
-    r = registry.call("backup", {})
+    r = registry.call("backup", {"__authorized": True})  # S75 挂门后先过授权再查 root
     assert not r["ok"], f"缺 root 应拒绝: {r}"
     assert "root" in r.get("error", "")
 

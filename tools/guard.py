@@ -33,10 +33,18 @@ def capability_manifest():
     for t in tools:
         g = t.get("_group", "misc")
         groups.setdefault(g, []).append(t["name"])
+    # S75：高权限清单动态生成——list_tools 已按 requires_auth 注入 __authorized
+    # 声明（S72b），此处反向读出，新挂门工具自动进清单，不再靠手写维护
+    gated = sorted(t["name"] for t in tools
+                   if "__authorized" in (t["inputSchema"].get("required") or []))
     return {
         "定位": "工具箱，不是智能体；产出证据与事实，不替代 LLM 推理",
         "有": _CAPABILITIES["有"],
         "没有": _CAPABILITIES["没有"],
+        "高权限": {
+            "说明": "以下工具须调用方显式传 __authorized:true 授权确认（写/执行/隐私面）",
+            "工具": gated,
+        },
         "工具面": f"{len(tools)} 工具",
         "分组": groups,
     }

@@ -15,6 +15,7 @@ import json
 import subprocess
 
 from registry import tool
+from tools.fs import _resolve as _fs_resolve
 
 CODEGRAPH_RT = r"D:\rj\AI\Yan Agent\resources\codegraph-runtime"
 NODE = os.path.join(CODEGRAPH_RT, "node.exe")
@@ -87,6 +88,12 @@ def engine_status():
        },
        "required": ["query", "root"]})
 def engine_query(query, root, limit=10):
+    # S75：root 喂给 codegraph CLI（-p）与 BM25 检索，路径必须钳进沙盒
+    # （S73 dep_graph/module_stability 同纪律：带路径跑外部程序的同类面）
+    try:
+        root = _fs_resolve(root)
+    except ValueError as e:
+        return {"error": str(e)}
     # 1. codegraph 优先
     if _cg_available():
         # 项目需已 init（.codegraph 目录存在）
