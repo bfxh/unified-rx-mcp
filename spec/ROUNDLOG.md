@@ -142,3 +142,12 @@
 - 顺带修：记账实测暴露 severity 词表暗门——astscan/scan 三处把 med 写成 "medium"，S74 排序表只认 med，这些命中被当 info 沉出第一页（S74 失效模式换个门又进来），统一为 med。接手并行会话对 bevy_query_single 消息文本的甄别更新（09-05 实查 11 处 .single() 全部正确 else-return 零真险，severity 维持 low）
 - 证据：tests/test_s77_auth_gate_sweep.py 4 测试（全清洁断言/挂门清单含 8 已知工具/纯函数坏样本三种必抓/manifest 双投影一致）；auth_gate_sweep 一键 56 工具 ok:True（挂门 17/手动门 1）；全量 pytest 415 passed
 - 提交：本次
+
+## S78 · P1-a + P1-c 落地：污点引擎与协议层 Rust 化（用户决策"PY换Rust"）
+- 项目：unified-rx-mcp｜时间：2026-09-05
+- 决策：应用户"PY换Rust搞的污点分析和协议层，先把这两件做完，再把大部分功能替换成Rust"，P1-a/P1-c 改道 Rust 施工，迁移路线图成文进 spec/VULN-HUNTING.md 五。红线镜像 Python 侧纯 stdlib：Cargo `[dependencies]` 恒空、零第三方 crate，JSON 与 Python 词法器全部手写。
+- 交付：①`rust/` cargo workspace（unified-rx-rs v2.6.0）：json.rs 手写解析/序列化（MAX_DEPTH 512 防栈溢出；id 全保真升级 i128，2^70 往返精确）；rx-mcp 独立 MCP stdio 协议层（newline JSON-RPC、通知静默不回、64MB 行帽）；rx-taint 污点引擎——Python 子集词法器（三引号/续行/原始串转义）、缩进作用域、来源→汇点浅数据流、净化器区（basename/secure_filename/int/_fs_resolve/.name/.stem 使用点与赋值尾双净化）、方法形式调用双记（p.write_text）、点链基变量接收者传播；②入口点污点模型：`@tool` 装饰=宿主可达边界，入口形参 definite / 内部 helper 形参 clue（pass2 实参回溯只升不降），S73 人工"暴露面"triage 从此机器化，clue 行仍全量报告只分级不隐藏；③协议 fuzz 电池 tests/test_s78_protocol_fuzz.py 32 测双靶（python + rust exe 自动发现）：非对象消息/错型 params/深嵌套 3000/50 通知风暴不回/id 全类型保真/畸形字节/BOM/1MB 行/沙盒外 tools/call——包络断言+存活探针；④server.py 首跑抓 4 类当日修：非 dict 消息 .get 崩、params 非 dict 崩、深嵌套 RecursionError 崩、通知被误回污染输出流；⑤attack 域 rust_taint_scan（Python 壳调 exe，root 过 _fs_resolve 沙盒，exe 发现可 env 覆盖，缺失时清晰报错不静默降级）。
+- 验收：cargo test 9 绿（json 6 + taint 3）；pytest 全量 454 passed（S77 基线 415）；S73 重放通过——REPLAY S73 snapshot=395e4cd files=119 taint_definite=130 taint_all=627 naive=755 reals=3/3（3 真问题全部 definite，definite ≤ ½ naive 达标 130 ≤ 377）；重放前修两处词法器缺陷（原始串 `\"` 不终止、多行串行号传播）——重放靶场自己就是验收器
+- 顺带：Mimosa PreToolUse 钩子对重放测试 tarfile/extractall 与字面 ".." 的 advisory 经甄别记为误报（tar 源=自仓固定 commit 的 git archive + 成员白名单，".." 仅净化变量名），不阻断；钩子拦动态子进程派生致 rx-mcp 转发代理形态推迟 S79 评估，独立协议实现先行落地
+- 证据：tests/test_s78_rust_taint_tool.py 6 测（注册/schema/发现/naive 模式/沙盒拒绝/exe 缺失干净报错）；tests/test_s78_replay_s73.py 重放验收常驻 pytest；版本 2.5.11 → 2.6.0
+- 提交：本次

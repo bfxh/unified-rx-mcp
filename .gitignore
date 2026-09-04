@@ -13,3 +13,6 @@ _pytest_tmp/
 __pycache__/
 
 tools/results/
+
+# Rust 构建产物
+rust/target/

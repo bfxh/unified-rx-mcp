@@ -1,0 +1,24 @@
+[package]
+name = "unified-rx-rs"
+version = "2.6.0"
+edition = "2021"
+description = "unified-rx Rust 化地基（S78）：零依赖 JSON + MCP stdio 协议层 + 污点引擎"
+# 迁移红线（spec/VULN-HUNTING.md 五）：[dependencies] 恒空——与 Python 侧纯 stdlib 同纪律。
+# 新增任何第三方 crate 前必须先改红线文档并说明理由。
+
+[dependencies]
+
+[lib]
+name = "rxrs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rx-mcp"
+path = "src/bin/rx_mcp.rs"
+
+[[bin]]
+name = "rx-taint"
+path = "src/bin/rx_taint.rs"
+
+[profile.release]
+opt-level = 2

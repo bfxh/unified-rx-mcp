@@ -25,7 +25,7 @@ import tools  # noqa: F401
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.5.11"
+SERVER_VERSION = "2.6.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -85,7 +85,10 @@ def _handle(msg):
                 "error": {"code": -32600, "message": "Invalid Request: jsonrpc must be 2.0"}}
     method = msg.get("method")
     msg_id = msg.get("id")
-    params = msg.get("params") or {}
+    # S78 加固①：params 非对象一律按缺省处理（fuzz 实锤 notifications/cancelled
+    # 的 list params 会在 (params or {}).get 上炸掉主循环）
+    raw_params = msg.get("params")
+    params = raw_params if isinstance(raw_params, dict) else {}
 
     if method == "initialize":
         return {
@@ -144,6 +147,10 @@ def _handle(msg):
             "id": msg_id,
             "result": {"content": content, "isError": not result.get("ok")},
         }
+    # S78 加固②：通知（无 id）永不回包——未知通知回 UNKNOWN_METHOD 会以 id:null
+    # 污染宿主的响应配对（fuzz 电池实锤，与 Rust 协议层纪律对齐）
+    if "id" not in msg:
+        return None
     return {
         "jsonrpc": "2.0",
         "id": msg_id,
@@ -194,9 +201,14 @@ def main():
             continue
         try:
             msg = json.loads(line)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
+            # S78 加固③：深嵌套触发 RecursionError 与畸形 JSON 同待遇——吞掉不崩
             continue
-        if msg.get("method") == "tools/call":
+        # S78 加固④：顶层非对象（[]/123/"x"）不是合法消息，静默跳过
+        # （fuzz 实锤 [] 会在下方 msg.get 上炸掉主循环）
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("method") == "tools/call" and "id" in msg:
             msg_id = msg.get("id")
             # S3-B3/S10：登记可取消旗标；完成/取消后清理（实现已迁至 registry）
             ev = registry.register_cancel(msg_id)
