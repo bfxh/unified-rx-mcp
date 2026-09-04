@@ -11,6 +11,7 @@ import time
 import re
 
 from registry import tool
+from tools.fs import _resolve as _fs_resolve
 
 _DEFAULT_LESSONS = os.path.join(os.path.expanduser("~"), ".unified-rx", "lessons.jsonl")
 
@@ -72,7 +73,14 @@ def _kw_hits(query, text):
        },
        "required": ["action"]})
 def lesson(action, task_description=None, text=None, lessons_dir=None):
-    path = lessons_dir or _DEFAULT_LESSONS
+    # S73：默认库路径固定可信免检；显式 lessons_dir 必须过沙盒（防任意路径写 JSONL）
+    if lessons_dir:
+        try:
+            path = _fs_resolve(lessons_dir)
+        except ValueError as e:
+            return {"error": f"lessons_dir {e}"}
+    else:
+        path = _DEFAULT_LESSONS
     if action == "add":
         if not text:
             return {"error": "add 需要 text"}

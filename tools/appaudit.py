@@ -98,8 +98,11 @@ def _strictly_under(p, root=None):
            "max_files": {"type": "integer", "description": "文件数上限（默认 20000）"},
            "max_bytes": {"type": "integer", "description": "总字节数上限（默认 3GB）"},
        },
-       "required": ["source_dir"]})
-def app_clone(source_dir, max_files=20000, max_bytes=3 * 1024 * 1024 * 1024):
+       "required": ["source_dir"]},
+      requires_auth=True)
+def app_clone(source_dir, max_files=20000, max_bytes=3 * 1024 * 1024 * 1024,
+              __authorized=False):
+    del __authorized  # S73：整目录读取=隐私面（fs_read 够不着的沙盒外目录），授权由 registry 统一强制
     if not isinstance(source_dir, str) or not source_dir.strip():
         return {"error": "source_dir 必须是非空字符串"}
     src = Path(source_dir.strip())

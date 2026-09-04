@@ -111,3 +111,9 @@
 - 决策：宿主（Yan Agent/opencode）侧诊断实锤"token 被吞 + 多轮修不到根因"后，修本仓三处信息损失：①registry.call 异常附 error_detail（堆栈尾部 1000 字符），server ERROR 行拼 DETAIL——单行 error 模型看不到出错位置只能瞎猜；②_clamp 全字段独立处理 + 嵌套限深递归（旧版单字段 break，子 dict 里的大 list/str 漏网；顶层 S10 cursor 分页契约不变）；③local_run UTF-8 优先解码（旧版固定 GBK，UTF-8 输出乱码）+ 失败放宽尾巴 12000/4000（UNIFIED_RX_RUN_TAIL_FAIL 可覆盖，成功维持 3000/1000）。另修 server.py 缺 import time——S69/S71 自动体检线程启动即 NameError 被 except 静默吞，从未真正跑过；tools/__init__ __all__ 剔除不存在的 pure/collab（补 lsp）；code_review bug_scan 透镜静默 except 补协议日志
 - 证据：tests/test_s72_errors_clamp.py 13 测试；全量 pytest 382 passed；--selftest 55 工具/12 域/schema 0 bad
 - 提交：本次
+
+## S73 · 深度扫描实锤三处修复：授权门 + 沙盒钳制 + 扫描标准成文
+- 项目：unified-rx-mcp｜时间：2026-09-04
+- 决策：Mimosa 深度扫描（scan-2026-09-04T15-42-49，seal sha256:32bfc234）58 条发现逐条人工对照源码核实，真问题 3 处全修：①code_coverage 跑任意脚本却无 requires_auth、script/source_dir 只 abspath 不过沙盒（违反 S62"跑程序=任意代码执行必须授权"）→ 挂授权门 + _fs_resolve；②lesson 显式 lessons_dir 可任意路径写 JSONL → 过沙盒（默认库路径固定可信免检，保持可用）；③app_clone 整目录读取（fs_read 够不着的隐私面）挂 requires_auth。顺手收口 dep_graph/module_stability 读路径钳制（核实扫描误报时发现的同类缺口）。其余 55 条核实为误报（约 40 条 bench/ 为不暴露面本地脚本；fs/ide_edit/lsp/game/meta 各指控入口均有 _fs_resolve 或硬编码 127.0.0.1）。应用户要求落 spec/SCAN-POLICY.md 扫描标准：禁自扫、独立智能体执行、副本沙箱隔离、静态只是初筛、动态+模拟复合验证、结论纪律
+- 证据：tests/test_s73_scan_findings.py 12 测试；全量 pytest 395 passed；--selftest 55 工具/12 域/schema 0 bad
+- 提交：本次
