@@ -1,6 +1,6 @@
 [package]
 name = "unified-rx-rs"
-version = "2.7.0"
+version = "2.8.0"
 edition = "2024"
 description = "unified-rx Rust 化（S78 地基 + S79 起逐域原生实现）：零依赖 JSON + MCP stdio 协议层 + 污点引擎 + fs 读面"
 # 迁移红线（spec/VULN-HUNTING.md 五）：[dependencies] 恒空——与 Python 侧纯 stdlib 同纪律。
@@ -23,6 +23,10 @@ path = "src/bin/rx_taint.rs"
 [[bin]]
 name = "rx-fs"
 path = "src/bin/rx_fs.rs"
+
+[[bin]]
+name = "rx-search"
+path = "src/bin/rx_search.rs"
 
 [profile.release]
 opt-level = 2
