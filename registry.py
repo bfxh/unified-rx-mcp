@@ -174,11 +174,15 @@ def _validate_schema(schema, a):
     return None
 
 
-def tool(name, description="", group="misc", schema=None, requires_auth=False):
+def tool(name, description="", group="misc", schema=None, requires_auth=False,
+         manual_gate=False):
     """工具注册装饰器。schema 为 JSON Schema（inputSchema），缺省空对象。
 
     requires_auth=True：写/执行类工具。call() 统一强制 args["__authorized"] is True，
     一层防线——工具函数不再各自手写 if 检查，新增工具漏配在 selftest 即暴露。
+    manual_gate=True：单工具混合读写时（读开放 + 写动作在 handler 内自查
+    __authorized，如 ide_lsp 的 rename_apply），向 auth_gate_sweep（S77）显式声明
+    "门在 handler 里"——避免把合法手动门误报成假门；声明必须紧挨实现，防漂移。
     """
     def deco(fn):
         try:
@@ -191,6 +195,7 @@ def tool(name, description="", group="misc", schema=None, requires_auth=False):
             "group": group,
             "schema": schema or {"type": "object", "properties": {}, "required": []},
             "requires_auth": requires_auth,
+            "manual_gate": manual_gate,
             "params": params,
         }
         return fn

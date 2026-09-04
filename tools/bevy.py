@@ -85,7 +85,7 @@ def bevy_rules():
         ("bevy_old_startup", r"\.add_startup_system\(", "add_startup_system 旧 API——用 .add_systems(Startup, ...)（迁移线索）", "info"),
         ("bevy_event_iter", r"EventReader<[^>]+>\.iter\(", "EventReader.iter 旧 API——用 .read()（迁移线索）", "info"),
         ("bevy_text_old", r"TextBundle\s*\{", "TextBundle 旧式——用 Text::new（迁移线索）", "info"),
-        ("bevy_query_single", r"\.single\(\)", "query.single() 多实体 panic——用 iter（线索）", "low"),
+        ("bevy_query_single", r"\.single\(\)", "query.single() 自 Bevy 0.16 起返回 Result——Err 静默失败是逻辑雷（用 let Ok = .. else return 兜）；.single().unwrap() 才会 panic（09-05 VoxelForge 11 处甄别：全部正确 else-return，零真险）（线索）", "low"),
         # ---- avian3d 物理（VoxelForge 09-04 载具飞天案沉淀）----
         ("bevy_phys_locked_axes_bits", r"LockedAxes::from_bits\(\s*0b",
          "LockedAxes 魔数位——位序易错（VoxelForge 0b000_101 曾误读为锁平移），用具名位常量 ROTATION_X/TRANSLATION_* 核对", "info"),
