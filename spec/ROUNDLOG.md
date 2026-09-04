@@ -117,3 +117,9 @@
 - 决策：Mimosa 深度扫描（scan-2026-09-04T15-42-49，seal sha256:32bfc234）58 条发现逐条人工对照源码核实，真问题 3 处全修：①code_coverage 跑任意脚本却无 requires_auth、script/source_dir 只 abspath 不过沙盒（违反 S62"跑程序=任意代码执行必须授权"）→ 挂授权门 + _fs_resolve；②lesson 显式 lessons_dir 可任意路径写 JSONL → 过沙盒（默认库路径固定可信免检，保持可用）；③app_clone 整目录读取（fs_read 够不着的隐私面）挂 requires_auth。顺手收口 dep_graph/module_stability 读路径钳制（核实扫描误报时发现的同类缺口）。其余 55 条核实为误报（约 40 条 bench/ 为不暴露面本地脚本；fs/ide_edit/lsp/game/meta 各指控入口均有 _fs_resolve 或硬编码 127.0.0.1）。应用户要求落 spec/SCAN-POLICY.md 扫描标准：禁自扫、独立智能体执行、副本沙箱隔离、静态只是初筛、动态+模拟复合验证、结论纪律
 - 证据：tests/test_s73_scan_findings.py 12 测试；全量 pytest 395 passed；--selftest 55 工具/12 域/schema 0 bad
 - 提交：本次
+
+## S74 · avian3d 物理规则落地 + bug_scan 分页埋没问题修复
+- 项目：unified-rx-mcp｜时间：2026-09-05
+- 决策：接手另一会话（VoxelForge 实机踩坑：四轮弹跳床/ LockedAxes 魔数/Static 体带速度）沉淀未提交的 avian3d 规则 3 条（bevy.py），逐条核实规则与真仓命中属实后修三处缺口：①bevy_phys_static_with_velocity 第三分支无 spawn 锚——上一条 Dynamic spawn 的速度逗号 + 200 字符内另一条 Static spawn 会跨语句误连，补 spawn 元组锚；②bevy_phys_manual_support_force severity info→med——手写 Vec3::Y 支撑力各执行器封顶≠总和有界（四轮同压可叠 3×车重），是真实物理 bug 面不是提示；③bug_scan 交付前按严重度排序（scan.py）——registry 出口 200/页分页 + 文件序会让新规则命中沉到第 2 页之后（VoxelForge crates 实测 1808 条/10 页，排序前 med 命中完全不可见，"机器自动拦"失效），排序纪律与 code_review S65 出口一致
+- 证据：tests/test_bevy.py 6 测试（含跨语句 FP 守卫 + med 断言）；全量 pytest 397 passed；cursor 分页复验 VoxelForge 4 命中全部存在——med vehicle.rs:745 回到第一页，info sync.rs:371/397/591
+- 提交：本次

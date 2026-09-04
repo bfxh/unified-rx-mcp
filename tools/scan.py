@@ -341,6 +341,12 @@ def bug_scan(path, max_files=MAX_FILES):
         by_rule[i["rule"]] = by_rule.get(i["rule"], 0) + 1
         sev = i.get("severity", "info")
         by_sev[sev] = by_sev.get(sev, 0) + 1
+    # S74：交付前按严重度排序——registry 出口 200/页分页，文件序会让高危/新规则
+    # 沉到第 2 页之后（VoxelForge 实测：物理规则命中全部被挤出第一页，机器自动拦失效；
+    # 排序纪律与 code_review 的 S65 出口一致）
+    issues.sort(key=lambda x: (
+        {"high": 0, "med": 1, "low": 2, "info": 3}.get(x.get("severity"), 3),
+        x.get("file", ""), x.get("line", 0)))
     # UPGRADE-C1：全量保留交给 registry._clamp 统一分页（tool 内不再私自截断丢信息）
     return {"files": files_scanned, "total": len(issues),
             "by_rule": by_rule, "by_severity": by_sev,
