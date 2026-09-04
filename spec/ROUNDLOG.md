@@ -129,3 +129,9 @@
 - 决策：S74 落地后应用户"还有什么可以加强"做权力面全面盘点（全部 55 工具 × 授权门/沙盒/真实执行点三列交叉），实锤 4 处收口：①blender_verify 实锤双洞——screenshot_path 原样拼进 PowerShell 单引号字符串（$bmp.Save('{shot}')，路径含 ' 即逃逸注入任意 PS 命令）+ 全屏截屏=隐私面 + spawn powershell=执行面，全部无门 → requires_auth + screenshot_path 过沙盒（默认路径固定可信免检）+ _ps_quote 单引号转义（'' 成对）；②process 的 taskkill /F /IM|/PID 可杀任意进程（含宿主自身），argv 形式无 shell 注入但破坏性动作无门 → requires_auth（list 查询一并过门，工具级先例 code_coverage）；③backup action=backup 把任意 root 全量打包 zip（S73 app_clone 同级隐私面），root 只 abspath → requires_auth + root 过沙盒；④engine_query root 喂 codegraph CLI（-p）与 BM25 不钳 → 过沙盒（S73 dep_graph 同纪律）。capability_manifest 新增"高权限"段——从 list_tools 的 __authorized 声明（S72b）反向动态读出，新挂门工具自动进清单，落实前会话"eval 等标高权限"建议且免手工维护。盘点确认不动：game_check/bug_scan 等（纯读分析=本职）、ide_lsp（固定 cmd）、scan_log（写固定 ~/.unified-rx）、meta.py 命令白名单（无 & | ; $ `）
 - 证据：tests/test_s75_power_gates.py 14 测试（授权门×3、schema 声明×3、沙盒拒绝×3、_ps_quote 转义、无 Blender 干净返回 mock tasklist、备份 roundtrip、manifest 高权限含全部 7 个关键工具）；全量 pytest 411 passed
 - 提交：本次
+
+## S76 · 漏洞挖掘加强计划成文（文档轮，先文档后施工）
+- 项目：unified-rx-mcp｜时间：2026-09-05
+- 决策：应用户"找漏洞需要再次的加强，先写文档"，落 spec/VULN-HUNTING.md。定位：SCAN-POLICY 管纪律、EVAL 管度量、本文管能力建设，三者互不重复。内容：①现状盘点带数字（bug_scan 规则 19 条=Rust 8/通用 3/bevy 8、attack 域 3 工具、S74 排序、S75 盘点法、H3 门槛）；②短板 5 条诚实清单（规则靠踩坑无覆盖图/动态验证停留在口号/授权门无自审/误报无台账/结论无量化格式）；③P0 三项带验收标准——auth_gate_sweep 自审工具（全 55 工具双向查门，S75 人眼盘点法固化成工具）、规则入库三件套成文（规则+误报守卫+真仓第一页可见，S74 为范例档案见附录 A）、扫描量化记账（双靶场副本+四格数字进 ROUNDLOG+H3 样本扩容）；④P1 三项（Python AST 污点轻量版带回放验收：S73 的 3 真 55 误报为题库/规则覆盖矩阵"查不了"如实入表/协议层 fuzz 进电池）；⑤P2 三项方向（调用图定位/教训库召回/tag 前独立深扫常态化）；⑥明确不做：重型 SAST 进仓/宿主自扫/低质规则凑数/"扫了=没有"承诺。里程碑：S77=P0 三件、S78=P1a+c
+- 证据：纯文档轮，代码零改动，版本维持 2.5.10；现状数字全部来自当轮实查（grep/registry 探针）
+- 提交：本次
