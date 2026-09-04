@@ -1,0 +1,3 @@
+# mingw ld 在含中文的路径下链接失败：target-dir 挪到纯 ASCII 临时目录（本机 workaround，S78）
+[build]
+target-dir = "C:/Users/lbx13/AppData/Local/Temp/rx-rs-target"

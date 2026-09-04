@@ -11,6 +11,7 @@
 - big_input        : 大输入边界（1MB 字符串/超大 list/深嵌套）
 - auth_gate_sweep  : 授权门自审（S77，全工具双向查门，S75 人眼盘点法固化成工具）
 """
+import json
 import os
 
 import registry  # 显式导入：path_probe 依赖此处的 registry.call（不要用延迟属性）
@@ -211,3 +212,64 @@ def auth_gate_sweep():
             "门参数未强制": forced_missing, "手动门": manual,
             "manifest一致性": "pass" if not diff else f"fail: {diff}",
             "ok": ok}
+
+
+# ---- S78：Rust 污点引擎接入（spec/VULN-HUNTING.md P1-a）--------------------
+# rx-taint.exe 由 rust/ 工作区产出（零第三方 crate，与 python 纯 stdlib 同纪律）。
+# 薄壳原则：本工具只做沙盒校验 + 进程编排 + JSON 透传，污点逻辑单一事实源在 Rust。
+
+def _rx_taint_exe():
+    """定位 rx-taint.exe：UNIFIED_RX_RS_EXE 覆盖 → cargo 目标目录惯例路径。
+
+    候选必须是已存在且文件名恰为 rx-taint.exe 的常规文件——env 覆盖不构成
+    任意命令执行面（argv 固定前缀、list 形式、无 shell）。
+    """
+    cand = []
+    override = os.environ.get("UNIFIED_RX_RS_EXE")
+    if override:
+        cand.append(override)
+    tmp = os.environ.get("TEMP", r"C:\Temp")
+    cand += [os.path.join(tmp, "rx-rs-target", kind, "rx-taint.exe")
+             for kind in ("release", "debug")]
+    for c in cand:
+        if os.path.isfile(c) and os.path.basename(c) == "rx-taint.exe":
+            return c
+    return None
+
+
+@tool("rust_taint_scan", "Rust 污点引擎（S78）：来源→汇点浅数据流扫 Python 代码；"
+                         "形参即来源（MCP 威胁模型），净化器 basename/secure_filename/"
+                         "int/float/_fs_resolve/.name/.stem 识别；naive=true 跑模式匹配基线对照",
+      "attack",
+      {"type": "object",
+       "properties": {
+           "root": {"type": "string", "description": "扫描根目录或单个 .py 文件（沙盒内）"},
+           "naive": {"type": "boolean", "description": "基线模式：任何含变量实参的汇点调用都报（对照用）"},
+       },
+       "required": ["root"]})
+def rust_taint_scan(root, naive=False):
+    try:
+        resolved = fs_tools._resolve(root)   # 与 fs 域同一沙盒钳制，越界即拒
+    except ValueError as e:
+        return {"error": str(e)}
+    exe = _rx_taint_exe()
+    if not exe:
+        return {"error": "rx-taint.exe 不存在——先在 rust/ 下 cargo build --release "
+                         "（或设 UNIFIED_RX_RS_EXE 指向现有 exe）"}
+    import subprocess
+    argv = [exe, resolved] + (["--naive"] if naive else [])
+    try:
+        cp = subprocess.run(argv, capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", timeout=600)
+    except subprocess.TimeoutExpired:
+        return {"error": "rx-taint 超时（600s）", "root": resolved}
+    if cp.returncode != 0:
+        return {"error": f"rx-taint 退出码 {cp.returncode}",
+                "stderr_tail": (cp.stderr or "")[-500:]}
+    try:
+        out = json.loads(cp.stdout)
+    except json.JSONDecodeError:
+        return {"error": "rx-taint 输出不是合法 JSON", "stdout_head": cp.stdout[:300]}
+    out["root"] = resolved
+    out["naive"] = bool(naive)
+    return out

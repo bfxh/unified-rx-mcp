@@ -42,6 +42,7 @@ feat/* 分支开发
 - main 分支 = **只放已测试的代码**，不允许直接 push 功能提交
 - feat/* 分支 = 开发区，可以随意提交
 - 每次合入 main 前：pytest 全绿 + 至少一个新测试覆盖新功能
+- 涉及 rust/ 时（S78 起）：pytest + cargo test **双绿**才算全绿，单边绿不合入
 - tag 格式：v主.次.修
 
 ## 扫描规则入库三件套（S77，VULN-HUNTING P0-b 成文）

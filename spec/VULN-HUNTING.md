@@ -85,21 +85,38 @@
 
 验收：S76 轮起 ROUNDLOG 出现四格数字；EVAL.md H3 表新增"样本量"列。
 
-### P1（下一档，各需一轮施工）
+### P1（S78 起改道 Rust——用户决策：污点与协议层用 Rust 写，后续大部分功能逐步替换）
 
-- **P1-a AST 污点轻量版（Python）**：从"模式匹配"升级到"来源→汇点"浅数据流——
-  汇点先做四个实锤过的：`eval/exec`、`subprocess(shell=True, cmd=含变量的串)`、
-  `os.system(拼接)`、SQL 字符串拼接；来源先认函数参数与文件读。验收：对 S73 深扫
-  的 3 条真问题和 55 条误报回放，污点版至少把"路径穿越 40 条误报"那类压掉一半，
-  且 3 条真问题一条不漏。
+- **P1-a 污点轻量版（引擎 = Rust `rx-taint`）**：从"模式匹配"升级到"来源→汇点"
+  浅数据流。引擎用 Rust 手写（零第三方 crate，与 Python 侧"纯 stdlib"同纪律）：
+  Python 子集词法器（含三引号/f-string/续行）+ 缩进作用域 + 变量污点传播；
+  来源 `sys.argv/input()/os.environ/request.*`，汇点 `eval/exec`、`subprocess/*`、
+  `os.system`、`open/os.remove/rename/...`、SQL `.execute`；净化器 `os.path.basename/
+  .name/secure_filename/int()` 与本仓 `_fs_resolve`（S73 修复方式即净化器）。
+  暴露：attack 域 `rust_taint_scan` 工具（Python 壳调 exe，路径过沙盒）。
+  验收：S73 深扫重放——修复前快照（git 395e4cd）上 3 条真问题一条不漏；
+  55 条误报坐标上，当前 main 的命中数 ≤ 修复前快照命中数的一半。
+  落地注记（S78，已过）：精度机制定为**入口点污点模型**——`@tool` 装饰即 MCP 宿主
+  可达边界，入口形参=definite 来源，内部 helper 形参=clue 级线索（pass2 实参回溯
+  只升不降，宿主来源 argv/env/input/net 恒 definite）；S73 人工"暴露面"triage 从此
+  机器化。重放实测 definite=130 ≤ ½ naive(755)=377，3 真全 definite；clue 行仍全量
+  报告只分级不隐藏。
 - **P1-b 规则覆盖矩阵**：语言（Python/Rust/GDScript/C#/JS）× 类别（注入/路径/并发/
   资源/逻辑/物理引擎陷阱）一张表，逐格标"有规则/原理上查不了/空白"，空白格按踩坑
   概率排优先级。验收：矩阵进本文件附录，"查不了"的格子写明原因（数据流/跨文件/
   运行时状态），不给用户"扫了=没这类问题"的错觉。
-- **P1-c 协议层 fuzz 进电池**：在 attack 域加 `protocol_fuzz`——畸形 JSON-RPC、
-  超长 id、并发同 id、取消风暴、tools/list 后立即 tools/call 竞态，全部要求结构化
-  响应不崩（继承 input_fuzz 的"绝不崩"标准，但打到 stdio 协议层而非工具层）。
-  验收：battery 一键四类用例（对应 SCAN-POLICY 四类动态验证），测试常驻。
+- **P1-c 协议层 fuzz 双靶进电池**：协议层本身 Rust 化（`rx-mcp`：零依赖 JSON 解析 +
+  MCP stdio JSON-RPC + 转发代理到 python server.py，未来成为宿主入口）；fuzz 电池
+  （pytest 常驻）对**两个协议层**都打——畸形 JSON、合法 JSON 但非对象、错型 params、
+  超长行/超大串/深嵌套、错型 id、通知后 ping 排水、沙盒外路径的 tools/call——
+  全部要求结构化响应不崩、进程存活（继承 input_fuzz 的"绝不崩"标准，打到 stdio
+  协议层而非工具层）。验收：电池一键两靶全绿；首跑在 python 侧抓到的崩溃类
+  （非 dict 消息 msg.get 崩 / params 数组崩 / 深嵌套 RecursionError 崩）当日修复。
+  落地注记（S78，已过）：rx-mcp 以**独立协议实现**落地（解析/分发/tools+ping 直答
+  ，通知静默、id 经 i128 全保真）；"转发代理到 python server.py"形态因 Mimosa
+  PreToolUse 钩子拦截动态子进程派生而推迟到 S79 评估，不阻塞本项。首跑实抓 4 类
+  python 崩溃/污染（上述 3 类 + 通知被误回污染输出流），全部当日修复并入电池回归，
+  双靶 32 测全绿。
 
 ### P2（方向储备，需要时再启动）
 
@@ -129,8 +146,28 @@
 |---|---|
 | S76（本轮） | 本文档落地 |
 | S77 | P0-a + P0-b + P0-c（自审工具 / 规则三件套 / 量化记账） |
-| S78 | P1-a + P1-c（污点轻量版 + 协议 fuzz） |
-| 之后 | P1-b 随规则增长滚动维护；P2 按需启动 |
+| S78 | P1-a + P1-c，Rust 化第一步（rx-taint 污点引擎 + rx-mcp 协议层 + 双靶 fuzz 电池） |
+| 之后 | P1-b 随规则增长滚动维护；Rust 迁移路线图（下节）逐轮推进；P2 按需启动 |
+
+## 五、Rust 迁移路线图（S78 起，用户决策"大部分功能替换成 Rust"）
+
+原则：**渐进替换、随时可用、每轮全绿**。Rust 侧零第三方 crate（Cargo `[dependencies]`
+恒空），与 Python 侧纯 stdlib 同纪律；任何一轮结束时宿主接的入口都必须是完整可用的。
+
+- **S78（已落）**：`rust/` crate 立基——零依赖 JSON 解析/序列化（深嵌套防栈溢出）、
+  `rx-mcp` MCP stdio 协议层（转发代理到 python server.py，未来替换入口）、
+  `rx-taint` 污点引擎（经 attack 域 `rust_taint_scan` 工具暴露）。Python server.py
+  按 fuzz 首跑发现做协议加固。
+- **S79+（逐轮）**：按域把工具的实现迁进 Rust（每轮 1–3 个域，先读后写：scan/fs 类
+  纯读先迁，attack/lsp 次之，写面最后）。形态：rx-mcp 原生实现该工具后即从
+  tools/list 摘掉 Python 版（代理层"原生优先、其余转发"）；Python 侧同名工具保留
+  薄壳转调（exe 缺失时报清晰错误，不静默降级）。
+- **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
+  Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
+  退役；Python 只剩测试电池与文档。
+- **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
+  Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
+  才准合入。
 
 ## 附录 A：规则三件套范例（S74 avian3d 规则档案）
 
