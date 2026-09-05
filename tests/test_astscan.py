@@ -158,15 +158,27 @@ def test_rust_fn_attribution_and_risky_fns(tmp_path):
     assert "clean" not in risky
 
 
-# ---------- 分层声明：掩码状态机单测 ----------
+# ---------- 分层声明：S84 起掩码状态机在 rust/src/astscan.rs（cargo test 覆盖） ----------
 
-def test_mask_preserves_length():
-    src = 'a = `x ${y} z`; b = "s"; // c\n'
-    masked, st = asx._mask_js(src)
-    assert len(masked) == len(src)
-    assert "${y}" in masked          # 插值代码保留
-    assert '"s"' not in masked       # 字符串吞掉
-    assert "// c" not in masked      # 注释吞掉
+def test_old_python_internals_retired():
+    """S84 前的纯 Python 实现已退役：内部函数/正则不得复活（薄壳是唯一路径）。"""
+    for name in ("_JS_SINKS_BARE", "_PY_SINKS_NAME", "_PY_ATTR_SHELL", "_SECRET_SHAPE",
+                 "_scan_python_ast", "_mask_js", "_CALL_RE", "_scan_js_calls",
+                 "_PANIC_CALL_RE", "_SAFE_IDENT", "_MOD_TEST_ATTR", "_mask_rust",
+                 "_scan_rust_struct", "_RUST_IDENT_RE", "_RUST_KEYWORDS",
+                 "_rust_defs_and_refs", "rust_reach"):
+        assert not hasattr(asx, name), name
+    # 薄壳三件套必须保留
+    for name in ("_rx_scan_exe", "_rx_scan_call", "ast_scan"):
+        assert hasattr(asx, name), name
+
+
+def test_exe_missing_raises_clear_error(tmp_path, monkeypatch):
+    """exe 缺失报清晰错误不静默降级：ValueError 指向 cargo build 与 env 覆盖。"""
+    monkeypatch.delenv("UNIFIED_RX_RS_EXE", raising=False)
+    monkeypatch.setenv("TEMP", str(tmp_path))   # 候选路径全部落空（真 TEMP 里有现成 exe）
+    with pytest.raises(ValueError, match="rx-scan\\.exe 不存在"):
+        asx._rx_scan_call(str(tmp_path), 5)
 
 
 def test_node_modules_skipped_in_dir_mode(tmp_path):

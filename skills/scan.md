@@ -1,6 +1,6 @@
 # scan 域（bug_scan/ast_scan/std_check/ui_check/bug_locate/project_scan）
-- 机制：手写匹配器 + AST-lite（S83 起 bug_scan 走自研迷你解析器 pyast.rs；
-  ast_scan 仍 Python ast 模块）——**非编译器语义**
+- 机制：手写匹配器 + AST-lite（S83 起 bug_scan、S84 起 ast_scan 走自研迷你
+  解析器 pyast.rs）——**非编译器语义**
 - 规则分 definite（panic/unreachable/bare_except 等）与 clue（unwrap/expect/
   as_cast/indexing/bevy_*）两档；clue 全量上报是设计，不算 FP
 - S16 可达性：cfg(test)/tests 目录命中降级（kind=clue/info）
@@ -10,7 +10,7 @@
 - **S82 Rust 原生化**：std_check/ui_check/bug_locate 三工具 = rx-scan.exe
   （rust/src/scan.rs，正则全手写无 regex crate），Python 侧只剩薄壳转调
   （exe 缺失报清晰错误不静默降级；bug_locate 的 error_text 超 1 万字走 stdin）；
-  bug_scan 随 S83 跟进（见下），ast_scan 仍 Python
+  bug_scan 随 S83 跟进、ast_scan 随 S84 跟进（均见下）
   - std_check：占位词 12 种（含中文）+ 魔法数（6 语言门）；注释行豁免只管
     占位词，魔法数照报；\b 按 Unicode 口径（`123中` 不报）
   - ui_check：bevy/godot/unity 三引擎；bevy 死按钮 = Marker-Query 跨 system
@@ -26,7 +26,13 @@
   在 bug.rs）。已知语义怪癖（与旧 Python 契约逐字节一致）：match 捕获变量
   （case [1,2,rest] 的 rest）是字符串字段非 Name 节点，其"使用"会报
   undefined_name——与旧 ast 版同款，非回归
-- **ast_scan 仍 Python**（tools/astscan.py，S84 候选：直接复用 pyast.rs）
+- **S84 ast_scan 全量原生化**：rx-scan astscan 子命令（rust/src/astscan.rs 规则层，
+  复用 pyast.rs——本轮为其补 col 列号、字符串值解码 CVal、f-string 区域位置三型）。
+  astscan.py 524→103 行薄壳，scan 域五工具全薄壳。迁移坑（oracle 实锤）：
+  panic 正则 \b 在可选点组之前（点形式 match 从 '.' 起）、bytes 只准 ASCII 约束的
+  是源字符（b"\xef\xbb\xbf" 转义产出合法）、**CRLF 通用换行**（Python open("r")
+  把 \r\n 读成 \n，exe 保留 \r 曾致行号 +4 全盘漂移——读入后归一，探针必须带与
+  真实文件相同的行尾）。14 场景 oracle 逐字节 PASS 后才删 Python 码
 - 名额语义：max_files 只计代码文件（非代码不烧额度）；遍历顺序 = 每层文件
   先于子目录、目录内 $UpCase 排序（os.walk 契约，S80 实锤）
 - **code_review**（S44）：多透镜评审聚合——bug 模式 + security（硬编码
