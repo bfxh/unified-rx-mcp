@@ -255,9 +255,19 @@
   （[WinError N] vs (os error N)），oracle 掩码只比类名。appaudit.rs 的 S85 walk
   经分析 junction 行为已等价（有效照走/悬空跳过），不改动。验收：cargo 95 绿零
   告警（+appclone 6）+ pytest 双解释器全绿（3.14=507+2s / 3.11=509）。
-- **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
-  Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
-  退役；Python 只剩测试电池与文档。
+- **终点（S87 已落）**：宿主接入**不走 rx-mcp.exe 单 exe**——按 S79 决策，薄壳
+  转调模式使转发代理非必需，宿主继续用 python 入口即自动获得 Rust 实现；ide/
+  ops/attack/game/learn/guard/meta/engine/fs_write 等约 37 个工具结构性留 Python
+  （attack 自审/宿主内省/外部进程编排不迁是 S85/S86 既定决策），单 exe 入口只在
+  转发代理落地后才有意义 → **"转发代理"维持缓议**，Python 进程不退役（编排器 +
+  结构性保留工具 + 测试电池与文档）。落地形态（S87）：config.json mcpServers 追加
+  unified_rx（command `python`，args `-X utf8 D:\rj\MCP\server.py`，env
+  UNIFIED_RX_SANDBOX="D:\开发;D:\rj\MCP" + PYTHONUTF8=1，enabled）；改前 Yan Agent
+  完全关闭，备份 config.json.bak-20260906-pre-unifiedrx，diff 校验仅 mcpServers
+  变更，条目扛住宿主启动重写。验证：opencode.log 属懒日志（9月3 后未再写）不可用
+  → 改走宿主 GUI"MCP 服务"页实测——"测试 UnifiedRX 连接"→**连接成功，57 个工具**
+  （绿勾）；另有宿主外 stdio 冒烟同命令全绿（init 2.14.0 / 57 工具 / fs_read
+  沙箱 / app_clone 走 rx-appops.exe / app_clean）。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。
