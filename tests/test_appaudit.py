@@ -212,3 +212,26 @@ def test_clean_refuses_outside_and_root(mini_app, sandbox):
     assert registry.call("app_clean", {"target": "", **args})["ok"] is False
     assert registry.call("app_clean",
                          {"target": str(mini_app) + "\\..\\..", **args})["ok"] is False
+
+
+# ---------- S85：app_audit Rust 原生化（rx-audit.exe 薄壳） ----------
+
+def test_s85_old_python_internals_retired():
+    """实现整体入 Rust（rust/src/appaudit.rs，oracle 逐字节对拍 10/10）：
+    Python 侧只许剩薄壳与写面（app_clean 用的沙盒门），旧机器一件不留。"""
+    for gone in ("_extract_asar", "_AsarError", "_mask", "_iter_text_rows",
+                 "_SECRET_RULES", "_SURFACE_RULES", "_URL_RE", "_AI_HOST_HINTS",
+                 "_TEXT_EXTS", "_BINARY_INVENTORY_EXTS", "_MAX_FINDINGS",
+                 "_MAX_ASARS", "_MAX_ASAR_ENTRY_BYTES", "_MAX_ASAR_EXTRACT_MB"):
+        assert not hasattr(aa, gone), f"旧实现残留在 Python 侧: {gone}"
+    for kept in ("_rx_audit_exe", "_rx_audit_call", "app_audit",
+                 "_strictly_under", "_sandbox_root"):
+        assert hasattr(aa, kept), f"薄壳/写面必须保留: {kept}"
+
+
+def test_s85_missing_exe_reports_clearly(tmp_path, monkeypatch, sandbox):
+    """exe 缺失报清晰错误并指路，绝不静默降级回旧 Python 实现。"""
+    monkeypatch.delenv("UNIFIED_RX_RS_EXE", raising=False)
+    monkeypatch.setenv("TEMP", str(tmp_path))  # 惯例路径随 TEMP 重定向 → 必然找不到
+    with pytest.raises(ValueError, match=r"rx-audit\.exe 不存在"):
+        aa._rx_audit_call(str(sandbox / "whatever"), True)
