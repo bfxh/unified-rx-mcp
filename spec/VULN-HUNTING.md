@@ -268,6 +268,22 @@
   → 改走宿主 GUI"MCP 服务"页实测——"测试 UnifiedRX 连接"→**连接成功，57 个工具**
   （绿勾）；另有宿主外 stdio 冒烟同命令全绿（init 2.14.0 / 57 工具 / fs_read
   沙箱 / app_clone 走 rx-appops.exe / app_clean）。
+- **排查注记（S88 已落）**：三路独立排查交叉收敛——①Mimosa 深扫跑副本（禁自扫，
+  %TEMP%\s88-scan，57 条逐条分诊：bench/ 系开发脚手架不经 MCP 暴露、tools/ 命中
+  均为误报或 S75 设计内）；②attack 五件套活体自审（授权门/探针/fuzz/大输入/
+  rust_taint_scan 98 条污点流分组核账）；③人工精读沙盒/授权/子进程面。实锤唯一
+  缺口类：8 个未设门读取工具（bug_scan/std_check/ui_check/project_scan/bug_locate
+  默认 cwd、code_search/code_semantic 默认 cwd、game_check、project_health）读路径
+  未钳沙盒 → **S73 纪律补全落地**（"读路径同样过沙盒"从纪律变代码），越界一律
+  `{"error": "路径越界（沙盒外）…"}`；project_health 叠加 bug 同修——旧版越界
+  路径的子扫错误被吞成 0 问题、返回假满分，现越界拒绝且绝不给分。junction 逃逸
+  实测已闭：3.14 junction 非符号链接但 realpath/GetFinalPathNameByHandle 仍穿透
+  解析至最终目标，Python/Rust 双侧边界均按最终目标判——沙盒内 mklink /J 指向
+  沙盒外的探针 fs_read/fs_list/fs_stat 全拒，悬空 junction 报干净错误，固化为
+  回归测试（test_s88_sandbox_clamp.py 12 测）。维持设计内姿态复诊记录：ide_debug
+  条件断点 eval 在调试目标进程内求值（等权无越权面）、local_run shell=True 为
+  高权限门控工具（S75 原判不变）。验证：3.14=519+2s / 3.11=521 / cargo 95 绿
+  零告警 / selftest 57，版本 2.15.0。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。

@@ -78,6 +78,10 @@ def _umi_ocr_image(img_path):
        },
        "required": ["path"]})
 def game_check(path, action="check"):
+    try:
+        path = _fs_resolve(path)     # S88：S73 纪律补全——读路径同样过沙盒
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
     findings = []

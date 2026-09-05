@@ -12,6 +12,7 @@ import json
 import subprocess
 
 from registry import tool
+from tools.fs import _resolve as _fs_resolve   # S88：S73 纪律补全——读路径过沙盒
 
 # 大查询不走 argv：Windows CreateProcess 命令行上限 32767 UTF-16 码元（代理对
 # 最坏翻倍），10000 字符留足余量；argv 传 "-" 时 exe 侧改读 stdin 全文。
@@ -85,7 +86,10 @@ def _rx_search_call(root, query, k):
        },
        "required": ["query"]})
 def code_search(query, root=None, k=10):
-    root = os.path.abspath(root or os.getcwd())
+    try:
+        root = _fs_resolve(root or os.getcwd())   # S88：默认 cwd 同样钳制
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     return _rx_search_call(root, query, k)
@@ -163,7 +167,10 @@ def _rx_semantic_call(root, query, mode, k):
        },
        "required": ["query"]})
 def code_semantic(query, root=None, mode="search", k=8):
-    root = os.path.abspath(root or os.getcwd())
+    try:
+        root = _fs_resolve(root or os.getcwd())   # S88：默认 cwd 同样钳制
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     return _rx_semantic_call(root, query, mode, k)

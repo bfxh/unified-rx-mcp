@@ -146,6 +146,10 @@ def _rx_scan_call(argv, stdin_data=""):
        },
        "required": ["path"]})
 def bug_scan(path, max_files=MAX_FILES):
+    try:
+        path = _fs_resolve(path)     # S88：S73 纪律补全——读路径同样过沙盒（code_review 同款）
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
     return _rx_scan_call(["bugscan", path, str(int(max_files))])
@@ -160,6 +164,10 @@ def bug_scan(path, max_files=MAX_FILES):
        },
        "required": ["path"]})
 def std_check(path, max_files=MAX_FILES):
+    try:
+        path = _fs_resolve(path)     # S88：S73 纪律补全
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
     # S83 起全域不走缓存：exe 每调独立进程，无跨调缓存面（旧 _SCAN_CACHE 已退役）
@@ -172,6 +180,10 @@ def std_check(path, max_files=MAX_FILES):
        "properties": {"path": {"type": "string"}, "max_files": {"type": "integer"}},
        "required": ["path"]})
 def ui_check(path, max_files=MAX_FILES):
+    try:
+        path = _fs_resolve(path)     # S88：S73 纪律补全
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
     return _rx_scan_call(["uicheck", path, str(int(max_files))])
@@ -186,7 +198,10 @@ def ui_check(path, max_files=MAX_FILES):
        },
        "required": ["error_text"]})
 def bug_locate(error_text, root=None):
-    root = root or os.getcwd()
+    try:
+        root = _fs_resolve(root or os.getcwd())   # S88：默认 cwd 同样钳制
+    except ValueError as e:
+        return {"error": str(e)}
     argv = ["buglocate", root, error_text]
     stdin_data = ""
     if len(error_text) > _QUERY_ARGV_CAP:
@@ -205,6 +220,10 @@ def bug_locate(error_text, root=None):
        },
        "required": ["path"]})
 def project_scan(path, max_files=MAX_FILES, ui=True):
+    try:
+        path = _fs_resolve(path)     # S88：S73 纪律补全（三路子扫各自再钳，双保险）
+    except ValueError as e:
+        return {"error": str(e)}
     if not os.path.isdir(path):
         return {"error": f"不是目录: {path}"}
     bug = bug_scan(path, max_files)
