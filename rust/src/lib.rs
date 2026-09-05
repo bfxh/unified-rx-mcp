@@ -16,10 +16,14 @@
 //!             通用正则 + 聚合，与 tools/scan.py 逐条对齐）
 //! - `astscan` ast_scan 原生实现（S84：Python 真 AST 规则 / JS 词法掩码+调用面 /
 //!             Rust 结构化信号 + S16 可达性，与 tools/astscan.py 逐条对齐）
+//! - `appaudit` app_audit 原生实现（S85：审计沙盒门 + 行级规则/秘密掩码/URL 盘点
+//!             + asar SHA256 自标定提取复扫，与 tools/appaudit.py 逐条对齐；
+//!             `sha256` 为手写零依赖实现）
 //! - `taint`   污点引擎（Python 子集词法 + 缩进作用域 + 来源→汇点浅数据流）
 //! - `server`  MCP stdio 协议层（rx-mcp：独立协议实现——解析/分发/tools+ping 直答、
 //!             通知静默；S78 落地形态，转发代理 S79 评估后维持缓议）
 
+pub mod appaudit;
 pub mod astscan;
 pub mod bug;
 pub mod fs;
@@ -30,4 +34,5 @@ pub mod sandbox;
 pub mod search;
 pub mod sem;
 pub mod server;
+pub mod sha256;
 pub mod taint;

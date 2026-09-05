@@ -225,6 +225,18 @@
   读入后归一（探针必须带与真实文件相同的行尾）。scan 域五工具全薄壳。
   验收：cargo 87 绿零告警（+astscan 5 单测+astscan_test 7 集成）+ pytest
   双解释器全绿（3.14=503+2s / 3.11=505）。
+  落地注记（S85，app_audit 已落）：appaudit 域唯一纯读工具原生化（rx-audit.exe）
+  ——JS 危险面 6 规则+秘密 5 规则手写匹配器、py_splitlines 全集换行、每标签 51
+  上限、400 条门、URL 清单/ai 宿主、二进制盘点、asar 提取（sha256.rs 手写
+  FIPS 180-4，3 轮扩窗找头+候选基址枚举+SHA256 自标定）整体入 Rust。沙盒门
+  strictly_under 在 Rust 侧等价复刻（lenient_realpath+normcase+前缀判定），
+  Python 版保留供 app_clean 与 oracle 对照。10 场景对照逐字节一致后才删
+  Python 码。坑账：rxrs Value::Int 是 i128（行号/计数/字节全归一）；
+  private_key_block 的 [A-Z ]* 贪婪吃光字面量需降序回溯（正则引擎的类内字面量
+  回溯语义手写复刻）；asar 错误串带 `_AsarError: ` 类名前缀。**attack 余下
+  4 工具是活体自审**（攻击运行中的 Python registry），exe 化会测错对象——
+  不迁，属结构性保留。验收：cargo 89 绿零告警（+sha256 2）+ pytest 双解释器
+  全绿（3.14=505+2s / 3.11=507）。
 - **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
   Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
   退役；Python 只剩测试电池与文档。
