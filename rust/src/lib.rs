@@ -9,12 +9,14 @@
 //! - `fs`      文件层读面三工具原生实现（fs_read/fs_stat/fs_list；写面最后迁移）
 //! - `search`  code_search 原生实现（S80：BM25 + 手写分词器 + 行重排）
 //! - `sem`     code_semantic 原生实现（S81：符号定义 tf-idf 余弦 + 手写定义匹配器）
+//! - `scan`    scan 域轻正则三工具（S82：std_check/ui_check/bug_locate + 遍历契约）
 //! - `taint`   污点引擎（Python 子集词法 + 缩进作用域 + 来源→汇点浅数据流）
 //! - `server`  MCP stdio 协议层（rx-mcp：独立协议实现——解析/分发/tools+ping 直答、
 //!             通知静默；S78 落地形态，转发代理 S79 评估后维持缓议）
 
 pub mod fs;
 pub mod json;
+pub mod scan;
 pub mod sandbox;
 pub mod search;
 pub mod sem;

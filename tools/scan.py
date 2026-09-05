@@ -6,10 +6,14 @@ P3 增强（2026-08-24）：Rust 生产规则、ui_check 三引擎。
 P4 增强（2026-08-24）：Bevy 专项规则（用户：引擎重点优化 Bevy）。
 P5 修复（2026-08-25）：Python AST 作用域感知（参数/方法/属性/魔法方法不算未定义）——
   消除 undefined_name 假阳性（592→0 级）；bug_locate 提取 traceback 文件:行号。
+S82（2026-09-05）：std_check / ui_check / bug_locate Rust 原生化（rx-scan.exe，
+  见 rust/src/scan.rs）——Python 侧只留薄壳转调，exe 缺失报清晰错误不静默降级；
+  bug_scan / ast_scan 仍 Python（ast.parse 面留后续轮）。
 """
 import os
 import re
 import ast
+import json
 import subprocess
 from collections import Counter, defaultdict
 
@@ -64,6 +68,66 @@ def _iter_files(path, max_files):
 
 def _lang_of(path):
     return _LANG_BY_EXT.get(os.path.splitext(path)[1].lower(), "")
+
+
+# ---------- Rust 薄壳（S82 起）：std_check/ui_check/bug_locate 原生实现在 rx-scan.exe ----------
+# 遍历契约（名额只计代码文件/每层文件先行/upcase 序）与手写正则语义见 rust/src/scan.rs。
+
+_RX_SCAN_EXE_NAME = "rx-scan.exe"
+
+# 大文本不走 argv：Windows CreateProcess 命令行上限 32767 UTF-16 码元（代理对
+# 最坏翻倍），10000 字符留足余量；argv 传 "-" 时 exe 侧改读 stdin 全文。
+_QUERY_ARGV_CAP = 10000
+
+
+def _rx_scan_exe():
+    """定位 rx-scan.exe：UNIFIED_RX_RS_EXE 覆盖 → cargo 目标目录惯例路径。
+
+    与 tools/search.py::_rx_search_exe 同纪律：候选必须是已存在且文件名恰为
+    rx-scan.exe 的常规文件（argv 固定前缀、list 形式、无 shell，
+    env 覆盖不构成任意命令执行面）。
+    """
+    cand = []
+    override = os.environ.get("UNIFIED_RX_RS_EXE")
+    if override:
+        cand.append(override)
+    tmp = os.environ.get("TEMP", r"C:\Temp")
+    cand += [os.path.join(tmp, "rx-rs-target", kind, _RX_SCAN_EXE_NAME)
+             for kind in ("release", "debug")]
+    for c in cand:
+        if os.path.isfile(c) and os.path.basename(c) == _RX_SCAN_EXE_NAME:
+            return c
+    return None
+
+
+def _rx_scan_call(argv, stdin_data=""):
+    """薄壳转调 rx-scan.exe，返回结果 dict；用法级拒绝 raise ValueError。
+
+    stdin 恒接管（空串即 EOF），子进程绝不继承宿主的协议管道。
+    """
+    exe = _rx_scan_exe()
+    if not exe:
+        raise ValueError("rx-scan.exe 不存在——先在 rust/ 下 cargo build --release "
+                         "（或设 UNIFIED_RX_RS_EXE 指向现有 exe）")
+    try:
+        cp = subprocess.run([exe] + argv, capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=120, input=stdin_data or "")
+    except subprocess.TimeoutExpired:
+        raise ValueError("rx-scan 超时（120s）")
+    tail = (cp.stderr or "").strip()[-300:]
+    lines = (cp.stdout or "").strip().splitlines()
+    if not lines:
+        raise ValueError(f"rx-scan 无输出（exit={cp.returncode}）: {tail}")
+    try:
+        out = json.loads(lines[-1])
+    except ValueError:
+        raise ValueError(f"rx-scan 输出非 JSON: {lines[-1][:200]}")
+    if cp.returncode == 2:
+        # 用法级拒绝（缺参数）→ 与 fs/search 壳同走 ValueError 包络
+        raise ValueError(out.get("error") if isinstance(out, dict) else lines[-1])
+    if cp.returncode != 0:
+        raise ValueError(f"rx-scan 执行失败（exit={cp.returncode}）: {tail}")
+    return out
 
 
 # ---------- bug_scan：Python AST 规则（P5：作用域感知） ----------
@@ -359,24 +423,6 @@ def bug_scan(path, max_files=MAX_FILES):
 
 
 # ---------- std_check ----------
-def _std_check_file(src, fp, lang):
-    """单文件 std 检查（S5 缓存单元）。"""
-    findings = []
-    lines = src.split("\n")
-    for idx, line in enumerate(lines, 1):
-        low = line.lower()
-        for w in _PLACEHOLDER_WORDS:
-            if w.lower() in low and not line.strip().startswith(("#", "//", "/*", "*")):
-                findings.append({"file": fp, "line": idx, "rule": "placeholder",
-                                 "msg": f"占位/假数据文字: {w}", "text": line.strip()[:80]})
-                break
-        m = re.search(r"=\s*(-?\d{3,}|[2-9]\d{2,})\b", line)
-        if m and lang in ("rust", "python", "go", "typescript", "javascript", "gdscript"):
-            findings.append({"file": fp, "line": idx, "rule": "magic_number",
-                             "msg": f"魔法数字: {m.group(1)}", "text": line.strip()[:80]})
-    return findings
-
-
 @tool("std_check", "工程标准检查（占位文字/魔法数字/未使用导入）", "scan",
       {"type": "object",
        "properties": {
@@ -387,43 +433,11 @@ def _std_check_file(src, fp, lang):
 def std_check(path, max_files=MAX_FILES):
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
-    findings = []
-    files_scanned = 0
-    for fp in _iter_files(path, max_files):
-        lang = _lang_of(fp)
-        if not lang:
-            continue
-        files_scanned += 1
-        key = (os.path.normcase(os.path.abspath(fp)), "_std")
-        with _CACHE_LOCK:
-            cached = _SCAN_CACHE.get(key)
-        if cached is not None and cached[0] == _file_fingerprint(fp):
-            findings.extend(cached[1])
-            continue
-        try:
-            with open(fp, "r", encoding="utf-8", errors="replace") as f:
-                src = f.read()
-        except OSError:
-            continue
-        file_findings = _std_check_file(src, fp, lang)
-        with _CACHE_LOCK:
-            _SCAN_CACHE[key] = (_file_fingerprint(fp), file_findings)
-        findings.extend(file_findings)
-    return {"files": files_scanned, "total": len(findings), "findings": findings}
+    # S82 起不再走 _SCAN_CACHE：exe 每调独立进程，无跨调缓存面（bug_scan 缓存不受影响）
+    return _rx_scan_call(["stdcheck", path, str(int(max_files))])
 
 
 # ---------- ui_check：多引擎（Bevy 重点/Godot/Unity 死按钮/空容器模式） ----------
-_UI_PATTERNS = {
-    "bevy": bevy.BEVY_UI_PATTERNS,
-    "godot": [
-        (r"Button\b[^:]*:\s*$", "Button 信号未连接（疑似死按钮）"),
-    ],
-    "unity": [
-        (r"new\s+Button\s*\([^)]*\)", "运行时 new Button（应引用场景中的实例）"),
-    ],
-}
-
-
 @tool("ui_check", "UI 静态检查（Bevy 重点/Godot/Unity 死按钮/空容器模式）", "scan",
       {"type": "object",
        "properties": {"path": {"type": "string"}, "max_files": {"type": "integer"}},
@@ -431,60 +445,10 @@ _UI_PATTERNS = {
 def ui_check(path, max_files=MAX_FILES):
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
-    issues = []
-    files_scanned = 0
-    for fp in _iter_files(path, max_files):
-        ext = os.path.splitext(fp)[1].lower()
-        if ext == ".rs":
-            engine = "bevy"
-        elif ext == ".gd":
-            engine = "godot"
-        elif ext == ".cs":
-            engine = "unity"
-        else:
-            continue
-        files_scanned += 1
-        try:
-            with open(fp, "r", encoding="utf-8", errors="replace") as f:
-                src = f.read()
-        except OSError:
-            continue
-        for pat, msg in _UI_PATTERNS[engine]:
-            for m in re.finditer(pat, src, re.MULTILINE):
-                line = src.count("\n", 0, m.start()) + 1
-                issues.append({"file": fp, "line": line, "rule": "ui_pattern",
-                               "msg": msg, "engine": engine})
-        # S6：Bevy 死按钮用结构化检测（Marker-Query 跨 system 验证，非同域正则）
-        if engine == "bevy":
-            from .bevy import find_dead_buttons
-            for ln, marker in find_dead_buttons(src):
-                issues.append({"file": fp, "line": ln, "rule": "ui_pattern",
-                               "msg": f"死按钮：{marker} spawn 后无任何 Query 交互处理",
-                               "engine": engine})
-    return {"files": files_scanned, "total": len(issues), "issues": issues}
+    return _rx_scan_call(["uicheck", path, str(int(max_files))])
 
 
 # ---------- bug_locate：报错 → file:line（P5：提取 traceback 文件名:行号） ----------
-def _find_in_file(fp, needle, max_hits=3):
-    hits = []
-    try:
-        with open(fp, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-    except OSError:
-        return hits
-    for idx, line in enumerate(lines, 1):
-        if needle in line:
-            ctx_start = max(0, idx - 2)
-            ctx_end = min(len(lines), idx + 3)
-            hits.append({
-                "file": fp, "line": idx,
-                "snippet": "".join(lines[ctx_start:ctx_end]).strip(),
-            })
-            if len(hits) >= max_hits:
-                break
-    return hits
-
-
 @tool("bug_locate", "报错文本 → 定位 file:line（含上下文片段）", "scan",
       {"type": "object",
        "properties": {
@@ -494,69 +458,12 @@ def _find_in_file(fp, needle, max_hits=3):
        "required": ["error_text"]})
 def bug_locate(error_text, root=None):
     root = root or os.getcwd()
-    if not os.path.isdir(root):
-        return {"error": f"root 不是目录: {root}"}
-    candidates = []
-    # P5：直接提取 traceback 的 File "...x.py", line N（支持多语言）
-    for m in re.finditer(r'File\s+"([^"]+\.(?:py|rs|go|ts|js|tsx|jsx|gd|cs|java|kt|rb|php))",\s*line\s+(\d+)', error_text):
-        candidates.append((m.group(1), int(m.group(2)), "traceback 精确"))
-    # 兜底：普通代码文件名
-    if not candidates:
-        for m in re.finditer(r"([A-Za-z_][A-Za-z0-9_.]*\.(?:py|rs|go|ts|js|tsx|jsx|gd|cs|java|kt|rb|php))", error_text):
-            candidates.append((m.group(1), None, "文件名"))
-    # 兜底：报错符号（NameError: 'xxx'）
-    if not candidates:
-        for m in re.finditer(r"(?:NameError|AttributeError|KeyError|ImportError|Error).*?['\"]([^'\"]+)['\"]", error_text):
-            candidates.append((m.group(1), None, "符号"))
-    direct = []
-    for c, lineno, how in candidates:
-        is_code_file = c.endswith((".py", ".rs", ".go", ".ts", ".js", ".gd", ".cs",
-                                   ".java", ".kt", ".rb", ".php"))
-        if is_code_file:
-            # 找该文件名（相对 root 或绝对）
-            fpath = c if os.path.isabs(c) else None
-            if fpath is None or not os.path.exists(fpath):
-                for fp in _iter_files(root, MAX_FILES):
-                    if fp.endswith(c):
-                        fpath = fp
-                        break
-            if fpath and os.path.exists(fpath):
-                if lineno:
-                    direct.append({"file": fpath, "line": lineno, "how": how,
-                                   "snippet": _line_ctx(fpath, lineno)})
-                else:
-                    direct.extend(_find_in_file(fpath, ""))
-                    if direct:
-                        direct[-1]["how"] = how
-        else:
-            for fp in _iter_files(root, MAX_FILES):
-                hits = _find_in_file(fp, c, max_hits=2)
-                for h in hits:
-                    h["how"] = f"符号 '{c}'"
-                direct.extend(hits)
-    seen = set()
-    out = []
-    for h in direct:
-        k = (h["file"], h.get("line"))
-        if k in seen:
-            continue
-        seen.add(k)
-        out.append(h)
-        if len(out) >= 10:
-            break
-    return {"candidates": len(out), "hits": out}
-
-
-def _line_ctx(fpath, lineno, radius=2):
-    """取某文件某行的上下文。"""
-    try:
-        with open(fpath, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-    except OSError:
-        return ""
-    start = max(0, lineno - 1 - radius)
-    end = min(len(lines), lineno + radius)
-    return "".join(lines[start:end]).strip()
+    argv = ["buglocate", root, error_text]
+    stdin_data = ""
+    if len(error_text) > _QUERY_ARGV_CAP:
+        argv[2] = "-"
+        stdin_data = error_text
+    return _rx_scan_call(argv, stdin_data)
 
 
 # ---------- project_scan：组合 ----------
