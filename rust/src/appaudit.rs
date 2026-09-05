@@ -1,7 +1,8 @@
 //! appaudit —— app_audit 原生实现（S85），与 tools/appaudit.py::app_audit 逐条对齐。
 //!
-//! 范围：仅纯读的 app_audit。app_clone/app_clean 是写面+授权门，按"纯读先迁"
-//! 纪律留在 Python 侧（_strictly_under 因此在两语言各有实现，oracle 对照钉死）。
+//! 范围：纯读的 app_audit。app_clone/app_clean 写面自 S86 起也原生化
+//! （appclone 模块，复用本模块的沙盒门；授权门仍留 Python registry）——
+//! _strictly_under 因此在两语言各有实现，oracle 对照钉死。
 //!
 //! 语义对齐要点（全部有 oracle 场景钉着）：
 //! - 沙盒门 `_strictly_under`：宽限 realpath（复用 sandbox::lenient_realpath）+
@@ -53,9 +54,9 @@ const AI_HOST_HINTS: &[&str] = &[
     "moonshot", "zhipuai", "mistral", "dashscope", "volces",
 ];
 
-// ---------- 沙盒门（app_clean 仍用 Python 版；两版由 oracle 钉死等价） ----------
+// ---------- 沙盒门（appclone 复用；两版由 oracle 钉死等价） ----------
 
-fn sandbox_root() -> PathBuf {
+pub fn sandbox_root() -> PathBuf {
     let base = match std::env::var("UNIFIED_RX_AUDIT_SANDBOX") {
         Ok(v) if !v.is_empty() => PathBuf::from(v),
         _ => PathBuf::from(std::env::var("TEMP").unwrap_or_else(|_| r"C:\Temp".into()))
@@ -66,7 +67,7 @@ fn sandbox_root() -> PathBuf {
 }
 
 /// normcase 等价：小写 + / → \。严格子判定：拒绝空白/等于根本身/大小写欺骗。
-fn strictly_under(p: &str, root: &Path) -> bool {
+pub fn strictly_under(p: &str, root: &Path) -> bool {
     if p.trim().is_empty() {
         return false;
     }
