@@ -14,10 +14,13 @@
 //!             3.14 SyntaxError 消息对齐；ast_scan 的 S84 地基）
 //! - `bug`     bug_scan 原生实现（S83：Python 迷你 AST 规则 + Rust 生产规则 +
 //!             通用正则 + 聚合，与 tools/scan.py 逐条对齐）
+//! - `astscan` ast_scan 原生实现（S84：Python 真 AST 规则 / JS 词法掩码+调用面 /
+//!             Rust 结构化信号 + S16 可达性，与 tools/astscan.py 逐条对齐）
 //! - `taint`   污点引擎（Python 子集词法 + 缩进作用域 + 来源→汇点浅数据流）
 //! - `server`  MCP stdio 协议层（rx-mcp：独立协议实现——解析/分发/tools+ping 直答、
 //!             通知静默；S78 落地形态，转发代理 S79 评估后维持缓议）
 
+pub mod astscan;
 pub mod bug;
 pub mod fs;
 pub mod json;

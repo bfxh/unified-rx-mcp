@@ -29,6 +29,19 @@ pub enum Ctx {
     Del,
 }
 
+/// Constant 节点的值载荷（S84：ast_scan 的 secret_literal 要字符串值、
+/// shell_like_call 的 callee 要 ast.dump 形态的数值文本）。
+#[derive(Clone, Debug, PartialEq)]
+pub enum CVal {
+    NoneC,
+    Bool(bool),
+    /// 数字的源码原文（含 0x/下划线）；dump 时再定 int/float 形态
+    Num(String),
+    Str(String),
+    Bytes(Vec<u8>),
+    EllipsisC,
+}
+
 /// 迷你 AST 节点。name/name2/ctx/aux/names 按节点类型取用：
 /// - `name`：Name.id、FunctionDef/ClassDef.name、arg.arg、alias.name、
 ///           Attribute.attr、ExceptHandler.name（except-as）、ImportFrom.module
@@ -39,11 +52,15 @@ pub enum Ctx {
 pub struct PyNode {
     pub kind: &'static str,
     pub line: usize,
+    /// CPython col_offset 口径的列号（0 基、按字符计）。S84 起只对 ast_scan 用到的
+    /// 节点赋值：Call（后缀链首 token，含前置括号）与字符串 Constant（含前缀）。
+    pub col: usize,
     pub name: String,
     pub name2: String,
     pub ctx: Ctx,
     pub aux: usize,
     pub names: Vec<String>,
+    pub cval: CVal,
     pub children: Vec<PyNode>,
 }
 
@@ -52,11 +69,13 @@ impl PyNode {
         PyNode {
             kind,
             line,
+            col: 0,
             name: String::new(),
             name2: String::new(),
             ctx: Ctx::Load,
             aux: 0,
             names: Vec::new(),
+            cval: CVal::NoneC,
             children: Vec::new(),
         }
     }
@@ -81,8 +100,10 @@ pub struct PyErr {
 enum Tok {
     Name(String),
     Kw(&'static str),
-    Num,
-    Str,
+    /// 数字源码原文（含 0x/0o/0b/下划线/小数/指数），值形态由 dump 层再定
+    Num(String),
+    /// 解码后的字符串字面量值（S84：raw 不走转义；bytes 单独收集）
+    Str(StrLit),
     /// f-string：内插区域表（区域源码 + 区域首行）
     FStr(Vec<FRegion>),
     Op(String),
@@ -92,15 +113,27 @@ enum Tok {
     End,
 }
 
+/// 字符串字面量的解码结果：str 用 s，bytes 用 b（互斥；隐式拼接在此之上折叠）。
+#[derive(Clone, Debug)]
+pub struct StrLit {
+    pub s: String,
+    pub b: Vec<u8>,
+    pub is_bytes: bool,
+}
+
 #[derive(Clone, Debug)]
 struct FRegion {
     src: String,
     line: usize,
+    /// '{' 的 0 基列号：区域内第 1 行的 col 映射基准（CPython 3.12+ 位置保真）
+    col: usize,
 }
 
 struct TokOut {
     kind: Tok,
     line: usize,
+    /// token 起始的 0 基字符列（S84：Call/str-Constant 的 col_offset 用）
+    col: usize,
 }
 
 const KEYWORDS: &[&str] = &[
@@ -123,6 +156,8 @@ struct Lexer<'a> {
     b: &'a [u8],
     pos: usize,
     line: usize,
+    /// 当前 token 起始字节偏移（行首块归一后、分发前设定；push 时换算列号）
+    tok_start: usize,
     /// 未闭合括号栈：(括号字符, 所在行)——EOF 报最内层（CPython 同为最后未闭合者）
     opens: Vec<(char, usize)>,
     indents: Vec<usize>,
@@ -140,8 +175,27 @@ impl<'a> Lexer<'a> {
     }
 
     fn push(&mut self, kind: Tok) {
+        let col = self.col_at(self.tok_start);
         self.line_open = true;
-        self.out.push(TokOut { kind, line: self.line });
+        self.out.push(TokOut { kind, line: self.line, col });
+    }
+
+    /// tok_start 到行首的字符数（0 基列号）。按字节回扫、跳过 UTF-8 续字节，
+    /// 与 CPython 在 decode 后文本上的字符列一致（\n 恒在字符边界）。
+    fn col_at(&self, start: usize) -> usize {
+        let mut i = start;
+        let mut col = 0usize;
+        while i > 0 {
+            let b = self.b[i - 1];
+            if b == b'\n' {
+                break;
+            }
+            if b & 0xC0 != 0x80 {
+                col += 1;
+            }
+            i -= 1;
+        }
+        col
     }
 
     fn run(mut self) -> Result<Vec<TokOut>, PyErr> {
@@ -203,6 +257,7 @@ impl<'a> Lexer<'a> {
                 }
                 at_start = false;
             }
+            self.tok_start = self.pos;
             let c = match self.peek() {
                 Some(c) => c,
                 None => break,
@@ -235,7 +290,7 @@ impl<'a> Lexer<'a> {
                 b' ' | b'\t' | 0x0c => {
                     self.pos += 1;
                 }
-                b'\'' | b'"' => self.lex_string(String::new())?,
+                b'\'' | b'"' => self.lex_string(String::new(), self.pos)?,
                 c if c.is_ascii_digit()
                     || (c == b'.'
                         && matches!(self.peek_at(1), Some(d) if d.is_ascii_digit())) =>
@@ -259,13 +314,13 @@ impl<'a> Lexer<'a> {
             return Err(PyErr { line: ln, msg: format!("'{}' was never closed", ch) });
         }
         if self.line_open {
-            self.out.push(TokOut { kind: Tok::Newline, line: self.line });
+            self.out.push(TokOut { kind: Tok::Newline, line: self.line, col: 0 });
         }
         while self.indents.len() > 1 {
             self.indents.pop();
-            self.out.push(TokOut { kind: Tok::Dedent, line: self.line });
+            self.out.push(TokOut { kind: Tok::Dedent, line: self.line, col: 0 });
         }
-        self.out.push(TokOut { kind: Tok::End, line: self.line });
+        self.out.push(TokOut { kind: Tok::End, line: self.line, col: 0 });
         Ok(self.out)
     }
 
@@ -282,7 +337,7 @@ impl<'a> Lexer<'a> {
         let text = &self.src[start..self.pos];
         let low = text.to_lowercase();
         if PREFIXES.contains(&low.as_str()) && matches!(self.peek(), Some(b'\'' | b'"')) {
-            return self.lex_string(low);
+            return self.lex_string(low, start);
         }
         if let Some(k) = KEYWORDS.iter().find(|k| **k == text) {
             self.push(Tok::Kw(k));
@@ -293,6 +348,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_number(&mut self) {
+        let start = self.pos;
         if self.peek() == Some(b'0')
             && matches!(self.peek_at(1), Some(b'x' | b'X' | b'o' | b'O' | b'b' | b'B'))
         {
@@ -310,7 +366,7 @@ impl<'a> Lexer<'a> {
                     break;
                 }
             }
-            self.push(Tok::Num);
+            self.push(Tok::Num(self.src[start..self.pos].to_string()));
             return;
         }
         while let Some(c) = self.peek() {
@@ -359,10 +415,10 @@ impl<'a> Lexer<'a> {
         if matches!(self.peek(), Some(b'j' | b'J')) {
             self.pos += 1;
         }
-        self.push(Tok::Num);
+        self.push(Tok::Num(self.src[start..self.pos].to_string()));
     }
 
-    fn lex_string(&mut self, prefix: String) -> Result<(), PyErr> {
+    fn lex_string(&mut self, prefix: String, lit_start: usize) -> Result<(), PyErr> {
         let q = self.peek().unwrap();
         let open_line = self.line;
         let triple = self.peek_at(1) == Some(q) && self.peek_at(2) == Some(q);
@@ -423,8 +479,146 @@ impl<'a> Lexer<'a> {
                 }
             }
         }
-        self.push(Tok::Str);
+        let lit = &self.src[lit_start..self.pos];
+        let sv = Self::decode_str_lit(lit, &prefix).map_err(|msg| PyErr { line: open_line, msg })?;
+        self.push(Tok::Str(sv));
         Ok(())
+    }
+
+    /// 字符串字面量解码（S84）：剥前缀与引号后按 Python 转义规则还原值。
+    /// raw 一字不动；未知转义保形（\q 两个字符）；\N{名字} 简化为保形（真实仓库
+    /// 与语料不触发）。bytes 里非 ASCII 字符与 >255 的八进制按 CPython 报错。
+    fn decode_str_lit(lit: &str, prefix: &str) -> Result<StrLit, String> {
+        let is_bytes = prefix.contains('b');
+        let is_raw = prefix.contains('r');
+        let bb = lit.as_bytes();
+        let mut k = 0usize;
+        while k < bb.len() && bb[k].is_ascii_alphabetic() {
+            k += 1;
+        }
+        let Some(&q) = bb.get(k) else {
+            return Err("unterminated string literal".into());
+        };
+        let qlen = if k + 2 < bb.len() && bb[k + 1] == q && bb[k + 2] == q { 3 } else { 1 };
+        let body = &lit[k + qlen..lit.len() - qlen];
+        if is_raw {
+            return Ok(StrLit { s: body.to_string(), b: Vec::new(), is_bytes });
+        }
+        let cs: Vec<char> = body.chars().collect();
+        let mut s = String::new();
+        let mut b = Vec::new();
+        let put = |s: &mut String, b: &mut Vec<u8>, c: char| -> Result<(), String> {
+            if is_bytes {
+                if (c as u32) > 0x7F {
+                    return Err("bytes can only contain ASCII literal characters".into());
+                }
+                b.push(c as u8);
+            } else {
+                s.push(c);
+            }
+            Ok(())
+        };
+        let mut i = 0usize;
+        while i < cs.len() {
+            let c = cs[i];
+            if c != '\\' {
+                put(&mut s, &mut b, c)?;
+                i += 1;
+                continue;
+            }
+            i += 1;
+            if i >= cs.len() {
+                break; // 完整字面量不会以孤立反斜杠结尾（词法层已排除），防御性出口
+            }
+            let e = cs[i];
+            i += 1;
+            match e {
+                '\n' => {}
+                '\r' => {
+                    if cs.get(i) == Some(&'\n') {
+                        i += 1;
+                    }
+                }
+                'n' => put(&mut s, &mut b, '\n')?,
+                't' => put(&mut s, &mut b, '\t')?,
+                'r' => put(&mut s, &mut b, '\r')?,
+                'a' => put(&mut s, &mut b, '\u{7}')?,
+                'b' => put(&mut s, &mut b, '\u{8}')?,
+                'f' => put(&mut s, &mut b, '\u{c}')?,
+                'v' => put(&mut s, &mut b, '\u{b}')?,
+                '\\' | '\'' | '"' => put(&mut s, &mut b, e)?,
+                '0'..='7' => {
+                    let mut v: u32 = e.to_digit(8).unwrap();
+                    let mut n = 1;
+                    while n < 3 && matches!(cs.get(i), Some('0'..='7')) {
+                        v = v * 8 + cs[i].to_digit(8).unwrap();
+                        i += 1;
+                        n += 1;
+                    }
+                    if is_bytes {
+                        // 转义产物可取任意字节值，ASCII 限制只针对源字符（b"\xef" 合法）
+                        if v > 0xFF {
+                            return Err("bytes must be in range(0, 256)".into());
+                        }
+                        b.push(v as u8);
+                    } else {
+                        s.push(char::from_u32(v).unwrap_or('\u{fffd}'));
+                    }
+                }
+                'x' => {
+                    let mut v = 0u32;
+                    let mut n = 0;
+                    while n < 2 && matches!(cs.get(i), Some(c) if c.is_ascii_hexdigit()) {
+                        v = v * 16 + cs[i].to_digit(16).unwrap();
+                        i += 1;
+                        n += 1;
+                    }
+                    if n < 2 {
+                        return Err("truncated \\xXX escape".into());
+                    }
+                    if is_bytes {
+                        b.push(v as u8);
+                    } else {
+                        s.push(char::from_u32(v).unwrap());
+                    }
+                }
+                'u' | 'U' => {
+                    if is_bytes {
+                        return Err("invalid \\u escape in bytes literal".into());
+                    }
+                    let want = if e == 'u' { 4 } else { 8 };
+                    let mut v = 0u32;
+                    let mut n = 0;
+                    while n < want && matches!(cs.get(i), Some(c) if c.is_ascii_hexdigit()) {
+                        v = v * 16 + cs[i].to_digit(16).unwrap();
+                        i += 1;
+                        n += 1;
+                    }
+                    if n < want {
+                        return Err("truncated \\uXXXX escape".into());
+                    }
+                    match char::from_u32(v) {
+                        Some(ch) => s.push(ch),
+                        None => return Err("illegal Unicode character".into()),
+                    }
+                }
+                _ => {
+                    // 未知转义：CPython 保形（DeprecationWarning），\N{名字} 亦从简；
+                    // bytes 的 ASCII 限制作用于源字符——转义符本身非 ASCII 也报错
+                    if is_bytes {
+                        if (e as u32) > 0x7F {
+                            return Err("bytes can only contain ASCII literal characters".into());
+                        }
+                        b.push(b'\\');
+                        b.push(e as u8);
+                    } else {
+                        s.push('\\');
+                        s.push(e);
+                    }
+                }
+            }
+        }
+        Ok(StrLit { s, b, is_bytes })
     }
 
     /// f-string 外层内容扫描：{{/}} 字面量、{区域} 提取、引号终止。
@@ -490,6 +684,7 @@ impl<'a> Lexer<'a> {
     /// 外层再追加。转换符 !r/!s/!a 与调试 '=' 不属于表达式，从区域源里剪掉。
     fn fstring_region(&mut self) -> Result<(FRegion, Vec<FRegion>), PyErr> {
         let line0 = self.line;
+        let brace_col = self.col_at(self.pos);
         let start = self.pos + 1;
         self.pos += 1;
         let mut depth = 1usize;
@@ -525,7 +720,11 @@ impl<'a> Lexer<'a> {
                     if depth == 0 {
                         let end = cut.unwrap_or(self.pos - 1);
                         return Ok((
-                            FRegion { src: self.src[start..end].to_string(), line: line0 },
+                            FRegion {
+                                src: self.src[start..end].to_string(),
+                                line: line0,
+                                col: brace_col,
+                            },
                             spec_regs,
                         ));
                     }
@@ -553,7 +752,11 @@ impl<'a> Lexer<'a> {
                     self.pos += 1;
                     self.format_spec(&mut spec_regs)?;
                     return Ok((
-                        FRegion { src: self.src[start..end].to_string(), line: line0 },
+                        FRegion {
+                            src: self.src[start..end].to_string(),
+                            line: line0,
+                            col: brace_col,
+                        },
                         spec_regs,
                     ));
                 }
@@ -695,6 +898,7 @@ fn tokenize(src: &str) -> Result<Vec<TokOut>, PyErr> {
         b: norm.as_bytes(),
         pos: 0,
         line: 1,
+        tok_start: 0,
         opens: Vec::new(),
         indents: vec![0],
         out: Vec::new(),
@@ -721,6 +925,10 @@ impl Parser {
 
     fn cur_line(&self) -> usize {
         self.cur().line
+    }
+
+    fn cur_col(&self) -> usize {
+        self.t[self.i].col
     }
 
     fn err(&self, msg: &str) -> PyErr {
@@ -1884,7 +2092,9 @@ impl Parser {
             Ok(parts.pop().unwrap())
         } else {
             let l = parts[0].line;
-            Ok(PyNode::with_children("BoolOp", l, parts))
+            let mut n = PyNode::with_children("BoolOp", l, parts);
+            n.name = "Or".into();
+            Ok(n)
         }
     }
 
@@ -1897,7 +2107,9 @@ impl Parser {
             Ok(parts.pop().unwrap())
         } else {
             let l = parts[0].line;
-            Ok(PyNode::with_children("BoolOp", l, parts))
+            let mut n = PyNode::with_children("BoolOp", l, parts);
+            n.name = "And".into();
+            Ok(n)
         }
     }
 
@@ -1906,6 +2118,7 @@ impl Parser {
             let l = self.cur_line();
             let child = self.parse_not()?;
             let mut n = PyNode::new("UnaryOp", l);
+            n.name = "Not".into();
             n.children.push(child);
             Ok(n)
         } else {
@@ -1916,18 +2129,24 @@ impl Parser {
     fn parse_comparison(&mut self) -> Result<PyNode, PyErr> {
         let left = self.parse_bitor()?;
         let mut comps = Vec::new();
+        let mut ops: Vec<&'static str> = Vec::new();
         loop {
             let is_op = matches!(&self.cur().kind,
                 Tok::Op(s) if matches!(s.as_str(), "==" | "!=" | "<" | "<=" | ">" | ">="));
             if is_op || self.at_kw("in") {
+                ops.push(match &self.cur().kind {
+                    Tok::Op(s) => ast_op_name(s),
+                    _ => "In",
+                });
                 self.i += 1;
                 comps.push(self.parse_bitor()?);
             } else if self.at_kw("is") {
                 self.i += 1;
-                self.eat_kw("not");
+                ops.push(if self.eat_kw("not") { "IsNot" } else { "Is" });
                 comps.push(self.parse_bitor()?);
             } else if self.at_kw("not") && self.peek2_is_kw("in") {
                 self.i += 2;
+                ops.push("NotIn");
                 comps.push(self.parse_bitor()?);
             } else {
                 break;
@@ -1937,6 +2156,7 @@ impl Parser {
             Ok(left)
         } else {
             let mut n = PyNode::new("Compare", left.line);
+            n.names = ops.iter().map(|s| s.to_string()).collect();
             n.children.push(left);
             n.children.extend(comps);
             Ok(n)
@@ -1959,7 +2179,8 @@ impl Parser {
         self.binop_chain(Self::parse_arith, &["<<", ">>"])
     }
 
-    /// 左结合二元链：children 按 [左, 右, 右, …] 嵌套（= ast 的 BinOp 树形）
+    /// 左结合二元链：children 按 [左, 右, 右, …] 嵌套（= ast 的 BinOp 树形）；
+    /// name 记 ast 算子名（S84：dump_expr 需要 Add/FloorDiv 等原名）
     fn binop_chain(
         &mut self,
         sub: fn(&mut Parser) -> Result<PyNode, PyErr>,
@@ -1967,13 +2188,14 @@ impl Parser {
     ) -> Result<PyNode, PyErr> {
         let mut node = sub(self)?;
         loop {
-            if !ops.iter().any(|op| self.at_op(op)) {
+            let Some(op) = ops.iter().find(|op| self.at_op(op)) else {
                 break;
-            }
+            };
             self.i += 1;
             let rhs = sub(self)?;
             let l = node.line;
             let mut n = PyNode::new("BinOp", l);
+            n.name = ast_op_name(op).to_string();
             n.children.push(std::mem::replace(&mut node, PyNode::new("Pass", l)));
             n.children.push(rhs);
             node = n;
@@ -1992,9 +2214,15 @@ impl Parser {
     fn parse_factor(&mut self) -> Result<PyNode, PyErr> {
         if matches!(&self.cur().kind, Tok::Op(s) if s == "+" || s == "-" || s == "~") {
             let l = self.cur_line();
+            let op = match &self.cur().kind {
+                Tok::Op(s) if s == "+" => "UAdd",
+                Tok::Op(s) if s == "-" => "USub",
+                _ => "Invert",
+            };
             self.i += 1;
             let child = self.parse_factor()?;
             let mut n = PyNode::new("UnaryOp", l);
+            n.name = op.to_string();
             n.children.push(child);
             return Ok(n);
         }
@@ -2023,6 +2251,9 @@ impl Parser {
     }
 
     fn parse_postfix(&mut self) -> Result<PyNode, PyErr> {
+        // CPython 口径：链式节点的 col_offset = 链首 token（含前置括号/下标括号），
+        // 每过一个 trailer 都回写链首列（Call 与 Attribute/Subscript 一致）
+        let start_col = self.cur_col();
         let mut node = self.atom()?;
         loop {
             if self.at_op("(") {
@@ -2039,6 +2270,7 @@ impl Parser {
             } else {
                 break;
             }
+            node.col = start_col;
         }
         Ok(node)
     }
@@ -2149,6 +2381,16 @@ impl Parser {
             None
         };
         let mut n = PyNode::new("Slice", l);
+        // aux 位图记录实心字段（bit0=lower bit1=upper bit2=step）：dump 按 ASDL 字段名取
+        if lower.is_some() {
+            n.aux |= 1;
+        }
+        if upper.is_some() {
+            n.aux |= 2;
+        }
+        if step.is_some() {
+            n.aux |= 4;
+        }
         n.children.extend(lower);
         n.children.extend(upper);
         n.children.extend(step);
@@ -2157,19 +2399,31 @@ impl Parser {
 
     fn atom(&mut self) -> Result<PyNode, PyErr> {
         let l = self.cur_line();
+        let c = self.cur_col();
         match self.cur().kind.clone() {
             Tok::Name(nm) => {
                 self.i += 1;
                 Ok(PyNode::with_ctx("Name", l, nm, Ctx::Load))
             }
-            Tok::Num => {
+            Tok::Num(t) => {
                 self.i += 1;
-                Ok(PyNode::new("Constant", l))
+                let mut n = PyNode::new("Constant", l);
+                n.col = c;
+                n.cval = CVal::Num(t);
+                Ok(n)
             }
-            Tok::Str | Tok::FStr(_) => self.strings(),
+            Tok::Str(_) | Tok::FStr(_) => self.strings(),
             Tok::Kw("True") | Tok::Kw("False") | Tok::Kw("None") => {
+                let cval = match self.cur().kind {
+                    Tok::Kw("True") => CVal::Bool(true),
+                    Tok::Kw("False") => CVal::Bool(false),
+                    _ => CVal::NoneC,
+                };
                 self.i += 1;
-                Ok(PyNode::new("Constant", l))
+                let mut n = PyNode::new("Constant", l);
+                n.col = c;
+                n.cval = cval;
+                Ok(n)
             }
             Tok::Kw("lambda") => self.lambda_expr(),
             Tok::Op(s) if s == "(" => self.paren_atom(),
@@ -2177,24 +2431,34 @@ impl Parser {
             Tok::Op(s) if s == "{" => self.dictset_atom(),
             Tok::Op(s) if s == "..." => {
                 self.i += 1;
-                Ok(PyNode::new("Constant", l))
+                let mut n = PyNode::new("Constant", l);
+                n.col = c;
+                n.cval = CVal::EllipsisC;
+                Ok(n)
             }
             _ => Err(self.err("invalid syntax")),
         }
     }
 
-    /// 相邻字符串/ f-string token：全 Str → 单 Constant；含 f → JoinedStr（各区域
-    /// 递归解析为 FormattedValue；事件序与 ast 一致，字面量部分是叶子）。
+    /// 相邻字符串/ f-string token：全 Str → 单 Constant（值 = 解码值依序拼接，
+    /// bytes 与 str 混排按 CPython 报错）；含 f → JoinedStr（各区域递归解析为
+    /// FormattedValue；事件序与 ast 一致，字面量部分是叶子）。
     fn strings(&mut self) -> Result<PyNode, PyErr> {
         let l = self.cur_line();
+        let c = self.cur_col();
+        let mut parts: Vec<StrLit> = Vec::new();
         let mut fvals: Vec<PyNode> = Vec::new();
         loop {
             match self.cur().kind.clone() {
-                Tok::Str => self.i += 1,
+                Tok::Str(sv) => {
+                    self.i += 1;
+                    parts.push(sv);
+                }
                 Tok::FStr(regions) => {
                     self.i += 1;
                     for r in regions {
-                        let e = parse_region_expr(&r.src, r.line)?;
+                        // 区域第 1 行基列 = '{' 列 + 1（CPython 3.12+ 真实行列）
+                        let e = parse_region_expr(&r.src, r.line, r.col + 1)?;
                         let mut fv = PyNode::new("FormattedValue", r.line);
                         fv.children.push(e);
                         fvals.push(fv);
@@ -2204,9 +2468,28 @@ impl Parser {
             }
         }
         if fvals.is_empty() {
-            Ok(PyNode::new("Constant", l))
+            let any_b = parts.iter().any(|p| p.is_bytes);
+            if any_b && parts.iter().any(|p| !p.is_bytes) {
+                return Err(PyErr {
+                    line: l,
+                    msg: "cannot mix bytes and nonbytes literals".into(),
+                });
+            }
+            let mut n = PyNode::new("Constant", l);
+            n.col = c;
+            n.cval = if any_b {
+                let mut acc = Vec::new();
+                for p in &parts {
+                    acc.extend_from_slice(&p.b);
+                }
+                CVal::Bytes(acc)
+            } else {
+                CVal::Str(parts.into_iter().map(|p| p.s).collect())
+            };
+            Ok(n)
         } else {
-            Ok(PyNode::with_children("JoinedStr", l, fvals))
+            let n = PyNode::with_children("JoinedStr", l, fvals);
+            Ok(n)
         }
     }
 
@@ -2361,6 +2644,7 @@ impl Parser {
             }
             self.expect_op("}")?;
             let mut n = PyNode::new("Dict", l);
+            n.aux = keys.len(); // keys 数：children = keys ++ values，dump 据此切分
             n.children = keys; // ASDL 字段序：先 keys 后 values
             n.children.extend(values);
             return Ok(n);
@@ -2468,27 +2752,65 @@ impl PyNode {
     }
 }
 
-/// f-string 区域表达式：允许顶层元组与 walrus（3.12+ f"{x := 1}"）；行号偏移回原文。
-fn parse_region_expr(src: &str, base_line: usize) -> Result<PyNode, PyErr> {
-    let r = (|| -> Result<PyNode, PyErr> {
-        // 区域等价于括号内上下文：行结构 token（NL/INDENT/DEDENT）全部滤除，
-        // 多行表达式（PEP 701）与尾随换行都因此自然成立
-        let toks: Vec<TokOut> = tokenize(src)?
-            .into_iter()
-            .filter(|t| !matches!(t.kind, Tok::Newline | Tok::Indent | Tok::Dedent))
-            .collect();
-        let mut p = Parser { t: toks, i: 0 };
-        let e = if p.at_name() && p.peek2_is_op(":=") {
-            p.parse_namedexpr()?
-        } else {
-            p.parse_testlist_star()?
-        };
-        if !p.at_end() {
-            return Err(p.err("invalid syntax"));
-        }
-        Ok(e)
-    })();
-    r.map_err(|e| PyErr { line: e.line + base_line - 1, msg: e.msg })
+/// f-string 区域表达式：允许顶层元组与 walrus（3.12+ f"{x := 1}"）；行号/列号映射
+/// 回原文——区域内第 1 行的 col 加 base_col（'{' 列 + 1），第 2 行起 line 偏移、
+/// col 从行首重计（= 物理列，多行区域实测）。
+fn parse_region_expr(src: &str, base_line: usize, base_col: usize) -> Result<PyNode, PyErr> {
+    let toks = match tokenize(src) {
+        Ok(t) => t,
+        Err(e) => return Err(PyErr { line: e.line + base_line - 1, msg: e.msg }),
+    };
+    // 区域等价于括号内上下文：行结构 token（NL/INDENT/DEDENT）全部滤除，
+    // 多行表达式（PEP 701）与尾随换行都因此自然成立
+    let toks: Vec<TokOut> = toks
+        .into_iter()
+        .map(|mut t| {
+            if t.line > 1 {
+                t.line += base_line - 1;
+            } else {
+                t.line = base_line;
+                t.col += base_col;
+            }
+            t
+        })
+        .filter(|t| !matches!(t.kind, Tok::Newline | Tok::Indent | Tok::Dedent))
+        .collect();
+    let mut p = Parser { t: toks, i: 0 };
+    let e = if p.at_name() && p.peek2_is_op(":=") {
+        p.parse_namedexpr()?
+    } else {
+        p.parse_testlist_star()?
+    };
+    if !p.at_end() {
+        return Err(p.err("invalid syntax"));
+    }
+    Ok(e)
+}
+
+/// 词法算子文本 → ast 算子名（S84：BinOp/Compare 的 name/names 记原名供 dump）。
+fn ast_op_name(op: &str) -> &'static str {
+    match op {
+        "|" => "BitOr",
+        "^" => "BitXor",
+        "&" => "BitAnd",
+        "<<" => "LShift",
+        ">>" => "RShift",
+        "+" => "Add",
+        "-" => "Sub",
+        "*" => "Mult",
+        "/" => "Div",
+        "//" => "FloorDiv",
+        "%" => "Mod",
+        "@" => "MatMult",
+        "**" => "Pow",
+        "==" => "Eq",
+        "!=" => "NotEq",
+        "<" => "Lt",
+        "<=" => "LtE",
+        ">" => "Gt",
+        ">=" => "GtE",
+        _ => "Add",
+    }
 }
 
 /// 解析整个模块（bug_scan 入口）。
@@ -2568,6 +2890,90 @@ mod tests {
             Ok(_) => panic!("del *a 应为语法错误（CPython: cannot delete starred）"),
             Err(e) => assert_eq!(e.line, 1),
         }
+    }
+
+    /// S84：col_offset 口径（探针实测 CPython）——Call 列 = 链首 token（含前置
+    /// 括号）；字符串 Constant 列含前缀；括号对原子透明。
+    #[test]
+    fn cols_match_cpython_probes() {
+        let got = |src: &str, kind: &str| -> usize {
+            let tree = parse_module(src).expect("parse");
+            let mut out = Vec::new();
+            fn go(n: &PyNode, kind: &str, out: &mut Vec<usize>) {
+                if n.kind == kind {
+                    out.push(n.col);
+                }
+                for c in &n.children {
+                    go(c, kind, out);
+                }
+            }
+            go(&tree, kind, &mut out);
+            *out.last().expect("node found")
+        };
+        // (a+b)(x)：Call 列在 '('，内层 BinOp 不参与
+        assert_eq!(got("y = (a+b)(x)\n", "Call"), 4);
+        // 嵌套调用两层 Call 同列（都挂在链首 f）
+        assert_eq!(got("y = f(a)(b)\n", "Call"), 4);
+        // 下标链：Call 列在链首 d
+        assert_eq!(got("d['k'].system(x)\n", "Call"), 0);
+        // 括号对字符串透明：列落在引号上
+        assert_eq!(got("x = (\"ab\")\n", "Constant"), 5);
+        // 前缀计入列：rb 的 r（0 基第 4 列）
+        assert_eq!(got("x = rb'ab'\n", "Constant"), 4);
+    }
+
+    /// S84：字符串值解码——转义还原、raw 保形、bytes 收集、隐式拼接折叠。
+    #[test]
+    fn string_values_decode_like_python() {
+        let val = |src: &str| -> CVal {
+            let tree = parse_module(src).expect("parse");
+            let mut out = Vec::new();
+            fn go(n: &PyNode, out: &mut Vec<CVal>) {
+                if n.kind == "Constant" {
+                    out.push(n.cval.clone());
+                }
+                for c in &n.children {
+                    go(c, out);
+                }
+            }
+            go(&tree, &mut out);
+            out.pop().expect("constant")
+        };
+        assert_eq!(val("x = 'a\\n\\t\\x41\\101\\\\'\n"), CVal::Str("a\n\tAA\\".into()));
+        assert_eq!(val("x = r'a\\n'\n"), CVal::Str("a\\n".into()));
+        assert_eq!(val("x = b'ab'\n"), CVal::Bytes(vec![b'a', b'b']));
+        // 未知转义保形
+        assert_eq!(val("x = '\\q'\n"), CVal::Str("\\q".into()));
+        // 隐式拼接
+        assert_eq!(val("x = 'ab' 'cd'\n"), CVal::Str("abcd".into()));
+        // bytes 与 str 混排：CPython 同款报错
+        assert!(parse_module("x = b'a' 'b'\n").is_err());
+        // 数字原文入 cval
+        assert_eq!(val("x = 0x1F\n"), CVal::Num("0x1F".into()));
+    }
+
+    /// S84：算子名入节点——dump_expr 依赖 BinOp.name / Compare.names / BoolOp.name。
+    #[test]
+    fn operator_names_recorded() {
+        let tree = parse_module("r = a // 2 if x < 1 and not y else None\n").expect("parse");
+        let mut bins = Vec::new();
+        let mut cmps = Vec::new();
+        let mut bools = Vec::new();
+        fn go(n: &PyNode, b: &mut Vec<String>, c: &mut Vec<Vec<String>>, d: &mut Vec<String>) {
+            match n.kind {
+                "BinOp" => b.push(n.name.clone()),
+                "Compare" => c.push(n.names.clone()),
+                "BoolOp" => d.push(n.name.clone()),
+                _ => {}
+            }
+            for ch in &n.children {
+                go(ch, b, c, d);
+            }
+        }
+        go(&tree, &mut bins, &mut cmps, &mut bools);
+        assert_eq!(bins, vec!["FloorDiv"]);
+        assert_eq!(cmps, vec![vec!["Lt"]]);
+        assert_eq!(bools, vec!["And"]);
     }
 
     #[test]

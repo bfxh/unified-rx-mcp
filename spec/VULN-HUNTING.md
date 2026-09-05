@@ -14,7 +14,7 @@
 | 能力 | 现状 | 出处 |
 |---|---|---|
 | 静态规则引擎 | bug_scan 规则 **19 条**（Rust 8 / 通用 3 / bevy 引擎 8），分 high/med/low/info 四级 + clue/definite 两类；S83 起全量原生（rx-scan bugscan），手写匹配器在 rust/src/bug.rs，bevy.py 转规则档案 | rust/src/bug.rs、tools/bevy.py（档案） |
-| AST 检查 | ast_scan 对 Python 做语法级检查（危险属性集等） | tools/astscan.py |
+| AST 检查 | ast_scan 结构化扫描（Python AST 规则 / JS 词法管线 / Rust fn 归属 + S16 可达性）；S84 起全量原生（rx-scan astscan），实现在 rust/src/astscan.rs，astscan.py 转薄壳 | rust/src/astscan.rs、tools/astscan.py（薄壳） |
 | 规则分级纪律 | 线索（clue）不当质量分数用，确定性风险（definite）才计分——避免"文本密度=质量"的假象 | S4-D1 |
 | 出口可见性 | bug_scan 交付前按严重度排序，registry 分页不再埋掉新规则命中 | S74（VoxelForge 1808 条实测修正） |
 | 常驻攻击工具 | attack 域 3 工具：input_fuzz（每字段 12 类病态输入）/ path_probe（路径逃逸）/ big_input（1MB/深嵌套） | S7 立域、S55 补测试 |
@@ -215,6 +215,16 @@
   _SCAN_CACHE 全域退役；bevy.py 转规则档案。验收：cargo 72 绿零告警
   （fs 13+json 6+search 10+sem 13+scan 13+bug 9+pyast 5+taint 3）+ pytest
   双解释器全绿（3.14=502+2s / 3.11=504）。
+  落地注记（S84，ast_scan 已全量落）：ast_scan 原生化（rx-scan astscan 子
+  命令）——pyast.rs 补 col 列号/字符串值解码 CVal/f-string 区域位置（单行
+  col+=brace_col+1、多行行偏移列不变），规则层在 rust/src/astscan.rs（py/JS/
+  Rust 三管线 + S16 可达性整端口）。14 场景对照逐字节一致后才删 Python 码。
+  坑账：panic 正则 \b 在可选点组之前（点形式 match 从 '.' 起）；bytes 只准
+  ASCII 约束的是源字符（b"\xef\xbb\xbf" 转义产出合法）；**CRLF 通用换行**
+  ——Python open("r") 把 \r\n 读成 \n，exe 保留 \r 曾致行号 +4 全盘漂移，
+  读入后归一（探针必须带与真实文件相同的行尾）。scan 域五工具全薄壳。
+  验收：cargo 87 绿零告警（+astscan 5 单测+astscan_test 7 集成）+ pytest
+  双解释器全绿（3.14=503+2s / 3.11=505）。
 - **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
   Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
   退役；Python 只剩测试电池与文档。
