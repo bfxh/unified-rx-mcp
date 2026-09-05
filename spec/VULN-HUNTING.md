@@ -182,6 +182,16 @@
   冷调全流程 ~140ms vs 旧 Python 首查 297ms（缓存复查 8ms）。空查询契约
   变化：total=0 → 显式拒绝（"query 必填"）。验收：cargo 32 绿
   （fs 13+json 6+search 10+taint 3）+ pytest 双解释器全绿（3.14=472+2s / 3.11=474）。
+  落地注记（S81，code_semantic 已落）：search.py 双工具纯薄壳化完成，S31 纯
+  Python 实现与 _SEM_CACHE 退役（冷调 ~330ms vs 旧 ~930ms，缓存成负资产）。
+  新增 **stdin 大查询通道**并回补 code_search（S80 潜在缺口）：超
+  _QUERY_ARGV_CAP=10000 字符的查询 argv 传 "-"、exe 改读 stdin 全文——
+  Windows CreateProcess 命令行上限 32767 UTF-16 码元，旧 test_big_input_smoke
+  的 5 万字查询过 argv 即爆；stdin 恒接管防子进程继承宿主 MCP 协议管道。
+  四语言七定义匹配器（py/rs/go/js，.ts 非 js 怪癖保留）、trigram 部分名、
+  0.02/0.05 双阈值、related 先取 k 再滤——9 查询双实现对照全 PARITY 后才删
+  Python 码。验收：cargo 45 绿（fs 13+json 6+search 10+sem 13+taint 3）+
+  pytest 双解释器全绿（3.14=483+2s / 3.11=485）。
 - **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
   Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
   退役；Python 只剩测试电池与文档。
