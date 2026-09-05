@@ -24,10 +24,10 @@ const K1: f64 = 1.5;
 const B: f64 = 0.75;
 const RAW_TERM_BOOST: i64 = 6;
 
-const SKIP_DIRS: [&str; 8] = [".git", "node_modules", "target", "__pycache__",
+pub const SKIP_DIRS: [&str; 8] = [".git", "node_modules", "target", "__pycache__",
     "dist", "build", ".unified-rx-index", "backups"];
 
-const INDEX_EXTS: [&str; 18] = [".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
+pub const INDEX_EXTS: [&str; 18] = [".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx",
     ".gd", ".cs", ".dart", ".lua", ".java", ".kt", ".md", ".toml", ".json",
     ".yaml", ".yml"];
 
