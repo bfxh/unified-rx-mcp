@@ -357,42 +357,30 @@ def test_server_initialize_capabilities_s3():
     assert caps["tools"]["listChanged"] is True and "logging" in caps
 
 
-# ── S5-C2：扫描指纹缓存 ───────────────
-def test_scan_cache_warm_faster_and_consistent(tmp_path):
-    """二次扫描走缓存：结果一致 + 明显提速；mtime/size 变化即失效。"""
-    import time as _time
-    from tools.scan import scan_cache_clear
+# ── S83：扫描缓存退役——每调独立 exe 进程，结果可重复且反映最新内容 ───────────────
+def test_scan_repeatable_and_fresh(tmp_path):
+    """S83 缓存退役：连续两次扫描结果一致；改文件后立即反映新内容。"""
     d = tmp_path / "_s5"
     d.mkdir()
     for i in range(30):
         (d / f"c{i}.py").write_text("v = missing_x\n", encoding="utf-8")
-    scan_cache_clear()
     r1 = registry.call("bug_scan", {"path": str(d)})
-    scan_cache_clear()  # 只压一次冷跑
-    r1 = registry.call("bug_scan", {"path": str(d)})  # 重建缓存
-    t0 = _time.perf_counter()
     r2 = registry.call("bug_scan", {"path": str(d)})
-    warm_ms = (_time.perf_counter() - t0) * 1000
-    assert warm_ms < 10, f"30 文件热扫应 <10ms: {warm_ms:.1f}ms"
     a, b = r1["result"], r2["result"]
-    assert a["total"] == b["total"] and a["by_rule"] == b["by_rule"], "缓存前后结果必须一致"
-    # 修改文件（size 变化）→ 失效重扫且反映新内容
-    f = d / "c0.py"
-    f.write_text("w = missing_y\n", encoding="utf-8")
+    assert a["total"] == b["total"] and a["by_rule"] == b["by_rule"], "两次扫描结果必须一致"
+    # 修改文件（size 变化）→ 重扫必须反映新内容
+    (d / "c0.py").write_text("w = missing_y\n", encoding="utf-8")
     r3 = registry.call("bug_scan", {"path": str(d)})
-    msgs = str(r3["result"]["issues"])
-    assert "missing_y" in msgs and "missing_x\n".strip() not in str(
-        [i for i in r3["result"]["issues"] if i.get("file", "").endswith("c0.py")]
-    ), "改后必须重扫新内容"
+    c0 = [i for i in r3["result"]["issues"] if i.get("file", "").endswith("c0.py")]
+    assert any("missing_y" in i["msg"] for i in c0), "改后必须扫到新内容"
+    assert not any("missing_x" in i["msg"] for i in c0), "旧内容不得残留"
 
 
-def test_std_check_cached_consistent(tmp_path):
-    """std_check 同样走指纹缓存且结果一致。"""
-    from tools.scan import scan_cache_clear
+def test_std_check_repeatable(tmp_path):
+    """std_check 连续调用结果一致（原 S5-C2 缓存一致性测试的 S83 版）。"""
     d = tmp_path / "_s5std"
     d.mkdir()
     (d / "m.py").write_text("delay = 1500\n", encoding="utf-8")
-    scan_cache_clear()
     r1 = registry.call("std_check", {"path": str(d)})
     r2 = registry.call("std_check", {"path": str(d)})
     assert r1["result"]["findings"] == r2["result"]["findings"]

@@ -2,7 +2,9 @@
 """tools/bevy.py —— Bevy 专项规则（用户：引擎重点优化 Bevy）
 
 S82 起 ui_check 已 Rust 原生化（BEVY_UI_PATTERNS / find_dead_buttons 移植进
-rust/src/scan.rs，Python 侧删除）；本模块只剩 bevy_rules()，供 bug_scan 使用。
+rust/src/scan.rs，Python 侧删除）。S83 起 bug_scan 亦全量原生化：bevy_rules()
+的唯一实现在 rust/src/bug.rs（手写匹配器），本模块保留为规则档案——正则原文
+只在此处留档，供核对 Rust 侧语义；运行时已无任何调用方。
 """
 import re
 

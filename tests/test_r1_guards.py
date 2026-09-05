@@ -49,8 +49,8 @@ def test_no_registry_use_without_import():
 def test_code_review_bugscan_lens_alive(tmp_path):
     """S55 事故的功能级回归：bug_scan 透镜必须真的产出发现。
 
-    用 bare_except（_scan_python 的 AST 规则）——eval/exec 只在 generic/
-    security 透镜，python 文件不走，选它会假阴性。"""
+    用 bare_except（bug_scan 的 AST 规则，S83 起实现在 rust/src/bug.rs）——
+    eval/exec 只在 generic/security 透镜，python 文件不走，选它会假阴性。"""
     (tmp_path / "evil.py").write_text(
         "def f():\n    try:\n        x = 1\n    except:\n        pass\n",
         encoding="utf-8")

@@ -121,7 +121,7 @@ def test_crlf_universal_newline_snippet(tmp_path):
 
 
 def test_project_scan_composes(tmp_path):
-    """project_scan 三路组合照旧：std/ui 现走 exe，bug_scan 仍 Python。"""
+    """project_scan 三路组合照旧：S83 起 std/ui/bug_scan 三路全走 exe。"""
     _write(tmp_path, "a.py", "x = 123\n")
     _write(tmp_path, "u.gd", "extends Button\n\nButton:\n")
     r = registry.call("project_scan", {"path": str(tmp_path), "max_files": 10})
@@ -151,11 +151,16 @@ def test_positional_call(tmp_path):
 
 
 def test_old_python_internals_retired():
-    """S82 前的纯 Python 三工具实现已退役：内部函数不得复活（薄壳是唯一路径）。"""
-    for name in ("_std_check_file", "_UI_PATTERNS", "_find_in_file", "_line_ctx"):
+    """S82/S83 前的纯 Python 实现已退役：内部函数/缓存不得复活（薄壳是唯一路径）。"""
+    for name in ("_std_check_file", "_UI_PATTERNS", "_find_in_file", "_line_ctx",
+                 # S83 bug_scan 全量原生化的退役面
+                 "_scan_python", "_scan_rust", "_scan_generic", "_RUST_RULES",
+                 "_RE_RULES", "_SCAN_CACHE", "_cached_scan", "_file_fingerprint",
+                 "scan_cache_clear"):
         assert not hasattr(tscan, name), name
-    # bug_scan 仍 Python：其依赖必须保留
-    for name in ("_iter_files", "_lang_of", "_SCAN_CACHE", "bug_scan", "project_scan"):
+    # 薄壳与共享遍历助手必须保留（ide 域也用 _iter_files/_lang_of）
+    for name in ("_iter_files", "_lang_of", "_rx_scan_exe", "_rx_scan_call",
+                 "bug_scan", "std_check", "ui_check", "bug_locate", "project_scan"):
         assert hasattr(tscan, name), name
     import tools.bevy as tbevy
     for name in ("BEVY_UI_PATTERNS", "BEVY_CODE_PATTERNS", "find_dead_buttons"):

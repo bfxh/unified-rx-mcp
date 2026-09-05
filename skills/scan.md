@@ -1,5 +1,6 @@
 # scan 域（bug_scan/ast_scan/std_check/ui_check/bug_locate/project_scan）
-- 机制：正则 + AST-lite（Python ast 模块 + Rust/JS 掩码词法）——**非编译器语义**
+- 机制：手写匹配器 + AST-lite（S83 起 bug_scan 走自研迷你解析器 pyast.rs；
+  ast_scan 仍 Python ast 模块）——**非编译器语义**
 - 规则分 definite（panic/unreachable/bare_except 等）与 clue（unwrap/expect/
   as_cast/indexing/bevy_*）两档；clue 全量上报是设计，不算 FP
 - S16 可达性：cfg(test)/tests 目录命中降级（kind=clue/info）
@@ -9,7 +10,7 @@
 - **S82 Rust 原生化**：std_check/ui_check/bug_locate 三工具 = rx-scan.exe
   （rust/src/scan.rs，正则全手写无 regex crate），Python 侧只剩薄壳转调
   （exe 缺失报清晰错误不静默降级；bug_locate 的 error_text 超 1 万字走 stdin）；
-  bug_scan/ast_scan 仍 Python（AST 面，后续轮迁）
+  bug_scan 随 S83 跟进（见下），ast_scan 仍 Python
   - std_check：占位词 12 种（含中文）+ 魔法数（6 语言门）；注释行豁免只管
     占位词，魔法数照报；\b 按 Unicode 口径（`123中` 不报）
   - ui_check：bevy/godot/unity 三引擎；bevy 死按钮 = Marker-Query 跨 system
@@ -17,6 +18,15 @@
     ≡ 冒号后空白串含换行或直达文尾；unity 无边界 `new Button(`（renew 也中）
   - bug_locate：报错文本 → file:line；三层提取（traceback File "x.py", line N
     → 文件名 → 符号 'xxx'）；已知怪癖：文件名兜底把 foo.tsx 捕获成 foo.ts
+- **S83 bug_scan 全量原生化**：rx-scan bugscan 子命令（rust/src/bug.rs 规则层 +
+  rust/src/pyast.rs 手写 Python 迷你解析器——3.14 语义：缩进驱动、括号续行、
+  f-string PEP 701 区域模型、match 软关键字回退、模式匹配全套，零第三方
+  crate）。scan.py 四工具至此全为薄壳；_SCAN_CACHE 全域退役（短命 exe 无跨调
+  缓存面，每次扫描都是新进程=天然新鲜）；bevy.py 转规则档案（运行时唯一实现
+  在 bug.rs）。已知语义怪癖（与旧 Python 契约逐字节一致）：match 捕获变量
+  （case [1,2,rest] 的 rest）是字符串字段非 Name 节点，其"使用"会报
+  undefined_name——与旧 ast 版同款，非回归
+- **ast_scan 仍 Python**（tools/astscan.py，S84 候选：直接复用 pyast.rs）
 - 名额语义：max_files 只计代码文件（非代码不烧额度）；遍历顺序 = 每层文件
   先于子目录、目录内 $UpCase 排序（os.walk 契约，S80 实锤）
 - **code_review**（S44）：多透镜评审聚合——bug 模式 + security（硬编码
