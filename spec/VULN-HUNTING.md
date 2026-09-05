@@ -237,6 +237,24 @@
   4 工具是活体自审**（攻击运行中的 Python registry），exe 化会测错对象——
   不迁，属结构性保留。验收：cargo 89 绿零告警（+sha256 2）+ pytest 双解释器
   全绿（3.14=505+2s / 3.11=507）。
+  落地注记（S86，app_clone/app_clean 已落）：**appaudit 域 3/3 全薄壳收官**——
+  写面原生化（rx-appops.exe clone/clean 子命令），实现 rust/src/appclone.rs。
+  授权门结构性留 Python registry（requires_auth + __authorized 于 registry.call
+  统一强制，exe 永不自行放权）；沙盒门双语言各一版（appaudit.rs::strictly_under
+  转 pub 复用），oracle 钉死等价。**Python 3.14 walk 真值**（探针钉死）：junction
+  不再是 symlink（islink=False、悬空也算目录）——有效 junction 克隆目标内容进
+  junction 名下、悬空静默剪枝、均不进 skipped_links；Rust 侧 junction 被报成
+  symlink 且 read_link 已剥设备前缀 → 文本判别被单测证伪，改 **reparse tag 手写
+  FFI**（GetFileInformationByHandleEx，IO_REPARSE_TAG_MOUNT_POINT）。清单根层
+  rel=""（旧 Python 语义，清单行 "\t{size}\n"）——首版写成裸文件名被 oracle cmp
+  抓获（inventory_digest 假 diff）。os.path.relpath 的 Win32 GetFullPathName 归一
+  （成分尾部空格/点剥除）在 errors 显示侧复刻。时间戳走 GetLocalTime FFI。
+  py_int 按 Python int() 语义逐字复刻并饱和到 i64（JSON 任意精度防位截断变号）。
+  24 步对照（junction/尾点/CRLF/预算四档/SchemaError 前置门/授权门/清理门九态）
+  norm 后全 PASS。已知偏差（文档在案）：OS 错误消息文本跨运行时发散
+  （[WinError N] vs (os error N)），oracle 掩码只比类名。appaudit.rs 的 S85 walk
+  经分析 junction 行为已等价（有效照走/悬空跳过），不改动。验收：cargo 95 绿零
+  告警（+appclone 6）+ pytest 双解释器全绿（3.14=507+2s / 3.11=509）。
 - **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
   Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
   退役；Python 只剩测试电池与文档。

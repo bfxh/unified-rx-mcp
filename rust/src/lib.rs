@@ -19,11 +19,15 @@
 //! - `appaudit` app_audit 原生实现（S85：审计沙盒门 + 行级规则/秘密掩码/URL 盘点
 //!             + asar SHA256 自标定提取复扫，与 tools/appaudit.py 逐条对齐；
 //!             `sha256` 为手写零依赖实现）
+//! - `appclone` app_clone/app_clean 原生实现（S86：appaudit 域写面收官——授权门
+//!             仍留 Python registry；Python 3.14 junction 真值 + Win32 relpath 归一
+//!             + GetLocalTime FFI 时间戳，与 tools/appaudit.py 逐条对齐）
 //! - `taint`   污点引擎（Python 子集词法 + 缩进作用域 + 来源→汇点浅数据流）
 //! - `server`  MCP stdio 协议层（rx-mcp：独立协议实现——解析/分发/tools+ping 直答、
 //!             通知静默；S78 落地形态，转发代理 S79 评估后维持缓议）
 
 pub mod appaudit;
+pub mod appclone;
 pub mod astscan;
 pub mod bug;
 pub mod fs;

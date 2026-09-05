@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """S8 智能体自查域测试：克隆隔离 / 审计规则与掩码 / asar 自标定提取 / 清理路径安全。"""
 import hashlib
+import inspect
 import json
 import os
 import struct
@@ -235,3 +236,25 @@ def test_s85_missing_exe_reports_clearly(tmp_path, monkeypatch, sandbox):
     monkeypatch.setenv("TEMP", str(tmp_path))  # 惯例路径随 TEMP 重定向 → 必然找不到
     with pytest.raises(ValueError, match=r"rx-audit\.exe 不存在"):
         aa._rx_audit_call(str(sandbox / "whatever"), True)
+
+
+# ---------- S86：app_clone/app_clean Rust 原生化（rx-appops.exe 薄壳） ----------
+
+def test_s86_old_python_internals_retired():
+    """写面实现整体入 Rust（rust/src/appclone.rs，oracle 24 步对拍）：
+    克隆/清理机器一件不留，Python 只剩转调壳、授权占位与沙盒锚。"""
+    src = inspect.getsource(aa)
+    for gone in ("shutil.copyfileobj", "shutil.copystat", "shutil.rmtree",
+                 "os.walk", "hashlib.sha256", "time.strftime"):
+        assert gone not in src, f"旧实现残留在 Python 侧: {gone}"
+    for kept in ("_rx_appops_exe", "_rx_appops_call", "app_clone", "app_clean",
+                 "_strictly_under", "_sandbox_root", "_rs_exe"):
+        assert hasattr(aa, kept), f"薄壳/沙盒锚必须保留: {kept}"
+
+
+def test_s86_missing_exe_reports_clearly(tmp_path, monkeypatch, sandbox):
+    """rx-appops.exe 缺失同样报清晰错误，绝不静默降级。"""
+    monkeypatch.delenv("UNIFIED_RX_RS_EXE", raising=False)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    with pytest.raises(ValueError, match=r"rx-appops\.exe 不存在"):
+        aa._rx_appops_call("clean", str(sandbox / "whatever"))
