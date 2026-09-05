@@ -192,6 +192,18 @@
   0.02/0.05 双阈值、related 先取 k 再滤——9 查询双实现对照全 PARITY 后才删
   Python 码。验收：cargo 45 绿（fs 13+json 6+search 10+sem 13+taint 3）+
   pytest 双解释器全绿（3.14=483+2s / 3.11=485）。
+  落地注记（S82，scan 域三工具已落）：std_check/ui_check/bug_locate 原生化
+  （rx-scan.exe + Python 薄壳；bug_scan/ast_scan 的 AST 面留后续轮）。轻正则
+  全手写移植（无 regex crate），怪癖逐条保真：godot `$` ≡ 冒号后空白串含换行
+  或直达文尾（`[^:]*` 跨行）、unity 无左边界且 `[^)]*` 跨行吞下一行 new、
+  文件名兜底把 foo.tsx 捕获成 foo.ts（备选 ts 先于 tsx）、空 needle 命中后
+  `direct[-1]["how"]` 覆盖怪癖、\b 按中文也算词字符的 Unicode 口径（123中
+  不报）、bevy 死按钮 Marker-Query 跨 system 验证整端口。遍历名额只计代码
+  文件；_SCAN_CACHE 对 std_check 退役（短命 exe 无跨调缓存面）。26 案双实现
+  对照全 PARITY 后才删 Python 码；冷调 std 真仓 81→69ms、ui 36→22ms
+  （bug_locate 小输入 ~10→17ms——spawn 开销盖过轻正则，诚实记账）。验收：
+  cargo 58 绿（fs 13+json 6+search 10+sem 13+scan 13+taint 3）+ pytest 双
+  解释器全绿（3.14=496+2s / 3.11=498）。
 - **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
   Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
   退役；Python 只剩测试电池与文档。
