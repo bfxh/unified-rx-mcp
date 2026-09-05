@@ -243,3 +243,4 @@
 - 交付：①八处补 `_fs_resolve` 钳制 + 统一错误信封 `try: … except ValueError as e: return {"error": str(e)}`，先于存在性检查（code_review 同款，S73 注记"读路径同样过沙盒"从纪律变代码）；project_health 钳制置于函数顶，越界拒绝时绝不给分。②tests/test_s88_sandbox_clamp.py 12 测：越界拒绝×7（含 bug_locate/search 默认 cwd 的"exe 缺失不得伪装成沙盒拒绝"甄别）、沙盒内正常路径可用性、project_health 不给分、junction 回归（skipif 非 Windows，mklink /J 建拆均有守卫）、auth_gate_sweep/path_probe 存续校验。③server.py 2.15.0；skills 四域契约声明（scan/search/game/ops）。
 - 验证：S88 文件 12/12；3.14 全量 519 passed + 2 skipped（507 基线 + 12）；3.11 全量 521 passed；cargo test --release 95 绿、build 0 告警；selftest tools=57/GROUPS 12/SCHEMA_BAD 0。宿主 config.json 描述串仍写 v2.14.0（纯展示滞后，Yan Agent 运行中不动 config）。
 - 提交：本次
+- 补记（同轮）：稳定版实机复验发现 S88 回归的默认 cwd 两测依赖 pytest 启动目录在沙盒内（从外部 cwd 跑必败——cwd 即被钳，报"沙盒外"而非预期错误）——加 `cwd_in_repo` fixture 把 `os.getcwd` 钉在仓库根（conftest 沙盒内），测试与启动目录解耦；外部 cwd / 仓库内 cwd 双情境 12/12 复验。工具代码零改动，版本不 bump。

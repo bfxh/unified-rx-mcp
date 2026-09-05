@@ -22,6 +22,14 @@ from tools import ops as ops_tools
 
 # conftest 沙盒 = 仓库根 + %TEMP%\unified-rx-pytest；C:\Windows 恒在沙盒外
 OUTSIDE = r"C:\Windows"
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+@pytest.fixture
+def cwd_in_repo(monkeypatch):
+    # 默认 cwd 语义测试：把 os.getcwd 钉在仓库根（conftest 沙盒内），
+    # 使测试不依赖 pytest 的启动目录（从外部 cwd 跑也稳定）
+    monkeypatch.setattr(os, "getcwd", lambda: REPO_ROOT)
 
 
 def _assert_refused(r):
@@ -40,7 +48,7 @@ def test_bug_locate_outside_root_refused():
     _assert_refused(scan_tools.bug_locate("ValueError: x", root=OUTSIDE))
 
 
-def test_bug_locate_default_cwd_not_sandbox_refusal():
+def test_bug_locate_default_cwd_not_sandbox_refusal(cwd_in_repo):
     # cwd=仓库根在 conftest 沙盒内 → 不得报沙盒外（exe 缺失走存在性错误，另行报）
     r = scan_tools.bug_locate("no such error text zzz_s88")
     assert "沙盒外" not in str(r.get("error", "")), r
@@ -63,7 +71,7 @@ def test_search_domain_outside_refused():
         _assert_refused(fn("query", root=OUTSIDE))
 
 
-def test_search_default_cwd_not_sandbox_refusal():
+def test_search_default_cwd_not_sandbox_refusal(cwd_in_repo):
     r = search_tools.code_search("zzz_no_match_s88")
     assert "沙盒外" not in str(r.get("error", "")), r
 
