@@ -223,6 +223,10 @@ def usage_stats(top=10, days=0):
        "required": ["path"]})
 def project_health(path, max_files=100):
     """T6：跑三路扫描 → 综合健康分（100 - 加权问题数）。"""
+    try:
+        path = _fs_resolve(path)     # S88：先钳制——越界须报错，不得被吞成 0 问题满分
+    except ValueError as e:
+        return {"error": str(e)}
     from . import scan as _scan
     bug = _scan.bug_scan(path, max_files)
     std = _scan.std_check(path, max_files)

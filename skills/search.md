@@ -17,3 +17,5 @@
   exit 2 → ok:false "query 必填"）；**code_semantic 空 query 仍合法**
   （search 返回 total=0、related 返回模糊锚点——S31 契约保留）
 - engine.py BM25 降级路径的结果形状不变（file/line/score/snippet）
+- **契约变化（S88）**：code_search/code_semantic 的 root（含默认 cwd）先过
+  沙盒钳制——越界返回 `{"error": "路径越界（沙盒外）：…"}`（S73 纪律补全）

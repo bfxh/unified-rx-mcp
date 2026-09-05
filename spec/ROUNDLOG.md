@@ -232,3 +232,14 @@
 - 交付：①宿主 config.json（%APPDATA%\yan-agent\YanData\config.json，mcpServers 为 LIST 形态）追加 unified_rx 条目：command `python`、args `["-X","utf8","D:\rj\MCP\server.py"]`、env `{"UNIFIED_RX_SANDBOX":"D:\开发;D:\rj\MCP","PYTHONUTF8":"1"}`、enabled true、描述注明 v2.14.0/57 工具；改前 Yan Agent 完全关闭+备份 config.json.bak-20260906-pre-unifiedrx，json round-trip（ensure_ascii=False, indent=2）写回，与备份 diff 校验仅 mcpServers 变更（builtins 逐字未动），写回后条目扛住宿主启动重写仍在。②docs：VULN-HUNTING "终点"条目由"换 rx-mcp.exe"改写为 S87 已落形态（引用 S79 决策原文）。仓库侧纯文档变更，server.py 保持 2.14.0 不动 → 无 tag。
 - 验证：①stdio 冒烟（完全复刻宿主拉起命令 `python -X utf8 D:\rj\MCP\server.py`）：initialize→serverInfo unified-rx-v2/2.14.0→notifications/initialized→tools/list **57 工具**→tools/call fs_read（沙箱内成功）/app_clone（rx-appops.exe 路径，23 files verified=true）/app_clean（清理成功）全绿。②宿主 GUI 实测：opencode.log 属懒日志（9月3 后未再写，运行时不落盘）不可作证据 → 改走宿主"MCP 服务"页："测试 UnifiedRX 连接"→**连接成功，57 个工具**（绿勾）——宿主自身以同命令拉起 server.py 完成握手并列出全部工具，即最终验收。③Yan Agent 保持运行（用户应用，未做任何本体/压缩策略改动）。
 - 提交：本次
+
+## S88 · 三路排查与读取面收口——S73 纪律补全（读路径同样过沙盒）+ 假满分修复
+- 项目：unified-rx-mcp｜时间：2026-09-06
+- 决策：用户指令"检查 有没有漏洞 修复"。按 禁自扫 纪律 Mimosa 深扫跑在副本（%TEMP%\s88-scan），与 attack 域活体自审、人工精读三条独立线并行，结论必须交叉收敛才动手。排查哲学延续 S73/S75：门控看"能力"（写/执行/提权才设门），读路径的边界由沙盒钳制统一兜底——本轮实锤正是 8 个未设门读取工具漏了钳制，属纪律执行缺口而非设计缺口。
+- 三路排查账：
+  ① Mimosa 深扫（副本，scan-2026-09-05T18-05-35，57 条：44 bench + 13 tools）逐条分诊——bench/ 系开发脚手架不经 MCP 暴露（44 条不计）；tools/ 13 条中 ide_debug.py:171 eval=S75 设计内（调试器条件断点在调试目标进程内求值，等权无越权面）、meta.py:168/176 shell=True=S75 设计内（local_run 高权限门控工具）、game.py:43 SSRF=常量 URL、其余 fs/ide_edit/learn/lsp/metrics 路径穿越=误报（既有 _resolve 钳制静态不可见）。
+  ② attack 五件套活体自审（attack_run.py 探针进程内 import tools 装配）：auth_gate_sweep 17 门与 manifest 高权限一致；path_probe 全部 safe；input_fuzz/big_input 零异常；rust_taint_scan 98 条污点流逐一分组核账，全部收敛于已钳制面或门控面；junction 探针（沙盒内 mklink /J → C:\Windows）fs_read/fs_list/fs_stat 全拒——3.14 junction 非符号链接但 realpath 仍穿透解析，Python/Rust 双侧边界都按最终目标判，**逃逸实测已闭**，悬空 junction 亦报干净错误（"不是目录/不是文件或不存在"），固化为回归测试。
+  ③ 人工精读沙盒/授权/子进程面：实锤唯一缺口类——scan（bug_scan/std_check/ui_check/project_scan/bug_locate 默认 cwd）、search（code_search/code_semantic 默认 cwd）、game（game_check）、ops（project_health）八个读取工具未钳沙盒；其中 project_health 叠加第二个 bug：未钳路径的子扫错误会被 `bug.get("total",0)` 吞成 0 问题、**返回假满分**。
+- 交付：①八处补 `_fs_resolve` 钳制 + 统一错误信封 `try: … except ValueError as e: return {"error": str(e)}`，先于存在性检查（code_review 同款，S73 注记"读路径同样过沙盒"从纪律变代码）；project_health 钳制置于函数顶，越界拒绝时绝不给分。②tests/test_s88_sandbox_clamp.py 12 测：越界拒绝×7（含 bug_locate/search 默认 cwd 的"exe 缺失不得伪装成沙盒拒绝"甄别）、沙盒内正常路径可用性、project_health 不给分、junction 回归（skipif 非 Windows，mklink /J 建拆均有守卫）、auth_gate_sweep/path_probe 存续校验。③server.py 2.15.0；skills 四域契约声明（scan/search/game/ops）。
+- 验证：S88 文件 12/12；3.14 全量 519 passed + 2 skipped（507 基线 + 12）；3.11 全量 521 passed；cargo test --release 95 绿、build 0 告警；selftest tools=57/GROUPS 12/SCHEMA_BAD 0。宿主 config.json 描述串仍写 v2.14.0（纯展示滞后，Yan Agent 运行中不动 config）。
+- 提交：本次

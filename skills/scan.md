@@ -40,3 +40,6 @@
   （函数>80 行/参数>6/嵌套≥24 空格）+ TODO；mode=diff 只报 git 改动行
   （含未跟踪文件），评审补丁不再全仓扫
   边界：复杂度是行数/缩进近似，非圈复杂度；security 是模式匹配非污点分析
+- **契约变化（S88）**：bug_scan/std_check/ui_check/project_scan 的 path、
+  bug_locate 的 root（含默认 cwd）一律先过沙盒钳制（S73 纪律补全）——越界
+  返回 `{"error": "路径越界（沙盒外）：…"}`，不再触碰文件系统；先于存在性检查
