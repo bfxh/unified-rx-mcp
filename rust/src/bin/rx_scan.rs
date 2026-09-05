@@ -1,20 +1,24 @@
-//! rx-scan —— scan 域轻正则三工具（S82）：std_check / ui_check / bug_locate。
+//! rx-scan —— scan 域轻正则三工具（S82）+ bug_scan 原生化（S83）：
+//! std_check / ui_check / bug_locate / bug_scan。
 //! 用法：
 //!   rx-scan stdcheck <path> [max_files]
 //!   rx-scan uicheck  <path> [max_files]
+//!   rx-scan bugscan  <path> [max_files]   （S83：bug_scan 全量原生，见 rust/src/bug.rs）
 //!   rx-scan buglocate <root> <error_text|->    （"-" = 改读 stdin 全文（lossy）——
 //!                                               Windows 命令行 32767 码元上限装不下
 //!                                               超大报错文本，薄壳对大文本走此通道）
-//! 输出：stdout 一行 JSON（与 tools/scan.py 旧实现同构，不排序——顺序即遍历序）。
+//! 输出：stdout 一行 JSON（与 tools/scan.py 旧实现同构，不排序——顺序即遍历序；
+//! bugscan 例外：结果按 (severity, file, line) 稳定排序，与 Python 版一致）。
 //! 退出码：0 = 工具级结果（含 {"error": ...}，registry 统一转 ok:false）；
 //!         2 = 用法错误。
 //! 无沙盒门：与 Python 版一致（纯读分析）。
 
+use rxrs::bug;
 use rxrs::json::Value;
 use rxrs::scan;
 use std::io::Read;
 
-const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | buglocate <root> <error_text|->";
+const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | buglocate <root> <error_text|->";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -29,7 +33,7 @@ fn main() {
 fn run(args: &[String]) -> Result<Value, String> {
     let sub = args.first().map(|s| s.as_str()).unwrap_or("");
     match sub {
-        "stdcheck" | "uicheck" => {
+        "stdcheck" | "uicheck" | "bugscan" => {
             let path = args.get(1).map(|s| s.as_str()).unwrap_or("");
             if path.is_empty() {
                 return Err(USAGE.into());
@@ -39,10 +43,10 @@ fn run(args: &[String]) -> Result<Value, String> {
                 Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(scan::MAX_FILES),
                 None => scan::MAX_FILES,
             };
-            if sub == "stdcheck" {
-                Ok(scan::std_check(path, mf))
-            } else {
-                Ok(scan::ui_check(path, mf))
+            match sub {
+                "stdcheck" => Ok(scan::std_check(path, mf)),
+                "uicheck" => Ok(scan::ui_check(path, mf)),
+                _ => Ok(bug::bug_scan(path, mf)),
             }
         }
         "buglocate" => {

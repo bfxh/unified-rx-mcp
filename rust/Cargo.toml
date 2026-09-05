@@ -1,6 +1,6 @@
 [package]
 name = "unified-rx-rs"
-version = "2.10.0"
+version = "2.11.0"
 edition = "2024"
 description = "unified-rx Rust 化（S78 地基 + S79 起逐域原生实现）：零依赖 JSON + MCP stdio 协议层 + 污点引擎 + fs 读面 + 检索域 + scan 轻正则三工具"
 # 迁移红线（spec/VULN-HUNTING.md 五）：[dependencies] 恒空——与 Python 侧纯 stdlib 同纪律。

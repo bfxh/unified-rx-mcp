@@ -7,12 +7,12 @@ P4 增强（2026-08-24）：Bevy 专项规则（用户：引擎重点优化 Bevy
 P5 修复（2026-08-25）：Python AST 作用域感知（参数/方法/属性/魔法方法不算未定义）——
   消除 undefined_name 假阳性（592→0 级）；bug_locate 提取 traceback 文件:行号。
 S82（2026-09-05）：std_check / ui_check / bug_locate Rust 原生化（rx-scan.exe，
-  见 rust/src/scan.rs）——Python 侧只留薄壳转调，exe 缺失报清晰错误不静默降级；
-  bug_scan / ast_scan 仍 Python（ast.parse 面留后续轮）。
+  见 rust/src/scan.rs）——Python 侧只留薄壳转调，exe 缺失报清晰错误不静默降级。
+S83（2026-09-05）：bug_scan 全量原生化（rust/src/bug.rs + 手写迷你解析器 pyast.rs，
+  rx-scan bugscan 子命令）——scan.py 至此四工具皆薄壳；ast_scan 仍 Python（后续轮）。
 """
 import os
 import re
-import ast
 import json
 import subprocess
 from collections import Counter, defaultdict
@@ -25,7 +25,7 @@ _SKIP_DIRS = ('.git', 'node_modules', 'target', '__pycache__', 'dist', 'build',
 import registry  # S55 同类修复：code_review 的 bug_scan 透镜用 registry.call 却没导入，
                  # NameError 被 except 吞掉——S44 起该透镜从未真正运行过
 from registry import tool
-from . import bevy  # Bevy 专项规则
+# tools/bevy.py 自 S83 起为规则档案：bevy_rules 的正则唯一实现在 rust/src/bug.rs
 
 MAX_FILES = 100
 
@@ -130,234 +130,12 @@ def _rx_scan_call(argv, stdin_data=""):
     return out
 
 
-# ---------- bug_scan：Python AST 规则（P5：作用域感知） ----------
-import builtins as _builtins
-# 常见内建名（用 builtins 模块，__builtins__ 在模块/__main__ 表现不同）
-_BUILTINS = set(dir(_builtins))
-# 方法属性访问/魔法方法/参数名不是"未定义变量"
-_SPECIAL = {"self", "cls", "super", "_", "__file__", "__name__", "__doc__",
-           "__package__", "__loader__", "__spec__", "__builtins__", "__cached__",
-           "__annotations__", "__all__", "__path__", "__main__"}
-
-
-def _scan_python(src, path):
-    issues = []
-    try:
-        tree = ast.parse(src)
-    except SyntaxError as e:
-        return [{"line": e.lineno or 0, "rule": "syntax_error",
-                 "msg": f"语法错误: {e.msg}", "file": path}]
-    # 收集所有定义：函数/类名、赋值、导入、参数、推导式变量、with-as、except-as、for 变量
-    defined = set()
-    imported = {}
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            defined.add(node.name)
-            # 参数也算定义
-            args = node.args
-            for a in list(args.args) + list(args.kwonlyargs) + list(args.posonlyargs):
-                defined.add(a.arg)
-            if args.vararg:
-                defined.add(args.vararg.arg)
-            if args.kwarg:
-                defined.add(args.kwarg.arg)
-        elif isinstance(node, ast.ClassDef):
-            # S5 修复：ClassDef 没有 .args——此前带装饰器/类的 Python 文件直接 AttributeError 全扫崩
-            defined.add(node.name)
-            for base in node.bases:
-                for t in ast.walk(base):
-                    if isinstance(t, ast.Name):
-                        defined.add(t.id)
-        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            defined.add(node.id)
-        elif isinstance(node, ast.Import):
-            for a in node.names:
-                imported[a.asname or a.name.split(".")[0]] = node.lineno
-        elif isinstance(node, ast.ImportFrom):
-            for a in node.names:
-                imported[a.asname or a.name] = node.lineno
-        elif isinstance(node, ast.comprehension):
-            # 推导式变量（支持元组解包 (a, b) for ...）
-            for t in ast.walk(node.target):
-                if isinstance(t, ast.Name):
-                    defined.add(t.id)
-        elif isinstance(node, (ast.With, ast.AsyncWith)):
-            for item in node.items:
-                if isinstance(item.optional_vars, ast.Name):
-                    defined.add(item.optional_vars.id)
-        elif isinstance(node, ast.ExceptHandler) and node.name:
-            # Python 3.11+ ExceptHandler.name 是 str（不是 Name 节点）
-            defined.add(node.name)
-        elif isinstance(node, ast.Lambda):
-            # lambda 参数（如 sort 的 key=lambda x: ...）
-            for a in list(node.args.args) + list(node.args.kwonlyargs):
-                defined.add(a.arg)
-        elif isinstance(node, ast.Global):
-            defined.update(node.names)
-        elif isinstance(node, ast.Nonlocal):
-            defined.update(node.names)
-    defined |= set(imported.keys())
-    defined |= _BUILTINS
-    defined |= _SPECIAL
-
-    for node in ast.walk(tree):
-        # 裸 except
-        if isinstance(node, ast.ExceptHandler) and node.type is None:
-            issues.append({"line": getattr(node, "lineno", 0), "rule": "bare_except",
-                           "msg": "裸 except（吞掉所有异常）", "file": path})
-        # S61 动态执行（AST 级）：只查裸 Name 调用——re.compile 等 Attribute 成员
-        # 调用天然排除（S44 的 dsml FP 教训在 AST 层的结构化解法）
-        if isinstance(node, ast.Call):
-            fn = node.func
-            if isinstance(fn, ast.Name) and fn.id in ("eval", "exec", "compile"):
-                hot = fn.id in ("eval", "exec")
-                issues.append({
-                    "line": node.lineno, "rule": "eval_exec",
-                    "msg": f"python 动态执行 {fn.id}()——注入面（裸调用）",
-                    "file": path,
-                    # S77：severity 词表统一 med——S74 排序表只认 med，
-                    # "medium" 落 info 档沉出第一页（记账靶场实测发现的暗门）
-                    "severity": "high" if hot else "med",
-                    "kind": "definite" if hot else "clue"})
-        # 未定义变量：只查 Load 上下文的 Name，且：
-        #   - 是属性访问的一部分（node.xxx 的 xxx 不是 Name 节点，天然排除）
-        #   - 方法调用 self.xxx 的 xxx 是 Attribute，排除
-        #   - 函数调用 foo(...) 的 foo 若是 Name 且未定义 → 报（真未定义函数）
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            # 排除: 函数定义名、类名（已在 defined）
-            # 排除: 作为 Attribute 的 value（a.b 的 a 要定义，b 不是 Name）
-            # 排除: 关键字参数名（kwarg.arg 是 str）
-            if node.id not in defined:
-                issues.append({"line": node.lineno, "rule": "undefined_name",
-                               "msg": f"未定义变量 '{node.id}'", "file": path})
-    # 导入遮蔽内建
-    for name, lineno in imported.items():
-        if name in _BUILTINS:
-            issues.append({"line": lineno, "rule": "redefined_import",
-                           "msg": f"导入 '{name}' 遮蔽内建名", "file": path})
-    return issues
-
-
-# ---------- bug_scan：Rust 生产规则 ----------
-# S4-D1 分级重构（L2 实测依据：文本密度与真缺陷修复无正相关）：
-#   - 文本线索类（unwrap/expect/as_cast/indexing）降为 info/clue——只当"可能有雷的位置"
-#   - 跨函数可判定/确定崩溃类保留 high（todo!/unimplemented!/panic!/unreachable!）
-#   - 新增 kind 字段：clue=线索流（不当质量分数用），definite=确定性风险
-_RUST_RULES = [
-    ("unwrap", r"\.unwrap\(\)", "unwrap()——None/Err 时 panic（线索：确认有 ?/match 兜底即可忽略）", "info", "clue"),
-    ("expect", r"\.expect\(\s*\"", "expect()——带消息 panic（线索）", "info", "clue"),
-    ("panic", r"\bpanic!\(", "panic!()——直接崩溃", "high", "definite"),
-    ("unreachable", r"\bunreachable!\(", "unreachable!()——到达即 bug", "high", "definite"),
-    ("todo_unimplemented", r"\b(todo!|unimplemented!)\(", "todo!/unimplemented!()——未实现即崩溃", "high", "definite"),
-    ("as_cast", r"\bas\s+(i64|i32|u64|u32|f64|f32|usize|isize)\b", "as 类型转换——截断/精度丢失（线索：建议 try_from）", "info", "clue"),
-    # 左侧环视 (?<=[\w)\]])：真索引左侧必是标识符/右括号——排除字符串字面量
-    # 里的 "[server]" 日志前缀与 `= [`/`, [` 数组字面量（09-05 VoxelForge 高压
-    # 检查甄别：124 条 indexing 里大半是 println!("[server] …") 噪音）
-    ("indexing", r"(?<=[\w)\]])\[[a-zA-Z_][a-zA-Z0-9_]*\]", "索引访问——越界即 panic（线索：建议 .get()）", "info", "clue"),
-    # S27 人工标注审计发现：[expr.field as usize] 成员+转换索引此前全部漏报
-    ("indexing", r"(?<=[\w)\]])\[[^\]\[\n]{0,80}\bas\s+(usize|isize|i64|i32|u64|u32)\s*\]", "索引访问（含 as 转换）——越界即 panic（线索：建议 .get()）", "info", "clue"),
-]
-
-
-def _scan_rust(src, path):
-    issues = []
-    for rule, pat, msg, sev, kind in _RUST_RULES:
-        for m in re.finditer(pat, src):
-            line = src.count("\n", 0, m.start()) + 1
-            line_text = src.split("\n")[line - 1].strip()
-            if line_text.startswith("//"):
-                continue
-            issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
-                           "severity": sev, "kind": kind})
-    # Bevy 代码规则（Rust 文件里也扫；kind 统一补 clue——迁移类文本规则不当质量分数）
-    for rule, pat, msg, sev in bevy.bevy_rules():
-        for m in re.finditer(pat, src):
-            line = src.count("\n", 0, m.start()) + 1
-            issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
-                           "severity": sev, "kind": "clue"})
-    # S4-D1 测试代码降级：tests 目录/文件名 *_test.rs 整个降；
-    # 文件内 #[cfg(test)] mod 之后（tests mod 起）的 clue 类命中按行号逐条降级
-    norm = path.replace("\\", "/").replace("_tmp/", "")
-    is_test_file = norm.endswith("_test.rs") or re.search(r"/tests(?:/|$)", norm)
-    m_test_mod = re.search(r"^#\[\s*cfg\s*\(\s*test\s*\)\s*\]", src, re.MULTILINE)
-    test_start_line = None
-    if not is_test_file and m_test_mod is not None:
-        # cfg(test) 属性行起（mod tests 紧随其后）视为测试区起点
-        test_start_line = src.count("\n", 0, m_test_mod.start()) + 1
-    for i in issues:
-        in_test = is_test_file or (test_start_line is not None and i["line"] >= test_start_line)
-        if in_test and i["rule"] in ("unwrap", "expect", "as_cast", "indexing"):
-            i["severity"] = "low"
-            i["kind"] = "clue"
-            i["msg"] += "（测试代码，降级）"
-        elif in_test and i["rule"] == "panic":
-            # S12 语境诚实化：panic! 在测试内通常就是断言/should_panic 用途。
-            # VF3 实证：21/21 个 high panic 全在测试区——高危分被测试打爆即失真。
-            i["severity"] = "low"
-            i["kind"] = "clue"
-            i["msg"] += "（测试上下文，通常为断言用途，降级）"
-    return issues
-
-
-# ---------- bug_scan：通用正则规则 ----------
-_RE_RULES = [
-    ("assert_always_true", r"assert\s+True\b", "恒真断言（永远通过，无意义）"),
-    ("equal_float", r"==\s*\d+\.\d+", "浮点相等比较（精度风险）"),
-    # (?<![.\w]) 排除成员调用：RegExp.prototype.exec(/x/) 是正则方法不是动态执行
-    # （源码审计实测误报：lib/dsml-tool-call.js 的 10 处全是 regex.exec）
-    ("eval_exec", r"(?<![.\w])(eval|exec|execSync)\s*\(", "eval/exec 动态执行（安全风险）"),
-]
-
-
-def _scan_generic(src, path, lang):
-    issues = []
-    for rule, pat, msg in _RE_RULES:
-        for m in re.finditer(pat, src):
-            line = src.count("\n", 0, m.start()) + 1
-            issues.append({"line": line, "rule": rule, "msg": msg, "file": path,
-                           "severity": "med", "kind": "clue"})  # S77：词表统一（原 medium 沉底）
-    return issues
-
-
-# ---------- S5-C2 内容指纹缓存 ----------
-# 文件级指纹（mtime_ns + size）→ 该文件上次扫描 issues。
-# 未变文件直接复用，免重复 open+parse；指纹含 mtime_ns+size 两要素，
-# 修改后任一变化即失效（NTFS mtime 精度 100ns，无 stale 风险）。
-import threading as _threading
-
-_SCAN_CACHE = {}
-_CACHE_LOCK = _threading.Lock()
-_CACHE_MAX = 8192
-
-
-def _file_fingerprint(fp):
-    try:
-        st = os.stat(fp)
-        return (st.st_mtime_ns, st.st_size)
-    except OSError:
-        return None
-
-
-def _cached_scan(func, fp, src):
-    """单文件扫描的缓存包装。func(src, fp) → issues list。"""
-    fp_norm = os.path.normcase(os.path.abspath(fp))
-    key = (fp_norm, func.__name__)
-    with _CACHE_LOCK:
-        hit = _SCAN_CACHE.get(key)
-    if hit is not None and hit[0] == _file_fingerprint(fp):
-        return hit[1]
-    result = func(src, fp)
-    with _CACHE_LOCK:
-        if len(_SCAN_CACHE) >= _CACHE_MAX:
-            _SCAN_CACHE.clear()  # 粗暴防膨胀：工具生命周期内够用
-        _SCAN_CACHE[key] = (_file_fingerprint(fp), result)
-    return result
-
-
-def scan_cache_clear():
-    """写操作后由调用方清缓存（外部改文件走 fs_write 时 registry 不感知内容）。"""
-    with _CACHE_LOCK:
-        _SCAN_CACHE.clear()
+# ---------- bug_scan：S83 起全量原生 ----------
+# Python AST 规则（P5 作用域感知）/ Rust 生产规则 / 通用正则 / S5-C2 指纹缓存
+# 已整体退役——唯一实现在 rust/src/bug.rs（rx-scan bugscan 子命令，含手写迷你
+# 解析器 pyast.rs）。语义等价由 S83 对照实验证明：7 场景（语料三配额/单文件/
+# 非代码/不存在路径/全仓 169 文件 909 条）与旧实现逐字节一致。
+# bevy.py 保留为规则档案（bevy_rules 的正则原文在 Rust 侧 bug.rs 手写匹配器）。
 
 
 @tool("bug_scan", "静态扫描 bug 模式（未定义变量/裸 except/浮点比较/eval/Rust/Bevy 等）", "scan",
@@ -370,56 +148,7 @@ def scan_cache_clear():
 def bug_scan(path, max_files=MAX_FILES):
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
-    issues = []
-    files_scanned = 0
-    for fp in _iter_files(path, max_files):
-        lang = _lang_of(fp)
-        if not lang:
-            continue
-        files_scanned += 1
-        # S5-C2：按 (文件指纹, 扫描函数) 查缓存——命中则跳过读取与解析
-        if lang == "python":
-            scan_fn, cache_name = _scan_python, "_scan_python"
-        elif lang == "rust":
-            scan_fn, cache_name = _scan_rust, "_scan_rust"
-        else:
-            scan_fn, cache_name = None, "_generic"
-        fp_norm = os.path.normcase(os.path.abspath(fp))
-        with _CACHE_LOCK:
-            cached = _SCAN_CACHE.get((fp_norm, cache_name))
-        if cached is not None and cached[0] == _file_fingerprint(fp):
-            issues.extend(cached[1])
-            continue
-        try:
-            with open(fp, "r", encoding="utf-8", errors="replace") as f:
-                src = f.read()
-        except OSError:
-            continue
-        if scan_fn is not None:
-            file_issues = _cached_scan(scan_fn, fp, src)
-        else:
-            file_issues = _scan_generic(src, fp, lang)
-            with _CACHE_LOCK:
-                if len(_SCAN_CACHE) >= _CACHE_MAX:
-                    _SCAN_CACHE.clear()
-                _SCAN_CACHE[(fp_norm, cache_name)] = (_file_fingerprint(fp), file_issues)
-        issues.extend(file_issues)
-    by_rule = {}
-    by_sev = {}
-    for i in issues:
-        by_rule[i["rule"]] = by_rule.get(i["rule"], 0) + 1
-        sev = i.get("severity", "info")
-        by_sev[sev] = by_sev.get(sev, 0) + 1
-    # S74：交付前按严重度排序——registry 出口 200/页分页，文件序会让高危/新规则
-    # 沉到第 2 页之后（VoxelForge 实测：物理规则命中全部被挤出第一页，机器自动拦失效；
-    # 排序纪律与 code_review 的 S65 出口一致）
-    issues.sort(key=lambda x: (
-        {"high": 0, "med": 1, "low": 2, "info": 3}.get(x.get("severity"), 3),
-        x.get("file", ""), x.get("line", 0)))
-    # UPGRADE-C1：全量保留交给 registry._clamp 统一分页（tool 内不再私自截断丢信息）
-    return {"files": files_scanned, "total": len(issues),
-            "by_rule": by_rule, "by_severity": by_sev,
-            "issues": issues}
+    return _rx_scan_call(["bugscan", path, str(int(max_files))])
 
 
 # ---------- std_check ----------
@@ -433,7 +162,7 @@ def bug_scan(path, max_files=MAX_FILES):
 def std_check(path, max_files=MAX_FILES):
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
-    # S82 起不再走 _SCAN_CACHE：exe 每调独立进程，无跨调缓存面（bug_scan 缓存不受影响）
+    # S83 起全域不走缓存：exe 每调独立进程，无跨调缓存面（旧 _SCAN_CACHE 已退役）
     return _rx_scan_call(["stdcheck", path, str(int(max_files))])
 
 

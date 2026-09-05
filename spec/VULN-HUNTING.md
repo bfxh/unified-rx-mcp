@@ -13,7 +13,7 @@
 
 | 能力 | 现状 | 出处 |
 |---|---|---|
-| 静态规则引擎 | bug_scan 正则规则 **19 条**（Rust 8 / 通用 3 / bevy 引擎 8），分 high/med/low/info 四级 + clue/definite 两类 | tools/scan.py `_RUST_RULES`/`_RE_RULES`、tools/bevy.py |
+| 静态规则引擎 | bug_scan 规则 **19 条**（Rust 8 / 通用 3 / bevy 引擎 8），分 high/med/low/info 四级 + clue/definite 两类；S83 起全量原生（rx-scan bugscan），手写匹配器在 rust/src/bug.rs，bevy.py 转规则档案 | rust/src/bug.rs、tools/bevy.py（档案） |
 | AST 检查 | ast_scan 对 Python 做语法级检查（危险属性集等） | tools/astscan.py |
 | 规则分级纪律 | 线索（clue）不当质量分数用，确定性风险（definite）才计分——避免"文本密度=质量"的假象 | S4-D1 |
 | 出口可见性 | bug_scan 交付前按严重度排序，registry 分页不再埋掉新规则命中 | S74（VoxelForge 1808 条实测修正） |
@@ -204,6 +204,17 @@
   （bug_locate 小输入 ~10→17ms——spawn 开销盖过轻正则，诚实记账）。验收：
   cargo 58 绿（fs 13+json 6+search 10+sem 13+scan 13+taint 3）+ pytest 双
   解释器全绿（3.14=496+2s / 3.11=498）。
+  落地注记（S83，bug_scan 已全量落）：bug_scan 原生化（rx-scan bugscan 子
+  命令）——Python AST 规则面由手写迷你解析器 rust/src/pyast.rs 承担（3.14
+  语义：缩进驱动/括号续行/f-string PEP 701 区域模型/match 软关键字回退/模式
+  匹配全套，零第三方 crate），规则层在 rust/src/bug.rs。7 场景对照（46 文件
+  语料三配额/全仓 169 文件 909 条/单文件/非代码/幽灵路径）与旧实现逐字节一
+  致后才删 Python 码。坑账：f-string 区域是源切片——`!r`/调试 `=` 必须记
+  cut 点真截断；区域内 `(`/`[` 深度防切片冒号误入 spec；ImportFrom 遮蔽键
+  用 asname；oracle 自身在被扫仓内，改完 Rust 侧必须重生成 oracle 再比。
+  _SCAN_CACHE 全域退役；bevy.py 转规则档案。验收：cargo 72 绿零告警
+  （fs 13+json 6+search 10+sem 13+scan 13+bug 9+pyast 5+taint 3）+ pytest
+  双解释器全绿（3.14=502+2s / 3.11=504）。
 - **终点**：宿主 config.json 入口从 `python server.py` 换成 `rx-mcp.exe`（需 Yan
   Agent 完全关闭后改配置，单独一轮做并验证 opencode.log 连接成功），Python 进程
   退役；Python 只剩测试电池与文档。

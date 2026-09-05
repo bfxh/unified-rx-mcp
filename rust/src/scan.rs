@@ -68,7 +68,7 @@ fn splitext(name: &str) -> &str {
     }
 }
 
-fn lang_of(path: &str) -> &'static str {
+pub(crate) fn lang_of(path: &str) -> &'static str {
     lang_of_ext(&splitext(path).to_lowercase())
 }
 
@@ -143,7 +143,7 @@ fn join_name(dir: &Path, name: &str) -> String {
 }
 
 /// _iter_files 等价：目录或单文件；max_files 只计代码文件。
-fn iter_files(path: &str, max_files: usize) -> Vec<String> {
+pub(crate) fn iter_files(path: &str, max_files: usize) -> Vec<String> {
     let p = Path::new(path);
     if p.is_file() {
         return vec![path.to_string()];
@@ -157,7 +157,7 @@ fn iter_files(path: &str, max_files: usize) -> Vec<String> {
 }
 
 /// utf-8 errors=replace 等价读全文。
-fn read_text(p: &Path) -> Option<String> {
+pub(crate) fn read_text(p: &Path) -> Option<String> {
     let bytes = std::fs::read(p).ok()?;
     Some(String::from_utf8_lossy(&bytes).into_owned())
 }
