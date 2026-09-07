@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""server.py —— MCP stdio 协议薄层（纯 stdlib 零依赖，<250 行）
+"""server.py —— MCP stdio 协议薄层（纯 stdlib 零依赖，<300 行；S91 起含自检对账）
 
 协议：newline-delimited JSON-RPC 2.0（现代 MCP stdio 标准）
 方法：initialize / notifications/initialized / tools/list / tools/call / ping
@@ -14,6 +14,8 @@
 import sys
 import json
 import os
+import re
+import subprocess
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -25,7 +27,7 @@ import tools  # noqa: F401
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.16.0"
+SERVER_VERSION = "2.17.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -158,6 +160,80 @@ def _handle(msg):
     }
 
 
+def _latest_v_tag(base_dir):
+    """目录内最新 v* tag（组件数值序，v2.9.0 < v2.10.0）；非仓库/无 tag/git 不可用 → None。"""
+    try:
+        cp = subprocess.run(["git", "tag", "--list", "v*"], capture_output=True,
+                            timeout=10, cwd=base_dir, input=b"")
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if cp.returncode != 0:
+        return None
+    tags = [t for t in cp.stdout.decode("utf-8", "replace").split() if t]
+    if not tags:
+        return None
+
+    def _key(t):
+        return [int(x) if x.isdigit() else -1 for x in t[1:].split(".")]
+
+    return max(tags, key=_key)
+
+
+def _selftest_version_tag(base_dir=None):
+    """SERVER_VERSION ↔ 最新 git tag 对账（S91：84034eb 教训工具化——serverInfo
+    曾在 S53-S71 停更十八轮，靠 84034eb 事后对齐）。打印口径：
+    OK=与最新 tag 一致；NEXT=版本领先（开发中待发版，正常）；DRIFT=版本落后
+    （真实漂移信号，须对齐）；SKIP=非仓库/无 tag/git 不可用。只提示不改退出码。"""
+    base = base_dir or os.path.dirname(os.path.abspath(__file__))
+    latest = _latest_v_tag(base)
+    if latest is None:
+        return "SKIP", "-"
+    mine = f"v{SERVER_VERSION}"
+
+    def _key(t):
+        return [int(x) if x.isdigit() else -1 for x in t[1:].split(".")]
+
+    if mine == latest:
+        return "OK", latest
+    return ("NEXT", latest) if _key(mine) > _key(latest) else ("DRIFT", latest)
+
+
+_SKILL_TOOL_PREFIXES = ("fs_", "ide_", "code_", "bug_", "app_", "game_", "ops_",
+                        "rust_", "engine_", "guard_", "learn_", "attack_", "meta_",
+                        "std_", "ui_", "ast_", "semantic_", "project_")
+
+
+def _selftest_skills_docs(base_dir=None):
+    """skills/*.md ↔ registry 工具名对账（S91：S88 手工补四域契约声明的教训
+    工具化——文档漂移机器抓）。口径：每份域文档（除 README/workflow）至少命中
+    1 个在册工具名；文档中疑似工具名（域前缀+下划线，且非 tools/ 模块名）若
+    不在册 → 计陈旧名（改名/退役后文档没跟上）。返回 (stale 列表, 零命中文件列表)。"""
+    import re
+    base = base_dir or os.path.dirname(os.path.abspath(__file__))
+    skills = os.path.join(base, "skills")
+    tools_dir = os.path.join(base, "tools")
+    if not os.path.isdir(skills):
+        return None, None
+    live = set(registry._TOOLS)
+    modules = ({os.path.splitext(f)[0] for f in os.listdir(tools_dir)
+                if f.endswith(".py")} if os.path.isdir(tools_dir) else set())
+    pat = re.compile(r"\b[a-z][a-z0-9]*_[a-z0-9_]+\b")
+    stale, dead = [], []
+    for f in sorted(os.listdir(skills)):
+        if not f.endswith(".md") or f in ("README.md", "workflow.md"):
+            continue
+        with open(os.path.join(skills, f), encoding="utf-8") as fh:
+            text = fh.read()
+        tokens = set(pat.findall(text))
+        # dead 判定用子串（覆盖无下划线的工具名，如 lesson）；stale 判定才用下划线词元
+        if not any(t in text for t in live):
+            dead.append(f)
+        stale += [t for t in sorted(tokens)
+                  if t.startswith(_SKILL_TOOL_PREFIXES) and t not in live
+                  and t not in modules]
+    return stale, dead
+
+
 def selftest():
     """注册表自检：工具数 + 每个工具 schema 合法 + 抽样调用。"""
     # fail-closed 下自检自身也会被拦：未显式配沙盒时临时放开（仅本进程）
@@ -173,6 +249,15 @@ def selftest():
     print(f"FS_STAT {r}")
     bad = [t for t in registry.list_tools() if not t["name"] or not isinstance(t["inputSchema"], dict)]
     print(f"SCHEMA_BAD {len(bad)}")
+    # S91 机器对账两件：版本漂移 + skills 文档漂移（只提示，不改退出码）
+    vt, tag = _selftest_version_tag()
+    print(f"VERSION_TAG {vt} latest={tag}")
+    stale, dead = _selftest_skills_docs()
+    if stale is None:
+        print("SKILLS_DOCS SKIP")
+    else:
+        extra = (f" stale={stale[:8]}" if stale else "") + (f" dead={dead[:8]}" if dead else "")
+        print(f"SKILLS_DOCS stale={len(stale)} dead={len(dead)}{extra}")
     return 0 if (n > 0 and not bad and r.get("ok")) else 1
 
 

@@ -1,7 +1,7 @@
 # PANORAMA —— 项目全景复盘与开发方向
 
 > 用途：一份文档说清三件事——**推理主线**（为什么走到今天）、**现状坐标**（站在哪）、
-> **开发方向**（往哪走）。写作时点：2026-09-07 @ v2.16.0（S90 fs 域收官后）。
+> **开发方向**（往哪走）。写作时点：2026-09-07 @ v2.17.0（S91 普查后）。
 >
 > 史料分工（读哪份文档管什么，见文末"七、文档地图"）：S38+ 逐轮对账见
 > [ROUNDLOG.md](ROUNDLOG.md)；S10-S44 见 [UPGRADE.md](UPGRADE.md)；主题速览见
@@ -163,10 +163,11 @@ exe 化测错对象）、ide 19 件（LSP/编译/调试=外部进程编排 + reg
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 532 passed + 2 skipped ／ 3.11 = 534 passed；cargo
-100 绿零告警（lib 21 + 各 exe 集成测）；selftest 57/12/SCHEMA_BAD 0；junction 逃逸
-回归（S88）；stdin 通道 parity 三测（S90，argv vs stdin 强制等价）；S73 重放验收
-常驻（S78）；协议 fuzz 双靶 32 测（S78）。
+**测试资产**：pytest 3.14 = 540 passed + 2 skipped ／ 3.11 = 542 passed；cargo
+100 绿零告警（lib 21 + 各 exe 集成测）；selftest 57/12/SCHEMA_BAD 0 + 机器对账
+两行（VERSION_TAG / SKILLS_DOCS，S91）；junction 逃逸回归（S88）；stdin 通道
+parity 三测（S90，argv vs stdin 强制等价）；S73 重放验收常驻（S78）；协议 fuzz
+双靶 32 测（S78）。
 
 **部署拓扑**：开发仓 `D:\开发\unified-rx-mcp`（GitHub bfxh/unified-rx-mcp）→
 稳定克隆 `D:\rj\MCP`（origin 指开发仓，git ff 同步）→ 宿主 config.json mcpServers
@@ -181,9 +182,10 @@ config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本
 ### 近期 · 小而快（各一轮可完成）
 1. **config.json 描述串更正 + 纪律补丁**：v2.14.0→2.15.0；workflow 补一条"改
    config 必带版本对账"（防再现 serverInfo 停更式漂移）。等 Yan Agent 关闭窗口执行。
-2. **selftest 扩两项机器对账**：①SERVER_VERSION ↔ 最新 git tag 一致性（84034eb
-   教训工具化）；②skills 域文档 ↔ registry schema 关键字抽查（S88 手工补四域
-   契约声明的教训工具化——文档漂移机器抓）。
+2. **selftest 扩两项机器对账（✅ S91 已兑）**：①SERVER_VERSION ↔ 最新 git tag
+   （OK/NEXT/DRIFT/SKIP 四态——落后=真实漂移信号，84034eb 教训工具化）；
+   ②skills/*.md ↔ registry 工具名对账（陈旧名 stale + 零命中文件 dead，S88 手工
+   补契约声明的教训工具化）。selftest 打印两行对账，不改退出码。
 3. **bench 扫面噪音治理**：Mimosa 每轮 44 条 bench/ 命中是恒定分诊噪音（S50 已
    定性不砍代码）——SCAN-POLICY 补"bench 命中一律先按脚手架定性"或给扫面豁免标记，
    把深扫分诊成本降下来。
@@ -193,10 +195,11 @@ config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本
    不动）、Rust 侧复刻 tmp+replace 原子写、oracle 12 场景 12/12 PASS。探针副产物
    成纪律：**跨进程传内容走二进制 stdin 字节通道**（text 模式 stdin 有换行翻译），
    scan/search 同源通道同轮归一。
-5. **ide 域判型普查（S85 式先普查圈靶）**：19 件分三类立表——纯文本计算
-   （code_context/locate_edit 定位/ide_rename 预案/ide_outline/ide_impact 等）
-   可迁；外部进程编排（lsp/compile/debug/blender）结构性不迁；registry 内省类不迁。
-   普查产出即路线图，之后按"纯读/纯计算先迁"逐件圈靶。
+5. **ide 域判型普查（✅ S91 已兑）**：19 件逐件立表（表在 VULN-HUNTING 五）——
+   可迁 5+1（ide_outline/ide_read_symbol/locate_edit/ide_rename/code_context +
+   低优 ide_health_trend），结构性留 13（编排面是职责不是债务）。**S92 首靶 =
+   ide_read 双件**（纯 AST 计算，pyast.rs 的 Rust 对位现成）；随后
+   locate_edit/ide_rename/code_context 一轮（遍历+搜索与 rx-scan 基建同构）。
 6. **engine 域双实现归一**：BM25/语义引擎已住 rx-search/rx-semantic，engine_query
    的 Python 降级路径与 exe 直连归一（去第二实现面），engine_status 保持探测壳。
 
