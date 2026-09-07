@@ -1,4 +1,4 @@
-# ide 域（17 工具：编辑/构建/调试/诊断/测试/体检/语义）
+# ide 域（19 工具：读取/编辑/构建/调试/诊断/测试/体检/语义）
 - **ide_edit_multi**：内容匹配（非行号），CRLF 保留，`dry_run: true` 出
   unified diff 预览不落盘（S34）；模拟在副本上整段跑，mismatch 不会半应用；
   S55 语法门（py 结果不可编译整批拒不落盘）；S55 `validate: true` 写前 LSP
@@ -30,6 +30,13 @@
 - **ide_batch_edit**（S65）：跨文件行块批量替换（同 ide_edit_multi 匹配语义），
   默认 dry_run per-file diff 预览，apply=true 落盘；py 单文件语法门失败只跳过
   该文件不挡批次；>10MB 跳过；白名单 files 可缩范围
+- **ide_outline / ide_read_symbol**（S66 立面 / S92 原生化）：结构大纲与按名精读——
+  四语言（python/rust/go/javascript）行级符号清单（kind: fn/type、起止行、参数数）、
+  大纲 300 符号上限；params 计数口径 outline 只认 fn、read_symbol 只认括号；
+  唯一实现在 rust/src/ide.rs（rx-ide.exe），零 LSP 依赖毫秒级（S66 立意：
+  高频动作不付语言服务器成本）；S92 对照实验 43 场景 masked 全等——CRLF/
+  尾幻影行/unicode 标识符/一行 fn 含 struct 翻 type/js class 落 fn 等
+  S70 语义怪癖逐字节对齐
 - 坑：JDK/gcc 本地化消息（中文"错误"）破坏诊断正则 → javac 强制
   `-J-Duser.language=en`、gcc `LC_ALL=C`；pytest 语法错误走 stdout 非 stderr；
   CPython 3.11+ line 事件 trace 返回 None 不关帧追踪（必须 sys.settrace(None)）；
