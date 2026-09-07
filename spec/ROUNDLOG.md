@@ -259,3 +259,11 @@
 - 交付：rust/src/fs.rs::op_write + rx_fs.rs write 子命令（stdin 读到 EOF，壳侧恒传 input 防继承宿主协议管道）+ fs_test.rs +5 测；tools/fs.py：_rx_fs_call 加 stdin_bytes 二进制分支，fs_write 薄壳化（os.replace/urxtmp 写盘原语退役，_resolve 保留作 oracle 锚与 scan/search/game/ops 导入面）；tests/test_s90_fs_write_rust.py 13 测（行为等价/注册面/退役断言/scan+search stdin 通道 parity 回归门）；**新纪律入仓（用户裁决）**：skills/workflow.md 原则 7"智能体工具使用只走稳定版 D:\rj\MCP\server.py，绝不 import 开发仓"+ PANORAMA 协作纪律 + 决策账 #15；skills/fs.md 契约注记；VULN-HUNTING S90 落地注记；server.py 2.16.0；Cargo.toml 2.16.0。
 - 验证：pytest 3.14 = 532 passed + 2 skipped（519 基线 + 13）；3.11 = 534 passed；cargo test 100 绿零告警（95 + fs_test 5）；oracle 12/12。
 - 提交：本次
+
+## S91 · ide 域判型普查 + selftest 机器对账（普查轮 + 近期 #2 兑现）
+- 项目：unified-rx-mcp｜时间：2026-09-07
+- 决策：PANORAMA 方向 #5 兑现——ide 域 19 件逐件判型立表（表落 VULN-HUNTING 五，与 S85 attack 判型同口径）。读模定案：**可迁 5+1**（ide_outline/ide_read_symbol 纯 AST 计算零 LSP、locate_edit/ide_rename 全库文本定位同构、code_context 行窗口，低优 ide_health_trend JSONL 聚合）；**结构性留 13**（ide_lsp 真 LSP 客户端/ide_impact/ide_diagnostics 聚合器/ide_build/ide_test/ide_debug/ide_break/ide_doctor/ide_multi_check/ide_vscode/ide_auto_report 编排触发器 + ide_edit_multi/ide_batch_edit 写面）。两个普查发现：①ide.py 早已是 21 行分发壳（S48 职责拆分），"上帝文件"前提不成立——ide_impact/ide_lsp 住 lsp.py；②ide_build/ide_test 内嵌 7 件解析器（_parse_gcc/_parse_pytest 等）纯计算但延迟被编译器支配，不单列迁。结论：编排面是职责不是债务；S92 首靶 = ide_read 双件（pyast.rs 对位现成）。
+- 顺带兑现近期 #2（selftest 机器对账两件，server.py selftest 新增两行打印、不改退出码）：①VERSION_TAG——SERVER_VERSION ↔ 最新 git tag（_latest_v_tag 组件数值序，OK/NEXT/DRIFT/SKIP 四态；版本落后=真实漂移信号，84034eb 教训工具化）；②SKILLS_DOCS——skills/*.md ↔ registry 工具名（stale=在册外域前缀名且非 tools/ 模块名；dead=零命中文件；dead 判定用子串覆盖无下划线工具名——首跑即抓 learn.md 假阳性"lesson 无下划线"→ 检测器修正 + learn.md 顺手补契约行）。
+- 交付：VULN-HUNTING 五·ide 判型普查表（19 行）；server.py 两对账器（_latest_v_tag/_selftest_version_tag/_selftest_skills_docs + selftest 接线）+ docstring 行数口径更新；tests/test_s91_selftest_audit.py 8 测（含 hermetic git 仓四态 + 真仓对齐回归门 + stale/dead 探测）；skills/learn.md 契约补齐；PANORAMA #5/#2 兑现 + 现状坐标 v2.17.0；server.py/Cargo.toml/Cargo.lock 2.17.0。
+- 验证：S91 文件 8/8；3.14 全量 540 passed + 2 skipped（532 基线 + 8）；3.11 全量 542 passed；cargo test 100 绿零告警（本轮 Rust 零改动，Cargo 仅版本 lockstep）；实机 selftest 打印 VERSION_TAG NEXT latest=v2.16.0（开发中待发版，语义正确）+ SKILLS_DOCS stale=0 dead=0。
+- 提交：本次

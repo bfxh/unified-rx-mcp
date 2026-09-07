@@ -294,6 +294,28 @@
   尾段发散沿用 S86 掩码口径）；oracle 12 场景 12/12 PASS；退役断言锁死 fs.py
   写盘原语（os.replace/urxtmp 不复活）；stdin 通道 parity 三测入电池（argv vs
   stdin 强制等价，防 text 模式翻译回归）。
+- **ide 域判型普查（S91 已落，PANORAMA 方向 #5 兑现）**：19 件逐件判型立表——
+  迁移靶从"整域"改为"逐件"，与 S85 attack 判型同口径（结构性留 Python 的理由在案）。
+
+  | 工具 | 判型 | 依据 |
+  |---|---|---|
+  | ide_outline / ide_read_symbol | **可迁（S92 首靶）** | 纯 AST 文本计算，零 LSP（复用 scan._symbol_spans——pyast.rs 的 Rust 对位现成）；S66 设计初衷即"高频动作不付 LSP 成本" |
+  | locate_edit | 可迁 | 全库模糊定位+引用计数，纯文本遍历（与 rx-scan 遍历基建同构） |
+  | ide_rename | 可迁 | 全库文本引用统计（L3 只建议不落盘），与 locate_edit 同构 |
+  | code_context | 可迁（薄） | 行窗口读取，纯 IO+切行；单独迁收益小，随定位批一起 |
+  | ide_health_trend | 可迁（低优） | JSONL 历史聚合纯计算；低频，缓 |
+  | ide_lsp | 结构性留 Python | 真 LSP 客户端（会话生命周期/UTF-16 列/泵——S17 单点接开源决策） |
+  | ide_impact | 结构性留 Python | LSP references 聚合，依赖 ide_lsp 会话 |
+  | ide_diagnostics | 结构性留 Python | LSP+clippy 双信号聚合器（registry.call 编排） |
+  | ide_build / ide_test | 结构性留 Python | 编译/测试进程编排；解析子面（_parse_gcc/_parse_pytest 等 7 件）纯计算但延迟被编译器支配，不单列迁 |
+  | ide_debug / ide_break | 结构性留 Python | 调试适配器编排（外部进程） |
+  | ide_doctor / ide_multi_check | 结构性留 Python | 逐项目 doctor 全量编排（S59/S68） |
+  | ide_vscode | 结构性留 Python | Code.exe 弹窗编排 |
+  | ide_edit_multi / ide_batch_edit | 结构性留 Python（写面） | 落盘写面+LSP 写前验证——"写面最后"纪律 + 授权门在 registry |
+  | ide_auto_report | 结构性留 Python | autopilot 编排触发器（doctor 全量+VS Code+去重线程，S69） |
+
+  结论：可迁 5+1 件（S92=ide_read 双件；随后 locate_edit/ide_rename/code_context
+  一轮），结构性留 13 件。ide 域与 attack 域同判：**编排面是职责，不是债务**。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。
