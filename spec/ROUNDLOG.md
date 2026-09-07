@@ -244,3 +244,10 @@
 - 验证：S88 文件 12/12；3.14 全量 519 passed + 2 skipped（507 基线 + 12）；3.11 全量 521 passed；cargo test --release 95 绿、build 0 告警；selftest tools=57/GROUPS 12/SCHEMA_BAD 0。宿主 config.json 描述串仍写 v2.14.0（纯展示滞后，Yan Agent 运行中不动 config）。
 - 提交：本次
 - 补记（同轮）：稳定版实机复验发现 S88 回归的默认 cwd 两测依赖 pytest 启动目录在沙盒内（从外部 cwd 跑必败——cwd 即被钳，报"沙盒外"而非预期错误）——加 `cwd_in_repo` fixture 把 `os.getcwd` 钉在仓库根（conftest 沙盒内），测试与启动目录解耦；外部 cwd / 仓库内 cwd 双情境 12/12 复验。工具代码零改动，版本不 bump。
+
+## S89 · 全景复盘与开发方向成文（文档轮）
+- 项目：unified-rx-mcp｜时间：2026-09-07
+- 决策：应用户"把推理过程/上下文/历史整理整理，再搞文档+开发方向"。spec/ 缺"开局读一份就够"的全景层——ROUNDLOG 是逐轮流水、UPGRADE/ACHIEVEMENTS 分段限代、VULN-HUNTING 只管安全线，接手者要先读五份才能拼出全貌。落 spec/PANORAMA.md：六个时代推理主线（v2 重写→评测外锚→诚实收口→IDE 扩容→权力面与 Rust 决策→原生化冲刺与宿主接入）+ 14 条关键决策账（决策→理由→今日状态）+ 现状坐标 + 开发方向三级排序（近期 3：config 版本对账/selftest 机器对账两项/bench 扫面噪音治理；主线 3：fs_write 原生化收官 fs 域/ide 域 19 件判型普查/engine 双实现归一；中期 3：H 指标全复测/VULN-HUNTING P1-b P2/SWE-bench 外锚复跑；缓议维持：转发代理与不做清单）+ 文档地图。
+- 整理过程中的两条账（补进 PANORAMA"四"）：①ROUNDLOG S54-S71 十八轮缺逐轮记录（log_round.py 断档），仅 git commit 单行可考——主题已按 git 口径补表，教训=提交前必有本轮条目（S89 起恢复）；②S53-S71 期间 serverInfo 版本停更（84034eb 事后对齐 2.5.6）——开发方向 #2 提出 SERVER_VERSION↔git tag 机器对账进 selftest。
+- 交付：spec/PANORAMA.md；ROUNDLOG S89 条目。纯文档变更，server.py 不动 → 无版本 bump、无 tag。
+- 提交：本次
