@@ -1,7 +1,7 @@
 # PANORAMA —— 项目全景复盘与开发方向
 
 > 用途：一份文档说清三件事——**推理主线**（为什么走到今天）、**现状坐标**（站在哪）、
-> **开发方向**（往哪走）。写作时点：2026-09-07 @ v2.15.0（main=507803f，S88 收官后）。
+> **开发方向**（往哪走）。写作时点：2026-09-07 @ v2.16.0（S90 fs 域收官后）。
 >
 > 史料分工（读哪份文档管什么，见文末"七、文档地图"）：S38+ 逐轮对账见
 > [ROUNDLOG.md](ROUNDLOG.md)；S10-S44 见 [UPGRADE.md](UPGRADE.md)；主题速览见
@@ -26,7 +26,9 @@ MCP 只是通道。从旧版 183 工具/7462 行上帝文件/mcp SDK 多依赖�
 
 **协作纪律（宿主侧）**：Yan Agent 不改本体/压缩策略/模型（glm-5.3-flash）；
 config.json 必须 Yan Agent 完全关闭后才动（改前备份+diff 校验）；禁自扫（Mimosa
-深扫只跑副本）；不宣称项目安全。
+深扫只跑副本）；不宣称项目安全；**智能体工具使用只走稳定版** `D:\rj\MCP\server.py`
+——开发过程中任何智能体（含主控）调工具一律经稳定版入口，绝不 import 开发仓；
+开发仓只用于开发与测试电池（S90 用户裁决，skills/workflow.md 原则 7）。
 
 ## 二、推理主线：六个时代（88 轮压成六篇）
 
@@ -74,7 +76,7 @@ manifest 高权限段动态生成。S77 auth_gate_sweep 自审工具**首跑即�
 起盘——手写 JSON（i128 保真）、污点引擎、MCP 协议层；S73 人工 triage 从此机器化
 （入口污点模型：@tool 装饰=宿主可达边界）。
 
-### 时代六 · 原生化冲刺与宿主接入（S79 ~ S88，09-05~06）
+### 时代六 · 原生化冲刺与宿主接入（S79 ~ S90，09-05~07）
 **迁移方法论在本篇定型**（每域同款）：
 **薄壳转调 + oracle 对照实验（删码前逐字节 PARITY）+ 双解释器 pytest/cargo 双绿 +
 退役断言（内部名不得复活）**。
@@ -91,7 +93,11 @@ manifest 高权限段动态生成。S77 auth_gate_sweep 自审工具**首跑即�
   GUI 实测"连接成功，57 个工具"；
 - S88 三路排查（Mimosa 副本深扫 + attack 五件套 + 人工精读，交叉收敛才动手）：
   实锤 8 个读取工具漏钳制 + project_health 假满分，S73 纪律从纪律变代码；
-  **junction 逃逸实测已闭**并固化为回归。
+  **junction 逃逸实测已闭**并固化为回归；
+- S90 fs_write 收官（**stdin 二进制字节通道**：subprocess text 模式 stdin 会做
+  \n→os.linesep 换行翻译，探针实锤；scan/search 同源通道顺带修；fs 域 4/4 全薄壳，
+  授权门仍留 registry）。同轮用户裁决入 workflow 原则 7：**智能体工具使用只走
+  稳定版入口**。
 
 ## 三、关键决策账（决策 → 理由 → 今日状态）
 
@@ -111,6 +117,7 @@ manifest 高权限段动态生成。S77 auth_gate_sweep 自审工具**首跑即�
 | 12 | 禁自扫 + 三路交叉收敛 | 静态只是初筛；结论必须独立线互证 | SCAN-POLICY/S88 |
 | 13 | 最新语言版本政策 | 用户指令 + 宿主实际解释器 3.14 | S79 成文 |
 | 14 | 真 LSP/语义引擎单点接开源 | 不自研语义（codegraph/ra/pylsp） | S17 起稳定 |
+| 15 | 智能体工具使用只走稳定版入口 | 开发中代码未经双绿+合入不得进智能体工具链 | S90 成文 |
 
 ## 四、记录缺口补账（S54-S71，git log 补）
 
@@ -142,23 +149,24 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-07 @ v2.15.0）
+## 五、现状坐标（2026-09-07 @ v2.16.0）
 
 **工具面 57/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(19) learn(1) meta(2) ops(5) scan(10) search(2)。
 
-**Rust 原生化进度**：13 个工具已薄壳化（fs 读三件 fs_read/fs_stat/fs_list、search
-双件 code_search/code_semantic、scan 五件 bug_scan/std_check/ui_check/bug_locate/
-ast_scan、appaudit 三件 app_audit/app_clone/app_clean）；另有 rust_taint_scan 与
-code_review 的 bug_scan 透镜经 exe 路径。**结构性留 Python**（判型在案，S85/S87）：
-attack 五件（活体自审——攻击对象就是运行中的 registry，exe 化测错对象）、ide 19 件
-（LSP/编译/调试=外部进程编排 + registry/文本计算混合）、ops 副作用面、meta 宿主
-内省、game 外部编排、learn 小+写、guard、engine 探测、fs_write（写面按纪律最后迁）、
+**Rust 原生化进度**：14 个工具已薄壳化（fs 四件 fs_read/fs_stat/fs_list/fs_write、
+search 双件 code_search/code_semantic、scan 五件 bug_scan/std_check/ui_check/
+bug_locate/ast_scan、appaudit 三件 app_audit/app_clone/app_clean）；另有
+rust_taint_scan 与 code_review 的 bug_scan 透镜经 exe 路径。**结构性留 Python**
+（判型在案，S85/S87）：attack 五件（活体自审——攻击对象就是运行中的 registry，
+exe 化测错对象）、ide 19 件（LSP/编译/调试=外部进程编排 + registry/文本计算混合）、
+ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 519 passed + 2 skipped ／ 3.11 = 521 passed；cargo
-95 绿零告警（lib 21 + 各 exe 集成测）；selftest 57/12/SCHEMA_BAD 0；junction 逃逸
-回归（S88）；S73 重放验收常驻（S78）；协议 fuzz 双靶 32 测（S78）。
+**测试资产**：pytest 3.14 = 532 passed + 2 skipped ／ 3.11 = 534 passed；cargo
+100 绿零告警（lib 21 + 各 exe 集成测）；selftest 57/12/SCHEMA_BAD 0；junction 逃逸
+回归（S88）；stdin 通道 parity 三测（S90，argv vs stdin 强制等价）；S73 重放验收
+常驻（S78）；协议 fuzz 双靶 32 测（S78）。
 
 **部署拓扑**：开发仓 `D:\开发\unified-rx-mcp`（GitHub bfxh/unified-rx-mcp）→
 稳定克隆 `D:\rj\MCP`（origin 指开发仓，git ff 同步）→ 宿主 config.json mcpServers
@@ -181,9 +189,10 @@ config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本
    把深扫分诊成本降下来。
 
 ### 主线 · 既定路线图（Rust 迁移继续）
-4. **fs_write 原生化 → fs 域 4/4 收官**：读面已收官，按"纯读先迁、写面最后"纪律
-   正轮到写面。要点：授权门仍留 registry（决策 #6 不动），Rust 侧等价复刻
-   tmp+replace 原子写与错误包络（S62 语义），oracle 对照照旧。
+4. **fs_write 原生化 → fs 域 4/4 收官（✅ S90 已兑）**：授权门留 registry（决策 #6
+   不动）、Rust 侧复刻 tmp+replace 原子写、oracle 12 场景 12/12 PASS。探针副产物
+   成纪律：**跨进程传内容走二进制 stdin 字节通道**（text 模式 stdin 有换行翻译），
+   scan/search 同源通道同轮归一。
 5. **ide 域判型普查（S85 式先普查圈靶）**：19 件分三类立表——纯文本计算
    （code_context/locate_edit 定位/ide_rename 预案/ide_outline/ide_impact 等）
    可迁；外部进程编排（lsp/compile/debug/blender）结构性不迁；registry 内省类不迁。

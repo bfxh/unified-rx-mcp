@@ -1,7 +1,6 @@
-//! fs —— 文件层读面三工具的 Rust 原生实现（S79，spec/VULN-HUNTING.md 五）。
+//! fs —— 文件层四工具的 Rust 原生实现（S79 读面 / S90 写面收官，spec/VULN-HUNTING.md 五）。
 //!
-//! 等价复刻 tools/fs.py 的 fs_read / fs_stat / fs_list（fs_write 写面按路线图
-//! 最后迁移，仍在 Python 侧）。契约关键点：
+//! 等价复刻 tools/fs.py 的 fs_read / fs_stat / fs_list / fs_write。契约关键点：
 //! - 沙盒拒绝（resolve 层）→ `Err`：exe 以退出码 2 退出，Python 壳 raise
 //!   ValueError → registry 包成 `ok:false`（与旧实现抛 ValueError 同包络）；
 //! - 工具级结果（不是文件/过大/不是目录）→ `Ok(Obj)`：正常返回，error 走
@@ -41,6 +40,47 @@ pub fn op_read(cfg: &SandboxCfg, orig: &str) -> Result<Value, String> {
         ("path".into(), Value::Str(p.to_string_lossy().into_owned())),
         ("size".into(), Value::Int(size)),
         ("content".into(), Value::Str(content)),
+    ]))
+}
+
+/// fs_write：安全写入文件（≤1MB，S90 原生化——fs 域 4/4 收官）。
+/// 授权门不在此处：requires_auth 由 Python registry 统一强制（S86 决策：exe 永不
+/// 自行放权）。内容经 stdin 字节通道到达（argv 不传内容，绕开 Windows 命令行
+/// 32767 码元上限）；字节原样落盘——等价 Python `open(..., newline="\n")` 无换行
+/// 翻译（S90 探针实锤 text 模式 stdin 会做 \n→os.linesep 翻译，壳侧同走二进制）；
+/// size 按 Unicode 标量字符数计（等价 Python len(str)，非字节数）。
+/// 顺序对齐旧实现：先大小上限后沙盒 resolve（超大+越界同中时"内容过大"先报）。
+pub fn op_write(cfg: &SandboxCfg, orig: &str, content: &[u8]) -> Result<Value, String> {
+    if content.len() > MAX_BYTES as usize {
+        return Ok(err_obj(&format!("内容过大（{} > {} 字节）", content.len(), MAX_BYTES)));
+    }
+    let p = cfg.resolve(Path::new(orig))?;
+    let text = match std::str::from_utf8(content) {
+        Ok(t) => t,
+        Err(_) => return Ok(err_obj("content 非 UTF-8（宿主通道损坏）")),
+    };
+    if let Some(d) = p.parent() {
+        if !d.as_os_str().is_empty() && !d.is_dir() {
+            if let Err(e) = std::fs::create_dir_all(d) {
+                return Ok(err_obj(&format!("创建目录失败: {}", e)));
+            }
+        }
+    }
+    // S62 原子写同款：tmp+replace，崩进程不留半截文件
+    let tmp = p.with_file_name(format!(
+        "{}.urxtmp{}",
+        p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default(),
+        std::process::id()
+    ));
+    let outcome = std::fs::write(&tmp, content).and_then(|()| std::fs::rename(&tmp, &p));
+    if let Err(e) = outcome {
+        let _ = std::fs::remove_file(&tmp);   // 与旧实现 except 分支同款尽力清理
+        return Ok(err_obj(&format!("写入失败: {}", e)));
+    }
+    Ok(Value::Obj(vec![
+        ("path".into(), Value::Str(p.to_string_lossy().into_owned())),
+        ("size".into(), Value::Int(text.chars().count() as i128)),
+        ("ok".into(), Value::Bool(true)),
     ]))
 }
 

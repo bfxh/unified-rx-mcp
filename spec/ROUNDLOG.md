@@ -251,3 +251,11 @@
 - 整理过程中的两条账（补进 PANORAMA"四"）：①ROUNDLOG S54-S71 十八轮缺逐轮记录（log_round.py 断档），仅 git commit 单行可考——主题已按 git 口径补表，教训=提交前必有本轮条目（S89 起恢复）；②S53-S71 期间 serverInfo 版本停更（84034eb 事后对齐 2.5.6）——开发方向 #2 提出 SERVER_VERSION↔git tag 机器对账进 selftest。
 - 交付：spec/PANORAMA.md；ROUNDLOG S89 条目。纯文档变更，server.py 不动 → 无版本 bump、无 tag。
 - 提交：本次
+
+## S90 · fs_write 原生化——fs 域 4/4 收官（写面轮）
+- 项目：unified-rx-mcp｜时间：2026-09-07
+- 决策：PANORAMA 方向 #4 兑现——"纯读先迁、写面最后"正轮到写面，fs_write 成为 fs 域最后一件。授权门不动（S86 决策：requires_auth=True 留 registry.call 单一裁决点，exe 永不自行放权）；Rust 侧 op_write 等价复刻旧顺序（先 1MB 大小上限后沙盒 resolve）+ makedirs + S62 tmp+replace 原子写 + 失败尽力清理。**探针实锤（本轮最大发现）**：subprocess text=True 的 stdin 会做 \n→os.linesep 换行翻译（'a\nb\r\nc' 到子进程变 b'a\r\nb\r\r\nc'），写内容必须走二进制 stdin 字节通道（input=bytes，stdout/stderr 手工 utf-8/replace 解码）；argv 不传内容同时绕开 Windows 命令行 32767 码元上限。同源隐患顺带修：scan.py/_rx_scan_call 与 search.py 双壳的 stdin 通道原为 text 模式 `input=stdin_data`（行为影响今日≈0：BM25 分词忽略空白、py_splitlines 吞 \r\n，但属数据完整性隐患），同轮二进制化。
+- 对照实验：oracle_dump 12 场景（正常/覆盖/空/超大/恰好上限/越界/目录目标/父为文件/无授权/字符数/CRLF 保真/残渣）old.json（纯 Python 末代实现）vs new.json（薄壳）掩码比较 **12/12 PASS**；掩码三口径沿用 S86（OS 错误尾段 [WinError 5] vs (os error 5)、error_detail、沙盒基路径）。
+- 交付：rust/src/fs.rs::op_write + rx_fs.rs write 子命令（stdin 读到 EOF，壳侧恒传 input 防继承宿主协议管道）+ fs_test.rs +5 测；tools/fs.py：_rx_fs_call 加 stdin_bytes 二进制分支，fs_write 薄壳化（os.replace/urxtmp 写盘原语退役，_resolve 保留作 oracle 锚与 scan/search/game/ops 导入面）；tests/test_s90_fs_write_rust.py 13 测（行为等价/注册面/退役断言/scan+search stdin 通道 parity 回归门）；**新纪律入仓（用户裁决）**：skills/workflow.md 原则 7"智能体工具使用只走稳定版 D:\rj\MCP\server.py，绝不 import 开发仓"+ PANORAMA 协作纪律 + 决策账 #15；skills/fs.md 契约注记；VULN-HUNTING S90 落地注记；server.py 2.16.0；Cargo.toml 2.16.0。
+- 验证：pytest 3.14 = 532 passed + 2 skipped（519 基线 + 13）；3.11 = 534 passed；cargo test 100 绿零告警（95 + fs_test 5）；oracle 12/12。
+- 提交：本次

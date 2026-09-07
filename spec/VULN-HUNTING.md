@@ -284,6 +284,16 @@
   条件断点 eval 在调试目标进程内求值（等权无越权面）、local_run shell=True 为
   高权限门控工具（S75 原判不变）。验证：3.14=519+2s / 3.11=521 / cargo 95 绿
   零告警 / selftest 57，版本 2.15.0。
+- **落地注记（S90 已落）**：fs_write 写面收官（fs 域 4/4 薄壳）。**探针实锤
+  subprocess text=True 的 stdin 换行翻译**（'a\nb\r\nc' 到子进程变
+  b'a\r\nb\r\r\nc'）——写内容改走二进制 stdin 字节通道，argv 不传内容（绕开
+  Windows 命令行 32767 码元上限）；scan/search 双壳同源 stdin 通道顺带修（行为
+  影响今日≈0：BM25 分词忽略空白、py_splitlines 吞 \r\n，属数据完整性隐患清账）。
+  授权门维持 registry 单一裁决点（S86，exe 永不自行放权）；exe 侧只做
+  resolve+大小上限+makedirs+tmp+replace 原子写，错误包络与消息逐字对齐（OS 错误
+  尾段发散沿用 S86 掩码口径）；oracle 12 场景 12/12 PASS；退役断言锁死 fs.py
+  写盘原语（os.replace/urxtmp 不复活）；stdin 通道 parity 三测入电池（argv vs
+  stdin 强制等价，防 text 模式翻译回归）。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。
