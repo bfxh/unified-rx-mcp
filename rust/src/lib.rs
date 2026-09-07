@@ -32,6 +32,7 @@ pub mod appclone;
 pub mod astscan;
 pub mod bug;
 pub mod fs;
+pub mod ide;
 pub mod json;
 pub mod pyast;
 pub mod scan;

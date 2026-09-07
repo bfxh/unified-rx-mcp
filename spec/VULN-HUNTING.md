@@ -316,6 +316,16 @@
 
   结论：可迁 5+1 件（S92=ide_read 双件；随后 locate_edit/ide_rename/code_context
   一轮），结构性留 13 件。ide 域与 attack 域同判：**编排面是职责，不是债务**。
+- **ide_read 双件原生化（S92 已落）**：ide_outline / ide_read_symbol 整体转调
+  新 exe rx-ide（rust/src/ide.rs）——_symbol_spans 的四语言行级正则零依赖手写复刻
+  （\w=unicode alnum+_、\s=is_whitespace、贪婪可选组先试与正则回溯同序），
+  split('\n') 保留尾幻影行（read_symbol 的 content 字节对齐），params 计数两条
+  口径（outline 只认 fn / read_symbol 只认括号）、300 上限、S70 怪癖
+  （一行 fn 含 struct 翻 type、js class 落 fn、impl fmt::Display 捕获名 fmt、
+  go type 声明因行尾 `{` 落 fn）原样保留。沙盒门在 exe（exit 2 → ValueError 包络，
+  "path 必填" 与 fs 同源）；S92 对照实验 43 场景 masked 全等
+  （CRLF/孤立 CR/无尾换行/unicode 标识符/tab 缩进/全怪癖/沙盒三包络）。
+  scan._symbol_spans 本体保留（bug_locate/code_context 等仍消费）。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。
