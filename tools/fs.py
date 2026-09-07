@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """tools/fs.py —— 文件层（4 工具）：fs_read / fs_write / fs_stat / fs_list
 
-S79 起读面三工具（fs_read/fs_stat/fs_list）由 Rust 原生实现承担：handler 是薄壳，
-转调 rx-fs.exe（spec/VULN-HUNTING.md 五·Rust 迁移路线图）。包络契约与旧实现对齐：
+S79 起读面三工具（fs_read/fs_stat/fs_list）由 Rust 原生实现承担；S90 fs_write 收官——
+fs 域 4/4 全部薄壳转调 rx-fs.exe（spec/VULN-HUNTING.md 五·Rust 迁移路线图）。包络契约与旧实现对齐：
 - 沙盒拒绝（resolve 层）→ exe 退出码 2 → 壳 raise ValueError → registry 包成
   ok:false（旧实现抛 ValueError 同包络）；
 - 工具级结果（不是文件/过大/不是目录）→ exe 退出码 0 + result.error 字段
@@ -89,8 +89,13 @@ def _rx_fs_exe():
     return None
 
 
-def _rx_fs_call(op, path, depth=None):
-    """薄壳转调 rx-fs.exe，返回结果 dict；resolve 层拒绝 raise ValueError。"""
+def _rx_fs_call(op, path, depth=None, stdin_bytes=None):
+    """薄壳转调 rx-fs.exe，返回结果 dict；resolve 层拒绝 raise ValueError。
+
+    S90：stdin_bytes 非 None 时走二进制字节通道（input=bytes、不设 text=True）——
+    text 模式 stdin 会做 \\n→os.linesep 换行翻译（S90 探针实锤），写内容必须字节
+    保真；stdout/stderr 统一按 utf-8/replace 手工解码，解析逻辑两路共用。
+    """
     exe = _rx_fs_exe()
     if not exe:
         raise ValueError("rx-fs.exe 不存在——先在 rust/ 下 cargo build --release "
@@ -99,12 +104,20 @@ def _rx_fs_call(op, path, depth=None):
     if depth is not None:
         argv.append(str(depth))
     try:
-        cp = subprocess.run(argv, capture_output=True, text=True,
-                            encoding="utf-8", errors="replace", timeout=120)
+        if stdin_bytes is not None:
+            cp = subprocess.run(argv, capture_output=True, timeout=120,
+                                input=stdin_bytes)
+            stdout = (cp.stdout or b"").decode("utf-8", errors="replace")
+            stderr = (cp.stderr or b"").decode("utf-8", errors="replace")
+        else:
+            cp = subprocess.run(argv, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=120)
+            stdout = cp.stdout or ""
+            stderr = cp.stderr or ""
     except subprocess.TimeoutExpired:
         raise ValueError("rx-fs 超时（120s）")
-    tail = (cp.stderr or "").strip()[-300:]
-    lines = (cp.stdout or "").strip().splitlines()
+    tail = stderr.strip()[-300:]
+    lines = stdout.strip().splitlines()
     if not lines:
         raise ValueError(f"rx-fs 无输出（exit={cp.returncode}）: {tail}")
     try:
@@ -136,31 +149,14 @@ def fs_read(path):
         "required": ["path", "content"]},
       requires_auth=True)
 def fs_write(path, content, __authorized=False):
-    # requires_auth=True 在 registry.call 层强制校验；此处保留 __authorized 形参仅为签名兼容
+    # requires_auth=True 在 registry.call 层强制校验（S86 决策：exe 永不自行放权）；
+    # 此处保留 __authorized 形参仅为签名兼容。S90 写面收官：整体转调 rx-fs.exe——
+    # 内容经 stdin 原始字节通道（argv 不传内容，绕开 Windows 命令行 32767 码元上限；
+    # 二进制模式无换行翻译）。大小上限/沙盒 resolve/makedirs/tmp+replace 原子写全部
+    # 在 exe 侧等价复刻（rust/src/fs.rs::op_write），顺序与旧实现一致（先大小后越界）。
     del __authorized
     content = content or ""
-    if len(content.encode("utf-8")) > MAX_BYTES:
-        return {"error": f"内容过大（{len(content.encode('utf-8'))} > {MAX_BYTES} 字节）"}
-    p = _resolve(path)
-    d = os.path.dirname(p)
-    if d and not os.path.isdir(d):
-        try:
-            os.makedirs(d, exist_ok=True)
-        except OSError as e:
-            return {"error": f"创建目录失败: {e}"}
-    tmp = f"{p}.urxtmp{os.getpid()}"     # S62：原子写（tmp+replace），崩进程不留半截文件
-    try:
-        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-            f.write(content)
-        os.replace(tmp, p)
-    except OSError as e:
-        try:
-            if os.path.exists(tmp):
-                os.remove(tmp)
-        except OSError:
-            pass
-        return {"error": f"写入失败: {e}"}
-    return {"path": p, "size": len(content), "ok": True}
+    return _rx_fs_call("write", path, stdin_bytes=content.encode("utf-8"))
 
 
 @tool("fs_stat", "文件元信息（存在/大小/mtime）", "fs",

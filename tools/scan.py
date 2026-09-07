@@ -110,12 +110,14 @@ def _rx_scan_call(argv, stdin_data=""):
         raise ValueError("rx-scan.exe 不存在——先在 rust/ 下 cargo build --release "
                          "（或设 UNIFIED_RX_RS_EXE 指向现有 exe）")
     try:
-        cp = subprocess.run([exe] + argv, capture_output=True, text=True, encoding="utf-8",
-                            errors="replace", timeout=120, input=stdin_data or "")
+        # S90 顺带修：stdin 走二进制字节通道——text 模式会做 \n→os.linesep 换行
+        # 翻译（S90 探针实锤），扫描语料需字节保真；输出按 utf-8/replace 手工解码。
+        cp = subprocess.run([exe] + argv, capture_output=True, timeout=120,
+                            input=(stdin_data or "").encode("utf-8"))
     except subprocess.TimeoutExpired:
         raise ValueError("rx-scan 超时（120s）")
-    tail = (cp.stderr or "").strip()[-300:]
-    lines = (cp.stdout or "").strip().splitlines()
+    tail = (cp.stderr or b"").decode("utf-8", errors="replace").strip()[-300:]
+    lines = (cp.stdout or b"").decode("utf-8", errors="replace").strip().splitlines()
     if not lines:
         raise ValueError(f"rx-scan 无输出（exit={cp.returncode}）: {tail}")
     try:

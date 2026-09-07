@@ -57,12 +57,14 @@ def _rx_search_call(root, query, k):
         argv[2] = "-"
         stdin_data = query
     try:
-        cp = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
-                            errors="replace", timeout=120, input=stdin_data)
+        # S90 顺带修：stdin 二进制字节通道——text 模式会做 \n→os.linesep 换行翻译
+        # （S90 探针实锤），查询内容需字节保真；输出按 utf-8/replace 手工解码。
+        cp = subprocess.run(argv, capture_output=True, timeout=120,
+                            input=stdin_data.encode("utf-8"))
     except subprocess.TimeoutExpired:
         raise ValueError("rx-search 超时（120s）")
-    tail = (cp.stderr or "").strip()[-300:]
-    lines = (cp.stdout or "").strip().splitlines()
+    tail = (cp.stderr or b"").decode("utf-8", errors="replace").strip()[-300:]
+    lines = (cp.stdout or b"").decode("utf-8", errors="replace").strip().splitlines()
     if not lines:
         raise ValueError(f"rx-search 无输出（exit={cp.returncode}）: {tail}")
     try:
@@ -135,12 +137,14 @@ def _rx_semantic_call(root, query, mode, k):
         argv[2] = "-"
         stdin_data = query
     try:
-        cp = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
-                            errors="replace", timeout=120, input=stdin_data)
+        # S90 顺带修：stdin 二进制字节通道——text 模式会做 \n→os.linesep 换行翻译
+        # （S90 探针实锤），查询内容需字节保真；输出按 utf-8/replace 手工解码。
+        cp = subprocess.run(argv, capture_output=True, timeout=120,
+                            input=stdin_data.encode("utf-8"))
     except subprocess.TimeoutExpired:
         raise ValueError("rx-semantic 超时（120s）")
-    tail = (cp.stderr or "").strip()[-300:]
-    lines = (cp.stdout or "").strip().splitlines()
+    tail = (cp.stderr or b"").decode("utf-8", errors="replace").strip()[-300:]
+    lines = (cp.stdout or b"").decode("utf-8", errors="replace").strip().splitlines()
     if not lines:
         raise ValueError(f"rx-semantic 无输出（exit={cp.returncode}）: {tail}")
     try:

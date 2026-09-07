@@ -6,7 +6,8 @@
 //! - `json`    手写 JSON 解析/序列化（限深 512 防栈溢出，fuzz 电池深嵌套用例的靶）
 //! - `sandbox` 沙盒钳制（等价复刻 tools/fs.py::_resolve 语义：fail-closed / "*" / ; 分隔；
 //!             宽限 realpath 容忍不存在路径——S79 修正）
-//! - `fs`      文件层读面三工具原生实现（fs_read/fs_stat/fs_list；写面最后迁移）
+//! - `fs`      文件层四工具原生实现（fs_read/fs_stat/fs_list S79 + fs_write S90
+//!             写面收官——stdin 字节通道 + tmp+replace 原子写）
 //! - `search`  code_search 原生实现（S80：BM25 + 手写分词器 + 行重排）
 //! - `sem`     code_semantic 原生实现（S81：符号定义 tf-idf 余弦 + 手写定义匹配器）
 //! - `scan`    scan 域轻正则三工具（S82：std_check/ui_check/bug_locate + 遍历契约）

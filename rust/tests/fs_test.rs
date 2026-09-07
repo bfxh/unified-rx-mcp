@@ -237,3 +237,81 @@ fn list_not_a_dir() {
     let r = rxrs::fs::op_list(&cfg, &f.to_string_lossy(), 1).unwrap();
     assert!(is_err_obj(&r).starts_with("不是目录"), "{}", is_err_obj(&r));
 }
+
+// ---------- fs_write（S90，fs 域收官） ----------
+
+#[test]
+fn write_ok_bytes_verbatim_and_char_size() {
+    let t = TempDir::new("wr-ok");
+    let cfg = SandboxCfg::parse("*");
+    let p = t.path().join("nested").join("w.txt");
+    let content = "你好\nworld\r\nend";   // 13 字符 / 17 字节（\r\n 不得被翻译）
+    let r = rxrs::fs::op_write(&cfg, &p.to_string_lossy(), content.as_bytes()).unwrap();
+    assert_eq!(get_int(&r, "size"), 13);
+    assert_eq!(r.get("ok"), Some(&Value::Bool(true)));
+    assert_eq!(fs::read(&p).unwrap(), content.as_bytes());
+    // CJK 字符数 vs 字节数：size 报 len(str) 语义
+    let r2 = rxrs::fs::op_write(&cfg, &p.to_string_lossy(), "你好".as_bytes()).unwrap();
+    assert_eq!(get_int(&r2, "size"), 2);
+    assert_eq!(fs::read(&p).unwrap(), "你好".as_bytes());
+}
+
+#[test]
+fn write_overwrite_and_empty() {
+    let t = TempDir::new("wr-ow");
+    let cfg = SandboxCfg::parse("*");
+    let p = t.path().join("w.txt");
+    let _ = rxrs::fs::op_write(&cfg, &p.to_string_lossy(), b"first").unwrap();
+    let r = rxrs::fs::op_write(&cfg, &p.to_string_lossy(), b"second").unwrap();
+    assert_eq!(get_int(&r, "size"), 6);
+    assert_eq!(fs::read(&p).unwrap(), b"second");
+    let r2 = rxrs::fs::op_write(&cfg, &p.to_string_lossy(), b"").unwrap();
+    assert_eq!(get_int(&r2, "size"), 0);
+    assert_eq!(fs::read(&p).unwrap(), b"");
+}
+
+#[test]
+fn write_size_cap_exact_and_over() {
+    let t = TempDir::new("wr-cap");
+    let cfg = SandboxCfg::parse("*");
+    let p = t.path().join("cap.txt");
+    // 恰好等于上限：放行
+    let ok = rxrs::fs::op_write(&cfg, &p.to_string_lossy(), &vec![b'a'; 1_000_000]).unwrap();
+    assert_eq!(ok.get("ok"), Some(&Value::Bool(true)));
+    // 超一字节：工具级错误，消息逐字对齐旧 Python
+    let over = rxrs::fs::op_write(&cfg, &p.to_string_lossy(), &vec![b'a'; 1_000_001]).unwrap();
+    assert_eq!(is_err_obj(&over), "内容过大（1000001 > 1000000 字节）");
+    // 顺序钉死：超大 + 越界同中时"内容过大"先报（旧实现先查大小后 resolve）
+    let both = rxrs::fs::op_write(&cfg, r"C:\Windows\s90-rs-probe.txt", &vec![b'a'; 1_000_001]).unwrap();
+    assert_eq!(is_err_obj(&both), "内容过大（1000001 > 1000000 字节）");
+}
+
+#[test]
+fn write_outside_sandbox_refused() {
+    let t = TempDir::new("wr-box");
+    let cfg = SandboxCfg::parse(t.path().to_string_lossy().as_ref());
+    let err = rxrs::fs::op_write(&cfg, r"C:\Windows\win.ini", b"x").unwrap_err();
+    assert!(err.contains("路径越界（沙盒外）"), "{}", err);
+}
+
+#[test]
+fn write_fail_envelopes_and_no_residue() {
+    let t = TempDir::new("wr-fail");
+    let cfg = SandboxCfg::parse("*");
+    // 目标是目录 → 写入失败，且无 .urxtmp 残留
+    let dir = t.path().join("adir");
+    fs::create_dir_all(&dir).unwrap();
+    let r1 = rxrs::fs::op_write(&cfg, &dir.to_string_lossy(), b"x").unwrap();
+    assert!(is_err_obj(&r1).starts_with("写入失败"), "{}", is_err_obj(&r1));
+    // 父路径是文件 → 创建目录失败
+    let f = write_rel(t.path(), "seed.txt", "s");
+    let r2 = rxrs::fs::op_write(&cfg, &f.join("child.txt").to_string_lossy(), b"x").unwrap();
+    assert!(is_err_obj(&r2).starts_with("创建目录失败"), "{}", is_err_obj(&r2));
+    // 两处失败路径都不得留下半截 tmp 文件
+    let residue: Vec<_> = fs::read_dir(t.path()).unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.contains(".urxtmp"))
+        .collect();
+    assert!(residue.is_empty(), "残留 tmp: {:?}", residue);
+}

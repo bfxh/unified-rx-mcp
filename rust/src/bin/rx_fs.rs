@@ -1,5 +1,7 @@
-//! rx-fs —— 文件层读面三工具 CLI（S79）。
-//! 用法：rx-fs <read|stat|list> <path> [depth]
+//! rx-fs —— 文件层四工具 CLI（S79 读面 / S90 写面收官）。
+//! 用法：rx-fs <read|stat|list|write> <path> [depth]
+//!       write 的内容不走 argv（Windows 命令行 32767 码元上限），从 stdin 读原始字节，
+//!       恒读到 EOF——Python 壳恒传 input（空内容即空串）防继承宿主 MCP 协议管道。
 //! 输出：stdout 一行 JSON。
 //! 退出码：0 = 工具级结果（含 result.error 的正常返回，与 Python 侧返回 dict 同包络）；
 //!         2 = resolve 层拒绝（沙盒越界/未配置/path 必填），Python 壳 raise ValueError
@@ -23,7 +25,7 @@ fn run(args: &[String]) -> Result<Value, String> {
     let op = args.first().map(|s| s.as_str()).unwrap_or("");
     let path = args.get(1).map(|s| s.as_str()).unwrap_or("");
     if op.is_empty() {
-        return Err("用法: rx-fs <read|stat|list> <path> [depth]".into());
+        return Err("用法: rx-fs <read|stat|list|write> <path> [depth]".into());
     }
     if path.is_empty() {
         // 与 tools/fs.py::_resolve 首道校验逐字对齐
@@ -38,6 +40,13 @@ fn run(args: &[String]) -> Result<Value, String> {
             let depth = args.get(2).and_then(|s| s.parse::<i64>().ok()).unwrap_or(1);
             rxrs::fs::op_list(&cfg, path, depth)
         }
-        other => Err(format!("未知操作: {}（应为 read|stat|list）", other)),
+        "write" => {
+            // 内容走 stdin 原始字节（读到 EOF；壳侧恒传 input 防继承宿主协议管道）
+            let mut buf = Vec::new();
+            std::io::Read::read_to_end(&mut std::io::stdin(), &mut buf)
+                .map_err(|e| format!("读取 stdin 失败: {}", e))?;
+            rxrs::fs::op_write(&cfg, path, &buf)
+        }
+        other => Err(format!("未知操作: {}（应为 read|stat|list|write）", other)),
     }
 }
