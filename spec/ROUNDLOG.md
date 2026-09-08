@@ -405,3 +405,11 @@
 - 交付清单：tools/aci.py（新）+ registry.py 接线 + tests/test_s105_aci.py 9 测 + tests/test_s95_fs_back_contract.py 归一化 + ADVANCES 第 8 项标已兑 + PANORAMA v2.28.0；版本锁步 2.28.0 + exe 重建。
 - 验证：s105 9 + golden 3 = 12/12；3.14 全量 643 passed + 2 skipped；3.11 全量 645 passed；cargo 131 绿零告警。
 - 提交：本次
+
+## S106 · 名字解析（栈图式）设计轮（P2 首项）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：雷达 P2 最高杠杆项——先出设计（本轮零代码改动）。产出 spec/NAMERES.md：事实模型（边 kind ∈ local/import/module/builtin + unresolved 如实列）、Python 作用域规则十条（class 体不构成闭包/推导式独立作用域且首 iterable 外层求值/默认值与装饰器外层求值/except-as 删除/star import 不可解…）、简化栈图三阶段算法（单文件子图 → 跨文件拼接 → 稳定排序输出）、oracle 计划（stdlib symtable 对照 + ≥20 例手标 fixture + 本仓文本级对比 ≥30 例）、性能预算（本仓 ~600 文件 ≤300ms）、S107/S108 拆分。
+- 家底核实（决定"不动解析器"）：pyast.rs（S83，2989 行）已建模全套 Python 节点（含 ListComp/DictComp/GeneratorExp/Lambda/Match/Global/Nonlocal/ImportFrom/alias），**缺的只是作用域 pass**；dep_graph 是 Python 侧文本 import 图；rust_reach（S16）只服务 Rust。
+- 三个待拍板决策（设计给建议）：①先 Python only（pyast 现成）；②**升级 dep_graph(resolved=true)** 而非新增第 59 个工具（旧形状默认不变，零破坏）；③except-as 之后引用 `e` 判 local（与 symtable 口径一致，fixture 锁死）。
+- 交付：spec/NAMERES.md（新）；ADVANCES 第 7 项标设计轮已落；PANORAMA 方向 #10。零代码改动，绿线维持 S105 出货状态（643+2s / 645 / cargo 131）。
+- 提交：本次
