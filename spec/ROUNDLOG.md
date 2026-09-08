@@ -345,3 +345,12 @@
 - 交付：tools/lsp.py（`_module_available`/`_detect_exe`/`_ident_at`/`_text_impact` + status reason + ide_impact 降级）；tests/test_s99_ide_fallback.py 5 测（模块缺失不报 detected/自定义 cmd 照常/降级形状与文件聚合/无标识符清晰报错/LSP 路径不回归）；README 全量刷新（57 工具 12 域、S99 现状、评测数字对齐 EVAL §7-§8、施工史弧线）；skills/README 域索引计数修正（ide 8→19、scan 6→10、attack 3→5、guard 补 S97 注）；skills/ide.md 两处契约行。
 - 验证：S99 5 测 + test_lsp 7 + test_r3 8 = 20/20；3.14 全量 607 passed + 2 skipped；3.11 全量 609 passed；cargo 121 绿零告警（Rust 零改动，版本 lockstep + 重建）；版本锁步 2.23.0。
 - 提交：本次
+
+## S100 · 外部技术雷达（调研轮：开源 + 论文 → 能大幅提升工具箱的东西）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：用户问"有没有什么东西能大幅提升我这些工具，可以看看开源项目、看看论文，然后就写文档"。本轮纯调研 + 成文，不动代码；产出 spec/ADVANCES.md（11 项候选 × 增益/成本/红线/优先级 + 建议路线 + 不做清单 + 来源）。
+- 调研方法：WebSearch 四批（repo map/PageRank、stack graphs、LocAgent、SWE-agent ACI；RRF 混合检索、SCIP/LSIF、Ekstazi RTS、Vul-RAG；salsa 增量计算、RepoGraph、程序切片、MCP 2025-06 规范；标识符子词切分、ast-grep/Semgrep、context rot、增量静态分析），再逐项对照本仓现状——**只列还没做的**。
+- 关键结论（P0 两项立即可做）：①**查询侧根词约束**——本仓子词索引已在（rust/src/search.rs:194 camel/snake/bigram），但查询侧同用一套拆词，OpenObserve PR#12324 实锤"索引拆、查询不拆"否则假阳性（HTTPSConnection 命中 "handshake failed for Connection"），0.2 轮可修；②**RRF 混合检索**——code_search（BM25）与 code_semantic（引擎桥接）各自独立无融合，RRF k=60 免归一化，0.5 轮。P1：内容寻址增量缓存（salsa 思想；本仓仅 ide_build 有 8 条指纹缓存，scan/search 每次重扫——S83 退役 _SCAN_CACHE 的理由"exe 短命"不等于"结果不该落盘"）、ide_test 测试影响分析（Ekstazi 文件指纹，−32~54%）、ACI 输出纪律复核（SWE-agent 消融 +10.7pp，本仓已有钳制/语法门，余空结果显式化/大结果落盘+引用）。P2：**栈图式名字解析**（GitHub stack graphs，纯语法/免构建/文件增量——本仓 dep_graph 是文本引用、rust_reach 是可达性，这正是 P1-b 矩阵"数据流查不了"的根因；最高杠杆但 2 轮，建议前四项后启动）。
+- 明确不做/缓议：稠密嵌入内置（红线）、微调本地模型（不换模型）、全量引入 CodeQL/Semgrep（重且与诚实口径冲突）、"扫了=没有"承诺（红线）、动宿主压缩策略。
+- 交付：spec/ADVANCES.md（含来源链接 20 条）；PANORAMA 方向 #10 立账。零代码改动（文档轮），绿线维持 S99 出货状态（607+2s / 609 / cargo 121）。
+- 提交：本次
