@@ -43,9 +43,14 @@
 - **ide_diagnostics**（S37 统一通道）：LSP+clippy 聚合同形状
   {source,file,line(1-based),severity,message}，修复循环直接消费
 - **ide_impact**（S58）：符号 → LSP references 按文件聚合+测试覆盖标注
-  （python test_<stem>.py 约定代理）——改前先看碰哪些裸奔文件。S99：LSP 不可用
-  时自动**文本级降级**（engine="text" + fallback_reason；复用 rx-ide 大小写敏感
-  全文计数，无行号/含注释字符串/200 文件帽，关键字与内建名给 ⚠ 提示）
+  （python test_<stem>.py 约定代理）——改前先看碰哪些裸奔文件。**三级降级
+  （S99/S109，engine 字段如实标注）**：①`lsp` 语义级（需 rust-analyzer/pylsp）；
+  ②`resolved` 解析级——名字解析（S107/S108）给出"谁 import 了这个定义"
+  （跨文件精确到 import 行、**别名绑定也覆盖**）＋同文件精确到引用行；③`text`
+  文本级兜底（大小写敏感全文计数，含注释/字符串、无行号，受 200 文件帽限制）。
+  取不到符号/exe 缺失/解析失败 → 逐级回落，最终包络给出清晰错误。
+  实测（本仓 `_resolve` 定义）：解析级 21 文件 23 处（含 `_fs_resolve` 别名），
+  文本级同符号假阳性率 93.9%（bench/results/s108_resolve_compare.json）。
 - **ide_rename / rename_apply**（S58）：rename_plan 只出预案；rename_apply
   落盘需 `__authorized: true`，UTF-16 列正确、CRLF 保留、逐文件沙盒防逃逸、
   非 file: uri 拒绝

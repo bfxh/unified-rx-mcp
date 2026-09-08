@@ -149,7 +149,7 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.30.0）
+## 五、现状坐标（2026-09-09 @ v2.31.0）
 
 **工具面 58/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(19) learn(1) meta(2) ops(5) scan(10) search(3)。
@@ -167,8 +167,8 @@ exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 +
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 652 passed + 2 skipped ／ 3.11 = 654 passed；cargo
-157 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
+**测试资产**：pytest 3.14 = 656 passed + 2 skipped ／ 3.11 = 658 passed；cargo
+156 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
 = S94，fs_test 并发回归 = S95，search_test 资格门 4 = S101，repomap_test 6 = S102，
 nameres_test 25 = S107/S108）；selftest 58/12/SCHEMA_BAD 0 + 机器对账三行
 （VERSION_TAG / SKILLS_DOCS S91、EXE_TAG S94）；junction 逃逸回归（S88）；stdin 通道
@@ -186,7 +186,9 @@ cursor 分页不串页/指纹口径，test_s103_cache）；
 S104 TIA 6 测（首次全量→增量→无变更跳过/对称选择/新测试必跑/强制全量/
 非 pytest 如实报/选择保守性，test_s104_tia）；
 S105 ACI 9 测（空结果提示/有结果不加/覆盖边界措辞/顶层与嵌套截断提示/
-沙盒与 schema 错误建议/幂等/未知错误不追加，test_s105_aci）。
+沙盒与 schema 错误建议/幂等/未知错误不追加，test_s105_aci）；
+S109 ide_impact 三级降级 4 测（解析级/ LSP 优先/文本回落/无符号清晰报错，
+test_s109_impact_resolved——显式 mock LSP，不依赖环境是否装 pylsp）。
 
 **质量体检基线（S94 立账，S95 复测，详见 EVAL §6/§7）**：延迟热态 fs_stat
 p50 **0.3ms**（S95 回迁后，<10ms 预算余量 ~30 倍；v2.20.0 exe 路由期 7.7-9.7ms

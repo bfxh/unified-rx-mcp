@@ -432,3 +432,12 @@
 - 测试：rust nameres_test 25（+4 跨文件：四种形态/子模块/包前缀/语法错误文件跳过）；python test_s108_resolved_graph 5（schema/默认形状不变/解析边/exe 缺失显式/沙盒）。
 - 验证：3.14 全量 652 passed + 2 skipped；3.11 全量 654 passed；cargo 157 绿零告警（152 + 5）；版本锁步 2.30.0 + exe 重建。
 - 提交：本次
+
+## S109 · ide_impact 三级降级（LSP → 解析 → 文本）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：把 S107/S108 建好的名字解析接进用户面——`ide_impact` 在 LSP 不可用后先走**解析级**，再退文本级（S99 只有两级）。
+- 实现：`_resolved_impact`（tools/lsp.py）——符号取 `_ident_at` → 根取 `_session_root` → `rx-scan resolvedir` 找"to_file/to_line 命中该定义"的 import 边（**别名绑定也覆盖**）＋ `rx-scan resolve` 取同文件精确引用行；输出形状与 LSP/文本级同构（files[].refs/lines/has_test + engine/fallback_reason），不可用（取不到符号/exe 缺失/解析失败）返回 None 逐级回落。
+- 实测（本仓）：`_resolve` 定义 → 解析级 **21 文件 23 处**（含 `_fs_resolve` 等别名），对照文本级同符号 93.9% 假阳性（S108 报告）；`_rx_fs_call` → 1 处（确实只有 fs.py 自用，另处仅文档提及——正确）。
+- 契约变更与测试适配：S99 的 `test_impact_text_fallback_when_lsp_unavailable` 原锁"LSP 不可用→文本级"，现插入中间层 → 该测试显式关掉解析级后专测文本兜底；新增 test_s109_impact_resolved 4 测（**显式 mock LSP**，不依赖环境——实测本机 3.11 解释器装了 pylsp、3.14 没装，首跑因此红）。
+- 验证：3.14 全量 656 passed + 2 skipped；3.11 全量 658 passed；cargo 156 绿零告警；版本锁步 2.31.0 + exe 重建。
+- 提交：本次

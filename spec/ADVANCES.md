@@ -137,7 +137,9 @@ bigram，`rust/src/search.rs:194`）、符号级 rerank 与指纹缓存（S12/S1
   与 symtable 逐作用域零差异**）；对比报告（30 符号）——文本级命中 **93.9% 假阳性**
   （注释/字符串/子串），解析级 **resolved_only=0**（无遗漏）。边界如实入档：
   属性链/类型推断/跨文件控制流不做，star import 与动态特性 unresolved。
-- **后续**：`ide_impact` 三级降级（LSP → 解析 → 文本）可另起一轮。
+- **后续**：~~`ide_impact` 三级降级（LSP → 解析 → 文本）~~（**S109 已兑**：
+  engine 如实标注，解析级跨文件精确到 import 行含别名、同文件精确到引用行；
+  实测 `_resolve` → 21 文件 23 处）。
 
 ### 8. ACI 输出纪律复核（✅ S105 已兑）
 - **原理**：[SWE-agent ACI 论文（NeurIPS 2024）](https://arxiv.org/abs/2405.15793)
