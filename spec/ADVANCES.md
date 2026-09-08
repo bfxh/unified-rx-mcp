@@ -20,9 +20,9 @@
 | 6 | **切片式上下文包**（ARISE/SliceMate 思路） | code_context 系 | 上下文 token −23%~54%（SWE-Pruner 实测） | 1–2 轮 | 零依赖可行（近似切片） | **P1** |
 | 7 | **栈图式名字解析**（stack graphs） | dep_graph / ide_impact / 调用图 | 不依赖 LSP 的语义级定义/引用（GitHub 生产级方案） | 2 轮 | 零依赖可行（简化版） | ✅ **S106 设计 + S107/S108 落地**（单文件 + 跨文件，见 [NAMERES.md](NAMERES.md)） |
 | 8 | **ACI 输出纪律复核** | 全部工具出口 | 接口设计本身值 +10.7pp（SWE-agent 消融） | 0.5 轮 | 纯约定 | ✅ **S105 已兑** |
-| 9 | **漏洞知识库（Vul-RAG 式）** | bug_scan / code_review 解释面 | 检测准确率 +12.96%、人工复核 60%→77% | 建库成本高 | 零依赖可行 | **P2** |
-| 10 | **tree-sitter/ast-grep 可选引擎** | scan 家族 | 语言覆盖 20+、规则即模式 | 1 轮 | 可选依赖+降级 | **P2** |
-| 11 | **SCIP 索引消费** | ide_impact / 引用面 | 语义级引用，不起 LSP 会话 | 1–2 轮 | 手写 protobuf 可行 | **P2** |
+| 9 | **漏洞知识库（Vul-RAG 式）** | bug_scan 解释面 | 检测准确率 +12.96%、人工复核 60%→77% | 建库成本高 | 零依赖可行 | ✅ **S110 已兑**（22 条种子 KB） |
+| 10 | **tree-sitter/ast-grep 可选引擎** | scan 家族 | 语言覆盖 20+、规则即模式 | 1 轮 | 可选依赖+降级 | ✅ **S111 已兑**（ast_grep 工具，探测+清晰报错） |
+| 11 | **SCIP 索引消费** | ide_impact / 引用面 | 语义级引用，不起 LSP 会话 | 1–2 轮 | 手写 protobuf 可行 | ✅ **S112 已兑**（scip_refs，只读） |
 
 **已在本仓落地、无需重做**（避免重复劳动）：子词切分（camelCase/snake_case/中文
 bigram，`rust/src/search.rs:194`）、符号级 rerank 与指纹缓存（S12/S13）、

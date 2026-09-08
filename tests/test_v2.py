@@ -20,9 +20,10 @@ import tools  # noqa: F401
 
 
 def test_registry_tool_count():
-    """工具面收敛：attack 域加入后 42（39+3），上限放宽到 50。"""
+    """工具面收敛：上限随 S110-S112（知识库 + 可选引擎两件）放宽到 64——仍在
+    "少而准"区间（对照旧版 183）；再涨就该审"是不是又在堆噪音"。"""
     n = registry.tool_count()
-    assert 20 <= n <= 60, f"工具数 {n} 超出收敛范围"
+    assert 20 <= n <= 64, f"工具数 {n} 超出收敛范围"
 
 
 def test_registry_groups():

@@ -61,7 +61,8 @@ def test_bug_scan_positional_call(tmp_path):
 def test_bug_scan_schema_contract():
     assert registry._TOOLS["bug_scan"]["group"] == "scan"
     assert registry._TOOLS["bug_scan"]["schema"]["required"] == ["path"]
-    assert set(registry._TOOLS["bug_scan"]["schema"]["properties"]) == {"path", "max_files"}
+    assert set(registry._TOOLS["bug_scan"]["schema"]["properties"]) == \
+        {"path", "max_files", "knowledge"}
 
 
 def test_bug_scan_python_semantics_via_exe(tmp_path):

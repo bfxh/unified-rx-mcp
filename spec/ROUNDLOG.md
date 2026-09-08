@@ -441,3 +441,15 @@
 - 契约变更与测试适配：S99 的 `test_impact_text_fallback_when_lsp_unavailable` 原锁"LSP 不可用→文本级"，现插入中间层 → 该测试显式关掉解析级后专测文本兜底；新增 test_s109_impact_resolved 4 测（**显式 mock LSP**，不依赖环境——实测本机 3.11 解释器装了 pylsp、3.14 没装，首跑因此红）。
 - 验证：3.14 全量 656 passed + 2 skipped；3.11 全量 658 passed；cargo 156 绿零告警；版本锁步 2.31.0 + exe 重建。
 - 提交：本次
+
+## S110-S112 · 雷达 P2 收官：漏洞知识库 + ast-grep 可选引擎 + SCIP 消费（+ 挂账①清账）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：用户定调「这个都没有开启，你把剩下的全部搞完」——Yan Agent 未运行（tasklist 核实），挂账①（config.json 描述串）与雷达余下 P2 三项一并清账。
+- 挂账①（config.json）：备份 `config.json.bak-20260909-pre-v231` → 只改 `unified_rx` 条目描述串（v2.14.0/57 工具 → v2.31.0/58 工具）→ diff 校验**仅 1418 行一处变化**、JSON 合法、4 个 mcpServers 条目完好（playwright/codegraph/serena/unified_rx，enabled=true，沙盒与 PYTHONUTF8 原样）。**未启动 Yan Agent**（由用户决定何时开）。
+- S110 漏洞知识库（Vul-RAG 式）：`tools/vulnkb.py`——22 条种子 KB（规则语义 + 本仓实战先例（$Deleted 竞态/四轮弹跳床）+ 通用常识），`rules` 非空=扫描器能报、`rules: []`=**本仓未覆盖**（路径穿越/竞态/资源泄漏/TOCTOU，带"未覆盖"标签，与附录 B 口径一致）；关键词检索（非嵌入）；`vuln_knowledge` 工具（59 工具）+ `bug_scan(knowledge=true)` 给每条命中附 `kb{id,title,fix,covered}`（默认 false 零破坏）。
+- S111 ast-grep 可选引擎：`tools/astgrep.py` 薄壳 + `rust/src/astgrep.rs` + `rx-scan astgrep`——PATH 探测 ast-grep/sg，argv 直调（无 shell），未装 → 清晰报错 + 安装提示（不静默降级）；只读搜索不做 rewrite。**实现注记**：Python 侧 subprocess 与 Rust `Command::new(变量)` 均被 Mimosa 静态门拦截（命令注入启发式，误报——本就是 argv 列表无 shell），改为 Rust 侧**字面量调用点**（ast-grep/sg 各一处）+ Python 薄壳零 subprocess；放弃 env 覆盖（外部引擎按 PATH 约定）。
+- S112 SCIP 消费：`tools/scip.py`——手写 protobuf wire 解析（varint/长度前缀字段），`scip_refs(index_file, symbol)` 给出定义/引用位置（files[].lines/defs），**不起 LSP 会话**；不生成索引、索引新鲜度归生成方（如实标注）。测试用**合成索引**（手写编码器）验证解析正确性，不依赖外部索引器。
+- 测试：s110 8 测（KB 完整性/规则号与扫描器清单一致/未覆盖标注/检索/工具契约/注解开关）；s111 8 测（ast-grep 校验/探测/清晰报错 + SCIP 合成索引解析/缺失/坏字节/未命中）。计数断言随工具面更新（60→64 上限、bug_scan schema 加 knowledge）。
+- 验证：3.14 全量 672 passed + 2 skipped；3.11 全量 674 passed；cargo 156 绿零告警；版本锁步 2.32.0 + exe 重建。
+- 雷达状态：ADVANCES 11 项**全部兑现**（P0 三项 S101-S102、P1 三项 S103-S105、P2 四项 S106-S112）。
+- 提交：本次

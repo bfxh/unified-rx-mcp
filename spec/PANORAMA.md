@@ -149,10 +149,10 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.31.0）
+## 五、现状坐标（2026-09-09 @ v2.32.0）
 
-**工具面 58/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
-guard(2) ide(19) learn(1) meta(2) ops(5) scan(10) search(3)。
+**工具面 61/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
+guard(2) ide(20) learn(1) meta(2) ops(5) scan(12) search(3)。
 
 **Rust 原生化进度**：16 个工具已薄壳化（fs_write、
 search 双件 code_search/code_semantic、scan 五件 bug_scan/std_check/ui_check/
@@ -167,7 +167,7 @@ exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 +
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 656 passed + 2 skipped ／ 3.11 = 658 passed；cargo
+**测试资产**：pytest 3.14 = 672 passed + 2 skipped ／ 3.11 = 674 passed；cargo
 156 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
 = S94，fs_test 并发回归 = S95，search_test 资格门 4 = S101，repomap_test 6 = S102，
 nameres_test 25 = S107/S108）；selftest 58/12/SCHEMA_BAD 0 + 机器对账三行
@@ -188,7 +188,9 @@ S104 TIA 6 测（首次全量→增量→无变更跳过/对称选择/新测试�
 S105 ACI 9 测（空结果提示/有结果不加/覆盖边界措辞/顶层与嵌套截断提示/
 沙盒与 schema 错误建议/幂等/未知错误不追加，test_s105_aci）；
 S109 ide_impact 三级降级 4 测（解析级/ LSP 优先/文本回落/无符号清晰报错，
-test_s109_impact_resolved——显式 mock LSP，不依赖环境是否装 pylsp）。
+test_s109_impact_resolved——显式 mock LSP，不依赖环境是否装 pylsp）；
+S110 知识库 8 测（KB 完整性/规则号与扫描器一致/未覆盖标注/检索/工具契约/注解开关）
++ S111 可选引擎 8 测（ast-grep 校验/探测/清晰报错 + SCIP 合成索引解析）。
 
 **质量体检基线（S94 立账，S95 复测，详见 EVAL §6/§7）**：延迟热态 fs_stat
 p50 **0.3ms**（S95 回迁后，<10ms 预算余量 ~30 倍；v2.20.0 exe 路由期 7.7-9.7ms
@@ -259,11 +261,11 @@ H1 口径已校正为"解决率增益+可核验性"，非"省 token"）。
 9. **SWE-bench 外锚复跑一轮**：工具面自 S25 后大改（57 工具 + Rust 面），外锚
    回归参考价值高；bench 电池保留可用。
 10. **外部技术雷达兑现（S100 立账，见 [ADVANCES.md](ADVANCES.md)）**：11 项
-   候选按杠杆/成本排序——**P0 三项 + P1 三项全部已兑**（S101-S105）；
-   ~~P2 首项（栈图式名字解析）~~（**S106 设计 + S107/S108 落地**：单文件 +
-   跨文件，symtable oracle 零差异，文本级对比 93.9% 假阳性/解析级零遗漏；
-   [NAMERES.md](NAMERES.md)）；余 P2=漏洞知识库、tree-sitter/ast-grep 可选引擎、
-   SCIP 消费。每项落地仍走 oracle → 双绿 → 文档。
+   候选按杠杆/成本排序——**P0 三项 + P1 三项 + P2 四项全部已兑**（S101-S112）；
+   ~~P2 首项（栈图式名字解析）~~（**S106 设计 + S107/S108 落地** + S109 接入
+   ide_impact 三级降级）；~~P2 余三项~~（**S110 漏洞知识库 / S111 ast-grep 可选
+   引擎 / S112 SCIP 消费**）——**雷达 11 项全部兑现**。每项落地仍走 oracle →
+   双绿 → 文档。
 
 ### 缓议维持（有意识不做，防范围蠕变）
 - **转发代理/单 exe 入口**：python 编排器入口零损失，双进程桥接复杂度不值

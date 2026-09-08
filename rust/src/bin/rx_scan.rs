@@ -17,6 +17,7 @@
 //!         2 = 用法错误。
 //! 无沙盒门：与 Python 版一致（纯读分析）。
 
+use rxrs::astgrep;
 use rxrs::astscan;
 use rxrs::bug;
 use rxrs::json::Value;
@@ -107,6 +108,18 @@ fn run(args: &[String]) -> Result<Value, String> {
                 }
             };
             Ok(nameres::resolve_file(file, &src))
+        }
+        "astgrep" => {
+            let pattern = args.get(1).map(|s| s.as_str()).unwrap_or("");
+            let path = args.get(2).map(|s| s.as_str()).unwrap_or("");
+            if pattern.is_empty() || path.is_empty() {
+                return Err(USAGE.into());
+            }
+            let k = match args.get(3) {
+                Some(s) => s.parse::<usize>().map(|n| n.max(1)).unwrap_or(50),
+                None => 50,
+            };
+            Ok(astgrep::ast_grep(pattern, path, k))
         }
         "resolvedir" => {
             let root = args.get(1).map(|s| s.as_str()).unwrap_or("");

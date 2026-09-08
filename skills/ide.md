@@ -42,6 +42,10 @@
   which 检查假阳性，违反"绝不假装支持"）
 - **ide_diagnostics**（S37 统一通道）：LSP+clippy 聚合同形状
   {source,file,line(1-based),severity,message}，修复循环直接消费
+- **scip_refs（S112）**：SCIP 索引消费（只读）——外部索引器（`rust-analyzer scip .`、
+  scip-python 等）产出的紧凑代码情报索引，本工具手写 protobuf 解析（零依赖），
+  给出符号的定义/引用位置（`files[].lines/defs`），**不起 LSP 会话**。不生成索引；
+  索引新鲜度由生成方负责（如实标注）。
 - **ide_impact**（S58）：符号 → LSP references 按文件聚合+测试覆盖标注
   （python test_<stem>.py 约定代理）——改前先看碰哪些裸奔文件。**三级降级
   （S99/S109，engine 字段如实标注）**：①`lsp` 语义级（需 rust-analyzer/pylsp）；
