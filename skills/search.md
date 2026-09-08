@@ -1,4 +1,4 @@
-# search 域（code_search / code_semantic）
+# search 域（code_search / code_semantic / repo_map）
 - code_search：**BM25 词面**，文件级；符号原文加权重排（S13）。S80 起引擎
   Rust 原生化（rx-search.exe，`rust/src/search.rs`），Python 侧薄壳转调，
   exe 缺失报清晰错误不静默降级。语料遍历 = 每层先本目录文件再下钻（os.walk
@@ -31,3 +31,14 @@
   degraded 原因 + BM25 结果完整），默认 false 时输出与旧版同形。
   实测（tools 域，`sandbox resolve`）：融合把语义路 #1、BM25 #3 的
   `_resolve_in_sandbox` 顶到第一，压过只被 BM25 命中的注释行。
+- **repo_map（S102）**：仓库符号地图——定义/引用图 + **个人化 PageRank** + token
+  预算裁剪（算法源自 aider repo map，零依赖自研，实现在 `rust/src/repomap.rs`，
+  rx-ide repomap 子命令）。图：file --引用次数--> def，file --包含--> 自己的
+  def，def --1--> 所属 file；个人化 = focus 命中的文件与其定义 ×50（其余 ×1）。
+  定义用 `ide::symbol_spans` 四语言同口径；引用 = 全仓词法扫描命中已知定义名。
+  输出 `map` 每行 `相对路径:行 kind 名字`（按 rank 降序，预算 = chars/4 近似）；
+  顶层 `defs_total/defs_shown/tokens_est/truncated/engine`。focus 匹配口径：
+  全等/路径后缀（`fs.py`）/目录前缀（`tools`）/词干（`fs`）。
+  **简化边界（如实）**：引用归属算给"包含引用的文件"而非"包含引用的定义"；
+  同名定义共享权重；token 用字符/4 近似——定位是"该看哪些定义"的骨架，
+  不是精确调用图。

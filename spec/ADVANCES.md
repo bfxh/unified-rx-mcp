@@ -12,7 +12,7 @@
 
 | # | 技术 | 目标工具 | 预期增益 | 成本 | 红线 | 优先级 |
 |---|---|---|---|---|---|---|
-| 1 | **repo_map**（个人化 PageRank 符号地图） | 新增工具（agent 上下文选择） | RepoGraph 论文口径平均相对 +32.8%；减少"瞎翻文件" | 1 轮 | 零依赖可行 | **P0** |
+| 1 | **repo_map**（个人化 PageRank 符号地图） | 新增工具（agent 上下文选择） | RepoGraph 论文口径平均相对 +32.8%；减少"瞎翻文件" | 1 轮 | 零依赖可行 | ✅ **S102 已兑** |
 | 2 | **混合检索 RRF**（BM25 ⊕ 语义路） | code_search | 融合优于单路（RRF k=60 为默认） | 0.5 轮 | 纯算法 | ✅ **S101 已兑** |
 | 3 | **查询侧根词约束**（子词索引假阳性防护） | code_search | 召回不变、假阳性下降 | 0.2 轮 | 纯算法 | ✅ **S101 已兑** |
 | 4 | **内容寻址增量缓存**（salsa 思想） | scan/search 全域 | 重复调用延迟降一个数量级（增量分析文献 1.3–68×） | 1 轮 | 零依赖可行 | **P1** |
@@ -31,7 +31,7 @@ bigram，`rust/src/search.rs:194`）、符号级 rerank 与指纹缓存（S12/S1
 
 ## 二、逐项详解
 
-### 1. repo_map：给 agent 一张"按相关度裁剪的仓库地图"（P0）
+### 1. repo_map：给 agent 一张"按相关度裁剪的仓库地图"（✅ S102 已兑）
 - **原理**：抽取符号定义与引用建图 → 以"当前正在改的文件/对话涉及的文件"为
   种子做**个人化 PageRank**（Random Walk with Restart）→ 按 token 预算二分裁剪，
   输出最相关的定义骨架。代表实现：aider `repomap.py`、Rust 版
@@ -41,12 +41,17 @@ bigram，`rust/src/search.rs:194`）、符号级 rerank 与指纹缓存（S12/S1
   子图"平均相对提升 **32.8%**。
 - **本仓现状**：没有"地图"工具；但积木齐全——`ide_outline`（符号）、
   `dep_graph`（跨文件引用）、`locate_edit`（引用计数）。缺的是**图上的排序**与
-  **预算裁剪**。
-- **落地**：新工具 `repo_map(paths|focus, budget_tokens)`：符号图（节点=定义，
-  边=引用）→ 幂迭代 PageRank（纯 Python，几十行）→ 贪心填充到预算。
-  验收：固定语料下与"按文件名字典序取前 N"对比命中率；oracle 对照现有
-  `ide_outline` 符号口径。
-- **风险**：PageRank 权重与预算策略需要调参——先做保守版（只排序不裁剪到过小）。
+  **预算裁剪**——S102 已补。
+- **落地（S102 实装）**：`repo_map`（search 域，rx-ide repomap 子命令 +
+  `rust/src/repomap.rs`）——图：file --引用次数--> def、file --包含--> 自己的 def、
+  def --1--> 所属 file；个人化 = focus 命中文件与其定义 ×50（aider 同款偏置），
+  阻尼 0.85、30 轮幂迭代、悬挂节点按个人化向量重分配；定义复用
+  `ide::symbol_spans`（四语言同口径），引用 = 全仓词法扫描命中已知定义名；
+  输出 `map`（`相对路径:行 kind 名字`，rank 降序，预算 = 字符/4 近似）+
+  `defs_total/defs_shown/tokens_est/truncated`。简化边界如实入文档：
+  引用归属算给文件而非包含它的定义、同名定义共享权重、token 近似。
+  实测（tools 域，focus=fs）：fs.py 的定义进入前 10（无 focus 时被跨文件
+  高频引用者占据）；聚焦偏置与预算裁剪由 rust 5 测 + python 6 测锁定。
 
 ### 2. 混合检索 RRF：两条路各自会输的查询互补（✅ S101 已兑）
 - **原理**：BM25（精确词元）与语义路（意图）失败模式不同；**Reciprocal Rank
