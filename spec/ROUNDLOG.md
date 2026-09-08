@@ -308,7 +308,7 @@
 - 提交：本次
 
 ## S96 · 副本深扫分诊轮（清 S95 出货时的 scanner_enobufs 缺口）
-- 项目：unified-rx-mcp｜时间：2026-09-08
+- 项目：unified-rx-mcp｜时间：2026-09-09（本地；扫描工件时间戳 2026-09-08T16:03Z）
 - 决策：S95 出货时 Mimosa 钩子在 commit/push 前报 `scanner_enobufs`（扫描器缓冲不足，无完整结论，钩子明示"请尽快重新运行完整审计"）。按禁自扫纪律（深扫跑副本、绝不自扫宿主），对 **v2.21.0 快照副本**跑 deep 扫描：`git archive v2.21.0` 解包到 `%TEMP%\s96-audit`（671 文件、7.2MB、无 .git），focusFiles 指向 S95 候选面（tools/fs.py、rust/src/sandbox.rs、rust/src/fs.rs、rust/tests/fs_test.rs、S95 三测、golden 脚本）。
 - 扫描事实（sealed artifacts 留档 `~\.mimosa\security-scans\project-426a247385ea38877c9e2d64\scan-2026-09-08T16-03-20.112Z-e9aeb5bf8956\`）：scanId `scan-2026-09-08T16-03-20.112Z-e9aeb5bf8956`，seal `sha256:c544623b60844f05aadbe9e99117708b0598a7b799c5f0d7c4cc190fac6bc7b4`，depth=deep，**runStatus=inconclusive**——静态层完整（193/193 代码文件 selected/parsed，0 读失败 0 解析失败，截断=false；141 .py + 52 .rs = 193 全量对账），threatModel/findingDiscovery 阶段 partial（语义验证层未完成，investigated=0，`evidenceBoundary=static_only_no_runtime_execution`、`verdictEffect=none`）；resume 被拒（job 已 completed，不可恢复）→ 覆盖缺口为本次插件运行的终态，如实留档。58 条静态发现（57 high + 1 low，businessLogicCandidates=0）。
 - 分诊结论（仅静态层，不构成完整审计、不作安全宣称）：**S95 候选代码零命中**（tools/fs.py / sandbox.rs / fs.rs / S95 三测 / golden 脚本均无发现——193 全量解析下是有效零命中，非漏扫）。tools/ 10 条逐条核账 = 2 条设计内 + 8 条误报：①设计内——ide_debug.py:171 `eval`（条件断点表达式在调试目标进程内求值，S88 复诊口径：等权无越权面）、meta.py:168/176 `shell=True`（local_run 为授权门控高权限工具，S75 原判，字符白名单在案）；②误报——ide_edit.py:176/296（写点 p 经 `_fs_resolve`，第 94/224 行）、lsp.py:690（real 经 `_resolve_in_sandbox`）、metrics.py:90（source_dir 经 `_fs_resolve`）、learn.py:39（默认库路径固定可信 + 显式 lessons_dir 过沙盒，S73）、ide_debug.py:272（temp 目录+数字 pid 拼名，无用户路径成分）、game.py:43（URL 主机硬编码 127.0.0.1，非 SSRF 面）。其余 48 条全在 bench/（开发脚手架，不经 MCP 暴露——S88 同判）+ bench/manual_snaps（VoxelForge 外部代码快照，非本仓代码）。
@@ -316,3 +316,14 @@
 - 验证：分诊 10/10 逐条读源核账（行号、resolve 调用链、常量主机）；副本扫描不触碰宿主仓（禁自扫纪律）；版本仍 2.21.0（无代码变更，不重打 tag）。
 - 提交：本次
 - 待清（留档）：Mimosa 语义层（threatModel/validation）在本环境未跑通（partial）；待插件侧可完整运行时对副本复扫清缺口。下次出货若钩子再报 enobufs，按本轮路径复用副本扫描 + 分诊。
+
+## S97 · 读面沙盒补漏（ast_scan / hallucination_guard）+ H1-H4 台账归档
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：S96 分诊余波顺着 H3 复测的一个异常（ast_scan 能读沙盒外 VF3 而 bug_scan 被拒）做实——不是扫描器退化，是**沙盒门漏网**。系统普查 57 工具的路径参数面（43 个吃路径的工具逐一核账：Python `_fs_resolve` / exe 侧门 / 参数实为字符串过滤），实锤两处读原语从未过沙盒，本轮补齐 + 回归 + 台账。
+- 实锤与修复：①**ast_scan 从未过沙盒**——S84 已把它拆到 tools/astscan.py，S88 普查只扫 scan.py 名单 → 漏网；rx-scan exe 侧本就无沙盒代码（Python 侧是唯一门），实锤可读任意路径（裸 shell 下 ast_scan 读 D:\开发\VoxelForge-V3 成功而 bug_scan 报"路径越界"）。修：加 `_fs_resolve` 前门（与 scan 域同款，先钳后转 exe）。②**hallucination_guard 读文件数行未过沙盒**——file:line 声明会 open+数行，可探测/读取沙盒外任意路径的存在性与行数。修：沙盒外声明不读不判、落 `unverifiable`（fail-closed，既不假 verified 也不冤判 refuted）。普查澄清（不钳）：scan_log / ide_health_trend 的 root 是记录字段过滤（字符串相等）非路径读；local_run 的 workdir 不另钳（shell 执行本身可跨目录，S75 授权门为准）；app_audit / code_context / fs_write / ide_outline / ide_read_symbol / ide_rename / locate_edit 等 exe 背书的均行为实测有门；blender_verify / ide_diagnostics / ide_vscode / ide_batch_edit / ide_multi_check（委托 ide_doctor）/ ide_impact（委托 ide_lsp）等 Python 侧均已有门。
+- 测量修正：h3_score.py 的 FP 复检把"探针被拒（沙盒/环境）"与"真 FP 回归"混为一谈（found=-1 → pass:false 假红）→ blocked 语义分离（pass=None + blocked 原因，判定跳过该探针）；bench 脚本显式声明沙盒（`os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")`，s94_perf 同纪律）——h2/h3/ab_run/swe_p3/vf3_battery 五处补齐，防裸 shell 下 fail-closed 干扰测量。
+- 复测得数：H3 重跑 **PASS**——fp_recheck eval_exec found=0（案底 FP=10 保持修复；旧版"FAIL"实为沙盒未设 + 假红口径叠加）、api_key_sk tp=6/n=6 precision 1.0、三条 WEAK(n=1) 黄灯不变、VF3 panic 家族覆盖 ✓、rust_reach prod 2262/test_only 25/unref 389；H2 重跑与 S95 逐位同值（A 652 条 1.0/1.0、B 766 条 0.9295、漏判 0）——证明 guard 加门在沙盒全开下行为保持、fail-closed 只在沙盒外生效。
+- H1-H4 台账（EVAL §8 新章）：H1 Δsolved +6.67pp（deepseek 23/90→29/90）+10pp（glm 0/90→5/50，臂 n 不对称如实标注），**口径校正**——"省轮次省 token"与实测方向相反（轮次 1→12.44、input 165→26487 tok、成本 12×），L3 支持的是"解决率增益 + 可核验性"（S14 裸模型文件引用存在率 0% vs 工具组 63%/23%）；H2 1.0/0.9295；H3 本轮复测；H4 S20 缩影 0/8→3/8（复跑需 API 预算，挂账⑥）。
+- 交付：tools/astscan.py 门 + tools/guard.py 钳制；tests/test_s88_sandbox_clamp.py +4 测（16/16）；bench/h3_score.py blocked 语义 + 五脚本沙盒声明；EVAL §8；VULN-HUNTING S97 注记；PANORAMA v2.22.0（挂账⑤留、⑥新增、方向 #7 标台账已归档）；server.py/Cargo.toml/Cargo.lock 2.22.0 + exe 重建。
+- 验证：s88 钳制 16/16；3.14 全量 602 passed + 2 skipped；3.11 全量 604 passed；cargo 121 绿零告警（Rust 零改动，版本 lockstep + 重建）；H3 PASS / H2 同值；selftest 版本对账在出货后复验。S96 日期修正：该轮发生在本地 09-09 00:0x（工件 UTC 09-08T16:03Z），原记 09-08 已改。
+- 提交：本次

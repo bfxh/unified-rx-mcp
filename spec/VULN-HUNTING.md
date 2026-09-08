@@ -373,6 +373,20 @@
   其余 48 条全在 bench/（开发脚手架，不经 MCP 暴露，S88 同判）+ bench/manual_snaps
   （VoxelForge 外部代码快照）。**结论口径**：本轮为静态层分诊，不构成完整审计、
   不作安全宣称；语义层覆盖缺口留档待插件侧可完整跑通后再清。
+- **读面沙盒补漏（S97 已落）**：S96 分诊的余波——顺着 H3 复测里"ast_scan 能读
+  沙盒外 VF3 而 bug_scan 被拒"的异常做实：**`ast_scan` 从未过沙盒门**（S84 已把
+  它拆到 tools/astscan.py，S88 普查只扫了 scan.py 名单 → 漏网；rx-scan exe 侧
+  本就无沙盒代码，Python 侧是唯一门）——实锤可读任意路径。同轮系统普查 57 工具
+  的路径参数面（43 个吃路径的工具逐一核账：Python `_fs_resolve` / exe 侧门 /
+  或参数实为字符串过滤非路径），另发现 **`hallucination_guard` 读文件数行
+  （读原语）未过沙盒**——可探测/读取沙盒外任意路径的存在性与行数。
+  修复：①ast_scan 加 `_fs_resolve` 前门（与 scan 域同款，先钳后转 exe）；
+  ②guard 的 file 声明钳制——沙盒外路径不读不判、落 `unverifiable`
+  （fail-closed：既不假 verified 也不冤判 refuted；相对路径基准 root 同样受钳）。
+  回归：tests/test_s88_sandbox_clamp.py 扩 4 测（ast_scan 越界拒/沙盒内可用、
+  guard 沙盒外 unverifiable/沙盒内 verified），16/16。附注：scan_log /
+  ide_health_trend 的 root 参数是记录字段过滤（字符串相等），非路径读，不在
+  钳制面；local_run 的 workdir 不另钳（shell 执行本身可跨目录，S75 授权门为准）。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。

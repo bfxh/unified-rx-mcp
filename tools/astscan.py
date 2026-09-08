@@ -16,6 +16,7 @@ import os
 import subprocess
 
 from registry import tool
+from tools.fs import _resolve as _fs_resolve
 
 _RX_EXE_NAME = "rx-scan.exe"
 
@@ -79,4 +80,11 @@ def _rx_scan_call(path, max_files):
        },
        "required": ["path"]})
 def ast_scan(path, max_files=200):
+    # S97：S88 沙盒纪律补漏——本文件在 S88 普查时已被单独拆出（S84 薄壳），
+    # 漏进"读路径过沙盒"名单，实锤可读沙盒外任意路径（rx-scan exe 侧无门）。
+    # 与 scan 域其余工具同款：先钳后转 exe。
+    try:
+        path = _fs_resolve(path)
+    except ValueError as e:
+        return {"error": str(e)}
     return _rx_scan_call(path, max_files)

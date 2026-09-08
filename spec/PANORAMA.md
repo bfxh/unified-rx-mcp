@@ -149,7 +149,7 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-08 @ v2.21.0）
+## 五、现状坐标（2026-09-09 @ v2.22.0）
 
 **工具面 57/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(19) learn(1) meta(2) ops(5) scan(10) search(2)。
@@ -167,7 +167,7 @@ exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 +
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 598 passed + 2 skipped ／ 3.11 = 600 passed；cargo
+**测试资产**：pytest 3.14 = 602 passed + 2 skipped ／ 3.11 = 604 passed；cargo
 121 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
 = S94，fs_test 并发回归 = S95）；selftest 57/12/SCHEMA_BAD 0 + 机器对账三行
 （VERSION_TAG / SKILLS_DOCS S91、EXE_TAG S94）；junction 逃逸回归（S88）；stdin 通道
@@ -175,7 +175,8 @@ parity 三测（S90，argv vs stdin 强制等价）；S73 重放验收常驻（S
 双靶 32 测（S78）；S92 对照实验 43 场景 + S93 对照实验 51 场景 masked 全等
 （temp\s92、temp\s93 oracle 三件套）；S95 golden master oracle 40 场景 +
 高压电池 8 测（tests/test_s95_stress.py）+ Linux 面 smoke 3 测
-（tests/test_s95_linux_smoke.py，WSL 实测 fail-closed/沙盒内双态）。
+（tests/test_s95_linux_smoke.py，WSL 实测 fail-closed/沙盒内双态）；
+S97 沙盒钳制补漏 4 测（ast_scan / hallucination_guard，test_s88_sandbox_clamp 16/16）。
 
 **质量体检基线（S94 立账，S95 复测，详见 EVAL §6/§7）**：延迟热态 fs_stat
 p50 **0.3ms**（S95 回迁后，<10ms 预算余量 ~30 倍；v2.20.0 exe 路由期 7.7-9.7ms
@@ -199,7 +200,9 @@ fs_stat p50 0.3ms 余量 ~30 倍，golden oracle 锁等价，数字在 EVAL §7�
 ⑤Mimosa 语义层覆盖缺口（S96 副本深扫：静态层 193/193 代码文件完整、58 条分诊
 完毕且 S95 候选面零命中，但 threatModel/findingDiscovery 阶段 partial——
 `runStatus=inconclusive`，见 VULN-HUNTING S96 注记；待插件侧可完整跑通后对副本
-复扫清账，期间不作安全宣称）。
+复扫清账，期间不作安全宣称）；⑥H1/H4 的 A/B 复跑需 API 预算（H1-H4 台账已归档
+EVAL §8：H2/H3 零成本复算在账，H1 数字出自 S14 已花账、H4 出自 S20 缩影；
+H1 口径已校正为"解决率增益+可核验性"，非"省 token"）。
 
 ## 六、开发方向（建议排序）
 
@@ -229,13 +232,14 @@ fs_stat p50 0.3ms 余量 ~30 倍，golden oracle 锁等价，数字在 EVAL §7�
    的 Python 降级路径与 exe 直连归一（去第二实现面），engine_status 保持探测壳。
 
 ### 中期 · 量化收益（吃 ROI）
-7. **H1-H4 全指标复测一轮（S94 性能/内存/架构 + S95 H2 首测已兑；A/B 增益复测
-   仍挂）**：Rust 化延迟收益目前零散在账（code_search 930→140ms、
+7. **H1-H4 全指标复测一轮（S94 性能/内存/架构 + S95 H2 首测 + S97 H1-H4 台账
+   归档已兑；A/B 复跑挂账⑥）**：Rust 化延迟收益目前零散在账（code_search 930→140ms、
    semantic 930→330ms、std/ui 20-30%），S94 实测 code_search 33-87ms 保持、
    语义路径冷热敏感（591-1767ms），S95 复测全部预算 PASS 且 fs_stat 回迁后
    0.3ms（EVAL §7）；H2 幻觉守卫一致率首测 A 1.0 / B 0.9295、漏判 0
-   （bench/h2_guard_eval.py，L3 答案复用零 API 成本）；剩余=完整 A/B（S38 基线
-   保留可复测）归档 EVAL.md——回答"原生化到底买到了什么"。
+   （bench/h2_guard_eval.py，L3 答案复用零 API 成本）；H1-H4 台账（定义/最新
+   实测/数据入口/缺口）已归档 EVAL §8；剩余=完整 A/B 复跑（需 API 预算，S38
+   基线保留可复测）——回答"原生化到底买到了什么"。
 8. **VULN-HUNTING P1-b/P2 兑现**：规则覆盖矩阵（P1-b"查不了"如实入表待解）、
    调用图定位、tag 前深扫常态化。
 9. **SWE-bench 外锚复跑一轮**：工具面自 S25 后大改（57 工具 + Rust 面），外锚

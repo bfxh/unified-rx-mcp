@@ -15,6 +15,8 @@ import subprocess
 import pytest
 
 from registry import call as rx_call
+from tools import astscan as astscan_tools
+from tools import guard as guard_tools
 from tools import scan as scan_tools
 from tools import search as search_tools
 from tools import game as game_tools
@@ -62,6 +64,40 @@ def test_bug_scan_inside_sandbox_works(tmp_path):
     (tmp_path / "m.py").write_text("def f():\n    return 1\n", encoding="utf-8")
     r = scan_tools.bug_scan(str(tmp_path), max_files=10)
     assert "沙盒外" not in str(r.get("error", "")), r
+
+
+# ---------- S97 补漏：ast_scan / hallucination_guard（S88 普查漏网） ----------
+
+def test_ast_scan_outside_refused():
+    # S97 实锤：ast_scan 曾被读到沙盒外任意路径（S84 拆独立文件后漏出 S88 名单）
+    _assert_refused(astscan_tools.ast_scan(OUTSIDE))
+
+
+def test_ast_scan_inside_sandbox_not_refused(tmp_path):
+    (tmp_path / "m.py").write_text("import os\n", encoding="utf-8")
+    try:
+        r = astscan_tools.ast_scan(str(tmp_path), max_files=10)
+    except ValueError as e:      # exe 缺失走清晰错误，非沙盒拒绝
+        assert "沙盒外" not in str(e), e
+        return
+    assert "沙盒外" not in str(r.get("error", "")), r
+
+
+def test_hallucination_guard_outside_claim_unverifiable(tmp_path):
+    # S97 实锤：guard 读文件数行（读原语）却未过沙盒；钳制后沙盒外声明
+    # 不读不判 → unverifiable（fail-closed，既不假 verified 也不冤判 refuted）
+    r = guard_tools.hallucination_guard("见 fake.py:5 处", root=OUTSIDE)
+    items = [x for x in r["results"] if x["kind"] == "file"]
+    assert items, r
+    assert all(x["status"] == "unverifiable" for x in items), items
+    assert all("沙盒外" in x["detail"] for x in items), items
+
+
+def test_hallucination_guard_inside_claim_verified(tmp_path):
+    (tmp_path / "g.py").write_text("a = 1\nb = 2\n", encoding="utf-8")
+    r = guard_tools.hallucination_guard("见 g.py:2 处", root=str(tmp_path))
+    items = [x for x in r["results"] if x["kind"] == "file"]
+    assert items and items[0]["status"] == "verified", items
 
 
 # ---------- search 域 ----------

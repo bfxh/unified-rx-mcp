@@ -64,9 +64,9 @@
    "note": "JS/凭据域家族命中语义由合成金样 pytest 锁定，不做仓库级覆盖断言"
   },
   "bonus_rust_reach": {
-   "prod": 164,
-   "test_only": 10,
-   "unreferenced": 8
+   "prod": 2262,
+   "test_only": 25,
+   "unreferenced": 389
   },
   "h3_live_verdict": "PASS"
  }

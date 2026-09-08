@@ -2,10 +2,14 @@
 """VF3 battery: run full unified-rx tool surface over VoxelForge-V3, emit baseline JSON."""
 import collections
 import json
+import os
 import sys
 import time
 
 sys.path.insert(0, ".")
+# S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——被测工具已过沙盒门，
+# 裸 shell 下 fail-closed 会干扰测量。
+os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
 import registry  # noqa: E402
 import tools      # noqa: F401,E402
 
