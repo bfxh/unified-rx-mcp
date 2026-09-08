@@ -364,3 +364,13 @@
 - 交付：rust/src/search.rs（门）+ rust/tests/search_test.rs +4 测；tools/search.py（`_RRF_K`/`_rrf_fuse`/hybrid 分支）+ tests/test_s101_search_hybrid.py 4 测；tests/test_s80_search_rust.py schema 契约同步；skills/search.md 契约行；ADVANCES 第 2/3 项标已兑（并修正第 2 项"语义路=外部引擎"的误述——实为 rx-semantic.exe 仓内实现）；PANORAMA v2.24.0；版本锁步 2.24.0 + exe 重建。
 - 验证：s101 4 + s80 10 + s81 11 = 25/25；3.14 全量 611 passed + 2 skipped；3.11 全量 613 passed；cargo 125 绿零告警（121 + 门 4）。
 - 提交：本次
+
+## S102 · ADVANCES P0 收官：repo_map（个人化 PageRank 符号地图）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：雷达 P0 最后一项。aider repo map 的仓内零依赖自研：定义/引用图 + 个人化 PageRank + token 预算裁剪。实现落 `rust/src/repomap.rs` + rx-ide `repomap` 子命令（进程内走全仓，避免逐文件起进程），Python 薄壳注册为 search 域第 3 个工具（58 工具）。
+- 图与算法：节点 = 文件 + 定义；边 = file --引用次数--> def、file --包含--> 自己的 def、def --1--> 所属 file；个人化向量 = 均匀 1，focus 命中的文件与其全部定义 ×50（aider 同款偏置）；阻尼 0.85、30 轮幂迭代、悬挂节点按个人化向量重分配。定义复用 `ide::symbol_spans`（四语言同口径，零 LSP）；引用 = 全仓词法扫描命中已知定义名（跳过声明行本身）。输出 `map` 每行 `相对路径:行 kind 名字`（rank 降序），预算 = 字符/4 近似，超预算即截断（`truncated` 如实标记）。
+- 开发中实锤的一个真 bug（写测试抓出来的）：首版个人化只给**文件节点**权重——但 def 的 rank 只从"被引用"流入，聚焦文件的**未被引用定义**拿不到分，focus 形同虚设（测试 `focus_biases_ranking` 首跑即红：聚焦 lib_b 后 beta 仍输给被引用三次的 alpha）。修法 = 加 **file→def 包含边** + **定义级个人化**（aider 的 scope 边对位）。修复后：聚焦 lib_b → beta 登顶；实测 tools 域 focus=fs → fs.py 定义进前 10。
+- 简化边界（如实入文档，避免被读成精确调用图）：引用归属算给"包含引用的文件"而非"包含引用的定义"（省作用域消歧）；同名定义共享引用权重；token 估计 = 字符/4 近似。
+- 交付：rust/src/repomap.rs（~260 行）+ lib.rs 挂载 + ide.rs 四内部件 pub(crate)（Span/symbol_spans/ide_lang_of/iter_files_ide/split_py_lines）+ bin/rx_ide.rs repomap 子命令（root 过沙盒、focus ";" 分隔、budget/max_files 可选）+ tools/search.py 薄壳（沙盒门 + 形状透传）+ tests/test_s102_repo_map.py 6 测 + rust/tests/repomap_test.rs 5 测；skills/search.md 契约行；skills/README/README（57→58 工具、search 2→3）；ADVANCES 第 1 项标已兑；PANORAMA v2.25.0；版本锁步 2.25.0 + exe 重建。
+- 验证：s102 6 + rust repomap 5 = 11/11；3.14 全量 617 passed + 2 skipped；3.11 全量 619 passed；cargo 130 绿零告警（125 + 5）；selftest tools=58。
+- 提交：本次

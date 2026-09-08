@@ -35,6 +35,7 @@ pub mod fs;
 pub mod ide;
 pub mod json;
 pub mod pyast;
+pub mod repomap;
 pub mod scan;
 pub mod sandbox;
 pub mod search;

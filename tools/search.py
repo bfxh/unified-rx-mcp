@@ -244,3 +244,29 @@ def code_semantic(query, root=None, mode="search", k=8):
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     return _rx_semantic_call(root, query, mode, k)
+
+
+@tool("repo_map", "仓库符号地图（个人化 PageRank，S102）：focus 相关定义按相关度"
+      "排序、按 token 预算裁剪——给模型一张'该看哪些定义'的骨架（不是精确调用图）",
+      "search",
+      {"type": "object",
+       "properties": {
+           "root": {"type": "string", "description": "仓库根目录（沙盒内）"},
+           "focus": {"type": "array", "items": {"type": "string"},
+                     "description": "聚焦路径片段（如 tools/fs.py、tools 或 fs）——"
+                                    "其文件与定义权重 ×50"},
+           "budget_tokens": {"type": "integer", "description": "地图 token 预算（默认 1024）"},
+           "max_files": {"type": "integer", "description": "扫描文件上限（默认 200）"},
+       },
+       "required": ["root"]})
+def repo_map(root, focus=None, budget_tokens=1024, max_files=200):
+    try:
+        root = _fs_resolve(root)                 # S88：读路径同样过沙盒
+    except ValueError as e:
+        return {"error": str(e)}
+    if not os.path.isdir(root):
+        return {"error": f"不是目录: {root}"}
+    focus_spec = ";".join(str(f) for f in (focus or []))
+    from tools.ide_read import _rx_ide_call     # 同 exe（rx-ide repomap 子命令）
+    return _rx_ide_call(["repomap", root, focus_spec,
+                         str(int(budget_tokens)), str(int(max_files))])

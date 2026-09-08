@@ -320,7 +320,7 @@ fn find_sub(cs: &[char], pat: &[char], from: usize) -> Option<usize> {
 }
 
 /// Python str.split('\n')：universal newlines 归一后逐段切，保留尾幻影行。
-fn split_py_lines(text: &str) -> Vec<String> {
+pub(crate) fn split_py_lines(text: &str) -> Vec<String> {
     let t: Cow<str> = if text.contains('\r') {
         Cow::Owned(text.replace("\r\n", "\n").replace('\r', "\n"))
     } else {
@@ -329,14 +329,14 @@ fn split_py_lines(text: &str) -> Vec<String> {
     t.split('\n').map(|s| s.to_string()).collect()
 }
 
-struct Span {
-    name: String,
-    start: usize,
-    end: usize,
-    kind: &'static str,
+pub(crate) struct Span {
+    pub name: String,
+    pub start: usize,
+    pub end: usize,
+    pub kind: &'static str,
 }
 
-fn symbol_spans(lines: &[String], lang: &str) -> Vec<Span> {
+pub(crate) fn symbol_spans(lines: &[String], lang: &str) -> Vec<Span> {
     let brace_lang = matches!(lang, "rust" | "go" | "javascript");
     let mut starts: Vec<(String, usize, &'static str)> = Vec::new();
     for (i, line) in lines.iter().enumerate() {
@@ -565,7 +565,7 @@ const MAX_EDIT_BYTES: u64 = 10 * 1024 * 1024;
 
 /// tools/ide_common.py::_lang_of：10 扩展名判型表（与 scan.rs 的 21 表不同源，
 /// 缺省 "text"——text 不进遍历、不占 max_files 额度）。
-fn ide_lang_of(path: &str) -> &'static str {
+pub(crate) fn ide_lang_of(path: &str) -> &'static str {
     let ext = crate::scan::splitext(path).to_lowercase();
     let ext = ext.strip_prefix('.').unwrap_or(&ext);
     match ext {
@@ -676,7 +676,7 @@ fn ide_walk(dir: &Path, st: &mut IdeWalk) {
 }
 
 /// _iter_files 等价（调用方已 isdir 过，root 恒为目录）。
-fn iter_files_ide(root: &Path, max_files: i64) -> Vec<String> {
+pub(crate) fn iter_files_ide(root: &Path, max_files: i64) -> Vec<String> {
     let mut st = IdeWalk { out: Vec::new(), count: 0, max: max_files };
     ide_walk(root, &mut st);
     st.out

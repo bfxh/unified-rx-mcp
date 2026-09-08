@@ -6,6 +6,7 @@
 //!   rx-ide locate <path> <query> [max_files] [limit]
 //!   rx-ide context <path> [cursor_line] [radius]
 //!   rx-ide rename <root> <symbol> <new_name> [include_plan 0|1]
+//!   rx-ide repomap <root> [focus_a;focus_b] [budget_tokens] [max_files]
 //! 输出：stdout 一行 JSON（与旧 Python 实现同构）。
 //! 退出码：0 = 工具级结果（含 {"error": ...}，registry 统一转 ok:false）；
 //!         2 = 用法错误 / 沙盒拒绝（Python 壳 raise ValueError，同旧实现包络）。
@@ -99,6 +100,25 @@ fn run(args: &[String]) -> Result<Value, String> {
                 None => false,
             };
             ide::ide_rename(&cfg, file, &symbol, &new_name, include_plan)
+        }
+        "repomap" => {
+            if args.len() < 2 {
+                return Err(USAGE.into());
+            }
+            let root = cfg.resolve(std::path::Path::new(file))?;
+            let focus: Vec<String> = args
+                .get(2)
+                .map(|s| s.split(';').filter(|x| !x.is_empty()).map(|x| x.to_string()).collect())
+                .unwrap_or_default();
+            let budget = match args.get(3) {
+                Some(s) => s.parse::<usize>().map_err(|_| "budget_tokens 必须是整数".to_string())?,
+                None => 1024,
+            };
+            let max_files = match args.get(4) {
+                Some(s) => s.parse::<i64>().map_err(|_| "max_files 必须是整数".to_string())?,
+                None => 200,
+            };
+            rxrs::repomap::repo_map(&root, &focus, budget, max_files)
         }
         _ => Err(USAGE.into()),
     }

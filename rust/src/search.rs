@@ -294,7 +294,7 @@ fn query_roots(query: &str) -> Vec<String> {
     for w in word_runs(query) {
         let lower = w.to_lowercase();
         let ident_like = w.chars().any(|c| c.is_ascii_uppercase()) || w.contains('_');
-        let mut push = |s: String, out: &mut Vec<String>| {
+        let push = |s: String, out: &mut Vec<String>| {
             if s.chars().count() > 1 && !STOPWORDS.contains(&s.as_str())
                 && !out.iter().any(|x| *x == s)
             {

@@ -3,11 +3,11 @@
 **本地工具代替智能体体力活的平台** — 凡是 AI 要做的确定性体力活，全部下沉为本地工具；AI 只保留决策层。
 > 定位：**工具箱，不是智能体，不是内核**。MCP 只是通道，价值在"工具 + 工作流"的完整链路。
 > 七维"掌握"：**结构 / 语义 / 定位 / 探索 / 记忆 / 反馈 / 质量**
-> 设计哲学：**少而准**（57 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
+> 设计哲学：**少而准**（58 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.22.0（S99）**：57 工具 / 12 域；pytest 3.14 = 602 passed + 2 skipped、
-3.11 = 604 passed；cargo test 121 绿；selftest 机器对账三行全绿（VERSION_TAG /
+**当前 v2.25.0（S102）**：58 工具 / 12 域；pytest 3.14 = 617 passed + 2 skipped、
+3.11 = 619 passed；cargo test 130 绿；selftest 机器对账三行全绿（VERSION_TAG /
 SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，
 逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)。
 
@@ -15,21 +15,21 @@ SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)�
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **57 个组合工具 / 12 域** |
+| 工具面 | 183（注入面 200+） | **58 个组合工具 / 12 域** |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 19 件 ide 工具 |
 
-## 工具面（12 域 · 57 工具）
+## 工具面（12 域 · 58 工具）
 
 | 域 | 工具 |
 |---|---|
 | 📁 fs (4) | `fs_read` `fs_write` `fs_stat` `fs_list` — 沙盒 fail-closed；读面纯 Python（S95 回迁，golden oracle 锁等价），写面 rx-fs.exe |
 | 🐛 scan (10) | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` `ast_scan` `code_review` `dep_graph` `module_stability` `code_coverage` — 正则 + AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
 | 🛠️ ide (19) | `ide_outline` `ide_read_symbol` `locate_edit` `code_context` `ide_edit_multi` `ide_batch_edit` `ide_rename` `ide_lsp` `ide_impact` `ide_diagnostics` `ide_build` `ide_test` `ide_debug` `ide_break` `ide_doctor` `ide_multi_check` `ide_vscode` `ide_auto_report` `ide_health_trend` |
-| 🔍 search (2) | `code_search` `code_semantic` — BM25 / 语义索引（引擎优先、降级带原因） |
+| 🔍 search (3) | `code_search`（BM25，`hybrid=true` 时与语义路 RRF 融合）`code_semantic`（tf-idf 定义级）`repo_map`（个人化 PageRank 符号地图） |
 | 🛡️ guard (2) | `hallucination_guard` `capability_manifest` — 声明核查；读取过沙盒（S97） |
 | 🧠 learn (1) | `lesson` — 教训记忆（关键词检索，非向量） |
 | ⚙️ ops (5) | `backup` `scan_log` `usage_stats` `project_health` `lesson_stats` |
