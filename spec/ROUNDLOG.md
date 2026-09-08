@@ -413,3 +413,13 @@
 - 三个待拍板决策（设计给建议）：①先 Python only（pyast 现成）；②**升级 dep_graph(resolved=true)** 而非新增第 59 个工具（旧形状默认不变，零破坏）；③except-as 之后引用 `e` 判 local（与 symtable 口径一致，fixture 锁死）。
 - 交付：spec/NAMERES.md（新）；ADVANCES 第 7 项标设计轮已落；PANORAMA 方向 #10。零代码改动，绿线维持 S105 出货状态（643+2s / 645 / cargo 131）。
 - 提交：本次
+
+## S107 · 名字解析（栈图式）单文件实现 + symtable oracle
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：按 NAMERES 设计落地阶段 A（单文件）：作用域栈遍历 + 引用→定义边 + 如实 unresolved。不改 pyast（家底核实：节点已齐，缺的只是作用域 pass）。
+- 交付：`rust/src/nameres.rs`（~470 行：Scope 栈 / child_label 点分路径 / resolve 的 global-nonlocal 上溯 / bind 的声明重定向 / 推导式首个 iter 外层求值 / FunctionDef 的"args 后非语句子节点按外层表达式"处理装饰器与注解 / match_case 模式与 body 分流）+ `rx-scan resolve <file>` 子命令 + `bug.rs::BUILTINS` 提 pub(crate)；rust/tests/nameres_test.rs 21 测；tests/test_s107_nameres.py 4 测（symtable oracle + 包络 + 确定性 + 推导式可见性）。
+- 开发中实锤（三件）：①**推导式可见性以运行时为准**——3.14 实测 `[n for n in ...]` 之后 `n` 是 NameError（独立作用域判定正确）；`symtable` 把推导式目标算进外层局部只是静态简化，oracle 需按 parent 精确扣除（且同名同时是真实局部时不扣）。②**pyast 不支持"推导式元素内的 walrus"**（`[(y := i) for ...]`，CPython 需括号）——不扩解析器（S83/S84 oracle 锁定），记入边界；已支持形态（if/语句级）绑定正确。③**match 的 body 曾被当模式遍历**（首版把 Match 的全部子节点丢给 match_node）——测试抓出后改为 subject/match_case 分流。
+- oracle 结果：rust 21/21；python 4/4——含**本仓 30+ 真实文件**（registry.py/server.py/urx_tia_plugin.py + 全部 tools/*.py）与 symtable 逐作用域绑定对照，归一化后**零差异**。
+- S108 前置发现：pyast **丢弃相对导入前导点**（`from .m import x` 的 level 未记录）→ S108 需先补 level（存 aux、不改 dump 以保 S83/S84 oracle）。
+- 验证：3.14 全量 647 passed + 2 skipped；3.11 全量 649 passed；cargo 152 绿零告警（131 + 21）；版本锁步 2.29.0 + exe 重建。
+- 提交：本次

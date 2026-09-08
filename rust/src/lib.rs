@@ -34,6 +34,7 @@ pub mod bug;
 pub mod fs;
 pub mod ide;
 pub mod json;
+pub mod nameres;
 pub mod pyast;
 pub mod repomap;
 pub mod scan;
