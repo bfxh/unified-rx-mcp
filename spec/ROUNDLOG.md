@@ -306,3 +306,13 @@
 - 验证：golden 回迁后 26 绿（back_contract 40 场景 + s79 + s90）；stress 8/8（~2.3s）；3.14 全量 598 passed + 2 skipped；3.11 全量 600 passed；cargo test 121 绿零告警（120 + fs_test 并发回归 1）；release exe 2.21.0 重建；版本锁步 server.py=rust/Cargo.toml=Cargo.lock=2.21.0。
 - 文档：EVAL §6 遗留张力标已拍板 + 新增 §7（回迁实测表/电池/Linux/H2）；PANORAMA 现状坐标 v2.21.0（薄壳化 19→16、测试资产/质量基线刷新、挂账④清、方向 #7 标 H2 已兑）；VULN-HUNTING S95 落地注记（resolve 加固全案）；ROUNDLOG 本条。
 - 提交：本次
+
+## S96 · 副本深扫分诊轮（清 S95 出货时的 scanner_enobufs 缺口）
+- 项目：unified-rx-mcp｜时间：2026-09-08
+- 决策：S95 出货时 Mimosa 钩子在 commit/push 前报 `scanner_enobufs`（扫描器缓冲不足，无完整结论，钩子明示"请尽快重新运行完整审计"）。按禁自扫纪律（深扫跑副本、绝不自扫宿主），对 **v2.21.0 快照副本**跑 deep 扫描：`git archive v2.21.0` 解包到 `%TEMP%\s96-audit`（671 文件、7.2MB、无 .git），focusFiles 指向 S95 候选面（tools/fs.py、rust/src/sandbox.rs、rust/src/fs.rs、rust/tests/fs_test.rs、S95 三测、golden 脚本）。
+- 扫描事实（sealed artifacts 留档 `~\.mimosa\security-scans\project-426a247385ea38877c9e2d64\scan-2026-09-08T16-03-20.112Z-e9aeb5bf8956\`）：scanId `scan-2026-09-08T16-03-20.112Z-e9aeb5bf8956`，seal `sha256:c544623b60844f05aadbe9e99117708b0598a7b799c5f0d7c4cc190fac6bc7b4`，depth=deep，**runStatus=inconclusive**——静态层完整（193/193 代码文件 selected/parsed，0 读失败 0 解析失败，截断=false；141 .py + 52 .rs = 193 全量对账），threatModel/findingDiscovery 阶段 partial（语义验证层未完成，investigated=0，`evidenceBoundary=static_only_no_runtime_execution`、`verdictEffect=none`）；resume 被拒（job 已 completed，不可恢复）→ 覆盖缺口为本次插件运行的终态，如实留档。58 条静态发现（57 high + 1 low，businessLogicCandidates=0）。
+- 分诊结论（仅静态层，不构成完整审计、不作安全宣称）：**S95 候选代码零命中**（tools/fs.py / sandbox.rs / fs.rs / S95 三测 / golden 脚本均无发现——193 全量解析下是有效零命中，非漏扫）。tools/ 10 条逐条核账 = 2 条设计内 + 8 条误报：①设计内——ide_debug.py:171 `eval`（条件断点表达式在调试目标进程内求值，S88 复诊口径：等权无越权面）、meta.py:168/176 `shell=True`（local_run 为授权门控高权限工具，S75 原判，字符白名单在案）；②误报——ide_edit.py:176/296（写点 p 经 `_fs_resolve`，第 94/224 行）、lsp.py:690（real 经 `_resolve_in_sandbox`）、metrics.py:90（source_dir 经 `_fs_resolve`）、learn.py:39（默认库路径固定可信 + 显式 lessons_dir 过沙盒，S73）、ide_debug.py:272（temp 目录+数字 pid 拼名，无用户路径成分）、game.py:43（URL 主机硬编码 127.0.0.1，非 SSRF 面）。其余 48 条全在 bench/（开发脚手架，不经 MCP 暴露——S88 同判）+ bench/manual_snaps（VoxelForge 外部代码快照，非本仓代码）。
+- 交付：VULN-HUNTING S96 排查注记（扫描事实 + 10 条 tools/ 逐条分诊 + 口径）；PANORAMA 挂账⑤（语义层覆盖缺口留档）；ROUNDLOG 本条。**零代码改动**——S95 候选面零命中，按「只处理与候选代码直接相关的修复，不扩展任务范围」纪律不借机改 bench/ 脚手架。
+- 验证：分诊 10/10 逐条读源核账（行号、resolve 调用链、常量主机）；副本扫描不触碰宿主仓（禁自扫纪律）；版本仍 2.21.0（无代码变更，不重打 tag）。
+- 提交：本次
+- 待清（留档）：Mimosa 语义层（threatModel/validation）在本环境未跑通（partial）；待插件侧可完整运行时对副本复扫清缺口。下次出货若钩子再报 enobufs，按本轮路径复用副本扫描 + 分诊。

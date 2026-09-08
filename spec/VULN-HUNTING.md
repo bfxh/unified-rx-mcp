@@ -354,6 +354,25 @@
   `write_concurrent_same_target_dir_race_tolerated` 入册（8 线程×40 写 320/320 ok，
   末内容完整）。沙盒语义两侧等价的检验面扩到 Linux：WSL 实测 fail-closed 与
   沙盒内 resolve 双态均成立（tests/test_s95_linux_smoke.py，EVAL §7）。
+- **副本深扫分诊（S96 已落）**：S95 出货时 Mimosa 钩子报 `scanner_enobufs`
+  （无完整结论），S96 按禁自扫纪律对 **v2.21.0 快照副本**
+  （`%TEMP%\s96-audit`，`git archive v2.21.0` 解包，671 文件）跑 deep 扫描：
+  scanId `scan-2026-09-08T16-03-20.112Z-e9aeb5bf8956`，seal
+  `sha256:c544623b…`，**runStatus=inconclusive**（静态层完整：193/193 代码文件
+  parsed、0 读失败 0 解析失败；threatModel/findingDiscovery 阶段 partial——
+  语义验证层未完成，`evidenceBoundary=static_only_no_runtime_execution`）。
+  58 条静态发现（57 high + 1 low）分诊：**S95 候选代码（tools/fs.py、
+  rust/src/sandbox.rs、rust/src/fs.rs、S95 三测、golden 脚本）零命中**。
+  tools/ 10 条 = 2 条设计内 + 8 条误报——①设计内：ide_debug 条件断点 `eval`
+  在调试目标进程内求值（S88 复诊口径：等权无越权面）、local_run `shell=True`
+  为授权门控高权限工具（S75 原判，含字符白名单）；②误报（路径实为沙盒门控/
+  常量）：ide_edit:176/296（写点 `p` 经 `_fs_resolve`）、lsp:690（`real` 经
+  `_resolve_in_sandbox`）、metrics:90（`source_dir` 经 `_fs_resolve`）、
+  learn:39（默认库固定可信 + 显式 lessons_dir 过沙盒，S73）、ide_debug:272
+  （temp 目录+数字 pid，无用户路径）、game:43（URL 主机硬编码 127.0.0.1）。
+  其余 48 条全在 bench/（开发脚手架，不经 MCP 暴露，S88 同判）+ bench/manual_snaps
+  （VoxelForge 外部代码快照）。**结论口径**：本轮为静态层分诊，不构成完整审计、
+  不作安全宣称；语义层覆盖缺口留档待插件侧可完整跑通后再清。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。
