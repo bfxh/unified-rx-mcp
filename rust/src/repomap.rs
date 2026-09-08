@@ -22,6 +22,8 @@ use crate::json::Value;
 const DAMPING: f64 = 0.85;
 const ITERATIONS: usize = 30;
 const FOCUS_WEIGHT: f64 = 50.0;
+/// 聚焦文件内定义的最终排名乘数（遥传偏置之外的第二道偏置，见排序处注释）
+const FOCUS_BOOST: f64 = 50.0;
 const DEF_CAP: usize = 20_000;
 
 struct Def {
@@ -68,9 +70,28 @@ pub fn repo_map(
     if !root.is_dir() {
         return Ok(err_obj(&format!("不是目录: {}", root.display())));
     }
-    let files = iter_files_ide(root, max_files);
     let focus_lc: Vec<String> =
         focus.iter().map(|f| f.replace('\\', "/").to_lowercase()).collect();
+    // S102 补记：max_files 按遍历序截断时，focus 文件可能被大目录（如
+    // bench/manual_snaps）挤掉——先以更大的"发现上限"走全仓，把 focus 命中的
+    // 文件提到队首再截断（读取/解析仍只对入选的 max_files 个文件做）；
+    // 无 focus 时保持原遍历序语义。
+    let walk_cap = max_files.saturating_mul(4).max(2000);
+    let all = iter_files_ide(root, walk_cap);
+    let mut files: Vec<String> = Vec::new();
+    if focus_lc.is_empty() {
+        files = all.into_iter().take(max_files.max(0) as usize).collect();
+    } else {
+        let (hot, cold): (Vec<String>, Vec<String>) = all.into_iter().partition(|fp| {
+            let p = Path::new(fp);
+            let rel_lc = rel_of(root, p).to_lowercase();
+            let full_lc = fp.to_lowercase();
+            focused(&focus_lc, &rel_lc, &full_lc)
+        });
+        files.extend(hot);
+        files.extend(cold);
+        files.truncate(max_files.max(0) as usize);
+    }
 
     // ---- 读文件 + 提取定义 ----
     let mut defs: Vec<Def> = Vec::new();
@@ -179,11 +200,19 @@ pub fn repo_map(
     }
 
     // ---- 排序 + 预算裁剪渲染 ----
+    // S102 补记：仅靠遥传（teleport）偏置，在"内部互引密集的大文件簇"
+    // （如快照语料）面前会被图结构淹没——最终排名再乘聚焦系数（可预测）。
     let mut order: Vec<usize> = (0..defs.len()).collect();
+    let key = |di: usize| -> f64 {
+        let d = &defs[di];
+        let rel_lc = file_rel[d.file].to_lowercase();
+        let full_lc = Path::new(&files[d.file]).to_string_lossy().to_lowercase();
+        let boost = if focused(&focus_lc, &rel_lc, &full_lc) { FOCUS_BOOST } else { 1.0 };
+        rank[n_files + di] * boost
+    };
     order.sort_by(|&a, &b| {
-        let ra = rank[n_files + a];
-        let rb = rank[n_files + b];
-        rb.partial_cmp(&ra)
+        key(b)
+            .partial_cmp(&key(a))
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| file_rel[defs[a].file].cmp(&file_rel[defs[b].file]))
             .then_with(|| defs[a].line.cmp(&defs[b].line))
