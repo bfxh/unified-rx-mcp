@@ -1,0 +1,1193 @@
+[
+ {
+  "label": "read_plain",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "hello",
+    "path": "@T\\plain.txt",
+    "size": 5
+   }
+  }
+ },
+ {
+  "label": "read_crlf",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "a\nb\n",
+    "path": "@T\\crlf.txt",
+    "size": 6
+   }
+  }
+ },
+ {
+  "label": "read_cr",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "a\nb",
+    "path": "@T\\cr.txt",
+    "size": 3
+   }
+  }
+ },
+ {
+  "label": "read_notail",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "no trailing newline",
+    "path": "@T\\notail.txt",
+    "size": 19
+   }
+  }
+ },
+ {
+  "label": "read_mixed",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "a\nb\nc\nd",
+    "path": "@T\\mixed.txt",
+    "size": 8
+   }
+  }
+ },
+ {
+  "label": "read_uni",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "你好世界",
+    "path": "@T\\uni.txt",
+    "size": 12
+   }
+  }
+ },
+ {
+  "label": "read_bin",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "��\u0000abc��",
+    "path": "@T\\bin.bin",
+    "size": 8
+   }
+  }
+ },
+ {
+  "label": "read_trunc_mb",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "�",
+    "path": "@T\\trunc.txt",
+    "size": 2
+   }
+  }
+ },
+ {
+  "label": "read_cont",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "���",
+    "path": "@T\\cont.bin",
+    "size": 3
+   }
+  }
+ },
+ {
+  "label": "read_overlong",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "����",
+    "path": "@T\\overlong.bin",
+    "size": 4
+   }
+  }
+ },
+ {
+  "label": "read_empty",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "",
+    "path": "@T\\empty.txt",
+    "size": 0
+   }
+  }
+ },
+ {
+  "label": "read_exact1mb",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "@sha256:8cf8ef8f307290179160a332b16b493cefb8259506003e21bf567343e383c5aa",
+    "path": "@T\\exact1mb.bin",
+    "size": 1000000
+   }
+  }
+ },
+ {
+  "label": "read_over1mb",
+  "out": {
+   "error": "文件过大（1000001 > 1000000），拒绝读取",
+   "ok": false,
+   "result": {
+    "error": "文件过大（1000001 > 1000000），拒绝读取",
+    "size": 1000001
+   }
+  }
+ },
+ {
+  "label": "read_dir_path",
+  "out": {
+   "error": "不是文件或不存在: @T\\sortdir",
+   "ok": false,
+   "result": {
+    "error": "不是文件或不存在: @T\\sortdir"
+   }
+  }
+ },
+ {
+  "label": "read_ghost_deep",
+  "out": {
+   "error": "不是文件或不存在: @T\\ghost_sub\\ghost.txt",
+   "ok": false,
+   "result": {
+    "error": "不是文件或不存在: @T\\ghost_sub\\ghost.txt"
+   }
+  }
+ },
+ {
+  "label": "read_space_uni_name",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "内容",
+    "path": "@T\\带 空格.txt",
+    "size": 6
+   }
+  }
+ },
+ {
+  "label": "read_relative_missing",
+  "out": {
+   "error": "不是文件或不存在: plain.txt",
+   "ok": false,
+   "result": {
+    "error": "不是文件或不存在: plain.txt"
+   }
+  }
+ },
+ {
+  "label": "stat_file",
+  "out": {
+   "ok": true,
+   "result": {
+    "exists": true,
+    "is_dir": false,
+    "is_file": true,
+    "mtime": "@int",
+    "path": "@T\\plain.txt",
+    "size": 5
+   }
+  }
+ },
+ {
+  "label": "stat_dir",
+  "out": {
+   "ok": true,
+   "result": {
+    "exists": true,
+    "is_dir": true,
+    "is_file": false,
+    "mtime": "@int",
+    "path": "@T\\sortdir",
+    "size": 0
+   }
+  }
+ },
+ {
+  "label": "stat_ghost",
+  "out": {
+   "ok": true,
+   "result": {
+    "exists": false,
+    "path": "@T\\ghost.txt"
+   }
+  }
+ },
+ {
+  "label": "stat_root",
+  "out": {
+   "ok": true,
+   "result": {
+    "exists": true,
+    "is_dir": true,
+    "is_file": false,
+    "mtime": "@int",
+    "path": "@T",
+    "size": 4096
+   }
+  }
+ },
+ {
+  "label": "list_depth0",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [
+     {
+      "name": "a",
+      "type": "dir"
+     },
+     {
+      "name": "bin.bin",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "cont.bin",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "cr.txt",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "crlf.txt",
+      "size": 6,
+      "type": "file"
+     },
+     {
+      "name": "empty.txt",
+      "size": 0,
+      "type": "file"
+     },
+     {
+      "name": "emptydir",
+      "type": "dir"
+     },
+     {
+      "name": "exact1mb.bin",
+      "size": 1000000,
+      "type": "file"
+     },
+     {
+      "name": "mixed.txt",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "notail.txt",
+      "size": 19,
+      "type": "file"
+     },
+     {
+      "name": "over1mb.bin",
+      "size": 1000001,
+      "type": "file"
+     },
+     {
+      "name": "overlong.bin",
+      "size": 4,
+      "type": "file"
+     },
+     {
+      "name": "plain.txt",
+      "size": 5,
+      "type": "file"
+     },
+     {
+      "name": "sortdir",
+      "type": "dir"
+     },
+     {
+      "name": "trunc.txt",
+      "size": 2,
+      "type": "file"
+     },
+     {
+      "name": "uni.txt",
+      "size": 12,
+      "type": "file"
+     },
+     {
+      "name": "带 空格.txt",
+      "size": 6,
+      "type": "file"
+     }
+    ],
+    "path": "@T",
+    "total": 17
+   }
+  }
+ },
+ {
+  "label": "list_default",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [
+     {
+      "name": "a",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b",
+      "type": "dir"
+     },
+     {
+      "name": "a\\lv0.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "bin.bin",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "cont.bin",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "cr.txt",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "crlf.txt",
+      "size": 6,
+      "type": "file"
+     },
+     {
+      "name": "empty.txt",
+      "size": 0,
+      "type": "file"
+     },
+     {
+      "name": "emptydir",
+      "type": "dir"
+     },
+     {
+      "name": "exact1mb.bin",
+      "size": 1000000,
+      "type": "file"
+     },
+     {
+      "name": "mixed.txt",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "notail.txt",
+      "size": 19,
+      "type": "file"
+     },
+     {
+      "name": "over1mb.bin",
+      "size": 1000001,
+      "type": "file"
+     },
+     {
+      "name": "overlong.bin",
+      "size": 4,
+      "type": "file"
+     },
+     {
+      "name": "plain.txt",
+      "size": 5,
+      "type": "file"
+     },
+     {
+      "name": "sortdir",
+      "type": "dir"
+     },
+     {
+      "name": "sortdir\\1.log",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\B.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\_x",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\a.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\中文.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "trunc.txt",
+      "size": 2,
+      "type": "file"
+     },
+     {
+      "name": "uni.txt",
+      "size": 12,
+      "type": "file"
+     },
+     {
+      "name": "带 空格.txt",
+      "size": 6,
+      "type": "file"
+     }
+    ],
+    "path": "@T",
+    "total": 24
+   }
+  }
+ },
+ {
+  "label": "list_depth2",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [
+     {
+      "name": "a",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\lv1.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "a\\lv0.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "bin.bin",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "cont.bin",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "cr.txt",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "crlf.txt",
+      "size": 6,
+      "type": "file"
+     },
+     {
+      "name": "empty.txt",
+      "size": 0,
+      "type": "file"
+     },
+     {
+      "name": "emptydir",
+      "type": "dir"
+     },
+     {
+      "name": "exact1mb.bin",
+      "size": 1000000,
+      "type": "file"
+     },
+     {
+      "name": "mixed.txt",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "notail.txt",
+      "size": 19,
+      "type": "file"
+     },
+     {
+      "name": "over1mb.bin",
+      "size": 1000001,
+      "type": "file"
+     },
+     {
+      "name": "overlong.bin",
+      "size": 4,
+      "type": "file"
+     },
+     {
+      "name": "plain.txt",
+      "size": 5,
+      "type": "file"
+     },
+     {
+      "name": "sortdir",
+      "type": "dir"
+     },
+     {
+      "name": "sortdir\\1.log",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\B.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\_x",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\a.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\中文.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "trunc.txt",
+      "size": 2,
+      "type": "file"
+     },
+     {
+      "name": "uni.txt",
+      "size": 12,
+      "type": "file"
+     },
+     {
+      "name": "带 空格.txt",
+      "size": 6,
+      "type": "file"
+     }
+    ],
+    "path": "@T",
+    "total": 26
+   }
+  }
+ },
+ {
+  "label": "list_depth4",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [
+     {
+      "name": "a",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c\\d",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c\\d\\e",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c\\d\\lv3.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "a\\b\\c\\lv2.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "a\\b\\lv1.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "a\\lv0.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "bin.bin",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "cont.bin",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "cr.txt",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "crlf.txt",
+      "size": 6,
+      "type": "file"
+     },
+     {
+      "name": "empty.txt",
+      "size": 0,
+      "type": "file"
+     },
+     {
+      "name": "emptydir",
+      "type": "dir"
+     },
+     {
+      "name": "exact1mb.bin",
+      "size": 1000000,
+      "type": "file"
+     },
+     {
+      "name": "mixed.txt",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "notail.txt",
+      "size": 19,
+      "type": "file"
+     },
+     {
+      "name": "over1mb.bin",
+      "size": 1000001,
+      "type": "file"
+     },
+     {
+      "name": "overlong.bin",
+      "size": 4,
+      "type": "file"
+     },
+     {
+      "name": "plain.txt",
+      "size": 5,
+      "type": "file"
+     },
+     {
+      "name": "sortdir",
+      "type": "dir"
+     },
+     {
+      "name": "sortdir\\1.log",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\B.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\_x",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\a.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\中文.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "trunc.txt",
+      "size": 2,
+      "type": "file"
+     },
+     {
+      "name": "uni.txt",
+      "size": 12,
+      "type": "file"
+     },
+     {
+      "name": "带 空格.txt",
+      "size": 6,
+      "type": "file"
+     }
+    ],
+    "path": "@T",
+    "total": 30
+   }
+  }
+ },
+ {
+  "label": "list_depth5_clamp",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [
+     {
+      "name": "a",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c\\d",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c\\d\\e",
+      "type": "dir"
+     },
+     {
+      "name": "a\\b\\c\\d\\lv3.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "a\\b\\c\\lv2.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "a\\b\\lv1.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "a\\lv0.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "bin.bin",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "cont.bin",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "cr.txt",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "crlf.txt",
+      "size": 6,
+      "type": "file"
+     },
+     {
+      "name": "empty.txt",
+      "size": 0,
+      "type": "file"
+     },
+     {
+      "name": "emptydir",
+      "type": "dir"
+     },
+     {
+      "name": "exact1mb.bin",
+      "size": 1000000,
+      "type": "file"
+     },
+     {
+      "name": "mixed.txt",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "notail.txt",
+      "size": 19,
+      "type": "file"
+     },
+     {
+      "name": "over1mb.bin",
+      "size": 1000001,
+      "type": "file"
+     },
+     {
+      "name": "overlong.bin",
+      "size": 4,
+      "type": "file"
+     },
+     {
+      "name": "plain.txt",
+      "size": 5,
+      "type": "file"
+     },
+     {
+      "name": "sortdir",
+      "type": "dir"
+     },
+     {
+      "name": "sortdir\\1.log",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\B.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\_x",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\a.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "sortdir\\中文.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "trunc.txt",
+      "size": 2,
+      "type": "file"
+     },
+     {
+      "name": "uni.txt",
+      "size": 12,
+      "type": "file"
+     },
+     {
+      "name": "带 空格.txt",
+      "size": 6,
+      "type": "file"
+     }
+    ],
+    "path": "@T",
+    "total": 30
+   }
+  }
+ },
+ {
+  "label": "list_neg_clamp",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [
+     {
+      "name": "a",
+      "type": "dir"
+     },
+     {
+      "name": "bin.bin",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "cont.bin",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "cr.txt",
+      "size": 3,
+      "type": "file"
+     },
+     {
+      "name": "crlf.txt",
+      "size": 6,
+      "type": "file"
+     },
+     {
+      "name": "empty.txt",
+      "size": 0,
+      "type": "file"
+     },
+     {
+      "name": "emptydir",
+      "type": "dir"
+     },
+     {
+      "name": "exact1mb.bin",
+      "size": 1000000,
+      "type": "file"
+     },
+     {
+      "name": "mixed.txt",
+      "size": 8,
+      "type": "file"
+     },
+     {
+      "name": "notail.txt",
+      "size": 19,
+      "type": "file"
+     },
+     {
+      "name": "over1mb.bin",
+      "size": 1000001,
+      "type": "file"
+     },
+     {
+      "name": "overlong.bin",
+      "size": 4,
+      "type": "file"
+     },
+     {
+      "name": "plain.txt",
+      "size": 5,
+      "type": "file"
+     },
+     {
+      "name": "sortdir",
+      "type": "dir"
+     },
+     {
+      "name": "trunc.txt",
+      "size": 2,
+      "type": "file"
+     },
+     {
+      "name": "uni.txt",
+      "size": 12,
+      "type": "file"
+     },
+     {
+      "name": "带 空格.txt",
+      "size": 6,
+      "type": "file"
+     }
+    ],
+    "path": "@T",
+    "total": 17
+   }
+  }
+ },
+ {
+  "label": "list_emptydir",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [],
+    "path": "@T\\emptydir",
+    "total": 0
+   }
+  }
+ },
+ {
+  "label": "list_sortdir",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [
+     {
+      "name": "1.log",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "B.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "_x",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "a.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "中文.txt",
+      "size": 1,
+      "type": "file"
+     }
+    ],
+    "path": "@T\\sortdir",
+    "total": 5
+   }
+  }
+ },
+ {
+  "label": "list_notadir",
+  "out": {
+   "error": "不是目录: @T\\plain.txt",
+   "ok": false,
+   "result": {
+    "error": "不是目录: @T\\plain.txt"
+   }
+  }
+ },
+ {
+  "label": "list_ghostdir",
+  "out": {
+   "error": "不是目录: @T\\nodir",
+   "ok": false,
+   "result": {
+    "error": "不是目录: @T\\nodir"
+   }
+  }
+ },
+ {
+  "label": "list_deep_tree_clamp",
+  "out": {
+   "ok": true,
+   "result": {
+    "entries": [
+     {
+      "name": "b",
+      "type": "dir"
+     },
+     {
+      "name": "b\\c",
+      "type": "dir"
+     },
+     {
+      "name": "b\\c\\d",
+      "type": "dir"
+     },
+     {
+      "name": "b\\c\\d\\e",
+      "type": "dir"
+     },
+     {
+      "name": "b\\c\\d\\e\\f",
+      "type": "dir"
+     },
+     {
+      "name": "b\\c\\d\\e\\lv4.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "b\\c\\d\\lv3.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "b\\c\\lv2.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "b\\lv1.txt",
+      "size": 1,
+      "type": "file"
+     },
+     {
+      "name": "lv0.txt",
+      "size": 1,
+      "type": "file"
+     }
+    ],
+    "path": "@T\\a",
+    "total": 10
+   }
+  }
+ },
+ {
+  "label": "sbx_deny_read",
+  "out": {
+   "error": "ValueError: 路径越界（沙盒外）: @T\\plain.txt",
+   "error_detail": "    return _rx_fs_call(\"read\", path)\n  File \"D:\\开发\\unified-rx-mcp\\tools\\fs.py\", line 129, in _rx_fs_call\n    raise ValueError(out.get(\"error\") if isinstance(out, dict) else lines[-1])\nValueError: 路径越界（沙盒外）: @T\\plain.txt",
+   "ok": false
+  }
+ },
+ {
+  "label": "sbx_deny_list",
+  "out": {
+   "error": "ValueError: 路径越界（沙盒外）: @T",
+   "error_detail": "    return _rx_fs_call(\"list\", path, depth)\n  File \"D:\\开发\\unified-rx-mcp\\tools\\fs.py\", line 129, in _rx_fs_call\n    raise ValueError(out.get(\"error\") if isinstance(out, dict) else lines[-1])\nValueError: 路径越界（沙盒外）: @T",
+   "ok": false
+  }
+ },
+ {
+  "label": "sbx_unset_failclosed",
+  "out": {
+   "error": "ValueError: 路径越界（沙盒外）: @T\\plain.txt",
+   "error_detail": "    return _rx_fs_call(\"stat\", path)\n  File \"D:\\开发\\unified-rx-mcp\\tools\\fs.py\", line 129, in _rx_fs_call\n    raise ValueError(out.get(\"error\") if isinstance(out, dict) else lines[-1])\nValueError: 路径越界（沙盒外）: @T\\plain.txt",
+   "ok": false
+  }
+ },
+ {
+  "label": "sbx_multiroot_hit",
+  "out": {
+   "ok": true,
+   "result": {
+    "content": "0",
+    "path": "@T\\a\\lv0.txt",
+    "size": 1
+   }
+  }
+ },
+ {
+  "label": "sbx_whitespace_roots",
+  "out": {
+   "error": "ValueError: 路径越界（沙盒外）: @T\\plain.txt",
+   "error_detail": "    return _rx_fs_call(\"stat\", path)\n  File \"D:\\开发\\unified-rx-mcp\\tools\\fs.py\", line 129, in _rx_fs_call\n    raise ValueError(out.get(\"error\") if isinstance(out, dict) else lines[-1])\nValueError: 路径越界（沙盒外）: @T\\plain.txt",
+   "ok": false
+  }
+ },
+ {
+  "label": "path_required_read",
+  "out": {
+   "error": "ValueError: path 必填",
+   "error_detail": "    return _rx_fs_call(\"read\", path)\n  File \"D:\\开发\\unified-rx-mcp\\tools\\fs.py\", line 129, in _rx_fs_call\n    raise ValueError(out.get(\"error\") if isinstance(out, dict) else lines[-1])\nValueError: path 必填",
+   "ok": false
+  }
+ },
+ {
+  "label": "path_required_list",
+  "out": {
+   "error": "ValueError: path 必填",
+   "error_detail": "    return _rx_fs_call(\"list\", path, depth)\n  File \"D:\\开发\\unified-rx-mcp\\tools\\fs.py\", line 129, in _rx_fs_call\n    raise ValueError(out.get(\"error\") if isinstance(out, dict) else lines[-1])\nValueError: path 必填",
+   "ok": false
+  }
+ },
+ {
+  "label": "path_required_stat",
+  "out": {
+   "error": "ValueError: path 必填",
+   "error_detail": "    return _rx_fs_call(\"stat\", path)\n  File \"D:\\开发\\unified-rx-mcp\\tools\\fs.py\", line 129, in _rx_fs_call\n    raise ValueError(out.get(\"error\") if isinstance(out, dict) else lines[-1])\nValueError: path 必填",
+   "ok": false
+  }
+ }
+]

@@ -61,16 +61,45 @@ pub fn op_write(cfg: &SandboxCfg, orig: &str, content: &[u8]) -> Result<Value, S
     };
     if let Some(d) = p.parent() {
         if !d.as_os_str().is_empty() && !d.is_dir() {
-            if let Err(e) = std::fs::create_dir_all(d) {
-                return Ok(err_obj(&format!("创建目录失败: {}", e)));
+            // S95 高压电池（8 线程同靶写）验收：并发建目录允许瞬时竞争，
+            // 失败后复查一次（对手可能已建好）；真实失败（父路径是文件等）
+            // 立即报错，不做长退避——resolve 层已修掉 $Deleted 幽灵路径，
+            // 这里只需 os.makedirs(exist_ok=True) 级的容忍度。
+            let mut made = false;
+            let mut last_err: Option<std::io::Error> = None;
+            for _ in 0..3 {
+                match std::fs::create_dir_all(d) {
+                    Ok(()) => {
+                        made = true;
+                        break;
+                    }
+                    Err(e) => {
+                        last_err = Some(e);
+                        if d.is_dir() {
+                            made = true;
+                            break;
+                        }
+                        std::thread::sleep(std::time::Duration::from_micros(200));
+                    }
+                }
+            }
+            if !made {
+                return Ok(err_obj(&format!(
+                    "创建目录失败: {}",
+                    last_err.map(|e| e.to_string()).unwrap_or_default()
+                )));
             }
         }
     }
-    // S62 原子写同款：tmp+replace，崩进程不留半截文件
+    // S62 原子写同款：tmp+replace，崩进程不留半截文件。tmp 名带进程级序列号：
+    // 同进程并发写同靶时 pid 撞车会互踩 tmp（exe 单 op 一进程不触发，库函数
+    // 直接并发调用会触发——S95 并发契约测试 pin 死）。
+    static WRITE_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let tmp = p.with_file_name(format!(
-        "{}.urxtmp{}",
+        "{}.urxtmp{}-{}",
         p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default(),
-        std::process::id()
+        std::process::id(),
+        WRITE_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
     ));
     let outcome = std::fs::write(&tmp, content).and_then(|()| std::fs::rename(&tmp, &p));
     if let Err(e) = outcome {

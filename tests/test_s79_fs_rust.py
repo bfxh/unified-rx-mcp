@@ -108,12 +108,14 @@ def test_fail_closed_when_unset(tmp_path, monkeypatch):
 
 
 def test_exe_missing_clear_error(tmp_path, monkeypatch):
-    # 隔掉 env 覆盖与 TEMP 惯例路径两个候选源，验证"缺失=清晰报错"而非静默降级
+    # S95 读面回迁后 fs_read 不再依赖 exe；"exe 缺失=清晰报错"红线改锚仍走薄壳的
+    # fs_write。隔掉 env 覆盖与 TEMP 惯例路径两个候选源，验证非静默降级
     bogus = tmp_path / "not-an-exe.exe"
     monkeypatch.setenv("UNIFIED_RX_RS_EXE", str(bogus))
     monkeypatch.setenv("TEMP", str(tmp_path))
     monkeypatch.setenv("UNIFIED_RX_SANDBOX", "*")
-    r = registry.call("fs_read", {"path": str(tmp_path)})
+    r = registry.call("fs_write", {"path": str(tmp_path / "w.txt"),
+                                   "content": "x", "__authorized": True})
     assert not r["ok"] and "rx-fs.exe 不存在" in r["error"]
 
 

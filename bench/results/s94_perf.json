@@ -134,5 +134,52 @@
    "verdict": "无明显泄漏信号"
   },
   "budget_fail": []
+ },
+ {
+  "ts": "2026-09-08T11:40:38+00:00",
+  "latency": {
+   "fs_stat": {
+    "min": 0.2,
+    "p50": 0.3,
+    "max": 0.5,
+    "n": 100,
+    "budget": "p50 <10ms -> PASS"
+   },
+   "code_search": {
+    "min": 22.8,
+    "p50": 24.1,
+    "max": 25.5,
+    "n": 20
+   },
+   "code_semantic": {
+    "min": 413.0,
+    "p50": 422.6,
+    "max": 593.1,
+    "n": 10
+   },
+   "ast_scan": {
+    "min": 32.8,
+    "p50": 33.7,
+    "max": 34.7,
+    "n": 5,
+    "budget": "max ≤2s/100 文件 -> PASS"
+   },
+   "engine_query": {
+    "min": 24.1,
+    "p50": 24.7,
+    "max": 24.8,
+    "n": 3,
+    "budget": "max ≤15s（含 BM25 降级） -> PASS"
+   }
+  },
+  "memory": {
+   "baseline_mb": 27.8,
+   "final_mb": 27.8,
+   "delta_mb": 0.1,
+   "peak_mb": 27.8,
+   "soak_rounds": 15,
+   "verdict": "无明显泄漏信号"
+  },
+  "budget_fail": []
  }
 ]
