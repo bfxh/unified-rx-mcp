@@ -396,3 +396,12 @@
 - 交付：urx_tia_plugin.py（仓根，pytest 插件）+ tools/tia.py（状态 + 选择纯函数）+ tools/ide_test.py（tia/full 参数、收集→选择→执行→记录闭环、marker 解析）+ tools/cache.py（新增 snapshot() 逐文件指纹 + skip dirs 补 .pytest_cache 等）+ tests/test_s104_tia.py 6 测；skills/ide.md 契约；ADVANCES 第 5 项标已兑；PANORAMA v2.27.0；版本锁步 2.27.0 + exe 重建。
 - 验证：s104 6 + ide_test 9 = 15/15；3.14 全量 634 passed + 2 skipped；3.11 全量 636 passed；cargo 131 绿零告警。
 - 提交：本次
+
+## S105 · ADVANCES P1 收官：ACI 输出纪律层
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：雷达 P1 末项——SWE-agent ACI 论文（NeurIPS 2024，只改接口设计 +10.7pp）的三件：空结果显式说明 / 截断提示 / 错误可修复化。本仓已有（条数/字符串钳制、编辑语法门、窗口化读取）不重复。
+- 交付：`tools/aci.py`（空结果表 + 错误建议表 + 截断提示 + strip_hint）+ registry 接线（成功路径 enrich；`_clamp` 截断加提示；4 处错误路径 `_aci_hint`）。空结果提示覆盖 9 工具（code_search/code_semantic/locate_edit/ide_outline/bug_scan/ast_scan/fs_list/repo_map/dep_graph）——bug_scan/ast_scan 的提示明确指向 VULN-HUNTING 附录 B 覆盖边界，防"无发现=无漏洞"误读。口径：只在确有建议时加 `hint`，有结果时不加。
+- 顺带修正（本轮实锤的连锁影响）：S95 golden 契约测试红了 9 场景——registry 出口新增的 `hint` 字段与错误尾注"（建议：…）"属**传输层装饰**（fixture 捕获早于该层），在 `_semantic()` 里一并剥离；strip 实现修正为"从最后一个『（建议：』截到末尾"（建议文本含嵌套括号，正则 `[^）]*` 会截错）。
+- 交付清单：tools/aci.py（新）+ registry.py 接线 + tests/test_s105_aci.py 9 测 + tests/test_s95_fs_back_contract.py 归一化 + ADVANCES 第 8 项标已兑 + PANORAMA v2.28.0；版本锁步 2.28.0 + exe 重建。
+- 验证：s105 9 + golden 3 = 12/12；3.14 全量 643 passed + 2 skipped；3.11 全量 645 passed；cargo 131 绿零告警。
+- 提交：本次

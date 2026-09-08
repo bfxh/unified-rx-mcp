@@ -293,6 +293,7 @@ def _clamp(result, args):
     1MB 上限。S10 契约保持：顶层 list 走 cursor 分页、末页不带 truncated；
     S70：字符串保头保尾；S72：改为全字段独立处理 + 嵌套限深递归
     （旧版单字段 break，第一个超限字段之后的大结果全部漏网）。
+    S105：截断时附 ACI 提示（cursor 续读/缩小范围）。
     """
     if not isinstance(result, dict):
         return result
@@ -313,12 +314,46 @@ def _clamp(result, args):
             if nxt < len(v):
                 out["truncated"] = True
                 out["next_cursor"] = nxt
+                _aci_add_hint(out, _aci_trunc("list"))
             continue
         if isinstance(v, str) and len(v) > MAX_STR_CHARS:
             out[k] = _clamp_str(v)
+            _aci_add_hint(out, _aci_trunc("str"))
             continue
-        out[k] = _clamp_nested(v, 1)
+        nested = _clamp_nested(v, 1)
+        if isinstance(nested, dict) and any(
+                str(kk).endswith("_truncated") for kk in nested):
+            _aci_add_hint(out, _aci_trunc("nested"))
+        out[k] = nested
     return out
+
+
+def _aci_trunc(kind):
+    try:
+        from tools import aci as _aci
+        return _aci.trunc_hint(kind)
+    except Exception:
+        return ""
+
+
+def _aci_add_hint(result, hint):
+    if not hint or not isinstance(result, dict):
+        return
+    old = result.get("hint")
+    if old:
+        if hint not in old:
+            result["hint"] = f"{old}；{hint}"
+    else:
+        result["hint"] = hint
+
+
+def _aci_hint(msg):
+    """错误消息补"（建议：…）"（ACI，S105）；aci 不可用时原样返回。"""
+    try:
+        from tools import aci as _aci
+        return _aci.hint_error(msg)
+    except Exception:
+        return msg
 
 
 def call(name, args):
@@ -343,16 +378,16 @@ def call(name, args):
         if isinstance(v, str) and len(v) > _MAX_STR_ARG:
             _record_stats(name, 0.0)
             return {"ok": False,
-                    "error": f"SchemaError: 参数 {k} 过大（>{_MAX_STR_ARG // (1024 * 1024)}MB 字符）"}
+                    "error": _aci_hint(f"SchemaError: 参数 {k} 过大（>{_MAX_STR_ARG // (1024 * 1024)}MB 字符）")}
         if isinstance(v, list) and len(v) > _MAX_LIST_ARG:
             _record_stats(name, 0.0)
             return {"ok": False,
-                    "error": f"SchemaError: 参数 {k} 列表过长（>{_MAX_LIST_ARG} 项）"}
+                    "error": _aci_hint(f"SchemaError: 参数 {k} 列表过长（>{_MAX_LIST_ARG} 项）")}
     # S10-D0：入口 schema 门禁（错误类型在这里死掉，不再穿透进工具内部）
     verr = _validate_schema(entry["schema"], a)
     if verr:
         _record_stats(name, 0.0)
-        return {"ok": False, "error": verr}
+        return {"ok": False, "error": _aci_hint(verr)}
     # S103 内容寻址缓存：门禁之后、执行之前查；只对纯读白名单工具生效。
     # 命中即返回（结果与冷跑逐字节一致，见 tools/cache.py 契约）
     ck = None
@@ -376,15 +411,20 @@ def call(name, args):
         # 曾穿透此检查（ok:true 藏错误，编辑 0 应用看起来像成功）
         if isinstance(result, dict) and isinstance(result.get("error"), str):
             _record_stats(name, (time.time() - t0) * 1000)
-            return {"ok": False, "error": result["error"], "result": result}
+            return {"ok": False, "error": _aci_hint(result["error"]), "result": result}
         # S10：工具【显式标记】ok:false（local_run 取消/超时等带详情的失败）→
         # 上浮顶层，调用方只看一个字段；详情留在 result 里不丢。
         if isinstance(result, dict) and result.get("ok") is False:
             rest = {k: v for k, v in result.items() if k != "ok"}
             msg = rest.get("error") or f"{name} 执行失败"
             _record_stats(name, (time.time() - t0) * 1000)
-            return {"ok": False, "error": str(msg), "result": rest}
+            return {"ok": False, "error": _aci_hint(str(msg)), "result": rest}
         result = _clamp(result, {"cursor": cursor_arg})
+        try:
+            from tools import aci as _aci
+            result = _aci.enrich(name, result)
+        except Exception:
+            pass
         out = {"ok": True, "result": result}
         if ck:
             try:
@@ -396,14 +436,15 @@ def call(name, args):
         return out
     except TypeError as e:
         _record_stats(name, (time.time() - t0) * 1000)
-        return {"ok": False, "error": f"参数错误: {e}"}
+        return {"ok": False, "error": _aci_hint(f"参数错误: {e}")}
     except Exception as e:
         _record_stats(name, (time.time() - t0) * 1000)
         # S72：附堆栈尾部（异常行 + 最近 3 帧）——单行 error 没有出错位置，
         # 模型修 bug 只能瞎猜重试；traceback 可能巨大，钳到 1000 字符
         tb_lines = traceback.format_exc().strip().splitlines()
         detail = "\n".join(tb_lines[-4:])[:1000]
-        return {"ok": False, "error": f"{type(e).__name__}: {e}", "error_detail": detail}
+        return {"ok": False, "error": _aci_hint(f"{type(e).__name__}: {e}"),
+                "error_detail": detail}
 
 
 def tool_count():
