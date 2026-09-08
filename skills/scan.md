@@ -51,6 +51,9 @@
 - **ast_grep（S111）**：可选外部引擎（ast-grep）结构搜索——模式即代码
   （`$VAR`/`$$$` 通配）。**未安装 → 清晰报错 + 安装提示，不静默降级**；实现在
   Rust 侧探测 + argv 直调（Python 薄壳只做校验与转调）；只读搜索，不做 rewrite。
+- **code_coverage / module_stability**（metrics 域，S52）：`code_coverage` 用 stdlib
+  trace 在子进程跑脚本产出覆盖数据（>10MB 拒读、runner 落沙盒内临时脚本）；
+  `module_stability` 以历史改动频率 + 文件规模给稳定性评分（启发式，非缺陷判定）。
 - **结果缓存（S103）**：bug_scan/std_check/ui_check/ast_scan/bug_locate 等纯读
   工具的结果进入**进程内内容寻址缓存**（键 = 工具+参数+cursor+输入指纹；指纹含
   小文件内容哈希，文件一变即失效）。命中返回与冷跑逐字节一致；`__no_cache: true`

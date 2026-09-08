@@ -42,6 +42,8 @@
   which 检查假阳性，违反"绝不假装支持"）
 - **ide_diagnostics**（S37 统一通道）：LSP+clippy 聚合同形状
   {source,file,line(1-based),severity,message}，修复循环直接消费
+- **ide_health_trend**（S69，低优缓迁移）：读自动驾驶历史 JSONL，输出最近 N 次
+  体检时间线与 per-project verdict 变化（root 参数是记录字段过滤，非路径读）。
 - **scip_refs（S112）**：SCIP 索引消费（只读）——外部索引器（`rust-analyzer scip .`、
   scip-python 等）产出的紧凑代码情报索引，本工具手写 protobuf 解析（零依赖），
   给出符号的定义/引用位置（`files[].lines/defs`），**不起 LSP 会话**。不生成索引；
