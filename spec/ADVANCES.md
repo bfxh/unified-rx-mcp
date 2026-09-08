@@ -18,7 +18,7 @@
 | 4 | **内容寻址增量缓存**（salsa 思想） | scan/search 全域 | 重复调用延迟降一个数量级（增量分析文献 1.3–68×） | 1 轮 | 零依赖可行 | ✅ **S103 已兑** |
 | 5 | **测试影响分析**（Ekstazi 文件指纹 RTS） | ide_test | 测试时间 −32%~54%（Ekstazi 实测） | 0.5–1 轮 | 零依赖可行 | ✅ **S104 已兑** |
 | 6 | **切片式上下文包**（ARISE/SliceMate 思路） | code_context 系 | 上下文 token −23%~54%（SWE-Pruner 实测） | 1–2 轮 | 零依赖可行（近似切片） | **P1** |
-| 7 | **栈图式名字解析**（stack graphs） | dep_graph / ide_impact / 调用图 | 不依赖 LSP 的语义级定义/引用（GitHub 生产级方案） | 2 轮 | 零依赖可行（简化版） | **P2** |
+| 7 | **栈图式名字解析**（stack graphs） | dep_graph / ide_impact / 调用图 | 不依赖 LSP 的语义级定义/引用（GitHub 生产级方案） | 2 轮 | 零依赖可行（简化版） | **P2**（设计轮 ✅ S106，见 [NAMERES.md](NAMERES.md)；实现 S107/S108） |
 | 8 | **ACI 输出纪律复核** | 全部工具出口 | 接口设计本身值 +10.7pp（SWE-agent 消融） | 0.5 轮 | 纯约定 | ✅ **S105 已兑** |
 | 9 | **漏洞知识库（Vul-RAG 式）** | bug_scan / code_review 解释面 | 检测准确率 +12.96%、人工复核 60%→77% | 建库成本高 | 零依赖可行 | **P2** |
 | 10 | **tree-sitter/ast-grep 可选引擎** | scan 家族 | 语言覆盖 20+、规则即模式 | 1 轮 | 可选依赖+降级 | **P2** |
