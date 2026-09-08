@@ -1,7 +1,7 @@
 # PANORAMA —— 项目全景复盘与开发方向
 
 > 用途：一份文档说清三件事——**推理主线**（为什么走到今天）、**现状坐标**（站在哪）、
-> **开发方向**（往哪走）。写作时点：2026-09-08 @ v2.18.0（S92 落地后）。
+> **开发方向**（往哪走）。写作时点：2026-09-08 @ v2.19.0（S93 落地后）。
 >
 > 史料分工（读哪份文档管什么，见文末"七、文档地图"）：S38+ 逐轮对账见
 > [ROUNDLOG.md](ROUNDLOG.md)；S10-S44 见 [UPGRADE.md](UPGRADE.md)；主题速览见
@@ -149,26 +149,28 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-08 @ v2.18.0）
+## 五、现状坐标（2026-09-08 @ v2.19.0）
 
 **工具面 57/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(19) learn(1) meta(2) ops(5) scan(10) search(2)。
 
-**Rust 原生化进度**：16 个工具已薄壳化（fs 四件 fs_read/fs_stat/fs_list/fs_write、
+**Rust 原生化进度**：19 个工具已薄壳化（fs 四件 fs_read/fs_stat/fs_list/fs_write、
 search 双件 code_search/code_semantic、scan 五件 bug_scan/std_check/ui_check/
-bug_locate/ast_scan、appaudit 三件 app_audit/app_clone/app_clean、ide 双件
-ide_outline/ide_read_symbol——S92 起 ide 域可迁面开刀）；另有
+bug_locate/ast_scan、appaudit 三件 app_audit/app_clone/app_clean、ide 五件
+ide_outline/ide_read_symbol/locate_edit/ide_rename/code_context——S92/S93
+两刀开完 ide 域可迁面主体）；另有
 rust_taint_scan 与 code_review 的 bug_scan 透镜经 exe 路径。**结构性留 Python**
 （判型在案，S85/S87/S91）：attack 五件（活体自审——攻击对象就是运行中的 registry,
-exe 化测错对象）、ide 余 17 件（LSP/编译/调试=外部进程编排 + registry/文本计算混合，判型表 S91）、
+exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 + registry/文本计算混合，判型表 S91）、
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 556 passed + 2 skipped ／ 3.11 = 558 passed；cargo
-112 绿零告警（lib 21 + 各 exe 集成测，S92 增 ide_test 12）；selftest 57/12/SCHEMA_BAD 0 + 机器对账
+**测试资产**：pytest 3.14 = 573 passed + 2 skipped ／ 3.11 = 575 passed；cargo
+119 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7）；selftest 57/12/SCHEMA_BAD 0 + 机器对账
 两行（VERSION_TAG / SKILLS_DOCS，S91）；junction 逃逸回归（S88）；stdin 通道
 parity 三测（S90，argv vs stdin 强制等价）；S73 重放验收常驻（S78）；协议 fuzz
-双靶 32 测（S78）；S92 对照实验 43 场景 masked 全等（temp\s92 oracle 三件套）。
+双靶 32 测（S78）；S92 对照实验 43 场景 + S93 对照实验 51 场景 masked 全等
+（temp\s92、temp\s93 oracle 三件套）。
 
 **部署拓扑**：开发仓 `D:\开发\unified-rx-mcp`（GitHub bfxh/unified-rx-mcp）→
 稳定克隆 `D:\rj\MCP`（origin 指开发仓，git ff 同步）→ 宿主 config.json mcpServers
@@ -196,10 +198,12 @@ config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本
    不动）、Rust 侧复刻 tmp+replace 原子写、oracle 12 场景 12/12 PASS。探针副产物
    成纪律：**跨进程传内容走二进制 stdin 字节通道**（text 模式 stdin 有换行翻译），
    scan/search 同源通道同轮归一。
-5. **ide 域判型普查（✅ S91 已兑）→ ide_read 双件原生化（✅ S92 已兑）**：19 件逐件立表（表在 VULN-HUNTING 五）——
-   可迁 5+1，结构性留 13（编排面是职责不是债务）。S92 首靶兑现：ide_outline/
+5. **ide 域判型普查（✅ S91 已兑）→ ide_read 双件原生化（✅ S92 已兑）→ 定位三件（✅ S93 已兑）**：19 件逐件立表（表在 VULN-HUNTING 五）——
+   可迁 5+1，结构性留 13（编排面是职责不是债务）。S92：ide_outline/
    ide_read_symbol 走 rx-ide.exe（_symbol_spans 四语言手写复刻，oracle 43/43）；
-   随后 locate_edit/ide_rename/code_context 一轮（遍历+搜索与 rx-scan 基建同构）。
+   S93：locate_edit/ide_rename/code_context 并入 rx-ide（遍历+搜索与 rx-scan
+   基建同构，oracle 51/51）。ide 域可迁面收官（余 ide_health_trend 低优缓，
+   低频聚合不值得单开一轮）。
 6. **engine 域双实现归一**：BM25/语义引擎已住 rx-search/rx-semantic，engine_query
    的 Python 降级路径与 exe 直连归一（去第二实现面），engine_status 保持探测壳。
 

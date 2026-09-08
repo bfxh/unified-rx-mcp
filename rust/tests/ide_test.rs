@@ -33,6 +33,9 @@ impl Drop for TempDir {
 
 fn write_rel(root: &Path, rel: &str, content: &str) -> PathBuf {
     let p = root.join(rel);
+    if let Some(parent) = p.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
     fs::write(&p, content).unwrap();
     p
 }
@@ -248,3 +251,227 @@ fn sandbox_deny_and_empty_path() {
     let err2 = ide::outline(&cfg2, "").unwrap_err();
     assert_eq!(err2, "path 必填");
 }
+
+// ================= S93：locate_edit / code_context / ide_rename =================
+
+use rxrs::ide::{code_context, ide_rename};
+
+fn hits_of(v: &Value) -> Vec<(String, i128, String)> {
+    match v.get("hits") {
+        Some(Value::Arr(a)) => a
+            .iter()
+            .map(|h| {
+                (
+                    get_str(h, "file").to_string(),
+                    get_int(h, "line"),
+                    get_str(h, "snippet").to_string(),
+                )
+            })
+            .collect(),
+        other => panic!("hits 应为数组，实得 {:?}", other),
+    }
+}
+
+#[test]
+fn s93_locate_hits_snippet_and_ci() {
+    let td = TempDir::new("s93loc");
+    write_rel(td.path(), "aa.py", "hello_world = 1\nHELLO_WORLD twice\nfind hello_world here\nhello_world again\nlast line\n");
+    write_rel(td.path(), "ab.txt", "hello_world in txt\n"); // 非代码：不计
+    let cfg = SandboxCfg::parse("*");
+    let v =
+        ide::locate_edit(&cfg, td.path().to_str().unwrap(), "hello_world", 100, 10).unwrap();
+    assert_eq!(get_int(&v, "total"), 4);
+    // 影响面计数区分大小写：HELLO_WORLD 不入 refs
+    assert_eq!(get_int(&v, "references_in_scan"), 3);
+    assert_eq!(get_str(&v, "query"), "hello_world");
+    let hits = hits_of(&v);
+    assert_eq!(hits[0].1, 1);
+    // snippet 窗口：1 前导 + 当前行 + 2 后随（尾行命中窗口收口）
+    assert_eq!(
+        hits[0].2,
+        "hello_world = 1\nHELLO_WORLD twice\nfind hello_world here\nhello_world again"
+    );
+    // 忽略大小写命中（精确未中、小写比较命中）
+    assert_eq!(hits[1].1, 2);
+}
+
+#[test]
+fn s93_locate_limit_stop_and_refs() {
+    let td = TempDir::new("s93limit");
+    for i in 1..=8 {
+        write_rel(td.path(), &format!("f{}.py", i), "zzq\nzzq\nzzq\n");
+    }
+    let cfg = SandboxCfg::parse("*");
+    // limit=1：3 处即停（limit*3），只读过 f1 → refs=3
+    let v = ide::locate_edit(&cfg, td.path().to_str().unwrap(), "zzq", 100, 1).unwrap();
+    assert_eq!(get_int(&v, "total"), 3);
+    assert_eq!(get_int(&v, "references_in_scan"), 3);
+    assert_eq!(hits_of(&v).len(), 1);
+    // limit=4：12 处停在第 4 个文件 → refs=12（含触发停机的文件）
+    let v4 = ide::locate_edit(&cfg, td.path().to_str().unwrap(), "zzq", 100, 4).unwrap();
+    assert_eq!(get_int(&v4, "total"), 12);
+    assert_eq!(get_int(&v4, "references_in_scan"), 12);
+    assert_eq!(hits_of(&v4).len(), 4);
+}
+
+#[test]
+fn s93_locate_max_files_skip_dirs_and_errors() {
+    let td = TempDir::new("s93cap");
+    for i in 1..=6 {
+        write_rel(td.path(), &format!("m{}.py", i), "cap\n");
+    }
+    write_rel(td.path(), "n.md", "cap\n");
+    write_rel(td.path(), ".git/h.py", "cap\n");
+    write_rel(td.path(), "node_modules/h.py", "cap\n");
+    let cfg = SandboxCfg::parse("*");
+    let root = td.path().to_str().unwrap().to_string();
+    let v = ide::locate_edit(&cfg, &root, "cap", 4, 10).unwrap();
+    assert_eq!(get_int(&v, "total"), 4); // 非代码不占额度，跳过目录不进
+    // 空查询（strip 后）→ 工具级错误
+    let e1 = ide::locate_edit(&cfg, &root, "   ", 100, 10).unwrap();
+    assert_eq!(get_str(&e1, "error"), "query 为空——请提供符号或关键词");
+    // 非目录（指向文件）→ 工具级错误，含解析后路径
+    let file_path = td.path().join("m1.py");
+    let e2 = ide::locate_edit(&cfg, file_path.to_str().unwrap(), "x", 100, 10).unwrap();
+    assert_eq!(
+        get_str(&e2, "error"),
+        format!("不是目录: {}", file_path.display())
+    );
+    // path 必填
+    let e3 = ide::locate_edit(&cfg, "", "x", 100, 10).unwrap();
+    assert_eq!(get_str(&e3, "error"), "path 必填");
+    // 沙盒拒绝 → 工具级错误（locate 捕获 resolve 失败，不走 exit-2）
+    let deny = SandboxCfg::parse("Z:\\no-such-root-xyz");
+    let e4 = ide::locate_edit(&deny, &root, "x", 100, 10).unwrap();
+    assert!(get_str(&e4, "error").contains("路径越界"), "{}", get_str(&e4, "error"));
+}
+
+#[test]
+fn s93_context_window_radius_and_raw_split() {
+    let td = TempDir::new("s93ctx");
+    let twenty: String = (1..=20).map(|i| format!("l{}\n", i)).collect();
+    let p = write_rel(td.path(), "long20.py", &twenty);
+    let cfg = SandboxCfg::parse("*");
+    let pp = p.to_str().unwrap();
+    // radius 下限 5：radius=1/3 同窗（start=5 行, end=14 行，1-based 报告）
+    let v = code_context(&cfg, pp, 10, 3).unwrap();
+    assert_eq!(get_int(&v, "start"), 5);
+    assert_eq!(get_int(&v, "end"), 14);
+    assert_eq!(get_int(&v, "total_lines"), 21); // 尾幻影行
+    assert_eq!(get_str(&v, "lang"), "python");
+    let v1 = code_context(&cfg, pp, 10, 1).unwrap();
+    assert_eq!(get_int(&v1, "start"), get_int(&v, "start"));
+    // radius=0 视作缺省 30
+    let v0 = code_context(&cfg, pp, 10, 0).unwrap();
+    assert_eq!(get_int(&v0, "start"), 1);
+    assert_eq!(get_int(&v0, "end"), 21);
+    // radius 上限 200
+    let big = write_rel(td.path(), "big15.py", &(1..=15).map(|i| format!("b{}\n", i)).collect::<String>());
+    let vb = code_context(&cfg, big.to_str().unwrap(), 8, 500).unwrap();
+    assert_eq!(get_int(&vb, "start"), 1);
+    assert_eq!(get_int(&vb, "end"), 16);
+    // cursor=0 → 头窗 min(80, 行数)
+    let vh = code_context(&cfg, pp, 0, 5).unwrap();
+    assert_eq!(get_int(&vh, "start"), 1);
+    assert_eq!(get_int(&vh, "end"), 21);
+    // RAW split：\r 留在行内，CRLF 文件带尾幻影行
+    let crlf = write_rel(td.path(), "crlf.py", "l1\r\nl2\r\nl3\r\nl5\r\n");
+    let vc = code_context(&cfg, crlf.to_str().unwrap(), 2, 5).unwrap();
+    assert_eq!(get_int(&vc, "total_lines"), 5);
+    assert_eq!(get_str(&vc, "content"), "l1\r\nl2\r\nl3\r\nl5\r\n");
+    // 负 cursor → end 负值 + Python 负切片（end=-6 → 前 13-6=7 行）
+    let twelve: String = (1..=12).map(|i| format!("t{}\n", i)).collect();
+    let tw = write_rel(td.path(), "tail12.py", &twelve);
+    let vn = code_context(&cfg, tw.to_str().unwrap(), -10, 5).unwrap();
+    assert_eq!(get_int(&vn, "start"), 1);
+    assert_eq!(get_int(&vn, "end"), -6);
+    assert!(get_str(&vn, "content").starts_with("t1\nt2\nt3\nt4\nt5\nt6\nt7"));
+    // file/lang 字段回原样参数（不重写为解析路径）
+    assert_eq!(get_str(&vc, "file"), crlf.to_str().unwrap());
+}
+
+#[test]
+fn s93_context_gates() {
+    let td = TempDir::new("s93gate");
+    let cfg = SandboxCfg::parse("*");
+    // >10MB：getsize 门（裸路径，先于沙盒/读取）
+    let big = vec![b'x'; 10 * 1024 * 1024 + 1];
+    let bp = td.path().join("over10mb.py");
+    fs::write(&bp, &big).unwrap();
+    let v = code_context(&cfg, bp.to_str().unwrap(), 0, 0).unwrap();
+    assert_eq!(get_str(&v, "error"), "文件超过 10MB——拒绝读取");
+    // 缺失 / 目录 / 空路径 → "文件不可读"
+    let miss = code_context(&cfg, td.path().join("no_such.py").to_str().unwrap(), 0, 0).unwrap();
+    assert_eq!(get_str(&miss, "error"), format!("文件不可读: {}", td.path().join("no_such.py").display()));
+    let dir = code_context(&cfg, td.path().to_str().unwrap(), 0, 0).unwrap();
+    assert!(get_str(&dir, "error").starts_with("文件不可读: "));
+    let empty = code_context(&cfg, "", 0, 0).unwrap();
+    assert_eq!(get_str(&empty, "error"), "文件不可读: ");
+    // 沙盒拒绝同样落"文件不可读"（getsize 成功后 _read 失败的漏斗）
+    let deny = SandboxCfg::parse("Z:\\no-such-root-xyz");
+    let ok_file = write_rel(td.path(), "ok.py", "x = 1\n");
+    let vd = code_context(&deny, ok_file.to_str().unwrap(), 0, 0).unwrap();
+    assert!(get_str(&vd, "error").starts_with("文件不可读: "));
+}
+
+#[test]
+fn s93_rename_plan_cap_and_quirks() {
+    let td = TempDir::new("s93ren");
+    write_rel(td.path(), "one.py", "foo = 1\nfoo(2)\n");
+    write_rel(td.path(), "sub/two.py", "bar\nfoo\n");
+    write_rel(td.path(), "three.txt", "foo\n"); // 非代码：排除
+    write_rel(td.path(), ".git/g.py", "foo\n"); // 跳过目录
+    let cfg = SandboxCfg::parse("*");
+    let root = td.path().to_str().unwrap().to_string();
+    // 缺省：plan=null
+    let v = ide_rename(&cfg, &root, "foo", "bar", false).unwrap();
+    assert_eq!(get_int(&v, "files_affected"), 2);
+    assert_eq!(get_int(&v, "total_occurrences"), 3);
+    assert!(matches!(v.get("plan"), Some(Value::Null)));
+    assert_eq!(get_str(&v, "note"), "L3 只建议不落盘；确认后可用 fs_write 应用");
+    // include_plan：文件先于子目录（os.walk 两段式）
+    let v2 = ide_rename(&cfg, &root, "foo", "bar", true).unwrap();
+    match v2.get("plan") {
+        Some(Value::Arr(a)) => {
+            assert_eq!(a.len(), 2);
+            assert!(get_str(&a[0], "file").ends_with("one.py"));
+            assert_eq!(get_int(&a[0], "occurrences"), 2);
+            assert!(get_str(&a[1], "file").ends_with("two.py"));
+        }
+        other => panic!("plan 应为数组，实得 {:?}", other),
+    }
+    // 大小写敏感：FOO 无命中
+    let v3 = ide_rename(&cfg, &root, "FOO", "x", false).unwrap();
+    assert_eq!(get_int(&v3, "files_affected"), 0);
+    // 空符号怪癖：匹配一切可读代码文件，count("")=len+1
+    let v4 = ide_rename(&cfg, &root, "", "x", false).unwrap();
+    assert_eq!(get_int(&v4, "files_affected"), 2);
+    assert_eq!(get_int(&v4, "total_occurrences"), 16 + 9);
+    // path 必填 / 非目录
+    let e1 = ide_rename(&cfg, "", "x", "y", false).unwrap();
+    assert_eq!(get_str(&e1, "error"), "path 必填");
+    let fp = td.path().join("one.py");
+    let e2 = ide_rename(&cfg, fp.to_str().unwrap(), "x", "y", false).unwrap();
+    assert_eq!(get_str(&e2, "error"), format!("不是目录: {}", fp.display()));
+}
+
+#[test]
+fn s93_rename_cap_200() {
+    let td = TempDir::new("s93cap200");
+    for i in 1..=205 {
+        write_rel(td.path(), &format!("c{:03}.py", i), "sym\n");
+    }
+    let cfg = SandboxCfg::parse("*");
+    let v = ide_rename(&cfg, td.path().to_str().unwrap(), "sym", "n", true).unwrap();
+    assert_eq!(get_int(&v, "files_affected"), 200);
+    assert_eq!(get_int(&v, "total_occurrences"), 200);
+    match v.get("plan") {
+        Some(Value::Arr(a)) => {
+            assert_eq!(a.len(), 200);
+            assert!(get_str(&a[0], "file").ends_with("c001.py"));
+            assert!(get_str(&a[199], "file").ends_with("c200.py"));
+        }
+        other => panic!("plan 应为数组，实得 {:?}", other),
+    }
+}
+

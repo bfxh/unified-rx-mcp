@@ -345,7 +345,7 @@ fn win32_display_rel(rel: &str) -> String {
 /// Windows 走 GetFileInformationByHandleEx(FileAttributeTagInfo) 手写 FFI
 /// （IO_REPARSE_TAG_MOUNT_POINT），非 Windows 恒 false（无 junction 概念）。
 #[cfg(windows)]
-fn is_junction(p: &Path) -> bool {
+pub(crate) fn is_junction(p: &Path) -> bool {
     use std::ffi::c_void;
     use std::os::windows::ffi::OsStrExt as _;
 
@@ -417,7 +417,7 @@ fn is_junction(p: &Path) -> bool {
 }
 
 #[cfg(not(windows))]
-fn is_junction(_p: &Path) -> bool {
+pub(crate) fn is_junction(_p: &Path) -> bool {
     false
 }
 
