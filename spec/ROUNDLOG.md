@@ -375,3 +375,14 @@
 - 验证：s102 6 + rust repomap 5 = 11/11；3.14 全量 617 passed + 2 skipped；3.11 全量 619 passed；cargo 130 绿零告警（125 + 5）；selftest tools=58。
 - 提交：本次
 - 补记（同轮，出货后自测发现的短板）：`focus` 在全仓实测里形同虚设——两处真因：①`max_files` 按遍历序截断，focus 文件可能被大目录挤掉；②即便入选，**只靠遥传偏置**时，在"内部互引密集的大文件簇"（bench/manual_snaps 快照语料）面前会被图结构淹没。修法：发现上限 = max(4×max_files, 2000) + focus 文件优先入队（读取解析仍只对入选文件做）；最终排名再加聚焦乘数 ×50（遥传偏置保留以传播相关定义）。修复后全仓 focus=search → top 为 `tools/search.py` 与 `rust/src/search.rs` 的定义。rust 新增 `focus_survives_file_cap` 测（6/6）。版本不另 bump（S94 补记先例：补记不重打 tag，SERVER_VERSION=Cargo.toml=Cargo.lock=最新 tag 仍成立）。
+
+## S103 · ADVANCES P1 第一项：内容寻址增量缓存（进程内）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：雷达 P1——重复调用不再全量重扫。范围限定**纯读白名单 10 工具**（bug_scan/std_check/ui_check/ast_scan/bug_locate/code_search/code_semantic/repo_map/dep_graph/module_stability），写/执行类绝不入缓存。
+- 设计：`tools/cache.py`（进程内 LRU 128 条）+ `registry.call` 接线（门禁之后、执行之前查；成功路径入缓存；错误路径不入）。键 = sha256(工具 + 规范化参数 + **cursor** + 输入指纹)；指纹 = 代码扩展名文件的 (relpath, size, mtime_ns) + **≤256KB 文件内容哈希**。旁路：`__no_cache: true`（传输层参数，schema 前剥除）或 `UNIFIED_RX_NO_CACHE=1`。
+- 两个实锤缺陷（都是测试先红后修）：①**同尺寸快速改写假命中**——Windows 系统时钟粒度约 15ms，两次写入可能拿到相同 mtime_ns、size 也相同 → 指纹不变、缓存返回旧结果。修法：小文件纳入内容哈希（读取成本远低于解析）。②**cursor 分页串页**——cursor 是传输层参数、算键前已被剥除，第 2 页命中第 1 页缓存（全量测试抓出 `test_clamp_pagination_roundtrip` 红）→ 把 cursor 纳入键 + 加回归测试。
+- 性能实测：bug_scan 48.5→3.7ms、ast_scan 45.1→3.7ms（约 12×）；整仓 repo_map 136.8→75.5ms（~1.8×，指纹要读全仓 675 文件 5.7MB——如实记）。指纹本身有预算：>8MB 哈希字节或 >2 万文件不缓存（宁可不缓存也不拖慢）。
+- 诚实边界（入 tools/cache.py docstring）：大文件只按 size+mtime；大仓不缓存；进程内、不跨重启（落盘版需另立路径纪律——Mimosa 钩子对动态路径拼接的拦截也在本轮实际发生，故取进程内方案）。
+- 交付：tools/cache.py（新）+ registry.py 接线 + tests/test_s103_cache.py 11 测；skills/scan.md、skills/search.md 契约行；ADVANCES 第 4 项标已兑；PANORAMA v2.26.0；版本锁步 2.26.0 + exe 重建。
+- 验证：s103 11/11；3.14 全量 627 passed + 2 skipped；3.11 全量 630 passed；cargo 131 绿零告警。
+- 提交：本次
