@@ -327,3 +327,12 @@
 - 交付：tools/astscan.py 门 + tools/guard.py 钳制；tests/test_s88_sandbox_clamp.py +4 测（16/16）；bench/h3_score.py blocked 语义 + 五脚本沙盒声明；EVAL §8；VULN-HUNTING S97 注记；PANORAMA v2.22.0（挂账⑤留、⑥新增、方向 #7 标台账已归档）；server.py/Cargo.toml/Cargo.lock 2.22.0 + exe 重建。
 - 验证：s88 钳制 16/16；3.14 全量 602 passed + 2 skipped；3.11 全量 604 passed；cargo 121 绿零告警（Rust 零改动，版本 lockstep + 重建）；H3 PASS / H2 同值；selftest 版本对账在出货后复验。S96 日期修正：该轮发生在本地 09-09 00:0x（工件 UTC 09-08T16:03Z），原记 09-08 已改。
 - 提交：本次
+
+## S98 · 规则覆盖矩阵（VULN-HUNTING P1-b 兑现）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：方向 #8 的离线切片——P1-b 验收原文："矩阵进本文件附录，'查不了'的格子写明原因（数据流/跨文件/运行时状态），不给用户'扫了=没这类问题'的错觉"。本轮不动代码，只把**静态层真实边界**逐格核账成表。
+- 方法：rule id 全部取自实现而非文档转述——bug.rs（scan_python 5 id / scan_rust 7 id / scan_generic 3 id / bevy 8 条）、scan.rs（std_check placeholder+magic_number 的 6 语言门、ui_check ui_pattern 三引擎）、astscan.rs（py AST 调用面 / js 词法掩码 / rust 结构信号 + rust_reach）、appaudit.rs（SURFACE 6 + SECRET 5）；lang_of 识别语言表（python/rust/go/ts/js/gd/c/cpp/csharp/dart/lua/bash/java/kotlin/php/ruby/swift）。
+- 交付：VULN-HUNTING 附录 B——5 语言（Python/Rust/GDScript/C#/JS-TS）+ "其他识别语言" × 7 类目（注入/路径/并发/资源/逻辑/物理引擎陷阱/秘密凭据）逐格三态标注：✅有规则（列 id）/⚠️原理上查不了（写明数据流/跨文件/运行时状态）/⬜空白（按踩坑概率排优先级）。行外注：appaudit 6 条 JS 危险面规则、rust_taint_scan 的 definite/clue 是**可达性分级非数据流**（不得读成"污点已证实"）、code_review security 透镜是模式匹配、空白优先级排序。**P2-c 深扫常态化**同步落地为流程尾注（tag 前副本深扫 + 分诊存档 + seal 进 ROUNDLOG，禁自扫红线维持），首样即 S96。
+- 关键结论（矩阵直接读出）：路径穿越全语言"原理上查不了"（需数据流）——本仓防线是运行时沙盒钳制而非静态检测（S95/S97 两轮补漏正是这条的工程侧）；并发全语言"查不了"（需 miri/loom/压力电池等运行时方案——S95 高压电池是工程侧对位）；魔法数语言门不含 csharp（如实标注，非笔误）。
+- 验证：rule id 与实现逐一对照（含 7 vs 8 的口径差异——scan_rust 实现 7 id，indexing 含两形态；bevy 8 条单列）；文档轮零代码改动，全量测试无需重跑（S97 出货时 602+2s/604/cargo 121 仍为当前绿线）。
+- 提交：本次
