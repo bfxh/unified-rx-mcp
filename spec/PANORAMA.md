@@ -178,7 +178,10 @@ unified_rx 条目（`python -X utf8 D:\rj\MCP\server.py`，沙盒 `D:\开发;D:\
 PYTHONUTF8=1）→ Yan Agent GUI 实测 57 工具连接成功。
 
 **已知滞后（挂账）**：①宿主 config.json 描述串写 v2.14.0（Yan Agent 运行中不动
-config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本文"四"已补主题账）。
+config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本文"四"已补主题账）；
+③S93 的 GitHub 侧未推（出货时直连不可达——本地 main/tag/稳定版均已就绪，联网后
+补：push feat/s93 + tag → PR → merge → pull main + 稳定版再 ff 到 merge commit，
+详见 ROUNDLOG S93 补记）。
 
 ## 六、开发方向（建议排序）
 
