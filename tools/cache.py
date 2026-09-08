@@ -38,7 +38,8 @@ _CACHEABLE = {
 }
 
 _SKIP_DIRS = {".git", "node_modules", "target", "__pycache__", "dist", "build",
-              ".unified-rx-index", "backups", ".venv", "venv", ".idea", ".vscode"}
+              ".unified-rx-index", "backups", ".venv", "venv", ".idea", ".vscode",
+              ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".eggs"}
 _MAX_FILES = 20000          # 指纹文件数上限（超限不缓存）
 _MAX_ENTRIES = 128          # 进程内条目上限（全局，LRU 淘汰）
 _HASH_MAX = 256 * 1024      # 超过此大小的文件不读内容，只按 size+mtime 判定
@@ -82,6 +83,52 @@ def _content_hash(p, size):
             return hashlib.sha256(fh.read()).digest()
     except OSError:
         return b""
+
+
+def _file_fp(p, st):
+    h = hashlib.sha256()
+    h.update(f"{st.st_size}\x00{st.st_mtime_ns}\x00".encode())
+    h.update(_content_hash(p, st.st_size))
+    return h.hexdigest()
+
+
+def snapshot(root):
+    """逐文件指纹表 `{相对路径: fp}`（S104 TIA 用）。
+
+    与 fingerprint 同口径（_FP_EXTS + 内容哈希 + 预算），但保留每文件粒度，
+    供"哪些文件变了"的差集计算。超预算/越界返回 None。
+    """
+    out = {}
+    try:
+        if os.path.isfile(root):
+            st = os.stat(root)
+            out[os.path.basename(root)] = _file_fp(root, st)
+            return out
+        if not os.path.isdir(root):
+            return None
+        n = 0
+        hashed = 0
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+            for f in sorted(filenames):
+                if os.path.splitext(f)[1].lower() not in _FP_EXTS:
+                    continue
+                p = os.path.join(dirpath, f)
+                try:
+                    st = os.stat(p)
+                except OSError:
+                    continue
+                if st.st_size <= _HASH_MAX:
+                    hashed += st.st_size
+                    if hashed > _HASH_BUDGET:
+                        return None
+                out[os.path.relpath(p, root)] = _file_fp(p, st)
+                n += 1
+                if n > _MAX_FILES:
+                    return None
+        return out
+    except OSError:
+        return None
 
 
 def fingerprint(root):

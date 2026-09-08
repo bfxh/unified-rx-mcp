@@ -25,7 +25,13 @@
   （locals+栈+条件断点）、java jdb、go dlv；**rust 断点需 gdb/lldb，缺失如实报错**
 - **ide_test**（执行类需授权，S57）：pytest/cargo test/go test 一条命令 →
   per-test 结构化结果+失败帧；cargo workspace 多 crate result 行全量累加（S63）；
-  收集到 0 个测试显式报出（exit 5）；target 拒 '-' 旗标（防 argv 注入）
+  收集到 0 个测试显式报出（exit 5）；target 拒 '-' 旗标（防 argv 注入）。
+  **S104 测试影响分析（TIA，仅 pytest，`tia=true`）**：首次全量并建立依赖图
+  （pytest 插件 `urx_tia_plugin` 用 audit hook 记录——收集期按文件、执行期按
+  nodeid，`.pyc` 映射回源文件）→ 之后只跑依赖集与"变更文件集"相交的测试；
+  无依赖记录/新测试/收集失败一律全量（宁多跑不误跳）；`full=true` 强制全量。
+  无受影响测试时**不执行**并如实报 `mode=skipped-no-impact`。依赖图进程内保存
+  （跨重启重来）。cargo/go 目标报 `mode=unsupported` 并全量执行。
 - **ide_doctor**（执行类需授权，S59）：一键体检六项聚合（scan/review/build/
   test/dep/stability）→ verdict（clean/warn/issues）+ problems/warns；
   没写测试=黄灯
