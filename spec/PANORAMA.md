@@ -195,7 +195,11 @@ config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本
 两分支与 v2.19.0/v2.20.0 两 tag 已推、PR #57/#58 已合、main=e55bf28，本地与稳定
 版均已 ff 对齐；tag 落分支尖与 merge 惯例的偏离随 PR 合并自然消解）；
 ④~~fs_stat 预算决策~~（**S95 已拍板并落地**：选方案①回迁纯 Python，
-fs_stat p50 0.3ms 余量 ~30 倍，golden oracle 锁等价，数字在 EVAL §7）。
+fs_stat p50 0.3ms 余量 ~30 倍，golden oracle 锁等价，数字在 EVAL §7）；
+⑤Mimosa 语义层覆盖缺口（S96 副本深扫：静态层 193/193 代码文件完整、58 条分诊
+完毕且 S95 候选面零命中，但 threatModel/findingDiscovery 阶段 partial——
+`runStatus=inconclusive`，见 VULN-HUNTING S96 注记；待插件侧可完整跑通后对副本
+复扫清账，期间不作安全宣称）。
 
 ## 六、开发方向（建议排序）
 
