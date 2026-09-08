@@ -38,7 +38,13 @@
   定义用 `ide::symbol_spans` 四语言同口径；引用 = 全仓词法扫描命中已知定义名。
   输出 `map` 每行 `相对路径:行 kind 名字`（按 rank 降序，预算 = chars/4 近似）；
   顶层 `defs_total/defs_shown/tokens_est/truncated/engine`。focus 匹配口径：
-  全等/路径后缀（`fs.py`）/目录前缀（`tools`）/词干（`fs`）。
+  全等/路径后缀（`fs.py`）/目录前缀（`tools`）/词干（`fs`）。**双偏置**（S102 补记）：
+  遥传向量 ×50（让相关定义经图传播受惠）+ 最终排名再乘 50——只有遥传时，在
+  "内部互引密集的大文件簇"（如快照语料）面前会被图结构淹没；`max_files` 截断
+  时 focus 文件优先入队（发现上限 = max(4×max_files, 2000)，读取解析仍只对
+  入选的 max_files 个文件做）。
+  实测：全仓 focus=search → top 为 `tools/search.py` 与 `rust/src/search.rs` 的
+  定义（无 focus 时是快照语料里的高频被引者）。
   **简化边界（如实）**：引用归属算给"包含引用的文件"而非"包含引用的定义"；
   同名定义共享权重；token 用字符/4 近似——定位是"该看哪些定义"的骨架，
   不是精确调用图。

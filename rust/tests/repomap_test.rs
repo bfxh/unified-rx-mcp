@@ -116,6 +116,19 @@ fn four_language_symbols_collected() {
 }
 
 #[test]
+fn focus_survives_file_cap() {
+    // S102 补记：max_files 截断时 focus 文件必须优先入队（不被大目录挤掉）
+    let td = TempDir::new("cap");
+    write_rel(td.path(), "aaa/big.py", "def big_fn():\n    pass\n");
+    write_rel(td.path(), "aaa/big2.py", "def big2_fn():\n    pass\n");
+    write_rel(td.path(), "zzz/target.py", "def target_fn():\n    pass\n");
+    let v = repomap::repo_map(td.path(), &["target".to_string()], 4000, 2).unwrap();
+    let map = get_str(&v, "map");
+    assert!(map.contains("target_fn"),
+            "focus 文件被 max_files 挤掉: files={} map={}", get_i128(&v, "files_scanned"), map);
+}
+
+#[test]
 fn empty_or_notdir_is_reported() {
     let td = TempDir::new("empty");
     let v = repomap::repo_map(&td.path().join("nope"), &[], 100, 200).unwrap();
