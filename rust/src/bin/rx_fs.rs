@@ -12,6 +12,10 @@ use rxrs::json::Value;
 use rxrs::sandbox::SandboxCfg;
 
 fn main() {
+    if std::env::args().any(|a| a == "--version") {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (code, out) = match run(&args) {
         Ok(v) => (0, v.to_json()),

@@ -7,6 +7,10 @@
 use std::path::Path;
 
 fn main() {
+    if std::env::args().any(|a| a == "--version") {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     let naive = args.iter().any(|a| a == "--naive");
     args.retain(|a| a != "--naive");

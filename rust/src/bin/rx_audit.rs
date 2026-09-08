@@ -12,6 +12,10 @@ use rxrs::appaudit;
 const USAGE: &str = "用法: rx-audit <snapshot_dir> [with_asar(0|1)]";
 
 fn main() {
+    if std::env::args().any(|a| a == "--version") {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(dir) = args.first() else {
         eprintln!("{USAGE}");

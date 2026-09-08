@@ -30,7 +30,7 @@
 |---|---|---|
 | 安全边界 | 模糊集 100% 拒绝：env 未设/空串/空白串/symlink·junction 逃逸/伪造授权/超长路径/非字符串路径 | `tests/test_security_fuzz.py`（本轮落地） |
 | 扫描器 P/R | bug_scan 在标注库（≥30 条自家历史真 bug + 干净样本）precision≥0.7 recall≥0.5 | L2 语料 + 打分脚本 |
-| 延迟预算 | fs_* <10ms；scan 全仓 ≤2s/100 文件；engine_query ≤15s（含 BM25 降级） | 计时断言 |
+| 延迟预算 | fs_* <10ms；scan 全仓 ≤2s/100 文件；engine_query ≤15s（含 BM25 降级） | 计时断言 → `bench/s94_perf.py` 实测留档（S94 首测见 §6：fs_* 贴地板，其余余量≥12倍） |
 | 输出信噪 | 单结果默认 ≤200 行/≤50KB 不淹上下文；超限必须截断+摘要 | schema 抽检 |
 | 失败语义 | 失败永远 `{ok:false,error}`，绝不抛穿协议层、绝不静默假成功 | 已覆盖 + 补录 |
 
@@ -101,4 +101,36 @@ judge 流程:   对照 diff+运行结果逐条 R→pass/fail/unverifiable
 抽检:         每 10 条随机 1 条人工复核；不一致则修 rubric 再批量
 记录:         turns/tokens_in/tokens_out/cost$/walltime/工具调用序列
 ```
+
+## 6. S94 质量体检基线（2026-09-08，v2.20.0，bench/s94_perf.py 实测）
+
+回答「内存/性能/架构必须在标准上」：先有数，才谈达标。语料=临时目录 100 个 .py；
+每项预热 3 轮后计时；冷跑=启动后首跑（exe/文件缓存全冷），热态=复跑。
+
+**延迟实测（ms，min/p50/max）**：
+| 工具 | 冷跑 | 热态 | L2 预算 | 判定 |
+|---|---|---|---|---|
+| fs_stat | 11.3/24.2/75.2 | 7.0/7.7-9.7/13.9 | <10ms | **贴地板**：热态过、冷跑闪红，无余量 |
+| ast_scan(100f) | 107/116/164 | 49/50-55/65 | ≤2s | PASS，余量≥30倍 |
+| engine_query | 85/93/119 | 33/34-40/52 | ≤15s | PASS，余量~300倍 |
+| code_search | 73/87/130 | 33/35-43/73 | （无预算行） | 台账复测：S77 期 140ms 量级保持 |
+| code_semantic | 1246/1423/1767 | 591/610-725/767 | （无预算行） | 观察值：语义索引每次调用重建，冷热敏感 |
+
+**内存基线 + 泄漏 soak**：工作集基线 27.8MB（gc.collect 后口径，psapi
+WorkingSetSize），15 轮混合负载（fs×10 + code_search + ast_scan）soak 后
+27.9MB，Δ=+0.1MB，峰值 27.9MB → **无明显泄漏信号**。留档 bench/results/s94_perf.json
+（滚动 20 条历史）。
+
+**架构健康**（无上帝对象复核）：tools/*.py 最大 lsp.py 705 行；
+rust/src 最大 pyast.rs 2989（解析器，合理单体）、astscan.rs 1784、taint.rs 1372。
+
+**exe 版本对账**（S94 防呆四件）：9 bin `--version` 门（CARGO_PKG_VERSION 编译期
+注入）→ selftest `EXE_TAG ok=9 drift=0 missing=0`（SKIP=纯 Python 环境不算漂移）
+→ cargo `bin_version_test.rs` → pytest 版本锁步（SERVER_VERSION ↔ Cargo.toml）。
+
+**遗留张力（S95 拍板）**：fs_stat/fs_list 这类微秒级操作走 exe 子进程，热态
+p50≈8-10ms 已贴 <10ms 预算地板（裸 exe 拉起 p50≈30ms、纯 os.stat 0.008ms——
+进程拉起溢价三个数量级）。两条路二选一：① fs_stat 回迁纯 Python（沙盒语义
+须在 Python 侧复刻，动红线要补 oracle）；② 预算修订为 exe 路由口径（p50 ≤25ms，
+含负载抖动）。未拍板前预算行保持原值，bench 如实亮灯。
 

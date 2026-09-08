@@ -27,7 +27,7 @@ import tools  # noqa: F401
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.19.0"
+SERVER_VERSION = "2.20.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -234,6 +234,50 @@ def _selftest_skills_docs(base_dir=None):
     return stale, dead
 
 
+_RX_EXE_NAMES = ("rx-mcp.exe", "rx-taint.exe", "rx-fs.exe", "rx-ide.exe",
+                 "rx-search.exe", "rx-semantic.exe", "rx-scan.exe",
+                 "rx-audit.exe", "rx-appops.exe")
+
+
+def _selftest_exe_tag():
+    """rust exe ↔ SERVER_VERSION 对账（S94：「你不更新某一个东西当然出问题」
+    的机器防呆——代码进了新版本、exe 还是旧的，此前没有任何对账能发现）。
+    9 个 exe 逐个按工具层定位约定（UNIFIED_RX_RS_EXE 覆盖 →
+    %TEMP%\\rx-rs-target\\{release,debug}，basename 须恰等）找到后跑
+    --version 比对 SERVER_VERSION。打印 EXE_TAG ok=N drift=N missing=N
+    （drift/missing 细节截断附后）；9 个全缺 → SKIP（纯 Python 环境未
+    cargo build，不算漂移）。只提示不改退出码。"""
+    import subprocess
+    override = os.environ.get("UNIFIED_RX_RS_EXE")
+    tmp = os.environ.get("TEMP", r"C:\Temp")
+    dirs = [os.path.join(tmp, "rx-rs-target", kind)
+            for kind in ("release", "debug")]
+    ok, drift, missing = 0, [], []
+    for name in _RX_EXE_NAMES:
+        path = None
+        for c in ([override] if override else []) + [os.path.join(d, name)
+                                                     for d in dirs]:
+            if os.path.isfile(c) and os.path.basename(c) == name:
+                path = c
+                break
+        if path is None:
+            missing.append(name)
+            continue
+        try:
+            cp = subprocess.run([path, "--version"], capture_output=True,
+                                timeout=15)
+            ver = cp.stdout.decode("utf-8", "replace").strip()
+        except Exception:
+            ver = ""
+        if ver == SERVER_VERSION:
+            ok += 1
+        else:
+            drift.append(f"{name}({ver or '无输出'})")
+    if ok + len(drift) == 0:
+        return None
+    return ok, drift, missing
+
+
 def selftest():
     """注册表自检：工具数 + 每个工具 schema 合法 + 抽样调用。"""
     # fail-closed 下自检自身也会被拦：未显式配沙盒时临时放开（仅本进程）
@@ -258,6 +302,18 @@ def selftest():
     else:
         extra = (f" stale={stale[:8]}" if stale else "") + (f" dead={dead[:8]}" if dead else "")
         print(f"SKILLS_DOCS stale={len(stale)} dead={len(dead)}{extra}")
+    # S94 机器对账第三件：rust exe 版本漂移（同纪律：只提示，不改退出码）
+    exe = _selftest_exe_tag()
+    if exe is None:
+        print("EXE_TAG SKIP (9 个 exe 全缺——纯 Python 环境未 cargo build)")
+    else:
+        ok, drift, missing = exe
+        extra = ""
+        if drift:
+            extra += f" drift={drift[:4]}"
+        if missing:
+            extra += f" missing={missing[:4]}"
+        print(f"EXE_TAG ok={ok} drift={len(drift)} missing={len(missing)}{extra}")
     return 0 if (n > 0 and not bad and r.get("ok")) else 1
 
 
