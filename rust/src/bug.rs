@@ -23,7 +23,7 @@ use std::path::Path;
 // S83：内嵌 3.14 的 dir(builtins) 快照（160 名）——双解释器共用同一口径，
 // 比 Python 版"运行时取宿主 builtins"更一致（3.11 仅缺 PythonFinalizationError /
 // _IncompleteInputError 两个新名，语料不触碰）。
-const BUILTINS: &[&str] = &[
+pub(crate) const BUILTINS: &[&str] = &[
     "ArithmeticError", "AssertionError", "AttributeError", "BaseException",
     "BaseExceptionGroup", "BlockingIOError", "BrokenPipeError", "BufferError", "BytesWarning",
     "ChildProcessError", "ConnectionAbortedError", "ConnectionError", "ConnectionRefusedError",

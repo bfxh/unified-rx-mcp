@@ -9,6 +9,8 @@
 //!   rx-scan buglocate <root> <error_text|->    （"-" = 改读 stdin 全文（lossy）——
 //!                                               Windows 命令行 32767 码元上限装不下
 //!                                               超大报错文本，薄壳对大文本走此通道）
+//!   rx-scan resolve  <file>               （S107：单文件名字解析——引用→定义边，
+//!                                           见 rust/src/nameres.rs；跨文件留给 S108）
 //! 输出：stdout 一行 JSON（与旧 Python 实现同构，不排序——顺序即遍历序；
 //! bugscan 例外：结果按 (severity, file, line) 稳定排序，与 Python 版一致）。
 //! 退出码：0 = 工具级结果（含 {"error": ...}，registry 统一转 ok:false）；
@@ -18,10 +20,11 @@
 use rxrs::astscan;
 use rxrs::bug;
 use rxrs::json::Value;
+use rxrs::nameres;
 use rxrs::scan;
 use std::io::Read;
 
-const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | astscan <path> [max_files] | buglocate <root> <error_text|->";
+const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | astscan <path> [max_files] | buglocate <root> <error_text|-> | resolve <file>";
 
 fn main() {
     if std::env::args().any(|a| a == "--version") {
@@ -88,6 +91,22 @@ fn run(args: &[String]) -> Result<Value, String> {
                 }
             }
             Ok(scan::bug_locate(&root, &text))
+        }
+        "resolve" => {
+            let file = args.get(1).map(|s| s.as_str()).unwrap_or("");
+            if file.is_empty() {
+                return Err(USAGE.into());
+            }
+            let src = match std::fs::read(file) {
+                Ok(b) => String::from_utf8_lossy(&b).into_owned(),
+                Err(e) => {
+                    return Ok(Value::Obj(vec![(
+                        "error".into(),
+                        Value::Str(format!("读取失败: {} ({})", file, e)),
+                    )]));
+                }
+            };
+            Ok(nameres::resolve_file(file, &src))
         }
         _ => Err(USAGE.into()),
     }

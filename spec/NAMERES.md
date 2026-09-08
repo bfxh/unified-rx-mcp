@@ -125,3 +125,26 @@ kind ∈ {local, import, module, builtin}
   模块级定义"并如实标注；namespace package 与 `sys.path` 魔法解析不到 → unresolved。
 - **不做**：类型推断、属性链、跨文件控制流、`__all__` re-export 追踪、运行时元编程；
   不承诺"解析不了 = 不存在"（与 VULN-HUNTING 的诚实口径一致）。
+
+## 十、实现注记（S107 单文件解析已落）
+
+- **代码**：`rust/src/nameres.rs`（作用域栈遍历，~470 行）+ `rx-scan resolve <file>`
+  子命令；`bug.rs::BUILTINS` 提为 pub(crate) 复用（160 个内建名）。
+- **输出契约**：`{file, edges[{file,line,name,kind,to_line}], unresolved[{line,name,reason}],
+  bindings[{scope,parent,name,line,kind}], stats{local,module,builtin,unresolved,
+  attr_accesses,star_import}}`；edges/unresolved 按 (line,name) 稳定排序。
+  `bindings` 带 `parent`——oracle 用它精确扣除"symtable 把推导式目标算进外层"的差异。
+- **oracle 结果**：rust 21 测（十条规则逐条）全绿；python 4 测——含**对本仓
+  30+ 真实文件**（registry.py/server.py/urx_tia_plugin.py + 全部 tools/*.py）与
+  `symtable` 的逐作用域绑定对照，归一化后**零差异**。
+- **两个实锤发现**：
+  1. **推导式可见性以运行时为准**：3.14 实测 `[n for n in ...]` 之后 `n` 是
+     NameError → 独立作用域判定正确；`symtable` 把推导式目标算进外层局部只是
+     静态简化（oracle 按 parent 扣除）。
+  2. **pyast 缺口**：不支持"推导式元素内的 walrus"（`[(y := i) for i in ...]`，
+     CPython 需括号）——本轮不扩解析器（S83/S84 oracle 锁定），记入边界；
+     已支持的 walrus 形态（if/语句级）绑定正确。
+- **S108 待办**：跨文件 import 拼接（`import a.b` / `from m import x` / 相对导入 /
+  别名）+ `dep_graph(resolved=true)` 接线 + 本仓文本级对比报告（≥30 例人工抽查）。
+  注：pyast 目前**丢弃相对导入的前导点**（`from .m import x` 的 level 未记录）——
+  S108 需先补 level 记录（存 aux，不改 dump 以保 oracle）。
