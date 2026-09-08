@@ -43,3 +43,8 @@
 - **契约变化（S88）**：bug_scan/std_check/ui_check/project_scan 的 path、
   bug_locate 的 root（含默认 cwd）一律先过沙盒钳制（S73 纪律补全）——越界
   返回 `{"error": "路径越界（沙盒外）：…"}`，不再触碰文件系统；先于存在性检查
+- **结果缓存（S103）**：bug_scan/std_check/ui_check/ast_scan/bug_locate 等纯读
+  工具的结果进入**进程内内容寻址缓存**（键 = 工具+参数+cursor+输入指纹；指纹含
+  小文件内容哈希，文件一变即失效）。命中返回与冷跑逐字节一致；`__no_cache: true`
+  或 `UNIFIED_RX_NO_CACHE=1` 旁路。实测 ast_scan 45ms→3.7ms（约 12×）。大文件
+  只按 size+mtime、大仓不缓存等边界写在 tools/cache.py 契约里。

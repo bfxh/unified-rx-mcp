@@ -15,7 +15,7 @@
 | 1 | **repo_map**（个人化 PageRank 符号地图） | 新增工具（agent 上下文选择） | RepoGraph 论文口径平均相对 +32.8%；减少"瞎翻文件" | 1 轮 | 零依赖可行 | ✅ **S102 已兑** |
 | 2 | **混合检索 RRF**（BM25 ⊕ 语义路） | code_search | 融合优于单路（RRF k=60 为默认） | 0.5 轮 | 纯算法 | ✅ **S101 已兑** |
 | 3 | **查询侧根词约束**（子词索引假阳性防护） | code_search | 召回不变、假阳性下降 | 0.2 轮 | 纯算法 | ✅ **S101 已兑** |
-| 4 | **内容寻址增量缓存**（salsa 思想） | scan/search 全域 | 重复调用延迟降一个数量级（增量分析文献 1.3–68×） | 1 轮 | 零依赖可行 | **P1** |
+| 4 | **内容寻址增量缓存**（salsa 思想） | scan/search 全域 | 重复调用延迟降一个数量级（增量分析文献 1.3–68×） | 1 轮 | 零依赖可行 | ✅ **S103 已兑** |
 | 5 | **测试影响分析**（Ekstazi 文件指纹 RTS） | ide_test | 测试时间 −32%~54%（Ekstazi 实测） | 0.5–1 轮 | 零依赖可行 | **P1** |
 | 6 | **切片式上下文包**（ARISE/SliceMate 思路） | code_context 系 | 上下文 token −23%~54%（SWE-Pruner 实测） | 1–2 轮 | 零依赖可行（近似切片） | **P1** |
 | 7 | **栈图式名字解析**（stack graphs） | dep_graph / ide_impact / 调用图 | 不依赖 LSP 的语义级定义/引用（GitHub 生产级方案） | 2 轮 | 零依赖可行（简化版） | **P2** |
@@ -81,16 +81,22 @@ bigram，`rust/src/search.rs:194`）、符号级 rerank 与指纹缓存（S12/S1
   `parse_json` 仍中 `parseJson`（跨风格保留）；`auth_gate_sweep` 仍中
   `AUTH_GATE_SWEEP_MARKER`（前缀保留）。rust 新增 4 测。
 
-### 4. 内容寻址增量缓存：别每次重扫（P1）
+### 4. 内容寻址增量缓存：别每次重扫（✅ S103 已兑）
 - **原理**：salsa/rust-analyzer 的增量计算（输入版本 → 记忆化查询 → 只重算受影响
   部分）；学术侧 [ECOOP 2025 增量静态分析](https://team.inria.fr/antique/reusing-caches-and-invariants-for-efficient-and-sound-incremental-static-analysis/)
   实测中位加速 **1.3–68×**；工业侧 Coverity+Bazel 把 12 小时降到 22 分钟。
 - **本仓现状**：`ide_build` 有 8 条指纹缓存（先例）；scan/search 每次全量重扫
   （S83 因 exe 短命而退役 `_SCAN_CACHE`——**现在的问题不是 exe 短命，而是结果没落盘**）。
-- **落地**：进程内 LRU + 磁盘内容寻址缓存（key = 文件指纹集合 + 工具 + 参数），
-  配反向索引做失效；跨进程复用（`%TEMP%` 或仓库 `.urx-cache/`，沙盒内）。
-  验收：重复调用延迟对照 + 缓存命中率打印；**默认开、可关**。
-- **风险**：缓存失效正确性——用文件 mtime+size+sha256 摘要，宁可多失效。
+- **落地（S103 实装）**：`tools/cache.py` 进程内内容寻址缓存 + `registry.call`
+  接线——键 = 工具+规范化参数+**cursor**+输入指纹；指纹 = 代码扩展名文件的
+  (relpath, size, mtime_ns) + **≤256KB 文件内容哈希**（Windows 时钟粒度 ~15ms，
+  同尺寸快速改写会假命中——测试实锤后加的内容哈希）；白名单只含 10 个纯读工具；
+  `__no_cache`/环境变量旁路；越界调用不入缓存；LRU 128 条。
+  实测：bug_scan 48→3.7ms、ast_scan 45→3.7ms（**约 12×**）；整仓 repo_map 命中
+  收益较小（~1.8×，指纹要读全仓小文件）。边界如实入文档：大文件只按 size+mtime、
+  >8MB 哈希预算或 >2 万文件不缓存、进程内不跨重启。
+  全量测试实锤的坑：cursor 是传输层参数（算键前已被剥除）→ 第 2 页会命中第 1 页
+  缓存，已把 cursor 纳入键并加回归测试。
 
 ### 5. 测试影响分析：只跑被改到的测试（P1）
 - **原理**：[Ekstazi（ISSTA 2015）](https://www.cs.umd.edu/~mwh/papers/ekstazi.pdf)

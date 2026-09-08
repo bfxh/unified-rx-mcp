@@ -17,6 +17,10 @@
   exit 2 → ok:false "query 必填"）；**code_semantic 空 query 仍合法**
   （search 返回 total=0、related 返回模糊锚点——S31 契约保留）
 - engine.py BM25 降级路径的结果形状不变（file/line/score/snippet）
+- **结果缓存（S103）**：code_search/code_semantic/repo_map 的结果进入进程内
+  内容寻址缓存（键含输入指纹与 cursor；文件变更即失效；`__no_cache: true` 旁路）。
+  实测 bug_scan 48→3.7ms、ast_scan 45→3.7ms（约 12×）；整仓 repo_map 因指纹
+  本身要读全仓小文件，命中收益较小（~1.8×）——边界如实写在 tools/cache.py。
 - **契约变化（S88）**：code_search/code_semantic 的 root（含默认 cwd）先过
   沙盒钳制——越界返回 `{"error": "路径越界（沙盒外）：…"}`（S73 纪律补全）
 - **契约变化（S101）**：①**查询资格门**——文档整词必须包含某个"查询根词"

@@ -333,6 +333,7 @@ def call(name, args):
         return {"ok": False, "error": "PermissionError: 写/执行操作需要授权：参数加 __authorized: true 确认后重试"}
     a.pop("cursor", None)  # 传输层分页参数，不是工具签名的一部分
     cursor_arg = (args or {}).get("cursor")  # 分页起点先取出（a 已剥除）
+    no_cache = bool(a.pop("__no_cache", False))   # S103：传输层缓存旁路
     # S61：__authorized 不是工具签名一部分时剥掉——授权确认是传输层语义，
     # 调用方可以放心对任意工具统一附带，不撑爆 handler 签名
     if "__authorized" in a and "__authorized" not in entry.get("params", frozenset()):
@@ -352,6 +353,20 @@ def call(name, args):
     if verr:
         _record_stats(name, 0.0)
         return {"ok": False, "error": verr}
+    # S103 内容寻址缓存：门禁之后、执行之前查；只对纯读白名单工具生效。
+    # 命中即返回（结果与冷跑逐字节一致，见 tools/cache.py 契约）
+    ck = None
+    if not no_cache:
+        try:
+            from tools import cache as _cache
+            ck = _cache.cache_key(name, a, cursor_arg)
+            if ck:
+                hit = _cache.get(ck)
+                if hit is not None:
+                    _record_stats(name, 0.0)
+                    return hit
+        except Exception:
+            ck = None          # 缓存自身绝不拖垮调用
     t0 = time.time()
     try:
         result = entry["handler"](**a)
@@ -370,8 +385,15 @@ def call(name, args):
             _record_stats(name, (time.time() - t0) * 1000)
             return {"ok": False, "error": str(msg), "result": rest}
         result = _clamp(result, {"cursor": cursor_arg})
+        out = {"ok": True, "result": result}
+        if ck:
+            try:
+                from tools import cache as _cache
+                _cache.put(ck, out)
+            except Exception:
+                pass           # 缓存写入失败不影响返回
         _record_stats(name, (time.time() - t0) * 1000)
-        return {"ok": True, "result": result}
+        return out
     except TypeError as e:
         _record_stats(name, (time.time() - t0) * 1000)
         return {"ok": False, "error": f"参数错误: {e}"}
