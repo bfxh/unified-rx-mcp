@@ -300,9 +300,9 @@
   | 工具 | 判型 | 依据 |
   |---|---|---|
   | ide_outline / ide_read_symbol | **可迁（S92 首靶）** | 纯 AST 文本计算，零 LSP（复用 scan._symbol_spans——pyast.rs 的 Rust 对位现成）；S66 设计初衷即"高频动作不付 LSP 成本" |
-  | locate_edit | 可迁 | 全库模糊定位+引用计数，纯文本遍历（与 rx-scan 遍历基建同构） |
-  | ide_rename | 可迁 | 全库文本引用统计（L3 只建议不落盘），与 locate_edit 同构 |
-  | code_context | 可迁（薄） | 行窗口读取，纯 IO+切行；单独迁收益小，随定位批一起 |
+  | locate_edit | **可迁（S93 已落）** | 全库模糊定位+引用计数，纯文本遍历（与 rx-scan 遍历基建同构） |
+  | ide_rename | **可迁（S93 已落）** | 全库文本引用统计（L3 只建议不落盘），与 locate_edit 同构 |
+  | code_context | **可迁（S93 已落）** | 行窗口读取，纯 IO+切行；单独迁收益小，随定位批一起 |
   | ide_health_trend | 可迁（低优） | JSONL 历史聚合纯计算；低频，缓 |
   | ide_lsp | 结构性留 Python | 真 LSP 客户端（会话生命周期/UTF-16 列/泵——S17 单点接开源决策） |
   | ide_impact | 结构性留 Python | LSP references 聚合，依赖 ide_lsp 会话 |
@@ -314,8 +314,8 @@
   | ide_edit_multi / ide_batch_edit | 结构性留 Python（写面） | 落盘写面+LSP 写前验证——"写面最后"纪律 + 授权门在 registry |
   | ide_auto_report | 结构性留 Python | autopilot 编排触发器（doctor 全量+VS Code+去重线程，S69） |
 
-  结论：可迁 5+1 件（S92=ide_read 双件；随后 locate_edit/ide_rename/code_context
-  一轮），结构性留 13 件。ide 域与 attack 域同判：**编排面是职责，不是债务**。
+  结论：可迁 5+1 件（S92=ide_read 双件、S93=定位三件均已落；余 ide_health_trend
+  低优缓），结构性留 13 件。ide 域与 attack 域同判：**编排面是职责，不是债务**。
 - **ide_read 双件原生化（S92 已落）**：ide_outline / ide_read_symbol 整体转调
   新 exe rx-ide（rust/src/ide.rs）——_symbol_spans 的四语言行级正则零依赖手写复刻
   （\w=unicode alnum+_、\s=is_whitespace、贪婪可选组先试与正则回溯同序），
@@ -326,6 +326,18 @@
   "path 必填" 与 fs 同源）；S92 对照实验 43 场景 masked 全等
   （CRLF/孤立 CR/无尾换行/unicode 标识符/tab 缩进/全怪癖/沙盒三包络）。
   scan._symbol_spans 本体保留（bug_locate/code_context 等仍消费）。
+- **ide 定位三件原生化（S93 已落）**：locate_edit / ide_rename / code_context
+  并入 rx-ide（rust/src/ide.rs 追加段）——遍历（os.walk 3.14 junction 语义：
+  junction 下钻、真 symlink 目录不重入、悬空静默剪；13 跳过目录；非代码文件
+  不占 max_files 额度）、忽略大小写命中与 limit*3 双层停机（references_in_scan
+  含触发停机文件）、RAW split 保留 \r 与尾幻影行、radius 钳制（0→30、5-200）、
+  负 cursor 的负 end Python 切片、10MB getsize 门在沙盒 resolve 之前且走裸
+  路径（沙盒外文件落"文件不可读"旧漏斗）、空符号 count("")=len+1 与 200 文件
+  帽、locate/rename 解析类失败回落工具级 {"error": ...}（exit 0，与旧 Python
+  同包络；与 S92 的 exit 2 ValueError 路径区分）全部 exe 侧等价复刻。
+  S93 对照实验 51 场景 masked 全等（含 junction/悬空/CPython errors=replace ≡
+  Rust from_utf8_lossy 逐字节 FFFD 计数）。ide_edit_multi / ide_batch_edit
+  写面留 Python（判型在案）。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。

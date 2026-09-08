@@ -53,7 +53,7 @@ fn lang_of_ext(ext: &str) -> &'static str {
 
 /// os.path.splitext 等价：取最后一段路径分隔符之后的最后一个 '.'（点开头的
 /// 文件名视为无扩展名）。Python 版对完整路径调用——分隔符后的点才算数。
-fn splitext(name: &str) -> &str {
+pub(crate) fn splitext(name: &str) -> &str {
     let start = name.rfind(['/', '\\']).map(|i| i + 1).unwrap_or(0);
     let b = name.as_bytes();
     let mut dot = None;
@@ -133,7 +133,7 @@ fn walk_dir(dir: &Path, st: &mut Walk) {
     }
 }
 
-fn join_name(dir: &Path, name: &str) -> String {
+pub(crate) fn join_name(dir: &Path, name: &str) -> String {
     let mut s = dir.to_string_lossy().into_owned();
     if !s.ends_with('\\') && !s.ends_with('/') {
         s.push('\\');

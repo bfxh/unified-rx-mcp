@@ -4,6 +4,18 @@
   S55 语法门（py 结果不可编译整批拒不落盘）；S55 `validate: true` 写前 LSP
   验证（error 拒写）；S60 BOM 文件匹配修复（\ufeff 剥离还原）；S61
   `fuzzy: true` 空白容忍查找；>10MB 拒编辑（防截断静默丢内容）
+- **locate_edit / code_context / ide_rename**（S93 原生化）：定位三件转调
+  rx-ide.exe（唯一实现在 rust/src/ide.rs），S93 对照实验 51 场景 masked 全等。
+  locate_edit：全库模糊定位——忽略大小写命中、limit*3 双层停机、
+  references_in_scan 区分大小写（含触发停机文件）、默认 max_files=100 /
+  limit=10、10 扩展名判型（非代码不占额度）、13 跳过目录、snippet=前 1 行+
+  当前行+后 3 行；code_context：光标行窗口——radius 0=缺省 30、钳 5-200、
+  cursor 0=头窗、RAW split 保留 \r 与尾幻影行、负 cursor 出负 end（Python
+  负切片）、>10MB 拒读（getsize 门在沙盒 resolve 之前——沙盒外文件报
+  "文件不可读"）；ide_rename：只出预案不落盘——固定 200 文件帽、空符号
+  count("")=len+1 怪癖、note 提示确认后用 fs_write 应用。遍历 junction
+  下钻/悬空静默剪（os.walk 3.14 口径）；定位三件的解析类失败（越界/非目录/
+  path 必填/query 为空）走工具级 {"error": ...} 包络
 - **ide_build**（执行类需授权）：按构建标记路由 Cargo.toml→cargo check/test/clippy（lint）、
   go.mod→go build、.java→javac、.c/.cpp→gcc/g++ -fsyntax-only、.py→compileall。
   诊断缓存：源指纹失效判定（S34）。向上找最近构建根

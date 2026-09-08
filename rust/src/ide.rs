@@ -532,3 +532,310 @@ pub fn read_symbol(
         ("content".into(), Value::Str(content)),
     ]))
 }
+
+// ---------- S93：ide_edit 三件原生化（locate_edit / code_context / ide_rename）----------
+//
+// 语义逐条对齐 tools/ide_edit.py + tools/ide_common.py：
+// - _iter_files：os.walk 两段式（先本层文件后子目录）、无显式排序（scandir
+//   枚举序即 NTFS B-tree 序）、13 个跳过目录、max_files 只计代码文件；
+// - os.walk 3.14 junction 语义：junction islink()=False → 照常下钻（Rust 侧
+//   用 reparse tag 判别，见 appclone::is_junction）；真目录符号链接
+//   followlinks=False → 剪除不下钻；悬空联接 read_dir 失败静默剪；
+// - _read：resolve → isfile → utf-8 errors=replace（from_utf8_lossy 的
+//   受限续字节 DFA 与 CPython 逐字节同判，S93 oracle badutf8b/c 钉死）；
+// - locate_edit：query.strip()（Python str.strip 等价，含 \x1c-\x1f）、
+//   命中 = 精确 ∨ 忽略大小写（A∨(B∧¬A) ⟺ A∨B）、snippet 窗口
+//   [idx-2, idx+3)（1 前导 + 当前行 + 2 后随）、limit*3 双层停机、
+//   references_in_scan 对已读全量源码做区分大小写计数（含触发停机的文件）；
+// - code_context：getsize 门在 resolve 之前（裸路径，OSError 放行）——
+//   沙盒外文件报"文件不可读"而非越界（旧实现的漏斗，原样保留）；
+//   split("\n") RAW 不剥 \r；radius = max(5, min(x or 30, 200))；
+//   cursor 0 → 头窗 min(80, 行数)；end 可为负 → Python 负切片语义；
+// - ide_rename：固定 200 上限、空符号匹配一切文件（count("")=len+1 怪癖
+//   原样保留）、plan=null（include_plan=false）。
+
+const IDE_SKIP_DIRS: [&str; 13] = [
+    ".git", "node_modules", "target", "__pycache__", "dist", "build",
+    ".unified-rx-index", ".codegraph", "backups", "assets", "data", "models",
+    "docs",
+];
+
+/// tools/ide_common.py::_MAX_EDIT_BYTES
+const MAX_EDIT_BYTES: u64 = 10 * 1024 * 1024;
+
+/// tools/ide_common.py::_lang_of：10 扩展名判型表（与 scan.rs 的 21 表不同源，
+/// 缺省 "text"——text 不进遍历、不占 max_files 额度）。
+fn ide_lang_of(path: &str) -> &'static str {
+    let ext = crate::scan::splitext(path).to_lowercase();
+    let ext = ext.strip_prefix('.').unwrap_or(&ext);
+    match ext {
+        "py" => "python",
+        "rs" => "rust",
+        "go" => "go",
+        "ts" | "tsx" => "typescript",
+        "js" | "jsx" => "javascript",
+        "gd" => "gdscript",
+        "cs" => "csharp",
+        "dart" => "dart",
+        _ => "text",
+    }
+}
+
+/// Python str.strip() 等价：is_whitespace 之外还要剥 \x1c-\x1f（文件分隔符）。
+fn py_strip(s: &str) -> &str {
+    s.trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
+}
+
+/// Python 单侧切片下标钳制：负数加 len，越界收口。
+fn py_slice_i(v: i64, len: i64) -> usize {
+    let mut i = v;
+    if i < 0 {
+        i += len;
+        if i < 0 {
+            i = 0;
+        }
+    }
+    if i > len {
+        i = len;
+    }
+    i.max(0) as usize
+}
+
+/// tools/ide_common.py::_read：resolve → isfile → 全文解码（失败 None）。
+fn ide_read(cfg: &SandboxCfg, path: &str) -> Option<String> {
+    if path.is_empty() {
+        return None; // _resolve("path 必填") → ValueError → None
+    }
+    let p = cfg.resolve(Path::new(path)).ok()?;
+    if !p.is_file() {
+        return None;
+    }
+    crate::scan::read_text(&p)
+}
+
+struct IdeWalk {
+    out: Vec<String>,
+    count: usize,
+    max: i64,
+}
+
+fn ide_push_file(dir: &Path, name: &str, st: &mut IdeWalk) {
+    let fp = crate::scan::join_name(dir, name);
+    if ide_lang_of(&fp) == "text" {
+        return; // 非代码：不占额度
+    }
+    if st.count as i64 >= st.max {
+        return;
+    }
+    st.count += 1;
+    st.out.push(fp);
+}
+
+/// os.walk 两段式等价：本层文件先尽、子目录后钻；枚举序即产出序（无排序）。
+fn ide_walk(dir: &Path, st: &mut IdeWalk) {
+    let rd = match std::fs::read_dir(dir) {
+        Ok(r) => r,
+        Err(_) => return, // 悬空 junction / 不可读目录：静默剪
+    };
+    let mut files: Vec<String> = Vec::new();
+    // (路径, 名字, 是否下钻)：junction 下钻；真目录符号链接不钻
+    let mut dirs: Vec<(std::path::PathBuf, String, bool)> = Vec::new();
+    for e in rd.filter_map(|e| e.ok()) {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let p = e.path();
+        let Ok(ft) = e.file_type() else { continue };
+        if ft.is_dir() {
+            dirs.push((p, name, true));
+        } else if ft.is_symlink() {
+            if crate::appclone::is_junction(&p) {
+                dirs.push((p, name, true));
+            } else {
+                match std::fs::metadata(&p) {
+                    Ok(m) if m.is_dir() => dirs.push((p, name, false)),
+                    _ => files.push(name), // 文件符号链接 / 悬空链接 → 文件侧
+                }
+            }
+        } else {
+            files.push(name);
+        }
+    }
+    for name in &files {
+        ide_push_file(dir, name, st);
+    }
+    for (p, name, descend) in &dirs {
+        if IDE_SKIP_DIRS.contains(&name.as_str()) {
+            continue;
+        }
+        if st.count as i64 >= st.max {
+            return;
+        }
+        if *descend {
+            ide_walk(p, st);
+        }
+    }
+}
+
+/// _iter_files 等价（调用方已 isdir 过，root 恒为目录）。
+fn iter_files_ide(root: &Path, max_files: i64) -> Vec<String> {
+    let mut st = IdeWalk { out: Vec::new(), count: 0, max: max_files };
+    ide_walk(root, &mut st);
+    st.out
+}
+
+/// locate_edit 原生化。沙盒/解析错误按旧实现回落为工具级
+/// {"error": ...}（exit 0），不走 S92 的 exit-2 ValueError 路。
+pub fn locate_edit(
+    cfg: &SandboxCfg,
+    path_arg: &str,
+    query: &str,
+    max_files: i64,
+    limit: i64,
+) -> Result<Value, String> {
+    if path_arg.is_empty() {
+        return Ok(err_obj("path 必填"));
+    }
+    let root = match cfg.resolve(Path::new(path_arg)) {
+        Ok(p) => p,
+        Err(e) => return Ok(err_obj(&e)),
+    };
+    if !root.is_dir() {
+        return Ok(err_obj(&format!("不是目录: {}", root.display())));
+    }
+    let q = py_strip(query);
+    if q.is_empty() {
+        return Ok(err_obj("query 为空——请提供符号或关键词"));
+    }
+    let stop = limit.saturating_mul(3);
+    let mut hits: Vec<Value> = Vec::new();
+    let mut all_sources: Vec<(String, String)> = Vec::new();
+    for fp in iter_files_ide(&root, max_files) {
+        let Some(src) = ide_read(cfg, &fp) else { continue };
+        all_sources.push((fp.clone(), src.clone()));
+        let lines: Vec<&str> = src.split('\n').collect();
+        let ql = q.to_lowercase();
+        for (i, line) in lines.iter().enumerate() {
+            // 旧实现：query in line or (query.lower() in line.lower()
+            //                        and query not in line) —— 化简为 A ∨ B
+            if line.contains(q) || line.to_lowercase().contains(&ql) {
+                let lo = i.saturating_sub(1);
+                let hi = (i + 4).min(lines.len());
+                hits.push(Value::Obj(vec![
+                    ("file".into(), Value::Str(fp.clone())),
+                    ("line".into(), Value::Int(i as i128 + 1)),
+                    ("snippet".into(), Value::Str(lines[lo..hi].join("\n"))),
+                ]));
+                if hits.len() as i64 >= stop {
+                    break;
+                }
+            }
+        }
+        if hits.len() as i64 >= stop {
+            break;
+        }
+    }
+    // 影响面事实：区分大小写全量计数（含触发停机的文件、不含未读文件）
+    let ref_count: i128 = all_sources
+        .iter()
+        .map(|(_, s)| s.matches(q).count() as i128)
+        .sum();
+    let take = py_slice_i(limit, hits.len() as i64);
+    Ok(Value::Obj(vec![
+        ("query".into(), Value::Str(q.into())),
+        ("total".into(), Value::Int(hits.len() as i128)),
+        ("references_in_scan".into(), Value::Int(ref_count)),
+        ("hits".into(), Value::Arr(hits.into_iter().take(take).collect())),
+    ]))
+}
+
+/// code_context 原生化。getsize 门在沙盒 resolve 之前（裸路径裸调用，
+/// OSError 放行）——沙盒外文件走到 _read 才失败，报"文件不可读"。
+pub fn code_context(
+    cfg: &SandboxCfg,
+    path: &str,
+    cursor_line: i64,
+    radius: i64,
+) -> Result<Value, String> {
+    if let Ok(m) = std::fs::metadata(path) {
+        if m.len() > MAX_EDIT_BYTES {
+            return Ok(err_obj("文件超过 10MB——拒绝读取"));
+        }
+    }
+    let Some(src) = ide_read(cfg, path) else {
+        return Ok(err_obj(&format!("文件不可读: {path}")));
+    };
+    let lines: Vec<&str> = src.split('\n').collect();
+    let total = lines.len() as i64;
+    let r = if radius == 0 { 30 } else { radius };
+    let r = r.max(5).min(200);
+    let (start, end) = if cursor_line == 0 {
+        (0, total.min(80))
+    } else {
+        ((cursor_line - 1 - r).max(0), (cursor_line - 1 + r).min(total))
+    };
+    let s = py_slice_i(start, total);
+    let e = py_slice_i(end, total);
+    Ok(Value::Obj(vec![
+        ("file".into(), Value::Str(path.into())),
+        ("lang".into(), Value::Str(ide_lang_of(path).into())),
+        ("total_lines".into(), Value::Int(total as i128)),
+        ("start".into(), Value::Int(start as i128 + 1)),
+        ("end".into(), Value::Int(end as i128)),
+        ("content".into(), Value::Str(lines[s..e].join("\n"))),
+    ]))
+}
+
+/// ide_rename 原生化。L3 只建议不落盘；空符号匹配一切文件（count("")=len+1）
+/// 是旧实现的怪癖，原样保留。
+pub fn ide_rename(
+    cfg: &SandboxCfg,
+    root_arg: &str,
+    symbol: &str,
+    new_name: &str,
+    include_plan: bool,
+) -> Result<Value, String> {
+    if root_arg.is_empty() {
+        return Ok(err_obj("path 必填"));
+    }
+    let root = match cfg.resolve(Path::new(root_arg)) {
+        Ok(p) => p,
+        Err(e) => return Ok(err_obj(&e)),
+    };
+    if !root.is_dir() {
+        return Ok(err_obj(&format!("不是目录: {}", root.display())));
+    }
+    let mut plan: Vec<(String, i128)> = Vec::new();
+    for fp in iter_files_ide(&root, 200) {
+        let Some(src) = ide_read(cfg, &fp) else { continue };
+        if src.contains(symbol) {
+            plan.push((fp, src.matches(symbol).count() as i128));
+        }
+    }
+    let total_occ: i128 = plan.iter().map(|(_, n)| *n).sum();
+    Ok(Value::Obj(vec![
+        ("symbol".into(), Value::Str(symbol.into())),
+        ("new_name".into(), Value::Str(new_name.into())),
+        ("files_affected".into(), Value::Int(plan.len() as i128)),
+        ("total_occurrences".into(), Value::Int(total_occ)),
+        (
+            "plan".into(),
+            if include_plan {
+                Value::Arr(
+                    plan.into_iter()
+                        .map(|(f, n)| {
+                            Value::Obj(vec![
+                                ("file".into(), Value::Str(f)),
+                                ("occurrences".into(), Value::Int(n)),
+                            ])
+                        })
+                        .collect(),
+                )
+            } else {
+                Value::Null
+            },
+        ),
+        (
+            "note".into(),
+            Value::Str("L3 只建议不落盘；确认后可用 fs_write 应用".into()),
+        ),
+    ]))
+}
