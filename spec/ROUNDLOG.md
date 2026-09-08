@@ -354,3 +354,13 @@
 - 明确不做/缓议：稠密嵌入内置（红线）、微调本地模型（不换模型）、全量引入 CodeQL/Semgrep（重且与诚实口径冲突）、"扫了=没有"承诺（红线）、动宿主压缩策略。
 - 交付：spec/ADVANCES.md（含来源链接 20 条）；PANORAMA 方向 #10 立账。零代码改动（文档轮），绿线维持 S99 出货状态（607+2s / 609 / cargo 121）。
 - 提交：本次
+
+## S101 · ADVANCES P0 两项落地：查询资格门（rx-search）+ RRF 混合检索
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：用户「那就开搞」——兑现 S100 雷达的 P0：①查询侧根词约束（假阳性防护）；②RRF 混合检索（BM25 行级 ⊕ rx-semantic 定义级）。两项都零依赖、不动红线。
+- 改前/改后对照（oracle，先取证再动手）：构造 noise.py（"# HTTPS handshake failed for Connection #42"）+ real.py（`class HTTPSConnection`）→ 改前查询 `HTTPSConnection` **2 命中（噪声入选，score 0.725）**；snake.py/camel.py 验证 `parse_json` 查询必须保留 camel 命中（改前 2 命中）。改后：`HTTPSConnection` → 1 命中（仅 real.py）；`parse_json` → 2 命中（跨风格保留）。
+- ①查询资格门（rust/src/search.rs）：新增 `scan()` 返回 (tokens, whole_words)、`word_runs()`、`query_roots()`——标识符类查询词取整词 + 去分隔符连写变体（`parse_json`→{parse_json, parsejson}；`HTTPSConnection`→{httpsconnection}），文档**整词包含**任一根词才入选（子串判定保住前缀匹配 `auth_gate_sweep`→`AUTH_GATE_SWEEP_MARKER` 与跨风格召回）；纯 CJK 查询无根词 → 门不生效（原行为）。索引侧拆子词不变（查 `mapping` 仍中 `FooMapping`）——落地口径即 OpenObserve PR#12324 的"索引拆、查询不因拆词放宽"。rust 新增 4 测（噪声排除/跨风格/前缀/纯 CJK）。
+- ②RRF 混合检索（tools/search.py）：`code_search(hybrid=true)`——两路各取 max(k*3,20) 候选 → (file,line) 去重 → `Σ 1/(60+rank)` 融合 → 取 k；输出 hits 带 `rrf`/`bm25_rank`/`semantic_rank`/`symbol`/`kind`（定义级字段优先），顶层 `hybrid`/`rrf_k`/`paths`；语义路不可用 → **显式降级**（hybrid=false + degraded 原因 + BM25 结果完整）；默认 false 输出与旧版同形（schema 加 hybrid 属性，s80 schema 契约测试同步）。实测 tools 域 `sandbox resolve`：融合把语义路 #1/BM25 #3 的 `_resolve_in_sandbox` 顶到第一，压过只被 BM25 命中的注释行。
+- 交付：rust/src/search.rs（门）+ rust/tests/search_test.rs +4 测；tools/search.py（`_RRF_K`/`_rrf_fuse`/hybrid 分支）+ tests/test_s101_search_hybrid.py 4 测；tests/test_s80_search_rust.py schema 契约同步；skills/search.md 契约行；ADVANCES 第 2/3 项标已兑（并修正第 2 项"语义路=外部引擎"的误述——实为 rx-semantic.exe 仓内实现）；PANORAMA v2.24.0；版本锁步 2.24.0 + exe 重建。
+- 验证：s101 4 + s80 10 + s81 11 = 25/25；3.14 全量 611 passed + 2 skipped；3.11 全量 613 passed；cargo 125 绿零告警（121 + 门 4）。
+- 提交：本次

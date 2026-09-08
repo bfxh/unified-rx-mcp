@@ -19,3 +19,15 @@
 - engine.py BM25 降级路径的结果形状不变（file/line/score/snippet）
 - **契约变化（S88）**：code_search/code_semantic 的 root（含默认 cwd）先过
   沙盒钳制——越界返回 `{"error": "路径越界（沙盒外）：…"}`（S73 纪律补全）
+- **契约变化（S101）**：①**查询资格门**——文档整词必须包含某个"查询根词"
+  （标识符类词取整词 + 去分隔符连写变体；普通小写词取整词），只被查询标识符
+  的**子词**命中的文档不再入选（查 `HTTPSConnection` 不再带出 "HTTPS handshake
+  failed for Connection" 的文档；`parse_json` 仍能命中 `parseJson`、前缀
+  `auth_gate_sweep` 仍能命中 `AUTH_GATE_SWEEP_MARKER`；纯 CJK 查询门不生效）。
+  索引侧仍拆子词（查 `mapping` 能中 `FooMapping`）——"索引拆、查询不因拆词放宽"。
+  ②`code_search(hybrid=true)`：与 code_semantic 定义级结果做 **RRF 融合**
+  （k=60，免归一化），hits 增 `rrf`/`bm25_rank`/`semantic_rank`/`symbol`/`kind`，
+  顶层增 `hybrid`/`rrf_k`/`paths`；语义路不可用时**显式降级**（hybrid=false +
+  degraded 原因 + BM25 结果完整），默认 false 时输出与旧版同形。
+  实测（tools 域，`sandbox resolve`）：融合把语义路 #1、BM25 #3 的
+  `_resolve_in_sandbox` 顶到第一，压过只被 BM25 命中的注释行。

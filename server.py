@@ -27,7 +27,7 @@ import tools  # noqa: F401
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.23.0"
+SERVER_VERSION = "2.24.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -201,6 +201,9 @@ def _selftest_version_tag(base_dir=None):
 _SKILL_TOOL_PREFIXES = ("fs_", "ide_", "code_", "bug_", "app_", "game_", "ops_",
                         "rust_", "engine_", "guard_", "learn_", "attack_", "meta_",
                         "std_", "ui_", "ast_", "semantic_", "project_")
+# S101：文档里合法出现、但形态像工具名的**非工具词**（输出字段名等）。
+# 与 S91 的检测器修正同类——避免把契约字段误报成退役工具名。
+_SKILL_TOOL_ALLOW = frozenset({"semantic_rank"})
 
 
 def _selftest_skills_docs(base_dir=None):
@@ -230,7 +233,7 @@ def _selftest_skills_docs(base_dir=None):
             dead.append(f)
         stale += [t for t in sorted(tokens)
                   if t.startswith(_SKILL_TOOL_PREFIXES) and t not in live
-                  and t not in modules]
+                  and t not in modules and t not in _SKILL_TOOL_ALLOW]
     return stale, dead
 
 

@@ -79,27 +79,93 @@ def _rx_search_call(root, query, k):
     return out
 
 
-@tool("code_search", "语义代码检索（BM25 符号加权：中文/英文/标识符 → 文件:行）", "search",
+@tool("code_search", "语义代码检索（BM25 符号加权：中文/英文/标识符 → 文件:行；"
+      "hybrid=true 时与 code_semantic 定义级结果做 RRF 融合）", "search",
       {"type": "object",
        "properties": {
            "query": {"type": "string", "description": "自然语言/中文/符号查询"},
            "root": {"type": "string", "description": "代码库根目录（默认当前）"},
            "k": {"type": "integer", "description": "返回条数（默认 10）"},
+           "hybrid": {"type": "boolean",
+                      "description": "RRF 融合语义路（code_semantic 定义级命中）——两路互补，默认 false"},
        },
        "required": ["query"]})
-def code_search(query, root=None, k=10):
+def code_search(query, root=None, k=10, hybrid=False):
     try:
         root = _fs_resolve(root or os.getcwd())   # S88：默认 cwd 同样钳制
     except ValueError as e:
         return {"error": str(e)}
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
-    return _rx_search_call(root, query, k)
+    if not hybrid:
+        return _rx_search_call(root, query, k)
+    # S101：RRF 融合——两路各取更深候选（k*3 且 ≥20），按 (file,line) 去重后融合
+    k_inner = max(int(k) * 3, 20)
+    bm25 = _rx_search_call(root, query, k_inner)
+    try:
+        sem = _rx_semantic_call(root, query, "search", k_inner)
+    except ValueError as e:            # exe 缺失等：显式降级，不静默
+        out = dict(bm25)
+        out["hybrid"] = False
+        out["degraded"] = f"语义路不可用，仅 BM25：{e}"
+        return out
+    if not isinstance(sem, dict) or sem.get("error"):
+        out = dict(bm25)
+        out["hybrid"] = False
+        out["degraded"] = ("语义路不可用，仅 BM25："
+                           + str((sem or {}).get("error") if isinstance(sem, dict) else sem))
+        return out
+    return _rrf_fuse(query, bm25, sem, int(k))
 
 
 
 
 _SEM_EXE_NAME = "rx-semantic.exe"
+
+# S101：RRF（Reciprocal Rank Fusion）常数——业界默认 k=60，免分数归一化
+_RRF_K = 60
+
+
+def _rrf_fuse(query, bm25, sem, k):
+    """两路 RRF 融合：score(doc) = Σ 1/(60 + rank)，doc 身份 = (file, line)。
+
+    字段合并：语义路的 symbol/kind 是定义级信息，优先保留；snippet 两路同形。
+    输出保留两路 rank 供解释（bm25_rank / semantic_rank，未入该路为 null）。
+    """
+    ents = {}
+    order = []
+    for path_name, res in (("bm25", bm25), ("semantic", sem)):
+        for rank, h in enumerate(res.get("hits") or [], start=1):
+            key = (h.get("file"), h.get("line"))
+            if key not in ents:
+                ents[key] = {"rrf": 0.0, "bm25_rank": None, "semantic_rank": None,
+                             "hit": {"file": h.get("file"), "line": h.get("line")}}
+                order.append(key)
+            ent = ents[key]
+            ent["rrf"] += 1.0 / (_RRF_K + rank)
+            ent[f"{path_name}_rank"] = rank
+            if path_name == "semantic":
+                # 定义级字段优先：symbol/kind 仅语义路有；snippet 语义路是
+                # 定义行，比 BM25 的散行更可读 → 覆盖式写入
+                for f in ("symbol", "kind", "snippet"):
+                    if h.get(f):
+                        ent["hit"][f] = h[f]
+            else:
+                if h.get("snippet") and not ent["hit"].get("snippet"):
+                    ent["hit"]["snippet"] = h["snippet"]
+    ranked = sorted(order, key=lambda key: -ents[key]["rrf"])[:k]
+    hits = []
+    for key in ranked:
+        ent = ents[key]
+        h = dict(ent["hit"])
+        h["rrf"] = round(ent["rrf"], 6)
+        h["bm25_rank"] = ent["bm25_rank"]
+        h["semantic_rank"] = ent["semantic_rank"]
+        hits.append(h)
+    return {"query": query, "hybrid": True, "rrf_k": _RRF_K,
+            "paths": {"bm25": len(bm25.get("hits") or []),
+                      "semantic": len(sem.get("hits") or [])},
+            "total": len(hits), "hits": hits}
 
 
 def _rx_semantic_exe():

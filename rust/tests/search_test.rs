@@ -172,3 +172,42 @@ fn skips_git_dir_and_txt() {
     let res = search::code_search(td.path(), "uniquemarker123", 10);
     assert_eq!(get_i128(&res, "total"), 0, "跳过目录与非收录扩展名都不得命中");
 }
+
+// ---------- S101 查询资格门（索引拆、查询不因拆词放宽） ----------
+
+#[test]
+fn s101_gate_excludes_subtoken_only_docs() {
+    let td = TempDir::new("gate");
+    write_rel(td.path(), "noise.py", "# HTTPS handshake failed for Connection #42\n");
+    write_rel(td.path(), "real.py", "class HTTPSConnection:\n    pass\n");
+    let res = search::code_search(td.path(), "HTTPSConnection", 10);
+    assert_eq!(get_i128(&res, "total"), 1, "只被子词命中的噪声文档必须被门剔除");
+    let hits = get_arr(&res, "hits");
+    assert!(get_str(&hits[0], "file").ends_with("real.py"));
+}
+
+#[test]
+fn s101_gate_keeps_cross_style_match() {
+    let td = TempDir::new("crossstyle");
+    write_rel(td.path(), "snake.py", "def parse_json(s):\n    return s\n");
+    write_rel(td.path(), "camel.py", "def parseJson(s):\n    return s\n");
+    let res = search::code_search(td.path(), "parse_json", 10);
+    assert_eq!(get_i128(&res, "total"), 2,
+               "snake 查询必须仍能命中 camel 标识符（连写变体根词）");
+}
+
+#[test]
+fn s101_gate_keeps_prefix_match() {
+    let td = TempDir::new("prefix");
+    write_rel(td.path(), "m.py", "let m = AUTH_GATE_SWEEP_MARKER;\n");
+    let res = search::code_search(td.path(), "auth_gate_sweep", 10);
+    assert_eq!(get_i128(&res, "total"), 1, "查询标识符是更长标识符前缀时应命中");
+}
+
+#[test]
+fn s101_gate_skipped_for_cjk_only_query() {
+    let td = TempDir::new("cjk");
+    write_rel(td.path(), "a.py", "# 沙盒检查通过\n");
+    let res = search::code_search(td.path(), "沙盒检查", 10);
+    assert_eq!(get_i128(&res, "total"), 1, "纯 CJK 查询无根词，门不生效");
+}
