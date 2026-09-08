@@ -13,14 +13,14 @@
 
 | 域 | 文档 | 工具 | 里子要点 |
 |---|---|---|---|
-| fs | [fs.md](fs.md) | 4 | 沙盒 _fs_resolve，空 roots=全拒 |
+| fs | [fs.md](fs.md) | 4 | 沙盒 _fs_resolve，空 roots=全拒；读面纯 Python（S95） |
 | search | [search.md](search.md) | 2 | BM25 文件级 + tf-idf 符号级，均非嵌入 |
-| scan | [scan.md](scan.md) | 6 | 正则+AST-lite，非编译器语义 |
-| ide | [ide.md](ide.md) | 8 | LSP 仅 2 语言；build/debug/break 走真实工具链 |
-| guard | [guard.md](guard.md) | 2 | 路径真值校验，非语义理解 |
+| scan | [scan.md](scan.md) | 10 | 正则+AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
+| ide | [ide.md](ide.md) | 19 | LSP 仅 2 语言（缺失如实报 + impact 文本降级，S99）；build/debug/break 走真实工具链 |
+| guard | [guard.md](guard.md) | 2 | 路径真值校验，非语义理解；读取过沙盒（S97） |
 | meta | [meta.md](meta.md) | 2 | local_run 需 __authorized |
 | ops | [ops.md](ops.md) | 5 | stats.jsonl 打点 |
-| attack | [attack.md](attack.md) | 3 | 自写对抗，非 hypothesis |
+| attack | [attack.md](attack.md) | 5 | 自写对抗，非 hypothesis |
 | appaudit | [appaudit.md](appaudit.md) | 3 | Electron asar 解包审计 |
 | engine | [engine.md](engine.md) | 2 | 引擎桥接 |
 | game | [game.md](game.md) | 2 | Blender/游戏资产校验 |

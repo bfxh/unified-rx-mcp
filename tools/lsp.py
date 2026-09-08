@@ -36,6 +36,29 @@ _LSP_SERVERS = {
                         or [sys.executable, "-m", "pylsp"]),
     },
 }
+def _module_available(name):
+    """`python -m <name>` 形态的模块可用性（S99：pylsp 未装时 exe=解释器本身
+    会让 which/存在性检查假阳性——detected 必须验到模块层）。"""
+    import importlib.util
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _detect_exe(spec):
+    """服务器可执行探测：命中返回可执行路径，否则 None。"""
+    from shutil import which
+    cmd = spec["cmd"]() or [""]
+    exe = cmd[0]
+    found = which(exe) or (os.path.exists(exe) and exe) or None
+    if not found:
+        return None
+    if len(cmd) >= 3 and cmd[1] == "-m" and not _module_available(cmd[2]):
+        return None
+    return found
+
+
 _IDLE_TTL_S = 600          # 空闲回收
 _INIT_TIMEOUT = 60         # 首次 initialize/index 上限
 _REQ_TIMEOUT = 45
@@ -493,6 +516,59 @@ def _has_local_test(fpath):
     return False
 
 
+def _ident_at(fp, line, col):
+    """文本级兜底的符号来源：取 file:line:col 处的标识符（列优先，列越界取行内
+    首个标识符）。返回 None = 该处没有可用符号。"""
+    try:
+        with open(fp, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.read().split("\n")
+    except OSError:
+        return None
+    if not (0 <= line < len(lines)):
+        return None
+    text = lines[line]
+    spans = [(m.start(), m.end(), m.group(0))
+             for m in re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", text)]
+    if not spans:
+        return None
+    for s, e, w in spans:
+        if s <= col < e:
+            return w
+    return spans[0][2]
+
+
+def _text_impact(real, line, col, lsp_err):
+    """S99：LSP 不可用时的文本级降级——复用 rx-ide 的大小写敏感全文计数
+    （ide_rename 预案），只给每文件命中数不给行号（查位置用 locate_edit）。
+    精度如实标注：含注释/字符串，受 200 文件帽限制。"""
+    sym = _ident_at(real, line, col)
+    if not sym:
+        return {"error": f"LSP 不可用（{lsp_err}）；文本兜底也取不到符号"
+                         f"（{os.path.basename(real)}:{line}:{col} 处无标识符）"}
+    root = _session_root(real)
+    from registry import call as _rx
+    rr = _rx("ide_rename", {"root": root, "symbol": sym, "new_name": sym,
+                            "include_plan": True})
+    if not rr.get("ok"):
+        return {"error": f"LSP 不可用（{lsp_err}）；文本兜底失败: {rr.get('error')}"}
+    res = rr.get("result") or {}
+    files = [{"file": p["file"], "refs": p["occurrences"], "lines": [],
+              "has_test": _has_local_test(p["file"])}
+             for p in (res.get("plan") or [])]
+    untested = [f["file"] for f in files if not f["has_test"]]
+    import builtins
+    import keyword
+    warn = ""
+    if keyword.iskeyword(sym) or hasattr(builtins, sym):
+        warn = "；⚠ 符号是关键字/内建名，命中含大量无关引用，建议指向自定义符号"
+    return {"engine": "text", "total_refs": res.get("total_occurrences"),
+            "files": files, "untested": untested,
+            "symbol": sym, "fallback_reason": f"LSP 不可用：{lsp_err}",
+            "note": "文本级兜底（大小写敏感全文计数，含注释/字符串；不给行号——"
+                    "查具体位置用 locate_edit；受 200 文件帽限制）。"
+                    "has_test 为 python test_<stem>.py 约定代理" + warn}
+
+
 @tool("ide_impact", "影响面分析：符号 → LSP references 按文件聚合 + 每个受影响"
       "文件的测试覆盖标注（python 文件名约定代理）——改前先看会碰哪些裸奔文件",
       "ide",
@@ -505,21 +581,33 @@ def _has_local_test(fpath):
        },
        "required": ["file"]})
 def ide_impact(file, line=0, col=0, include_decl=True):
-    r = ide_lsp("references", file=file, line=line, col=col,
-                include_decl=include_decl)
-    if r.get("error"):
-        return r
-    groups = {}
-    for ref in r.get("references") or []:
-        groups.setdefault(ref["file"], []).append(ref["line"])
-    files = [{"file": f, "refs": len(ls), "lines": ls[:20],
-              "has_test": _has_local_test(f)}
-             for f, ls in sorted(groups.items())]
-    untested = [f["file"] for f in files if not f["has_test"]]
-    return {"engine": r.get("engine"), "total_refs": r.get("total"),
-            "files": files, "untested": untested,
-            "note": "has_test 为 python test_<stem>.py 约定代理；"
-                    "rust 内联 #[cfg(test)] 不适用"}
+    lsp_err = None
+    r = None
+    try:
+        r = ide_lsp("references", file=file, line=line, col=col,
+                    include_decl=include_decl)
+    except Exception as e:                       # S99：会话起不来不再抛穿
+        lsp_err = f"{type(e).__name__}: {e}"
+    if r is not None and not r.get("error"):
+        groups = {}
+        for ref in r.get("references") or []:
+            groups.setdefault(ref["file"], []).append(ref["line"])
+        files = [{"file": f, "refs": len(ls), "lines": ls[:20],
+                  "has_test": _has_local_test(f)}
+                 for f, ls in sorted(groups.items())]
+        untested = [f["file"] for f in files if not f["has_test"]]
+        return {"engine": r.get("engine"), "total_refs": r.get("total"),
+                "files": files, "untested": untested,
+                "note": "has_test 为 python test_<stem>.py 约定代理；"
+                        "rust 内联 #[cfg(test)] 不适用"}
+    if r is not None and r.get("error"):
+        lsp_err = str(r.get("error"))
+    # S99：LSP 不可用 → 文本级降级（沙盒门与 LSP 路径同款）
+    try:
+        real = _resolve_in_sandbox(file)
+    except PermissionError as e:
+        return {"error": str(e)}
+    return _text_impact(real, int(line), int(col), lsp_err)
 
 
 @tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/symbols/diagnostics/rename_plan/rename_apply——apply 落盘需授权", "ide",
@@ -542,14 +630,15 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
     if action == "status":
         out = {}
         for lang, spec in _LSP_SERVERS.items():
-            from shutil import which
-            exe = (spec["cmd"]() or [""])[0]
-            found = which(exe) or (os.path.exists(exe) and exe) or None
-            out[lang] = {"label": spec["label"],
-                         "detected": bool(found),
-                         "exe": found,
-                         "sessions_alive": sum(1 for (l, _), (s,) in _SESSIONS.items()
-                                               if l == lang)}
+            cmd = spec["cmd"]() or [""]
+            found = _detect_exe(spec)
+            entry = {"label": spec["label"], "detected": bool(found),
+                     "exe": found,
+                     "sessions_alive": sum(1 for (l, _), (s,) in _SESSIONS.items()
+                                           if l == lang)}
+            if not found:
+                entry["reason"] = f"{' '.join(cmd)} 不可用（未安装/不在 PATH/模块缺失）"
+            out[lang] = entry
         return {"servers": out,
                 "note": "definition/references 为语义级精确结果（相较文本级 ide 工具）"}
 

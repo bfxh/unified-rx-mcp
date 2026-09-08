@@ -31,11 +31,15 @@
   没写测试=黄灯
 - **ide_lsp**：真 JSON-RPC，仅 rust-analyzer/pylsp；diagnostics 靠 pump 拉推；
   会话根向上找 .git（S60：src/ 与 tests/ 共享一个服务器）；S55 validate_content
-  写前验证；S62 入站帧 64MB 上限
+  写前验证；S62 入站帧 64MB 上限。S99：status 对 `python -m <mod>` 形态**验到
+  模块层**——pylsp 未装时如实 detected=false + reason（旧版 exe=解释器本身，
+  which 检查假阳性，违反"绝不假装支持"）
 - **ide_diagnostics**（S37 统一通道）：LSP+clippy 聚合同形状
   {source,file,line(1-based),severity,message}，修复循环直接消费
 - **ide_impact**（S58）：符号 → LSP references 按文件聚合+测试覆盖标注
-  （python test_<stem>.py 约定代理）——改前先看碰哪些裸奔文件
+  （python test_<stem>.py 约定代理）——改前先看碰哪些裸奔文件。S99：LSP 不可用
+  时自动**文本级降级**（engine="text" + fallback_reason；复用 rx-ide 大小写敏感
+  全文计数，无行号/含注释字符串/200 文件帽，关键字与内建名给 ⚠ 提示）
 - **ide_rename / rename_apply**（S58）：rename_plan 只出预案；rename_apply
   落盘需 `__authorized: true`，UTF-16 列正确、CRLF 保留、逐文件沙盒防逃逸、
   非 file: uri 拒绝
