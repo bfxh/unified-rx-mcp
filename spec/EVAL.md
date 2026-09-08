@@ -176,3 +176,28 @@ wide/strict 均 **1.0**；B 臂 766 条 **0.9295**。分歧全单向：漏判（
 （guard 行号语义比存在性真值更细，非守卫缺陷）。留档
 bench/results/l3/h2_report.json。
 
+## 8. H1-H4 指标台账（S97 归档；数据源在仓、可复算）
+
+四指标定义见 §1/§2。本表只回答三件事：现在测到多少、数据在哪、还差什么。
+复算入口：H1 = bench/results/l3/summary.json（330 份双臂原始答案在
+bench/results/l3/{A,B}/）；H2 = `python bench/h2_guard_eval.py`；
+H3 = `python bench/h3_score.py`；H4 = bench/results/l3/h4_lessons.jsonl + ROUNDLOG S20。
+
+| 指标 | 最新实测 | 数据/入口 | 成本 | 缺口 |
+|---|---|---|---|---|
+| H1 任务增益 | Δsolved **+6.67pp**（deepseek-chat 23/90→29/90，n=90/90）；**+10pp**（glm-4.5-flash 0/90→5/50，**臂 n 不对称**如实标注）。代价侧：轮次 1→12.44、input 165→26487 tok/任务、成本 $0.0661→$0.789（12×）、墙钟 6.2→15.8s | l3/summary.json（S14 双臂） | 已花 | A/B 复跑需 API 预算 |
+| H2 守卫一致率 | A 臂 652 条 **1.0/1.0**；B 臂 766 条 **0.9295**；漏判（不存在却放行）**0**；分歧全为行级严判 | bench/h2_guard_eval.py（S95 首测，S97 复算同值） | 零 | — |
+| H3 扫描器查准 | api_key_sk tp=6/n=6 **precision 1.0**；panic_family/private_key_block/secret_by_key 各 n=1（WEAK 黄灯）；FP 复检 eval_exec **0 命中**（案底 FP=10 保持修复） | bench/h3_score.py（S18 首测，S97 复测 PASS） | 零 | 3 规则样本量不足（需扩标注库） |
+| H4 记忆复利 | 8 个全败任务注入教训复跑：solved 0/8→3/8、fail 点 18→5（-72%） | h4_lessons.jsonl + ROUNDLOG S20（缩影，n 小） | 已花 | 复跑需 API 预算；样本量待扩 |
+
+**H1 口径校正（如实）**：H1 假设原文"省轮次省 token"与 L3 实测方向相反——工具臂
+的轮次/token/成本显著高于裸模型（裸模型单轮直答，答错也便宜）；L3 支持的是
+**解决率增益 + 可核验性**（S14：裸模型文件引用存在率 0%，工具组 63%/23%）。
+即工具的价值在"做对且可核查"，不在"省 API 开销"；后续 A/B 复跑按此口径归档。
+
+**S97 顺带清账的两个纪律/测量问题**：①`ast_scan` 从未过沙盒（S88 普查漏网——
+S84 已拆独立文件，不在 scan.py 名单内）→ 已加门 + 回归；②`hallucination_guard`
+读文件数行（读原语）未过沙盒 → 沙盒外声明落 unverifiable（fail-closed）；
+③`h3_score.py` 的 FP 复检曾把"探针被拒"与"真 FP 回归"混为一谈（found=-1 →
+pass:false 假红）→ blocked 语义分离；bench 脚本显式声明沙盒（s94_perf 同纪律）。
+

@@ -18,6 +18,11 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
+
+# S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——guard 已过沙盒门
+# （S88 补漏），裸 shell 下 fail-closed 会把真值判成"不可验证"干扰测量。
+os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
+
 import registry  # noqa: E402
 import tools     # noqa: F401,E402
 

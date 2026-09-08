@@ -28,6 +28,9 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
+# S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——被测工具已过沙盒门，
+# 裸 shell 下 fail-closed 会干扰测量。
+os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
 import registry  # noqa: E402
 import tools      # noqa: F401,E402  注册面
 

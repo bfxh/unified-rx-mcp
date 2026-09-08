@@ -19,6 +19,11 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
 
+# S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——被测工具已过沙盒门
+# （S88/S97 补漏后），裸 shell 下 fail-closed 会干扰测量；"*" = 本机分析
+# 脚本的显式全开声明。
+os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
+
 import registry  # noqa: E402
 import tools     # noqa: F401,E402
 import l2_score  # noqa: E402
@@ -38,14 +43,22 @@ def live_checks():
     js = os.path.join(YA_CLONE, "lib", "dsml-tool-call.js")
     if os.path.exists(js):
         r = registry.call("bug_scan", {"path": js})
-        hits = [i for i in (r.get("result") or {}).get("issues", [])
-                if i["rule"] == "eval_exec"] if r.get("ok") else None
-        found = len(hits) if hits is not None else -1
-        out["fp_recheck_eval_exec"] = {
-            "file": js, "expected_hits": 0, "found": found,
-            "pass": found == 0,
-            "note": "案底 FP=10（RegExp.exec 误报），修复后必须保持 0",
-        }
+        if r.get("ok"):
+            hits = [i for i in (r.get("result") or {}).get("issues", [])
+                    if i["rule"] == "eval_exec"]
+            out["fp_recheck_eval_exec"] = {
+                "file": js, "expected_hits": 0, "found": len(hits),
+                "pass": len(hits) == 0,
+                "note": "案底 FP=10（RegExp.exec 误报），修复后必须保持 0",
+            }
+        else:
+            # S97：阻断 ≠ 回归——探针被沙盒/环境拒绝时如实标 blocked、pass=None，
+            # 不落 pass:false（旧版 found=-1 与真 FP 回归混淆会假红）。
+            out["fp_recheck_eval_exec"] = {
+                "file": js, "expected_hits": 0, "found": None, "pass": None,
+                "blocked": str(r.get("error"))[:200],
+                "note": "探针被拒（沙盒/环境），非 FP 回归；沙盒含克隆根时重跑",
+            }
     else:
         out["fp_recheck_eval_exec"] = {"skipped": f"审计克隆不存在: {YA_CLONE}"}
 
@@ -68,7 +81,7 @@ def live_checks():
     for v in out.values():
         if isinstance(v, dict) and v.get("skipped"):
             continue
-        if "pass" in v:
+        if v.get("pass") is not None and "pass" in v:
             verdicts.append(v["pass"])
         elif v.get("rule_coverage_vf3") is not None:
             pass

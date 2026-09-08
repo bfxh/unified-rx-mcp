@@ -8,6 +8,7 @@ import os
 import re
 
 from registry import tool, list_tools
+from tools.fs import _resolve as _fs_resolve
 
 _CAPABILITIES = {
     "有": [
@@ -76,6 +77,16 @@ def hallucination_guard(text, root=None):
     for m in re.finditer(r"([A-Za-z0-9_./\\-]+\.(?:py|rs|go|ts|js|gd|cs|dart|java|kt|rb|php))(?::(\d+))?", text):
         fpath, lineno = m.group(1), m.group(2)
         full = fpath if os.path.isabs(fpath) else os.path.join(root, fpath)
+        # S97：S88 沙盒纪律补漏——本工具读文件数行（读原语），此前未过沙盒，
+        # 可探测/读取沙盒外任意路径。钳制口径：沙盒外声明不读不判，落
+        # unverifiable（fail-closed；既不假 verified 也不冤判 refuted）。
+        try:
+            full = _fs_resolve(full)
+        except ValueError:
+            results.append({"decl": m.group(0), "kind": "file",
+                            "status": "unverifiable",
+                            "detail": "沙盒外路径，按纪律不读取不判定"})
+            continue
         if os.path.isfile(full):
             if lineno:
                 try:
