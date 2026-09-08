@@ -336,3 +336,12 @@
 - 关键结论（矩阵直接读出）：路径穿越全语言"原理上查不了"（需数据流）——本仓防线是运行时沙盒钳制而非静态检测（S95/S97 两轮补漏正是这条的工程侧）；并发全语言"查不了"（需 miri/loom/压力电池等运行时方案——S95 高压电池是工程侧对位）；魔法数语言门不含 csharp（如实标注，非笔误）。
 - 验证：rule id 与实现逐一对照（含 7 vs 8 的口径差异——scan_rust 实现 7 id，indexing 含两形态；bevy 8 条单列）；文档轮零代码改动，全量测试无需重跑（S97 出货时 602+2s/604/cargo 121 仍为当前绿线）。
 - 提交：本次
+
+## S99 · IDE 两修（检测诚实化 + 影响面降级）+ 用户面文档刷新
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：用户定调「不要这个（API 预算项）不需要，提升 IDE、写文档」。本轮两件事：①ide 域实测两处实锤修复；②用户面文档清账（README 停在 S18：36 工具/128 测试，实际 57 工具/602 测试——80 轮文档债）。
+- 实锤①LSP 检测假阳性：`ide_lsp status` 对 python 的探测只做 exe 的 which/存在性检查——而 pylsp 的 exe 是解释器本身（`python -m pylsp`），于是**没装 pylsp 也报 detected=true**（违反 README 自述"缺失时如实报 detected=false，绝不假装支持"）。修：`_module_available` + `_detect_exe`——`python -m <mod>` 形态必须验到模块层，缺失 → detected=false + reason；自定义 cmd（env 覆盖）维持 which 口径不受影响。
+- 实锤②ide_impact 无降级：LSP 会话起不来时 ConnectionError 直接抛穿（registry 只看到异常串），影响面工具在 pylsp/rust-analyzer 缺失时完全不可用。修：异常与 error 结果统一接住 → **文本级降级** `_text_impact`——`_ident_at` 取 file:line:col 处标识符，复用 rx-ide 大小写敏感全文计数（ide_rename 预案），输出与 LSP 路径同形（files[].refs/has_test）+ `engine="text"` + `fallback_reason` + 精度注（无行号/含注释字符串/200 文件帽）；关键字与内建名给 ⚠ 提示；沙盒门与 LSP 路径同款（_resolve_in_sandbox）。
+- 交付：tools/lsp.py（`_module_available`/`_detect_exe`/`_ident_at`/`_text_impact` + status reason + ide_impact 降级）；tests/test_s99_ide_fallback.py 5 测（模块缺失不报 detected/自定义 cmd 照常/降级形状与文件聚合/无标识符清晰报错/LSP 路径不回归）；README 全量刷新（57 工具 12 域、S99 现状、评测数字对齐 EVAL §7-§8、施工史弧线）；skills/README 域索引计数修正（ide 8→19、scan 6→10、attack 3→5、guard 补 S97 注）；skills/ide.md 两处契约行。
+- 验证：S99 5 测 + test_lsp 7 + test_r3 8 = 20/20；3.14 全量 607 passed + 2 skipped；3.11 全量 609 passed；cargo 121 绿零告警（Rust 零改动，版本 lockstep + 重建）；版本锁步 2.23.0。
+- 提交：本次
