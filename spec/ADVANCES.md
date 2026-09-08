@@ -13,8 +13,8 @@
 | # | 技术 | 目标工具 | 预期增益 | 成本 | 红线 | 优先级 |
 |---|---|---|---|---|---|---|
 | 1 | **repo_map**（个人化 PageRank 符号地图） | 新增工具（agent 上下文选择） | RepoGraph 论文口径平均相对 +32.8%；减少"瞎翻文件" | 1 轮 | 零依赖可行 | **P0** |
-| 2 | **混合检索 RRF**（BM25 ⊕ 语义引擎） | code_search / code_semantic | 融合优于单路（RRF k=60 为默认） | 0.5 轮 | 纯算法 | **P0** |
-| 3 | **查询侧根词约束**（子词索引假阳性防护） | code_search | 召回不变、假阳性下降 | 0.2 轮 | 纯算法 | **P0** |
+| 2 | **混合检索 RRF**（BM25 ⊕ 语义路） | code_search | 融合优于单路（RRF k=60 为默认） | 0.5 轮 | 纯算法 | ✅ **S101 已兑** |
+| 3 | **查询侧根词约束**（子词索引假阳性防护） | code_search | 召回不变、假阳性下降 | 0.2 轮 | 纯算法 | ✅ **S101 已兑** |
 | 4 | **内容寻址增量缓存**（salsa 思想） | scan/search 全域 | 重复调用延迟降一个数量级（增量分析文献 1.3–68×） | 1 轮 | 零依赖可行 | **P1** |
 | 5 | **测试影响分析**（Ekstazi 文件指纹 RTS） | ide_test | 测试时间 −32%~54%（Ekstazi 实测） | 0.5–1 轮 | 零依赖可行 | **P1** |
 | 6 | **切片式上下文包**（ARISE/SliceMate 思路） | code_context 系 | 上下文 token −23%~54%（SWE-Pruner 实测） | 1–2 轮 | 零依赖可行（近似切片） | **P1** |
@@ -48,26 +48,33 @@ bigram，`rust/src/search.rs:194`）、符号级 rerank 与指纹缓存（S12/S1
   `ide_outline` 符号口径。
 - **风险**：PageRank 权重与预算策略需要调参——先做保守版（只排序不裁剪到过小）。
 
-### 2. 混合检索 RRF：两条路各自会输的查询互补（P0）
+### 2. 混合检索 RRF：两条路各自会输的查询互补（✅ S101 已兑）
 - **原理**：BM25（精确词元）与语义路（意图）失败模式不同；**Reciprocal Rank
   Fusion** `score = Σ 1/(k+rank)`，k=60 是业界默认，**不需要分数归一化**。
   代表：[QEX（Rust MCP 混合检索）](https://lib.rs/crates/qex-core)、BEIR 系列实验
   （[加权 RRF 复现](https://github.com/EgwDean/Query-Adaptive-Hybrid-Retrieval)）。
-- **本仓现状**：`code_search`（BM25）与 `code_semantic`（引擎桥接/降级）各自独立，
-  **没有融合**。
-- **落地**：`code_search(..., hybrid=True)` 或新参数：两路各取 top-k → RRF 融合 →
-  统一输出（保留两路 rank 供解释）。验收：P1 标注库 + L3 语料的命中率对照
-  （单路 vs 融合），如实记录增益或"无增益"。
-- **风险**：语义路依赖外部引擎；无引擎时退化为纯 BM25（现有行为），不假装。
+- **本仓现状**：`code_search`（BM25 行级）与 `code_semantic`（**rx-semantic.exe
+  tf-idf 定义级**，非外部引擎）各自独立、没有融合——S101 已补。
+- **落地（S101 实装）**：`code_search(hybrid=true)`：两路各取 `max(k*3,20)` 候选 →
+  按 (file,line) 去重 → RRF k=60 融合 → 取 k 条；输出 `rrf`/`bm25_rank`/
+  `semantic_rank`/`symbol`/`kind` + 顶层 `hybrid`/`rrf_k`/`paths`；语义路不可用时
+  **显式降级**（`hybrid=false` + `degraded` 原因，BM25 结果完整），默认 false 时
+  旧输出同形。实测：`sandbox resolve` 查询把语义路 #1 / BM25 #3 的
+  `_resolve_in_sandbox` 顶到第一，压过只被 BM25 命中的注释行。
+- **风险**：语义路不可用时的降级语义（已按"显式、不静默"落地）。
 
-### 3. 查询侧根词约束：子词索引的假阳性防护（P0）
+### 3. 查询侧根词约束：子词索引的假阳性防护（✅ S101 已兑）
 - **原理**：索引期拆子词提召回（本仓已做），但**查询期也拆**会把 `HTTPSConnection`
   这类查询拆散，命中无关的 "handshake failed for Connection"——OpenObserve
   [PR #12324](https://github.com/openobserve/openobserve/pull/12324) 的实锤教训：
   **索引拆、查询不拆**。
-- **本仓现状**：`rust/src/search.rs::tokenize` 索引与查询同用一套拆词。
-- **落地**：查询侧保留原词（含大小写变体），子词仅作补充项并降权；加对照测试
-  （构造 `FooMapping`/`mapping` 用例）。成本极小。
+- **本仓现状**：`rust/src/search.rs::tokenize` 索引与查询同用一套拆词——S101 已补。
+- **落地（S101 实装）**：新增**资格门** `query_roots`——标识符类查询词取整词 +
+  去分隔符连写变体（`parse_json` → `parse_json`/`parsejson`），文档**整词必须包含**
+  某个根词才入选（子串判定保留前缀匹配与跨风格召回）；纯 CJK 查询无根词、门不生效。
+  改前/改后对照实锤：`HTTPSConnection` 查询从 2 命中（含噪声文档）→ 1 命中（仅真定义）；
+  `parse_json` 仍中 `parseJson`（跨风格保留）；`auth_gate_sweep` 仍中
+  `AUTH_GATE_SWEEP_MARKER`（前缀保留）。rust 新增 4 测。
 
 ### 4. 内容寻址增量缓存：别每次重扫（P1）
 - **原理**：salsa/rust-analyzer 的增量计算（输入版本 → 记忆化查询 → 只重算受影响

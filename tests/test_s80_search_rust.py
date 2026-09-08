@@ -91,7 +91,8 @@ def test_schema_contract():
     ent = registry._TOOLS["code_search"]
     assert ent["group"] == "search"
     assert ent["schema"]["required"] == ["query"]
-    assert set(ent["schema"]["properties"]) == {"query", "root", "k"}
+    # S101 起多 hybrid（RRF 融合开关，默认 false → 旧契约不变）
+    assert set(ent["schema"]["properties"]) == {"query", "root", "k", "hybrid"}
 
 
 def test_positional_and_default_root(tmp_path, monkeypatch):

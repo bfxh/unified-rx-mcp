@@ -14,7 +14,7 @@
 //!   与 os.walk/scandir 对齐，S80 对照实验实锤后定契约）；
 //! - 无沙盒门：与 Python 版一致（S75 审计定性：纯读分析=本职）。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::json::Value;
@@ -48,12 +48,14 @@ pub fn code_search(root: &Path, query: &str, k: usize) -> Value {
     docs.retain(|p| std::fs::read(p).is_ok());
     let n = docs.len() as f64;
 
-    // 倒排索引：token -> [(doc_id, tf)]；doc_len 同步记录
+    // 倒排索引：token -> [(doc_id, tf)]；doc_len 与整词表同步记录
     let mut idx: HashMap<String, Vec<(u32, i64)>> = HashMap::new();
     let mut doc_len: Vec<f64> = Vec::with_capacity(docs.len());
+    let mut doc_words: Vec<Vec<String>> = Vec::with_capacity(docs.len());
     for (id, path) in docs.iter().enumerate() {
-        let toks = tokenize(&read_text(path));
+        let (toks, words) = scan(&read_text(path));
         doc_len.push(toks.len() as f64);
+        doc_words.push(words);
         let mut tf: HashMap<&str, i64> = HashMap::new();
         for t in &toks {
             *tf.entry(t.as_str()).or_insert(0) += 1;
@@ -90,7 +92,23 @@ pub fn code_search(root: &Path, query: &str, k: usize) -> Value {
             bump(&mut scores, *id, idf * *tf as f64 / denom);
         }
     }
-    scores.retain(|(_, s)| *s > 0.0);
+    // S101 资格门：文档整词必须包含某个查询根词——只被子词命中的文档剔除
+    // （纯 CJK/无 ASCII 根词查询时门不生效，保持原行为）
+    let roots = query_roots(query);
+    let eligible: Option<HashSet<u32>> = if roots.is_empty() {
+        None
+    } else {
+        let mut set = HashSet::new();
+        for (id, words) in doc_words.iter().enumerate() {
+            if words.iter().any(|w| roots.iter().any(|r| w.contains(r.as_str()))) {
+                set.insert(id as u32);
+            }
+        }
+        Some(set)
+    };
+    scores.retain(|(id, s)| {
+        *s > 0.0 && eligible.as_ref().map_or(true, |e| e.contains(id))
+    });
     scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
     // 候选文件行重排（ranked[:k*2]），精确符号置顶（S13）
@@ -192,8 +210,17 @@ pub fn raw_terms(query: &str) -> Vec<String> {
 
 /// 分词：标识符拆词 + 中文 bigram；过滤停用词与单字符 token。
 pub fn tokenize(text: &str) -> Vec<String> {
+    scan(text).0
+}
+
+/// 词形扫描：`(tokens, whole_words)`。
+/// tokens = 现状分词口径（子词 + 整词 + CJK bigram，过滤停用词/单字符）；
+/// whole_words = 整词小写（≥2 字符、非停用词）——S101 查询资格门用
+/// （文档必须"整词包含某个查询根词"，只被子词命中的文档不再入选）。
+fn scan(text: &str) -> (Vec<String>, Vec<String>) {
     let cs: Vec<char> = text.chars().collect();
     let mut out: Vec<String> = Vec::new();
+    let mut words: Vec<String> = Vec::new();
     let mut i = 0;
     while i < cs.len() {
         let c = cs[i];
@@ -209,7 +236,11 @@ pub fn tokenize(text: &str) -> Vec<String> {
                     out.push(p.to_lowercase());
                 }
             }
-            out.push(w.to_lowercase());
+            let whole = w.to_lowercase();
+            out.push(whole.clone());
+            if whole.chars().count() > 1 && !STOPWORDS.contains(&whole.as_str()) {
+                words.push(whole);
+            }
         } else if is_cjk(c) {
             let start = i;
             while i < cs.len() && is_cjk(cs[i]) {
@@ -230,6 +261,55 @@ pub fn tokenize(text: &str) -> Vec<String> {
         }
     }
     out.retain(|t| !STOPWORDS.contains(&t.as_str()) && t.chars().count() > 1);
+    (out, words)
+}
+
+/// 查询词元（原始词形，未拆）：ASCII 字母/数字/下划线连续段。
+fn word_runs(text: &str) -> Vec<String> {
+    let cs: Vec<char> = text.chars().collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < cs.len() {
+        if cs[i].is_ascii_alphabetic() || cs[i] == '_' {
+            let start = i;
+            i += 1;
+            while i < cs.len() && (cs[i].is_ascii_alphanumeric() || cs[i] == '_') {
+                i += 1;
+            }
+            out.push(cs[start..i].iter().collect());
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+/// 查询根词集合（S101）：标识符类词（含大写或下划线）取整词 + 去分隔符连写变体；
+/// 普通小写词取整词本身。资格门语义 = "文档整词里必须包含某个根词"——
+/// 索引侧仍拆子词（查 `mapping` 能中 `FooMapping`），但查询侧不因拆词放宽：
+/// 查 `HTTPSConnection` 不再命中只有 "HTTPS handshake failed for Connection"
+/// 的文档（OpenObserve PR#12324 实锤口径）。纯 CJK 查询无根词 → 门不生效。
+fn query_roots(query: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for w in word_runs(query) {
+        let lower = w.to_lowercase();
+        let ident_like = w.chars().any(|c| c.is_ascii_uppercase()) || w.contains('_');
+        let mut push = |s: String, out: &mut Vec<String>| {
+            if s.chars().count() > 1 && !STOPWORDS.contains(&s.as_str())
+                && !out.iter().any(|x| *x == s)
+            {
+                out.push(s);
+            }
+        };
+        push(lower, &mut out);
+        if ident_like {
+            let joined: String = camel_split(&w)
+                .iter()
+                .map(|p| p.to_lowercase())
+                .collect::<String>();
+            push(joined, &mut out);
+        }
+    }
     out
 }
 
