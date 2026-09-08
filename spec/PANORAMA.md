@@ -149,7 +149,7 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.29.0）
+## 五、现状坐标（2026-09-09 @ v2.30.0）
 
 **工具面 58/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(19) learn(1) meta(2) ops(5) scan(10) search(3)。
@@ -167,10 +167,10 @@ exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 +
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 647 passed + 2 skipped ／ 3.11 = 649 passed；cargo
-152 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
+**测试资产**：pytest 3.14 = 652 passed + 2 skipped ／ 3.11 = 654 passed；cargo
+157 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
 = S94，fs_test 并发回归 = S95，search_test 资格门 4 = S101，repomap_test 6 = S102，
-nameres_test 21 = S107）；selftest 58/12/SCHEMA_BAD 0 + 机器对账三行
+nameres_test 25 = S107/S108）；selftest 58/12/SCHEMA_BAD 0 + 机器对账三行
 （VERSION_TAG / SKILLS_DOCS S91、EXE_TAG S94）；junction 逃逸回归（S88）；stdin 通道
 parity 三测（S90，argv vs stdin 强制等价）；S73 重放验收常驻（S78）；协议 fuzz
 双靶 32 测（S78）；S92 对照实验 43 场景 + S93 对照实验 51 场景 masked 全等
@@ -258,8 +258,9 @@ H1 口径已校正为"解决率增益+可核验性"，非"省 token"）。
    回归参考价值高；bench 电池保留可用。
 10. **外部技术雷达兑现（S100 立账，见 [ADVANCES.md](ADVANCES.md)）**：11 项
    候选按杠杆/成本排序——**P0 三项 + P1 三项全部已兑**（S101-S105）；
-   P2 首项（栈图式名字解析）**设计轮已落**（[NAMERES.md](NAMERES.md)，S106；
-   实现拆 S107/S108）；余 P2=漏洞知识库、tree-sitter/ast-grep 可选引擎、
+   ~~P2 首项（栈图式名字解析）~~（**S106 设计 + S107/S108 落地**：单文件 +
+   跨文件，symtable oracle 零差异，文本级对比 93.9% 假阳性/解析级零遗漏；
+   [NAMERES.md](NAMERES.md)）；余 P2=漏洞知识库、tree-sitter/ast-grep 可选引擎、
    SCIP 消费。每项落地仍走 oracle → 双绿 → 文档。
 
 ### 缓议维持（有意识不做，防范围蠕变）

@@ -18,7 +18,7 @@
 | 4 | **内容寻址增量缓存**（salsa 思想） | scan/search 全域 | 重复调用延迟降一个数量级（增量分析文献 1.3–68×） | 1 轮 | 零依赖可行 | ✅ **S103 已兑** |
 | 5 | **测试影响分析**（Ekstazi 文件指纹 RTS） | ide_test | 测试时间 −32%~54%（Ekstazi 实测） | 0.5–1 轮 | 零依赖可行 | ✅ **S104 已兑** |
 | 6 | **切片式上下文包**（ARISE/SliceMate 思路） | code_context 系 | 上下文 token −23%~54%（SWE-Pruner 实测） | 1–2 轮 | 零依赖可行（近似切片） | **P1** |
-| 7 | **栈图式名字解析**（stack graphs） | dep_graph / ide_impact / 调用图 | 不依赖 LSP 的语义级定义/引用（GitHub 生产级方案） | 2 轮 | 零依赖可行（简化版） | **P2**（设计 ✅S106；单文件解析 ✅S107，oracle 零差异；跨文件 S108） |
+| 7 | **栈图式名字解析**（stack graphs） | dep_graph / ide_impact / 调用图 | 不依赖 LSP 的语义级定义/引用（GitHub 生产级方案） | 2 轮 | 零依赖可行（简化版） | ✅ **S106 设计 + S107/S108 落地**（单文件 + 跨文件，见 [NAMERES.md](NAMERES.md)） |
 | 8 | **ACI 输出纪律复核** | 全部工具出口 | 接口设计本身值 +10.7pp（SWE-agent 消融） | 0.5 轮 | 纯约定 | ✅ **S105 已兑** |
 | 9 | **漏洞知识库（Vul-RAG 式）** | bug_scan / code_review 解释面 | 检测准确率 +12.96%、人工复核 60%→77% | 建库成本高 | 零依赖可行 | **P2** |
 | 10 | **tree-sitter/ast-grep 可选引擎** | scan 家族 | 语言覆盖 20+、规则即模式 | 1 轮 | 可选依赖+降级 | **P2** |
@@ -131,11 +131,13 @@ bigram，`rust/src/search.rs:194`）、符号级 rerank 与指纹缓存（S12/S1
 - **本仓现状**：`dep_graph`/`locate_edit` 是**文本引用**（含注释/字符串），
   `rust_reach` 是可达性分级，都不是绑定解析——这也是 VULN-HUNTING 附录 B 里
   "路径/数据流查不了"的根因之一。
-- **落地**：先做**单语言简化栈图**（Python：模块/类/函数作用域 + import 绑定；
-  Rust：mod/use/fn），只解"引用 → 定义"这一件事，喂 `ide_impact`/`ide_rename`/
-  `dep_graph` 升级。分两轮：设计轮（作用域规则表 + oracle 场景）+ 实现轮。
-- **风险**：这是"自研解析器"路线的延伸（本仓已有 pyast 先例），但语义覆盖面
-  永远达不到编译器——定位是"比文本级准、比 LSP 轻"，文档必须写清边界。
+- **落地（S106 设计 + S107/S108 实现）**：`rust/src/nameres.rs`（作用域栈 + 十条
+  规则；S107 单文件、S108 跨文件）+ `rx-scan resolve|resolvedir` +
+  `dep_graph(resolved=true)`。验收：rust 25 测 + python 9 测（含**本仓 30+ 文件
+  与 symtable 逐作用域零差异**）；对比报告（30 符号）——文本级命中 **93.9% 假阳性**
+  （注释/字符串/子串），解析级 **resolved_only=0**（无遗漏）。边界如实入档：
+  属性链/类型推断/跨文件控制流不做，star import 与动态特性 unresolved。
+- **后续**：`ide_impact` 三级降级（LSP → 解析 → 文本）可另起一轮。
 
 ### 8. ACI 输出纪律复核（✅ S105 已兑）
 - **原理**：[SWE-agent ACI 论文（NeurIPS 2024）](https://arxiv.org/abs/2405.15793)

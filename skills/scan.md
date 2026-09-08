@@ -48,3 +48,9 @@
   小文件内容哈希，文件一变即失效）。命中返回与冷跑逐字节一致；`__no_cache: true`
   或 `UNIFIED_RX_NO_CACHE=1` 旁路。实测 ast_scan 45ms→3.7ms（约 12×）。大文件
   只按 size+mtime、大仓不缓存等边界写在 tools/cache.py 契约里。
+- **dep_graph(resolved=true)（S108）**：附语法级解析边（rx-scan resolvedir）——
+  `resolved.imports[{file,line,name,module,to_file,to_line,kind}]`（相对导入按
+  层级上溯包、别名绑定、`from pkg import submodule` 回退）、`resolved.external`
+  （外部依赖如实分离）、`resolved.unresolved`（name_not_found/star_import）、
+  `stats`。默认 false 输出与旧版同形；exe 缺失入 `resolved.error` 不静默。
+  本仓对比：文本级引用 93.9% 是假阳性（注释/字符串/子串），解析级 resolved_only=0。

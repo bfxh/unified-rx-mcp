@@ -4,6 +4,35 @@
 
 use rxrs::json::Value;
 use rxrs::nameres;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+struct TempDir(PathBuf);
+
+impl TempDir {
+    fn new(tag: &str) -> TempDir {
+        let n = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let p = std::env::temp_dir().join(format!("rx-nameres-test-{}-{}", tag, n));
+        fs::create_dir_all(&p).unwrap();
+        TempDir(p)
+    }
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn write_rel(root: &Path, rel: &str, content: &str) {
+    let p = root.join(rel);
+    fs::create_dir_all(p.parent().unwrap()).unwrap();
+    fs::write(&p, content).unwrap();
+}
 
 fn resolve(src: &str) -> Value {
     let v = nameres::resolve_file("t.py", src);
@@ -216,4 +245,85 @@ fn bindings_scope_paths() {
             "嵌套作用域路径应可区分: {:?}", bs);
     assert!(bs.iter().any(|b| matches!(b.get("scope"), Some(Value::Str(s)) if s == "outer")
         && matches!(b.get("name"), Some(Value::Str(s)) if s == "inner")), "{:?}", bs);
+}
+
+// ---------- S108：跨文件 import 拼接 ----------
+
+fn imp<'a>(v: &'a Value, file: &str, name: &str) -> Option<(String, i128, String)> {
+    for e in arr(v, "imports") {
+        let f = match e.get("file") { Some(Value::Str(s)) => s.as_str(), _ => continue };
+        let n = match e.get("name") { Some(Value::Str(s)) => s.as_str(), _ => continue };
+        if f == file && n == name {
+            let to = match e.get("to_file") { Some(Value::Str(s)) => s.clone(), _ => String::new() };
+            let tl = match e.get("to_line") { Some(Value::Int(i)) => *i, _ => 0 };
+            let kind = match e.get("kind") { Some(Value::Str(s)) => s.clone(), _ => String::new() };
+            return Some((to, tl, kind));
+        }
+    }
+    None
+}
+
+fn has_external(v: &Value, file: &str, module: &str) -> bool {
+    arr(v, "external").iter().any(|e| {
+        matches!(e.get("file"), Some(Value::Str(s)) if s == file)
+            && matches!(e.get("module"), Some(Value::Str(s)) if s == module)
+    })
+}
+
+#[test]
+fn cross_file_import_forms() {
+    let td = TempDir::new("xfile");
+    write_rel(td.path(), "pkg/__init__.py", "");
+    write_rel(td.path(), "pkg/mod_a.py", "def alpha():\n    return 1\n");
+    write_rel(td.path(), "pkg/mod_b.py",
+        "import os\nfrom .mod_a import alpha\nfrom pkg.mod_a import alpha as al\nfrom .mod_a import missing\n");
+    write_rel(td.path(), "pkg/sub/__init__.py", "");
+    write_rel(td.path(), "pkg/sub/deep.py", "from ..mod_a import alpha\n");
+    let v = nameres::resolve_dir(td.path(), 100);
+    assert!(v.get("error").is_none(), "{:?}", v);
+
+    // 相对导入（level 1）：pkg/mod_b.py → pkg/mod_a.py:1
+    assert_eq!(imp(&v, "pkg/mod_b.py", "alpha"), Some(("pkg/mod_a.py".into(), 1, "from".into())));
+    // 绝对导入 + 别名：绑定名 al，目标仍是 mod_a:1
+    assert_eq!(imp(&v, "pkg/mod_b.py", "al"), Some(("pkg/mod_a.py".into(), 1, "from".into())));
+    // 上两级相对导入（level 2）：pkg/sub/deep.py → pkg/mod_a.py:1
+    assert_eq!(imp(&v, "pkg/sub/deep.py", "alpha"), Some(("pkg/mod_a.py".into(), 1, "from".into())));
+    // 外部依赖如实分离
+    assert!(has_external(&v, "pkg/mod_b.py", "os"), "{:?}", v);
+    // 内部模块里找不到的名字 → unresolved（不是 external）
+    let un = arr(&v, "unresolved");
+    assert!(un.iter().any(|e| matches!(e.get("name"), Some(Value::Str(s)) if s == "missing")
+        && matches!(e.get("reason"), Some(Value::Str(s)) if s == "name_not_found")), "{:?}", un);
+}
+
+#[test]
+fn cross_file_import_module_and_submodule() {
+    let td = TempDir::new("xsub");
+    write_rel(td.path(), "pkg/__init__.py", "");
+    write_rel(td.path(), "pkg/leaf.py", "VALUE = 1\n");
+    write_rel(td.path(), "pkg/use.py", "import pkg.leaf\nfrom pkg import leaf\n");
+    let v = nameres::resolve_dir(td.path(), 100);
+    assert_eq!(imp(&v, "pkg/use.py", "pkg"), Some(("pkg/leaf.py".into(), 1, "import".into())));
+    assert_eq!(imp(&v, "pkg/use.py", "leaf"), Some(("pkg/leaf.py".into(), 1, "from_submodule".into())));
+}
+
+#[test]
+fn cross_file_package_root_prefix() {
+    // root 自身是包（有 __init__.py）→ 模块名带包前缀；相对导入按前缀解析
+    let td = TempDir::new("pkgroot");
+    write_rel(td.path(), "__init__.py", "");
+    write_rel(td.path(), "fs.py", "def _resolve(p):\n    return p\n");
+    write_rel(td.path(), "use.py", "from .fs import _resolve\n");
+    let v = nameres::resolve_dir(td.path(), 100);
+    assert_eq!(imp(&v, "use.py", "_resolve"), Some(("fs.py".into(), 1, "from".into())), "{:?}", v);
+}
+
+#[test]
+fn cross_file_syntax_error_file_skipped() {
+    let td = TempDir::new("xsyn");
+    write_rel(td.path(), "good.py", "X = 1\n");
+    write_rel(td.path(), "bad.py", "def f(:\n");
+    let v = nameres::resolve_dir(td.path(), 100);
+    assert!(v.get("error").is_none(), "{:?}", v);
+    assert_eq!(v.get("files"), Some(&Value::Int(1)), "语法错误文件应跳过而非拖垮整仓: {:?}", v);
 }
