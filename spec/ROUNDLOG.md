@@ -386,3 +386,13 @@
 - 交付：tools/cache.py（新）+ registry.py 接线 + tests/test_s103_cache.py 11 测；skills/scan.md、skills/search.md 契约行；ADVANCES 第 4 项标已兑；PANORAMA v2.26.0；版本锁步 2.26.0 + exe 重建。
 - 验证：s103 11/11；3.14 全量 627 passed + 2 skipped；3.11 全量 630 passed；cargo 131 绿零告警。
 - 提交：本次
+
+## S104 · ADVANCES P1 第二项：测试影响分析（TIA，ide_test）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：雷达 P1——Ekstazi 路线（文件级依赖指纹 + 只跑受影响测试）。范围限定 pytest；`tia=true` 显式开关，默认行为不变。
+- 设计：pytest 插件 `urx_tia_plugin`（stdlib audit hook，零依赖、不改测试代码）记录依赖 → 首次全量建图 → `select()` 只跑"依赖集 ∩ 变更集"非空的测试。**保守口径**：无依赖记录/新测试/收集失败一律全量（宁多跑不误跳）；无受影响测试**不执行**并报 `mode=skipped-no-impact`；`full=true` 强制全量。依赖图进程内保存（与 cache 同边界）。
+- 开发中实锤的两个坑（都是探针/测试先红后修）：①**只记执行期打开 = 空依赖图**——测试模块在收集阶段就被 import，执行期不再 open；修法：收集期按"正在收集的文件"（pytest_collectstart）归集 + 执行期按 nodeid 归集，两层合并。②**二次运行打开的是 `.pyc`**（__pycache__）而非 `.py`——不映射回源文件则依赖图时有时无；修法：`_norm()` 把 `__pycache__/x.cpython-XX[-pytest-X].pyc` 映射回 `x.py`。另：路径统一正斜杠与 nodeid 对齐（Windows relpath 是反斜杠，曾致合并失配）。
+- 实测（同进程）：首次 full-first（2 测试全跑）→ 改 mod_a.py → **incremental（selected 1/skipped 1，只跑 test_add）**→ 无改动 → **skipped-no-impact（0 执行）**。
+- 交付：urx_tia_plugin.py（仓根，pytest 插件）+ tools/tia.py（状态 + 选择纯函数）+ tools/ide_test.py（tia/full 参数、收集→选择→执行→记录闭环、marker 解析）+ tools/cache.py（新增 snapshot() 逐文件指纹 + skip dirs 补 .pytest_cache 等）+ tests/test_s104_tia.py 6 测；skills/ide.md 契约；ADVANCES 第 5 项标已兑；PANORAMA v2.27.0；版本锁步 2.27.0 + exe 重建。
+- 验证：s104 6 + ide_test 9 = 15/15；3.14 全量 634 passed + 2 skipped；3.11 全量 636 passed；cargo 131 绿零告警。
+- 提交：本次

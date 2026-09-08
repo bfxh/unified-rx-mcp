@@ -149,7 +149,7 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.26.0）
+## 五、现状坐标（2026-09-09 @ v2.27.0）
 
 **工具面 58/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(19) learn(1) meta(2) ops(5) scan(10) search(3)。
@@ -167,7 +167,7 @@ exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 +
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 627 passed + 2 skipped ／ 3.11 = 630 passed；cargo
+**测试资产**：pytest 3.14 = 634 passed + 2 skipped ／ 3.11 = 636 passed；cargo
 131 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
 = S94，fs_test 并发回归 = S95，search_test 资格门 4 = S101，repomap_test 6 = S102）；selftest 58/12/SCHEMA_BAD 0 + 机器对账三行
 （VERSION_TAG / SKILLS_DOCS S91、EXE_TAG S94）；junction 逃逸回归（S88）；stdin 通道
@@ -181,7 +181,9 @@ S99 ide 两修 5 测（LSP 检测诚实化 + ide_impact 文本降级，test_s99_
 S101 检索 5 测（查询资格门 rust 4 + RRF 融合 python 4，test_s101_search_hybrid）；
 S102 repo_map 11 测（rust 图/聚焦/预算/四语言 5 + python 注册/形状/聚焦/预算/沙盒/exe 6）；
 S103 增量缓存 11 测（命中逐字节一致/失效/参数分区/旁路/越界不入/写工具不入/
-cursor 分页不串页/指纹口径，test_s103_cache）。
+cursor 分页不串页/指纹口径，test_s103_cache）；
+S104 TIA 6 测（首次全量→增量→无变更跳过/对称选择/新测试必跑/强制全量/
+非 pytest 如实报/选择保守性，test_s104_tia）。
 
 **质量体检基线（S94 立账，S95 复测，详见 EVAL §6/§7）**：延迟热态 fs_stat
 p50 **0.3ms**（S95 回迁后，<10ms 预算余量 ~30 倍；v2.20.0 exe 路由期 7.7-9.7ms
@@ -253,10 +255,10 @@ H1 口径已校正为"解决率增益+可核验性"，非"省 token"）。
    回归参考价值高；bench 电池保留可用。
 10. **外部技术雷达兑现（S100 立账，见 [ADVANCES.md](ADVANCES.md)）**：11 项
    候选按杠杆/成本排序——~~P0 查询侧根词约束~~ + ~~RRF 混合检索~~ + ~~repo_map~~
-   （**S101/S102 已兑**）；~~P1 内容寻址增量缓存~~（**S103 已兑**，实测 12×）；
-   余 P1=ide_test 测试影响分析、ACI 输出纪律复核；P2=栈图式名字解析（最高杠杆
-   最重，建议前四项后启动）、漏洞知识库、tree-sitter/ast-grep 可选引擎、SCIP 消费。
-   每项落地仍走 oracle → 双绿 → 文档。
+   （**S101/S102 已兑**）；~~P1 内容寻址增量缓存~~（**S103 已兑**，实测 12×）+
+   ~~P1 测试影响分析~~（**S104 已兑**）；余 P1=ACI 输出纪律复核；P2=栈图式名字
+   解析（最高杠杆最重，建议前四项后启动）、漏洞知识库、tree-sitter/ast-grep
+   可选引擎、SCIP 消费。每项落地仍走 oracle → 双绿 → 文档。
 
 ### 缓议维持（有意识不做，防范围蠕变）
 - **转发代理/单 exe 入口**：python 编排器入口零损失，双进程桥接复杂度不值
