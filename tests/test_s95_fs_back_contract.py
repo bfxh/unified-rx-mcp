@@ -13,6 +13,7 @@ test_security_fuzz.py 全权锁定。
 """
 import json
 import os
+import re
 import sys
 
 import pytest
@@ -63,12 +64,25 @@ def test_scenario_table_matches_golden():
 
 
 def _semantic(out):
-    """剔除 error_detail（S72 调试堆栈尾）：实现细节非契约——exe 臂经 _rx_fs_call
-    抛出、纯 Python 臂在 _resolve 抛出，堆栈必然不同；error 文本本身逐字比对。"""
+    """剔除实现细节/传输层装饰，只留契约语义：
+
+    - error_detail（S72 调试堆栈尾）：exe 臂经 _rx_fs_call 抛出、纯 Python 臂在
+      _resolve 抛出，堆栈必然不同；error 文本本身逐字比对。
+    - hint 字段与错误尾注"（建议：…）"（S105 ACI 输出纪律）：registry 出口按
+      "空结果/截断/错误类"追加的建议文本，属传输层装饰（fixture 为 S95 捕获、
+      早于该层），非 fs 语义。
+    """
     if isinstance(out, dict):
-        return {k: _semantic(v) for k, v in out.items() if k != "error_detail"}
+        return {k: _semantic(v) for k, v in out.items()
+                if k not in ("error_detail", "hint")}
     if isinstance(out, list):
         return [_semantic(x) for x in out]
+    if isinstance(out, str):
+        # 尾注可能含嵌套括号（如"（或设为 *）"）→ 从最后一个"（建议："截断
+        idx = out.rfind("（建议：")
+        if idx != -1 and out.rstrip().endswith("）"):
+            return out[:idx]
+        return out
     return out
 
 
