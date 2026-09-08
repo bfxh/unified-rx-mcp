@@ -423,3 +423,12 @@
 - S108 前置发现：pyast **丢弃相对导入前导点**（`from .m import x` 的 level 未记录）→ S108 需先补 level（存 aux、不改 dump 以保 S83/S84 oracle）。
 - 验证：3.14 全量 647 passed + 2 skipped；3.11 全量 649 passed；cargo 152 绿零告警（131 + 21）；版本锁步 2.29.0 + exe 重建。
 - 提交：本次
+
+## S108 · 名字解析跨文件拼接 + dep_graph(resolved=true) + 文本级对比报告
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：NAMERES 阶段 B 落地——把"引用→定义"从单文件推到跨文件（import 拼接），并接到工具面。前置：pyast 记录相对导入 level。
+- 交付：①pyast `from_stmt` 记 level 到 aux（dump/ast_scan 不消费 aux，S83/S84 oracle 不受影响）；②`nameres::resolve_dir` + `rx-scan resolvedir`——模块索引（`a/b/__init__.py`/`a/b.py` 都记 "a.b"）、四种 import 形态（绝对 import / 绝对 from / 相对 from 按 level 上溯包 / `from pkg import submodule` 回退）、root 自身是包时模块名带前缀、外部依赖与内部未找到分开如实报；③`dep_graph(path, resolved=true)` 附 `resolved.{imports,external,unresolved,stats}`，默认 false 逐字段同形，exe 缺失入 resolved.error；④bench/s108_resolve_compare.py + 留档 bench/results/s108_resolve_compare.json。
+- 验收③（设计口径 ≥30 例）：本仓 tools/ 包 **30 个符号**逐一对比——解析级引用 2165 条 vs 文本级命中 35283 条，**text_only=33118（93.9% 假阳性）**：人工抽查样例全是注释/字符串/子串（`os` 命中 "os.path.relpath" 中文注释、`path` 命中注释里的"path 指向"、`r` 命中中文行文）；**resolved_only=0**（解析集合是文本集合的精确子集，无遗漏）。报告首跑暴露 locate_edit 的 limit 上限会造成假 resolved_only，已改分页取全 + 触顶标记（limit 5000 后 30/30 未触顶）。
+- 测试：rust nameres_test 25（+4 跨文件：四种形态/子模块/包前缀/语法错误文件跳过）；python test_s108_resolved_graph 5（schema/默认形状不变/解析边/exe 缺失显式/沙盒）。
+- 验证：3.14 全量 652 passed + 2 skipped；3.11 全量 654 passed；cargo 157 绿零告警（152 + 5）；版本锁步 2.30.0 + exe 重建。
+- 提交：本次

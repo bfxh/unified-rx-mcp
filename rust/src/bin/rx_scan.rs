@@ -108,6 +108,24 @@ fn run(args: &[String]) -> Result<Value, String> {
             };
             Ok(nameres::resolve_file(file, &src))
         }
+        "resolvedir" => {
+            let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
+            if root.is_empty() {
+                return Err(USAGE.into());
+            }
+            let mf = match args.get(2) {
+                Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(300),
+                None => 300,
+            };
+            let p = std::path::Path::new(root);
+            if !p.is_dir() {
+                return Ok(Value::Obj(vec![(
+                    "error".into(),
+                    Value::Str(format!("不是目录: {}", root)),
+                )]));
+            }
+            Ok(nameres::resolve_dir(p, mf))
+        }
         _ => Err(USAGE.into()),
     }
 }

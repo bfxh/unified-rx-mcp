@@ -148,3 +148,26 @@ kind ∈ {local, import, module, builtin}
   别名）+ `dep_graph(resolved=true)` 接线 + 本仓文本级对比报告（≥30 例人工抽查）。
   注：pyast 目前**丢弃相对导入的前导点**（`from .m import x` 的 level 未记录）——
   S108 需先补 level 记录（存 aux，不改 dump 以保 oracle）。
+
+## 十一、实现注记（S108 跨文件拼接已落）
+
+- **pyast**：`from_stmt` 记录相对导入层级到 `aux`（dump/ast_scan 不消费 aux，
+  S83/S84 oracle 不受影响）。
+- **跨文件解析**：`nameres::resolve_dir(root, max_files)` + `rx-scan resolvedir`
+  子命令——逐文件解析取模块级绑定 → 模块索引（`a/b/__init__.py` 与 `a/b.py` 都
+  记 "a.b"）→ 解析四种 import 形态：绝对 `import a.b`、绝对 from、相对 from
+  （level 上溯包）、`from pkg import submodule`（子模块回退）。root 自身是包
+  （有 `__init__.py`）时模块名带包前缀。外部依赖与内部未找到**分开如实报**
+  （external / unresolved，reason=name_not_found/star_import）。
+- **工具面**：`dep_graph(path, resolved=true)` 附 `resolved.{imports,external,
+  unresolved,stats}`；默认 false 时输出与旧版逐字段同形（零破坏）；exe 缺失 →
+  `resolved.error` 显式报，基础图不受影响。
+- **验收③ 对比报告**（bench/s108_resolve_compare.py，留档
+  bench/results/s108_resolve_compare.json）：本仓 tools/ 包 **30 个符号**逐一对比
+  ——解析级引用 2165 条、文本级命中 35283 条，其中 **33118 条（93.9%）是文本级
+  假阳性**（注释/字符串/子串，样例已人工抽查：`os` 命中 "os.path.relpath" 的
+  中文注释、`path` 命中注释里的"path 指向"等）；**resolved_only = 0**——解析集合
+  是文本集合的精确子集，未发现"解析有而文本无"的遗漏。
+- **剩余边界**：属性链（`a.b` 只解析 `a`）、类型推断、跨文件控制流、re-export
+  追踪不做；star import/动态特性如实 unresolved。S108 后 ide_impact 的"解析级
+  中档"可另起一轮（三级降级：LSP → 解析 → 文本）。

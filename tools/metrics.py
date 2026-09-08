@@ -154,13 +154,16 @@ def code_coverage(script, source_dir, args=None, timeout=120, __authorized=False
 # ==================== dep_graph ====================
 
 @tool("dep_graph", "依赖图：提取所有 .py 的 import 关系 → {模块: [依赖]}，"
-      "标记循环依赖和外部依赖", "scan",
+      "标记循环依赖和外部依赖；resolved=true 时附语法级解析边"
+      "（引用→定义，含相对导入/别名/子模块，S108）", "scan",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目根目录"},
+           "resolved": {"type": "boolean",
+                        "description": "附 rx-scan 名字解析边（resolved.imports/unresolved/stats）"},
        },
        "required": ["path"]})
-def dep_graph(path, max_files=300):
+def dep_graph(path, max_files=300, resolved=False):
     try:
         path = _fs_resolve(path)         # S73：读路径同样过沙盒
     except ValueError as e:
@@ -200,11 +203,25 @@ def dep_graph(path, max_files=300):
 
     ext_count = sum(len(v) for v in external.values())
     int_count = sum(len(v) for v in internal.values())
-    return {"total_files": len(graph), "internal_deps": int_count,
-            "external_deps": ext_count, "cycles": cycles,
-            "graph": {k: v for k, v in sorted(internal.items())},
-            "external_summary": sorted(
-                {d for deps in external.values() for d in deps})}
+    out = {"total_files": len(graph), "internal_deps": int_count,
+           "external_deps": ext_count, "cycles": cycles,
+           "graph": {k: v for k, v in sorted(internal.items())},
+           "external_summary": sorted(
+               {d for deps in external.values() for d in deps})}
+    if resolved:
+        # S108：语法级解析边（rx-scan resolvedir）——exe 缺失/失败如实入
+        # resolved.error，基础图不受影响（不静默、不假装）
+        try:
+            from tools.scan import _rx_scan_call, _rx_scan_exe
+            if _rx_scan_exe() is None:
+                out["resolved"] = {"error": "rx-scan.exe 不存在——先在 rust/ 下 "
+                                            "cargo build --release（或设 UNIFIED_RX_RS_EXE）"}
+            else:
+                out["resolved"] = _rx_scan_call(
+                    ["resolvedir", path, str(int(max_files))])
+        except ValueError as e:
+            out["resolved"] = {"error": str(e)}
+    return out
 
 
 def _find_cycles(graph):

@@ -1833,7 +1833,12 @@ impl Parser {
     fn from_stmt(&mut self) -> Result<PyNode, PyErr> {
         let line = self.cur_line();
         self.i += 1;
-        while self.eat_op(".") {}
+        // S108：记录相对导入层级（前导点数）到 aux——dump/ast_scan 不消费 aux，
+        // 不影响 S83/S84 oracle；nameres 跨文件解析用。
+        let mut level = 0usize;
+        while self.eat_op(".") {
+            level += 1;
+        }
         let module = if self.at_name() {
             let mut name = self.expect_name()?.0;
             while self.eat_op(".") {
@@ -1868,6 +1873,7 @@ impl Parser {
             }
         }
         let mut n = PyNode::with_name("ImportFrom", line, module);
+        n.aux = level;
         n.children = aliases;
         Ok(n)
     }
