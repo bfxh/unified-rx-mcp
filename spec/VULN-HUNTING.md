@@ -398,3 +398,37 @@
 | bevy_phys_manual_support_force | med | vehicle.rs:745（四轮弹跳床案） | ✓ 无误报用例 | ✓（S74 排序后复验） |
 | bevy_phys_locked_axes_bits | info | sync.rs:371/397/591 | ✓ | ✓（info 允许后页，已核实在库） |
 | bevy_phys_static_with_velocity | low | （VoxelForge 复验清零，规则保留防复发） | ✓ 跨语句守卫 + ::ZERO/matches! 三类 | ✓ |
+
+## 附录 B：规则覆盖矩阵（P1-b，S98 落地）
+
+口径：本矩阵描述**静态层实际能查什么**——手写匹配器 + AST-lite（pyast.rs 迷你
+解析器）+ 行级线索，**非编译器语义、非污点分析、非运行时验证**。三态：✅有规则
+（列 rule id）/ ⚠️原理上查不了（写明原因）/ ⬜空白（按踩坑概率排优先级）。
+**"查不了/空白"≠"不存在这类问题"**；运行时防线（沙盒钳制/授权门）与静态层是
+两回事，不得互相替代。规则 id 取自实现（bug.rs / scan.rs / astscan.rs /
+appaudit.rs，S98 逐一核账）。
+
+| 语言 | 注入 | 路径 | 并发 | 资源 | 逻辑 | 物理引擎陷阱 | 秘密/凭据 |
+|---|---|---|---|---|---|---|---|
+| Python | ✅ `eval_exec`（裸 Call eval/exec/compile；ast_scan 调用面）；⚠️ 真污点（source→sink 跨函数/跨文件）、getattr/importlib 动态面 | ⚠️ 需数据流（输入→join→open）；本仓以运行时沙盒钳制为防线 | ⚠️ 运行时状态（GIL 掩盖、asyncio 竞态） | ⚠️ 未关句柄/无界增长需数据流 | ✅ `bare_except` `undefined_name` `redefined_import`（含导入遮蔽内建）`syntax_error`；generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number`；code_review complexity/TODO | —（不承载） | ⬜ 低 |
+| Rust | ⚠️ 无动态执行面；命令拼接（process::Command）需数据流 | ⚠️ 同左 | ⚠️ Send/Sync 编译器管；数据竞争需 miri/loom 等运行时 | ⬜ 低（无泄漏检测；unsafe 面 ast_scan 有信号） | ✅ `unwrap` `expect` `panic` `unreachable` `todo_unimplemented` `as_cast` `indexing`（indexing 含 `[x as usize]` 形态；clue 全量上报是设计）；ast_scan rust 结构信号 + rust_reach（prod/test_only/unreferenced 分级） | ✅ `bevy_phys_manual_support_force` `bevy_phys_static_with_velocity` `bevy_phys_locked_axes_bits`（+5 条 bevy API 规则：old_system/old_startup/event_iter/text_old/query_single） | ⬜ 低 |
+| GDScript | ⬜ 中（`Expression.parse`/`load()` 动态面） | ⚠️ 需数据流 | ⚠️ 运行时状态 | ⬜ 低 | ✅ std_check `placeholder`/`magic_number`（magic 语言门含 gdscript）；ui_check godot 死按钮（`ui_pattern`） | ⬜ 低（未踩坑） | ⬜ 低 |
+| C# | ⬜ 中（`Process.Start`/`Activator`） | ⚠️ 需数据流 | ⚠️ 运行时状态（async 竞态） | ⬜ 低 | ✅ std_check `placeholder`（**magic_number 语言门不含 csharp**）；ui_check unity 死按钮（`ui_pattern`） | ⬜ 低 | ⬜ 低 |
+| JS/TS | ✅ generic `eval_exec`（eval/exec/execSync；ast_scan 词法掩码 `new Function`，成员 `.exec(` 排除）；code_review security 透镜（innerHTML/SQL 拼接等模式） | ⚠️ 需数据流 | ⚠️ 事件循环竞态（运行时） | ⬜ 低 | ✅ generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number` | —（不承载） | ✅ appaudit `private_key_block`(definite) `api_key_sk` `github_pat` `aws_access_key` `secret_by_key`(clue)——面向 app 快照审计，非通用仓扫 |
+| 其他识别语言（Go/Dart/Lua/Java/Kotlin/PHP/Ruby/Swift/C/C++） | ⬜ 低 | ⚠️ 需数据流 | ⚠️ 运行时状态 | ⬜ 低 | ✅ generic `assert_always_true`/`equal_float`（Go 另有 magic_number 语言门）；其余 ⬜ | ⬜ 低 | ⬜ 低 |
+
+**行外注**：
+- appaudit 另有 JS 危险面 6 规则：`eval_call` `new_function` `child_process`
+  `open_external` `auto_updater` `protocol_register`——面向 Electron 快照审计。
+- `rust_taint_scan` 的 definite/clue 是**可达性分级**（入口形参=definite、helper
+  形参=clue，宿主来源 argv/env/input/net 恒 definite），**不是数据流追踪**——
+  不得读成"污点已证实"。
+- code_review 的 security 透镜是模式匹配非污点分析（自带边界声明）；复杂度是
+  行数/缩进近似非圈复杂度。
+- 空白优先级（按踩坑概率）：C#/GDScript 注入面（`Process.Start`/`load()`）>
+  Python 资源面 > 并发（全语言，需运行时方案如 miri/loom/压力电池）> 非 bevy
+  引擎的物理陷阱。
+- **P2-c 深扫常态化（S98 起执行）**：每个版本 tag 前，`git archive <tag>` 解包到
+  `%TEMP%` 副本 → Mimosa deep 扫描（禁自扫红线）→ 逐条分诊存档，scanId/seal 进
+  ROUNDLOG；分诊纪律同 S96：只处理与本轮候选代码直接相关的修复。首次执行样本
+  见 S96（scan-2026-09-08T16-03-20.112Z-e9aeb5bf8956，seal sha256:c544623b…）。
