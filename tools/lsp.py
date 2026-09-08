@@ -537,6 +537,54 @@ def _ident_at(fp, line, col):
     return spans[0][2]
 
 
+def _resolved_impact(real, line, col, lsp_err):
+    """S109：解析级中档（LSP 不可用时）——名字解析给出"哪些文件引用了这个定义"。
+
+    精度如实标注：跨文件精确到 import 行（按 to_file/to_line 匹配，别名也覆盖）、
+    同文件精确到引用行；属性链/动态特性不计（见 spec/NAMERES.md 边界）。
+    不可用（取不到符号 / exe 缺失 / 解析失败）返回 None → 调用方回落文本级。
+    """
+    sym = _ident_at(real, line, col)
+    if not sym:
+        return None
+    try:
+        from tools.scan import _rx_scan_call, _rx_scan_exe
+        if _rx_scan_exe() is None:
+            return None
+    except Exception:
+        return None
+    root = _session_root(real)
+    rel = os.path.relpath(real, root).replace("\\", "/")
+    def_line = int(line) + 1
+    dir_out = _rx_scan_call(["resolvedir", root, "300"])
+    if not isinstance(dir_out, dict) or dir_out.get("error"):
+        return None
+    by_file = {}
+    for e in dir_out.get("imports") or []:
+        if e.get("to_file") == rel and int(e.get("to_line") or 0) == def_line:
+            by_file.setdefault(e["file"], []).append(int(e["line"]))
+    one = _rx_scan_call(["resolve", real])
+    if isinstance(one, dict) and not one.get("error"):
+        for e in one.get("edges") or []:
+            if e.get("name") == sym and e.get("kind") in ("local", "module"):
+                by_file.setdefault(rel, []).append(int(e["line"]))
+    files = []
+    for f, lines in sorted(by_file.items()):
+        full = os.path.join(root, f)
+        files.append({"file": full, "refs": len(lines),
+                      "lines": sorted(set(lines))[:20],
+                      "has_test": _has_local_test(full)})
+    untested = [f["file"] for f in files if not f["has_test"]]
+    return {"engine": "resolved", "symbol": sym,
+            "total_refs": sum(f["refs"] for f in files),
+            "files": files, "untested": untested,
+            "fallback_reason": f"LSP 不可用：{lsp_err}",
+            "note": "解析级（名字解析）：跨文件精确到 import 行（含别名绑定）、"
+                    "同文件精确到引用行；属性链与动态特性不计"
+                    "（边界见 spec/NAMERES.md）。has_test 为 python "
+                    "test_<stem>.py 约定代理"}
+
+
 def _text_impact(real, line, col, lsp_err):
     """S99：LSP 不可用时的文本级降级——复用 rx-ide 的大小写敏感全文计数
     （ide_rename 预案），只给每文件命中数不给行号（查位置用 locate_edit）。
@@ -569,8 +617,9 @@ def _text_impact(real, line, col, lsp_err):
                     "has_test 为 python test_<stem>.py 约定代理" + warn}
 
 
-@tool("ide_impact", "影响面分析：符号 → LSP references 按文件聚合 + 每个受影响"
-      "文件的测试覆盖标注（python 文件名约定代理）——改前先看会碰哪些裸奔文件",
+@tool("ide_impact", "影响面分析：符号 → 引用按文件聚合 + 测试覆盖标注（改前先看"
+      "会碰哪些裸奔文件）。三级降级：LSP references（语义级）→ 名字解析"
+      "（精确到 import/引用行，S109）→ 文本全文计数（含噪声）——engine 字段如实标注",
       "ide",
       {"type": "object",
        "properties": {
@@ -602,11 +651,18 @@ def ide_impact(file, line=0, col=0, include_decl=True):
                         "rust 内联 #[cfg(test)] 不适用"}
     if r is not None and r.get("error"):
         lsp_err = str(r.get("error"))
-    # S99：LSP 不可用 → 文本级降级（沙盒门与 LSP 路径同款）
+    # S99/S109：LSP 不可用 → 三级降级（沙盒门与 LSP 路径同款）：
+    # 解析级（名字解析，精确到 import/引用行）→ 文本级（全文计数，含噪声）
     try:
         real = _resolve_in_sandbox(file)
     except PermissionError as e:
         return {"error": str(e)}
+    try:
+        res = _resolved_impact(real, int(line), int(col), lsp_err)
+    except Exception:
+        res = None
+    if res is not None:
+        return res
     return _text_impact(real, int(line), int(col), lsp_err)
 
 

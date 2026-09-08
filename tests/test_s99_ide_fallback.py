@@ -76,6 +76,8 @@ def test_impact_text_fallback_when_lsp_unavailable(monkeypatch, tmp_path):
         raise ConnectionError("server closed")
 
     monkeypatch.setattr(lsp_mod, "ide_lsp", boom)
+    # S109：三级降级——本测试显式关掉解析级，专测最底层的文本兜底
+    monkeypatch.setattr(lsp_mod, "_resolved_impact", lambda *x, **k: None)
     r = lsp_mod.ide_impact(str(a), 0, 4)
     assert r.get("engine") == "text", r
     assert r.get("symbol") == "target", r
