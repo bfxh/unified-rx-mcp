@@ -14,6 +14,10 @@ const USAGE: &str =
     "用法: rx-appops clone <source_dir> <max_files> <max_bytes> | clean <target>";
 
 fn main() {
+    if std::env::args().any(|a| a == "--version") {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(op) = args.first().map(|s| s.as_str()) else {
         eprintln!("{USAGE}");

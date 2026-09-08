@@ -1,7 +1,7 @@
 # PANORAMA —— 项目全景复盘与开发方向
 
 > 用途：一份文档说清三件事——**推理主线**（为什么走到今天）、**现状坐标**（站在哪）、
-> **开发方向**（往哪走）。写作时点：2026-09-08 @ v2.19.0（S93 落地后）。
+> **开发方向**（往哪走）。写作时点：2026-09-08 @ v2.20.0（S94 质量体检轮）。
 >
 > 史料分工（读哪份文档管什么，见文末"七、文档地图"）：S38+ 逐轮对账见
 > [ROUNDLOG.md](ROUNDLOG.md)；S10-S44 见 [UPGRADE.md](UPGRADE.md)；主题速览见
@@ -149,7 +149,7 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-08 @ v2.19.0）
+## 五、现状坐标（2026-09-08 @ v2.20.0）
 
 **工具面 57/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(19) learn(1) meta(2) ops(5) scan(10) search(2)。
@@ -165,12 +165,19 @@ exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 +
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 573 passed + 2 skipped ／ 3.11 = 575 passed；cargo
-119 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7）；selftest 57/12/SCHEMA_BAD 0 + 机器对账
-两行（VERSION_TAG / SKILLS_DOCS，S91）；junction 逃逸回归（S88）；stdin 通道
+**测试资产**：pytest 3.14 = 584 passed + 2 skipped ／ 3.11 = 586 passed；cargo
+120 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
+= S94）；selftest 57/12/SCHEMA_BAD 0 + 机器对账三行（VERSION_TAG / SKILLS_DOCS
+S91、EXE_TAG S94）；junction 逃逸回归（S88）；stdin 通道
 parity 三测（S90，argv vs stdin 强制等价）；S73 重放验收常驻（S78）；协议 fuzz
 双靶 32 测（S78）；S92 对照实验 43 场景 + S93 对照实验 51 场景 masked 全等
 （temp\s92、temp\s93 oracle 三件套）。
+
+**质量体检基线（S94，详见 EVAL §6）**：延迟热态 fs_stat p50 7.7-9.7ms（<10ms
+预算**贴地板**，冷跑会闪红）、ast_scan 100 文件 50ms（预算 2s，余量 30 倍）、
+engine_query 34-52ms（预算 15s，余量 300 倍）；内存基线 27.8MB、15 轮 soak
+Δ+0.1MB 无泄漏信号（bench/s94_perf.py 留档滚动历史）；架构健康复核无上帝对象
+（tools 最大 lsp.py 705 行，rust 最大 pyast.rs 2989=解析器合理单体）。
 
 **部署拓扑**：开发仓 `D:\开发\unified-rx-mcp`（GitHub bfxh/unified-rx-mcp）→
 稳定克隆 `D:\rj\MCP`（origin 指开发仓，git ff 同步）→ 宿主 config.json mcpServers
@@ -181,7 +188,8 @@ PYTHONUTF8=1）→ Yan Agent GUI 实测 57 工具连接成功。
 config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本文"四"已补主题账）；
 ③S93 的 GitHub 侧未推（出货时直连不可达——本地 main/tag/稳定版均已就绪，联网后
 补：push feat/s93 + tag → PR → merge → pull main + 稳定版再 ff 到 merge commit，
-详见 ROUNDLOG S93 补记）。
+详见 ROUNDLOG S93 补记；S93/S94 连续两轮离线出货同此账）；④fs_stat 预算决策
+（exe 路由 vs 预算修订二选一，数字与两案在 EVAL §6，S95 拍板）。
 
 ## 六、开发方向（建议排序）
 
@@ -211,8 +219,10 @@ config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本
    的 Python 降级路径与 exe 直连归一（去第二实现面），engine_status 保持探测壳。
 
 ### 中期 · 量化收益（吃 ROI）
-7. **H1-H4 全指标复测一轮**：Rust 化延迟收益目前零散在账（code_search 930→140ms、
-   semantic 930→330ms、std/ui 20-30%），做一次完整 A/B（S38 基线保留可复测）归档
+7. **H1-H4 全指标复测一轮（S94 部分兑现：性能/内存/架构基线已落 EVAL §6，
+   A/B 增益复测仍挂）**：Rust 化延迟收益目前零散在账（code_search 930→140ms、
+   semantic 930→330ms、std/ui 20-30%），S94 实测 code_search 33-87ms 保持、
+   语义路径冷热敏感（591-1767ms）；剩余=完整 A/B（S38 基线保留可复测）归档
    EVAL.md——回答"原生化到底买到了什么"。
 8. **VULN-HUNTING P1-b/P2 兑现**：规则覆盖矩阵（P1-b"查不了"如实入表待解）、
    调用图定位、tag 前深扫常态化。

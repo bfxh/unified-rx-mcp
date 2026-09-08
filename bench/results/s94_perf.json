@@ -1,0 +1,138 @@
+[
+ {
+  "ts": "2026-09-08T08:28:40+00:00",
+  "latency": {
+   "fs_stat": {
+    "min": 11.3,
+    "p50": 24.2,
+    "max": 75.2,
+    "n": 100,
+    "budget": "p50 <10ms -> FAIL"
+   },
+   "code_search": {
+    "min": 73.1,
+    "p50": 86.6,
+    "max": 129.7,
+    "n": 20
+   },
+   "code_semantic": {
+    "min": 1246.1,
+    "p50": 1422.7,
+    "max": 1766.8,
+    "n": 10
+   },
+   "ast_scan": {
+    "min": 107.5,
+    "p50": 115.7,
+    "max": 163.8,
+    "n": 5,
+    "budget": "max ≤2s/100 文件 -> PASS"
+   },
+   "engine_query": {
+    "min": 85.0,
+    "p50": 92.6,
+    "max": 119.0,
+    "n": 3,
+    "budget": "max ≤15s（含 BM25 降级） -> PASS"
+   }
+  },
+  "memory": {},
+  "budget_fail": [
+   "fs_stat"
+  ]
+ },
+ {
+  "ts": "2026-09-08T08:34:18+00:00",
+  "latency": {
+   "fs_stat": {
+    "min": 7.0,
+    "p50": 7.7,
+    "max": 10.0,
+    "n": 100,
+    "budget": "p50 <10ms -> PASS"
+   },
+   "code_search": {
+    "min": 32.7,
+    "p50": 34.8,
+    "max": 72.8,
+    "n": 20
+   },
+   "code_semantic": {
+    "min": 590.7,
+    "p50": 609.9,
+    "max": 667.1,
+    "n": 10
+   },
+   "ast_scan": {
+    "min": 48.8,
+    "p50": 50.3,
+    "max": 51.8,
+    "n": 5,
+    "budget": "max ≤2s/100 文件 -> PASS"
+   },
+   "engine_query": {
+    "min": 33.0,
+    "p50": 34.5,
+    "max": 38.2,
+    "n": 3,
+    "budget": "max ≤15s（含 BM25 降级） -> PASS"
+   }
+  },
+  "memory": {
+   "baseline_mb": 27.8,
+   "final_mb": 27.9,
+   "delta_mb": 0.1,
+   "peak_mb": 27.9,
+   "soak_rounds": 15,
+   "verdict": "无明显泄漏信号"
+  },
+  "budget_fail": []
+ },
+ {
+  "ts": "2026-09-08T08:35:09+00:00",
+  "latency": {
+   "fs_stat": {
+    "min": 8.1,
+    "p50": 9.7,
+    "max": 13.9,
+    "n": 100,
+    "budget": "p50 <10ms -> PASS"
+   },
+   "code_search": {
+    "min": 38.8,
+    "p50": 43.1,
+    "max": 50.5,
+    "n": 20
+   },
+   "code_semantic": {
+    "min": 679.4,
+    "p50": 725.1,
+    "max": 767.1,
+    "n": 10
+   },
+   "ast_scan": {
+    "min": 52.3,
+    "p50": 54.8,
+    "max": 64.7,
+    "n": 5,
+    "budget": "max ≤2s/100 文件 -> PASS"
+   },
+   "engine_query": {
+    "min": 39.9,
+    "p50": 40.1,
+    "max": 51.6,
+    "n": 3,
+    "budget": "max ≤15s（含 BM25 降级） -> PASS"
+   }
+  },
+  "memory": {
+   "baseline_mb": 27.8,
+   "final_mb": 27.9,
+   "delta_mb": 0.1,
+   "peak_mb": 27.9,
+   "soak_rounds": 15,
+   "verdict": "无明显泄漏信号"
+  },
+  "budget_fail": []
+ }
+]
