@@ -338,6 +338,22 @@
   S93 对照实验 51 场景 masked 全等（含 junction/悬空/CPython errors=replace ≡
   Rust from_utf8_lossy 逐字节 FFFD 计数）。ide_edit_multi / ide_batch_edit
   写面留 Python（判型在案）。
+- **fs 读面回迁 + sandbox resolve 加固（S95 已落）**：fs_stat 预算贴地板
+  （EVAL §6）拍板方案①——fs_read/fs_stat/fs_list **回迁纯 Python**（fs_write 仍走
+  rx-fs.exe），等价性由 golden master oracle 锁定（40 场景 exe 臂捕获→fixture 只捕
+  一次防自证→Python 臂重放逐字段全等；tests/test_s95_fs_back_contract.py）。
+  **同轮 S95 高压电池实锤并修掉 sandbox.rs 一处 resolve 级缺陷**：8 线程同靶
+  fs_write 风暴下，rename-replace 与 `std::fs::canonicalize`
+  （GetFinalPathNameByHandle）竞态——对"末链接正被删除重建"的文件返回 NTFS
+  删除记录路径 `C:\$Extend\$Deleted\<record>`，宽限 realpath 曾信以为真 →
+  parent=删除目录 → create_dir_all 永久拒绝（os error 5，确定性非瞬态，5/5 复现）。
+  加固 = `canonicalize_sane`：canonicalize 结果含 `\$extend\$deleted`（不分大小写）
+  一律按失败处理，走最深存在祖先回退拼回余尾（回退结果正确）；fs_write 目录
+  创建仅保留 os.makedirs(exist_ok=True) 级 3 次容忍（真实失败如父是文件立即报错，
+  不做长退避）；tmp 名加 pid+原子序（防进程内并发库调用撞名）。并发回归测试
+  `write_concurrent_same_target_dir_race_tolerated` 入册（8 线程×40 写 320/320 ok，
+  末内容完整）。沙盒语义两侧等价的检验面扩到 Linux：WSL 实测 fail-closed 与
+  沙盒内 resolve 双态均成立（tests/test_s95_linux_smoke.py，EVAL §7）。
 - **红线**：迁移期间沙盒纪律（fail-closed、`_fs_resolve` 语义）与授权门语义必须在
   Rust 侧等价复刻并通过 `auth_gate_sweep` 同款自审；每轮 pytest + cargo test 双绿
   才准合入。

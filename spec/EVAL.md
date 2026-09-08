@@ -128,9 +128,51 @@ rust/src 最大 pyast.rs 2989（解析器，合理单体）、astscan.rs 1784、
 注入）→ selftest `EXE_TAG ok=9 drift=0 missing=0`（SKIP=纯 Python 环境不算漂移）
 → cargo `bin_version_test.rs` → pytest 版本锁步（SERVER_VERSION ↔ Cargo.toml）。
 
-**遗留张力（S95 拍板）**：fs_stat/fs_list 这类微秒级操作走 exe 子进程，热态
+**遗留张力（S95 已拍板并落地，选①）**：fs_stat/fs_list 这类微秒级操作走 exe 子进程，热态
 p50≈8-10ms 已贴 <10ms 预算地板（裸 exe 拉起 p50≈30ms、纯 os.stat 0.008ms——
-进程拉起溢价三个数量级）。两条路二选一：① fs_stat 回迁纯 Python（沙盒语义
-须在 Python 侧复刻，动红线要补 oracle）；② 预算修订为 exe 路由口径（p50 ≤25ms，
-含负载抖动）。未拍板前预算行保持原值，bench 如实亮灯。
+进程拉起溢价三个数量级）。S95 拍板方案①：fs_read/fs_stat/fs_list 回迁纯
+Python（fs_write 仍走 rx-fs.exe），等价性由 golden master oracle 锁定（§7），
+复测 fs_stat p50 0.3ms（余量 ~30 倍）。本节延迟表保留为 v2.20.0 历史基线。
+
+## 7. S95 回迁实测 + 高压电池 + Linux 面 + H2 首测（2026-09-08，v2.21.0）
+
+**回迁等价性（golden master oracle）**：回迁前 bench/s95_fs_golden.py 以现行 exe
+薄壳捕获 40 场景（universal newlines / utf-8 边界 / 1MB 门 / 幽灵路径 / 深度钳 /
+排序混合 / 六层树 / 沙盒拒绝…；脱敏：根路径→@T、mtime→@int、error_detail→@tb、
+超 4K content→sha256）入 tests/fixtures/s95_fs_golden.json——**fixture 只捕一次，
+回迁后不重捕（防自证）**；tests/test_s95_fs_back_contract.py 重放同一矩阵断言
+逐字段全等。回迁前对 exe 跑绿=装置自检，回迁后再跑绿=exe↔纯 Python 等价实证。
+
+**延迟复测（bench/s94_perf.py @ v2.21.0）**：
+| 工具 | 回迁前热态（§6，v2.20.0） | 回迁后 min/p50/max | 判定 |
+|---|---|---|---|
+| fs_stat | 7.0/7.7-9.7/13.9 | 0.2/0.3/0.5 ms | PASS，余量 ~30 倍 |
+| ast_scan(100f) | 49/50-55/65 | 32.8/33.7/34.7 ms | PASS |
+| engine_query | 33/34-40/52 | 24.1/24.7/24.8 ms | PASS |
+| code_search | 33/35-43/73 | 22.8/24.1/25.5 ms | 台账量级保持 |
+| code_semantic | 591/610-725/767 | 413/422/593 ms | 观察值 |
+
+内存 27.8MB → 15 轮 soak Δ+0.1MB（无泄漏信号，与 §6 基线一致）；留档
+bench/results/s94_perf.json（滚动历史）。
+
+**高压电池（tests/test_s95_stress.py，8 测全绿 ~2.3s）**：多线程 read/stat/list
+一致性；**8 线程同靶并发写原子性**（320/320 ok——本轮实锤并修掉 sandbox.rs
+resolve 级缺陷，见 VULN-HUNTING S95 注记）；写入翻涌下 list 有序完整（含
+getsize 瞬时失败 size:-1 契约）；2000 文件语料**经 registry 出口钳制契约**逐页
+cursor 续读拼回全量对账（每页 MAX_RESULT_ITEMS=200 + total_items/truncated/
+next_cursor，fs_list 的 entries 在结果顶层走 S10 分页而非嵌套标记）；8MB 双门
+拒收；30 层深树拒深；100×512KB 读翻涌。
+
+**Linux 面（WSL2，Linux 6.18 / Python 3.12.3）**：tests/test_s95_linux_smoke.py
+（纯 Python 臂在无 exe 环境全额工作 + fs_write 缺 exe 报清晰错误不静默降级）+
+test_s95_stress.py（7 过 4 跳，4 跳均 exe 门控 skip）+ selftest 双态：无沙盒 →
+fs_stat 探针 fail-closed"路径越界（沙盒外）"；UNIFIED_RX_SANDBOX 指仓库 →
+FS_STAT ok:true。沙盒纪律两侧等价在 Linux 面成立。
+
+**H2 幻觉守卫一致率首测（bench/h2_guard_eval.py，L3 双臂答案复用，零 API
+成本）**：1418 条 file 声明，guard 判定 ↔ 文件存在性真值一致率——A 臂 652 条
+wide/strict 均 **1.0**；B 臂 766 条 **0.9295**。分歧全单向：漏判（文件不存在却
+放行）= **0**；不一致 ~54 条均为"文件存在但行级引用被驳斥"的严判形态
+（guard 行号语义比存在性真值更细，非守卫缺陷）。留档
+bench/results/l3/h2_report.json。
 

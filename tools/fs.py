@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 """tools/fs.py —— 文件层（4 工具）：fs_read / fs_write / fs_stat / fs_list
 
-S79 起读面三工具（fs_read/fs_stat/fs_list）由 Rust 原生实现承担；S90 fs_write 收官——
-fs 域 4/4 全部薄壳转调 rx-fs.exe（spec/VULN-HUNTING.md 五·Rust 迁移路线图）。包络契约与旧实现对齐：
-- 沙盒拒绝（resolve 层）→ exe 退出码 2 → 壳 raise ValueError → registry 包成
-  ok:false（旧实现抛 ValueError 同包络）；
-- 工具级结果（不是文件/过大/不是目录）→ exe 退出码 0 + result.error 字段
-  （旧实现返回 dict 同包络）；
-- exe 缺失/超时/非 JSON 输出 → 清晰报错，不静默降级回 Python 实现。
+S95 读面回迁：fs_read/fs_stat/fs_list 回到纯 Python——S94 EVAL §6 实锤，微秒级
+操作（os.stat p50 0.008ms）走 exe 子进程要付 ~30ms 裸 spawn 溢价（三个数量级，
+冷态更甚），这是路由决策的错不是 Rust 的错；回迁语义逐行对齐 rust/src/fs.rs，
+golden master 锁等价（bench/s95_fs_golden.py 捕获 exe 臂 →
+tests/test_s95_fs_back_contract.py 重放 40 场景全等）。fs_write 仍薄壳转调
+rx-fs.exe（S90：内容经 stdin 字节通道 + tmp+replace 原子写；S86：exe 永不自行
+放权，requires_auth 由 registry 统一强制）；exe 缺失/超时/非 JSON 输出 → 清晰
+报错，不静默降级。
+
+包络契约（回迁前后一致）：
+- 沙盒拒绝（resolve 层）→ raise ValueError → registry 包成 ok:false；
+- 工具级结果（不是文件/过大/不是目录）→ 返回 dict（error 走 result.error）。
 
 安全设计（吸取旧版教训）：
 - 沙盒：UNIFIED_RX_SANDBOX 环境变量（分号分隔多个根），Python/Rust 两侧同语义
@@ -18,7 +23,9 @@ fs 域 4/4 全部薄壳转调 rx-fs.exe（spec/VULN-HUNTING.md 五·Rust 迁移�
 """
 import json
 import os
+import stat
 import subprocess
+from pathlib import Path
 
 from registry import tool
 
@@ -90,7 +97,8 @@ def _rx_fs_exe():
 
 
 def _rx_fs_call(op, path, depth=None, stdin_bytes=None):
-    """薄壳转调 rx-fs.exe，返回结果 dict；resolve 层拒绝 raise ValueError。
+    """薄壳转调 rx-fs.exe（S95 起仅 fs_write 在用），返回结果 dict；resolve 层
+    拒绝 raise ValueError。
 
     S90：stdin_bytes 非 None 时走二进制字节通道（input=bytes、不设 text=True）——
     text 模式 stdin 会做 \\n→os.linesep 换行翻译（S90 探针实锤），写内容必须字节
@@ -136,7 +144,24 @@ def _rx_fs_call(op, path, depth=None, stdin_bytes=None):
       {"type": "object", "properties": {"path": {"type": "string", "description": "文件路径"}},
        "required": ["path"]})
 def fs_read(path):
-    return _rx_fs_call("read", path)
+    # S95 回迁，语义 = rust/src/fs.rs op_read：先 stat 门（不存在/非常规文件同文）、
+    # 再 1MB 门（size 为归一化前字节数）、utf-8/replace 解码 + universal newlines
+    # （Path.read_text 默认 newline=None：\r\n 与 \r 都归一为 \n）；错误文本用原始入参。
+    p = _resolve(path)
+    try:
+        md = os.stat(p)
+    except OSError:
+        return {"error": f"不是文件或不存在: {path}"}
+    if not stat.S_ISREG(md.st_mode):
+        return {"error": f"不是文件或不存在: {path}"}
+    size = md.st_size
+    if size > MAX_BYTES:
+        return {"error": f"文件过大（{size} > {MAX_BYTES}），拒绝读取", "size": size}
+    try:
+        content = Path(p).read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        raise ValueError(f"读取失败: {e}")
+    return {"path": p, "size": size, "content": content}
 
 
 @tool("fs_write", "安全写入文件（≤1MB，需 __authorized=True）", "fs",
@@ -162,10 +187,22 @@ def fs_write(path, content, __authorized=False):
 @tool("fs_stat", "文件元信息（存在/大小/mtime）", "fs",
       {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]})
 def fs_stat(path):
-    return _rx_fs_call("stat", path)
+    # S95 回迁，语义 = rust/src/fs.rs op_stat：幽灵路径返回 exists:false 而非报错；
+    # mtime 秒级截断（int(st_mtime)：正数=floor 与 as_secs 同，负数=向零与 Rust
+    # -(duration.as_secs()) 同）。
+    p = _resolve(path)
+    try:
+        md = os.stat(p)
+    except OSError:
+        return {"exists": False, "path": p}
+    return {"exists": True, "path": p,
+            "is_file": stat.S_ISREG(md.st_mode),
+            "is_dir": stat.S_ISDIR(md.st_mode),
+            "size": md.st_size,
+            "mtime": int(md.st_mtime)}
 
 
-@tool("fs_list", "列目录（深度可选，0=仅根层；Rust 原生）", "fs",
+@tool("fs_list", "列目录（深度可选，0=仅根层）", "fs",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "目录"},
@@ -173,6 +210,35 @@ def fs_stat(path):
        },
        "required": ["path"]})
 def fs_list(path, depth=1):
-    # S79 归正：旧实现 `depth or 1` 把字面 0 静默强制成 1；现 0 = 仅根层
-    depth = 1 if depth is None else int(depth)
-    return _rx_fs_call("list", path, depth)
+    # S79 归正：旧实现 `depth or 1` 把字面 0 静默强制成 1；现 0 = 仅根层。
+    # S95 回迁，语义 = rust/src/fs.rs op_list + walk：深度钳 0..=4；每层
+    # sorted(listdir)（UTF-8 字节序 = 码点序）；OSError 层静默缺席；目录项无
+    # size 键；文件 getsize 失败 = -1；rel 名用 os.sep。
+    p = _resolve(path)
+    if not os.path.isdir(p):
+        return {"error": f"不是目录: {path}"}
+    depth = max(0, min(4, int(depth)))
+    entries = []
+
+    def walk(d, cur):
+        if cur > depth:
+            return
+        try:
+            names = sorted(os.listdir(d))
+        except OSError:
+            return  # 与 rust walk 同语义：该层静默缺席
+        for name in names:
+            full = os.path.join(d, name)
+            rel = os.path.relpath(full, p)
+            if os.path.isdir(full):
+                entries.append({"name": rel, "type": "dir"})
+                walk(full, cur + 1)
+            else:
+                try:
+                    sz = os.path.getsize(full)
+                except OSError:
+                    sz = -1
+                entries.append({"name": rel, "type": "file", "size": sz})
+
+    walk(p, 0)
+    return {"path": p, "total": len(entries), "entries": entries}

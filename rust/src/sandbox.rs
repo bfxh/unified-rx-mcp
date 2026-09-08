@@ -89,8 +89,8 @@ pub fn lenient_realpath(p: &Path) -> PathBuf {
     } else {
         p.to_path_buf()
     };
-    if let Ok(c) = std::fs::canonicalize(&p) {
-        return strip_unc(c);
+    if let Some(c) = canonicalize_sane(&p) {
+        return c;
     }
     let mut tails: Vec<std::ffi::OsString> = Vec::new();
     let mut anc = p.clone();
@@ -102,8 +102,8 @@ pub fn lenient_realpath(p: &Path) -> PathBuf {
         if anc.as_os_str().is_empty() {
             break;
         }
-        if let Ok(c) = std::fs::canonicalize(&anc) {
-            let mut out = strip_unc(c);
+        if let Some(c) = canonicalize_sane(&anc) {
+            let mut out = c;
             for t in tails.iter().rev() {
                 out.push(t);
             }
@@ -111,6 +111,23 @@ pub fn lenient_realpath(p: &Path) -> PathBuf {
         }
     }
     p
+}
+
+/// canonicalize + 消毒。rename-replace 风暴下（S95 高压电池取证），
+/// GetFinalPathNameByHandle 对"最后一个链接正被删除重建"的文件会返回
+/// NTFS 删除记录路径 `C:\$Extend\$Deleted\<record>`——按 canonicalize
+/// 失败处理，走祖先回退（对已存在目录 canonicalize 拼回余尾，结果正确）。
+fn canonicalize_sane(p: &Path) -> Option<PathBuf> {
+    match std::fs::canonicalize(p) {
+        Ok(c) => {
+            if c.to_string_lossy().to_lowercase().contains(r"\$extend\$deleted") {
+                None
+            } else {
+                Some(strip_unc(c))
+            }
+        }
+        Err(_) => None,
+    }
 }
 
 fn strip_unc(p: PathBuf) -> PathBuf {

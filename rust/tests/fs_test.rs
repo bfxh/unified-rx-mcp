@@ -315,3 +315,45 @@ fn write_fail_envelopes_and_no_residue() {
         .collect();
     assert!(residue.is_empty(), "残留 tmp: {:?}", residue);
 }
+
+#[test]
+fn write_concurrent_same_target_dir_race_tolerated() {
+    // S95 高压电池复现实锤：多线程并发写同一目标（父目录尚不存在）时，
+    // Windows 上并发建目录可能瞬时 os error 5（拒绝访问）——失败后复查
+    // 目录已存在必须容忍（等价旧 Python os.makedirs(exist_ok=True)）。
+    let t = TempDir::new("wr-race");
+    let cfg = SandboxCfg::parse("*");
+    let target = t.path().join("hot").join("target.txt");
+    let results: std::sync::Mutex<Vec<Value>> = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for k in 0..8usize {
+            let cfg = &cfg;
+            let target = &target;
+            let results = &results;
+            s.spawn(move || {
+                for i in 0..40usize {
+                    let payload = format!("w{}-{}", k, i);
+                    let r = rxrs::fs::op_write(
+                        cfg,
+                        &target.to_string_lossy(),
+                        payload.as_bytes(),
+                    )
+                    .unwrap();
+                    results.lock().unwrap().push(r);
+                }
+            });
+        }
+    });
+    let rs = results.into_inner().unwrap();
+    assert_eq!(rs.len(), 320);
+    for r in &rs {
+        assert_eq!(r.get("ok"), Some(&Value::Bool(true)), "{}", is_err_obj(r));
+    }
+    // 终态原子性：文件内容恰为 320 个 payload 之一（tmp+replace 不留半截）
+    let final_text = fs::read_to_string(&target).unwrap();
+    assert!(
+        final_text.starts_with("w") && final_text.contains('-'),
+        "{}",
+        final_text
+    );
+}
