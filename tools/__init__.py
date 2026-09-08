@@ -29,8 +29,11 @@ from . import ide_doctor  # noqa: F401,E402  R4：一键项目体检（六项聚
 from . import ide_read    # noqa: F401,E402  S66：结构化读取（ide_outline/ide_read_symbol）
 from . import ide_vscode  # noqa: F401,E402  S68：VS Code 后手入口（open/diff）
 from . import ide_autopilot  # noqa: F401,E402  S69：开发目录自动驾驶（启动自动体检+打开）
+from . import vulnkb     # noqa: F401,E402  S110：漏洞知识库（规则号/关键词 → 成因/修法/先例）
+from . import astgrep    # noqa: F401,E402  S111：可选外部引擎 ast-grep 结构搜索（薄壳）
+from . import scip       # noqa: F401,E402  S112：SCIP 索引消费（外部索引器产物，只读）
 
 __all__ = ["fs", "scan", "ide", "guard", "learn", "ops",
            "search", "game", "meta", "engine", "bevy", "attack",
            "appaudit", "astscan", "metrics", "lsp", "ide_test", "ide_doctor",
-           "ide_read", "ide_vscode", "ide_autopilot"]
+           "ide_read", "ide_vscode", "ide_autopilot", "vulnkb", "astgrep", "scip"]

@@ -140,21 +140,28 @@ def _rx_scan_call(argv, stdin_data=""):
 # bevy.py 保留为规则档案（bevy_rules 的正则原文在 Rust 侧 bug.rs 手写匹配器）。
 
 
-@tool("bug_scan", "静态扫描 bug 模式（未定义变量/裸 except/浮点比较/eval/Rust/Bevy 等）", "scan",
+@tool("bug_scan", "静态扫描 bug 模式（未定义变量/裸 except/浮点比较/eval/Rust/Bevy 等）；"
+      "knowledge=true 时给每条命中附知识库条目（成因/修法/先例，S110）", "scan",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "文件或目录"},
            "max_files": {"type": "integer", "description": "扫描上限（默认 100）"},
+           "knowledge": {"type": "boolean",
+                         "description": "附 vuln_knowledge 条目（默认 false，输出与旧版同形）"},
        },
        "required": ["path"]})
-def bug_scan(path, max_files=MAX_FILES):
+def bug_scan(path, max_files=MAX_FILES, knowledge=False):
     try:
         path = _fs_resolve(path)     # S88：S73 纪律补全——读路径同样过沙盒（code_review 同款）
     except ValueError as e:
         return {"error": str(e)}
     if not os.path.exists(path):
         return {"error": f"路径不存在: {path}"}
-    return _rx_scan_call(["bugscan", path, str(int(max_files))])
+    out = _rx_scan_call(["bugscan", path, str(int(max_files))])
+    if knowledge and isinstance(out, dict) and not out.get("error"):
+        from tools import vulnkb
+        vulnkb.annotate_issues(out)
+    return out
 
 
 # ---------- std_check ----------

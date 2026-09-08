@@ -28,6 +28,7 @@
 //!             通知静默；S78 落地形态，转发代理 S79 评估后维持缓议）
 
 pub mod appaudit;
+pub mod astgrep;
 pub mod appclone;
 pub mod astscan;
 pub mod bug;
