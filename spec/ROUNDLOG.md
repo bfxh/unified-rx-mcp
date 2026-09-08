@@ -292,3 +292,4 @@
 - 交付：9×rust/src/bin/rx_*.rs --version 门；server.py `_RX_EXE_NAMES`/`_selftest_exe_tag`/selftest EXE_TAG 接线；bench/s94_perf.py；tests/test_s94_quality.py（11 测）；rust/tests/bin_version_test.rs；EVAL L2 延迟行指向实测 + 新增 §6 质量体检基线（含 fs_stat 遗留张力两案）；PANORAMA 现状坐标 v2.20.0 + 机器对账两行→三行 + 质量基线段 + 挂账④ + 方向 #7 标部分兑现；server.py/Cargo.toml/Cargo.lock 2.20.0。
 - 验证：pytest 3.14 = 584 passed + 2 skipped（573 基线 + 11）；3.11 = 586 passed；cargo test 120 绿零告警（119 + bin_version_test）；selftest EXE_TAG ok=9 drift=0 missing=0（exe 已 2.20.0）；bench 三跑留档（1 冷 2 热，末跑 EXIT=0 全预算 PASS）。
 - 提交：本次
+- 补记（同轮）：S93 挂账的 GitHub 侧在本轮收尾时清账——git 通道直连恢复（curl 仍 000，git 自带代理配置生效），feat/s93+feat/s94 与两 tag 一并推上，PR #57（S93）/ #58（S94）先后合并，main=e55bf28；本地 main 与稳定版 D:\rj\MCP 均 ff 对齐到 merge commit（tag v2.20.0 落 8292cbb 分支尖、系 merge 祖先，VERSION_TAG 语义不受影响），稳定版复验 VERSION_TAG OK latest=v2.20.0 + EXE_TAG ok=9。教训补一条：S93 判定"网络不通"的探针只有 curl——下次网络探针应含 git ls-remote（代理客户端常只接管 git/系统代理，curl 裸连照样 000）。

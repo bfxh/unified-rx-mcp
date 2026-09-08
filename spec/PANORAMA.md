@@ -186,10 +186,10 @@ PYTHONUTF8=1）→ Yan Agent GUI 实测 57 工具连接成功。
 
 **已知滞后（挂账）**：①宿主 config.json 描述串写 v2.14.0（Yan Agent 运行中不动
 config，下个关闭窗口顺带更正）；②S54-S71 逐轮记录缺口（本文"四"已补主题账）；
-③S93 的 GitHub 侧未推（出货时直连不可达——本地 main/tag/稳定版均已就绪，联网后
-补：push feat/s93 + tag → PR → merge → pull main + 稳定版再 ff 到 merge commit，
-详见 ROUNDLOG S93 补记；S93/S94 连续两轮离线出货同此账）；④fs_stat 预算决策
-（exe 路由 vs 预算修订二选一，数字与两案在 EVAL §6，S95 拍板）。
+③~~S93 的 GitHub 侧未推~~（**S94 轮内已清**：GitHub 直连恢复，feat/s93+feat/s94
+两分支与 v2.19.0/v2.20.0 两 tag 已推、PR #57/#58 已合、main=e55bf28，本地与稳定
+版均已 ff 对齐；tag 落分支尖与 merge 惯例的偏离随 PR 合并自然消解）；④fs_stat
+预算决策（exe 路由 vs 预算修订二选一，数字与两案在 EVAL §6，S95 拍板）。
 
 ## 六、开发方向（建议排序）
 
