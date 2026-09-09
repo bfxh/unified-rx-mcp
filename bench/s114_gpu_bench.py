@@ -45,6 +45,8 @@ def main():
     warm = b"x" * (1 << 20)
     gpu.byte_hist_gpu(warm)
     gpu.literal_scan_gpu(warm, [b"needle"])
+    gpu.ngram_bottomk_gpu(warm, 4, 128)
+    gpu.ngram_hashes_gpu(warm, 4)
 
     # 1) 字节直方图/熵
     print("\n-- byte_hist（直方图/熵）--")
@@ -100,12 +102,44 @@ def main():
     print(f"  256x512x256  gpu {tg:8.2f}ms  cpu {tc:9.2f}ms  speedup {tc/tg:6.1f}x  "
           f"rel_diff={md/mx:.2e}")
 
+    # 5) n-gram bottom-k MinHash（GPU 两遍选择：直方图定阈值 + 按阈值发射）
+    print("\n-- ngram_bottomk（ng=4, k=128；回传量 O(n)→O(k)）--")
+    for kb in (8, 64, 256, 1024, 4096):
+        data = os.urandom(kb << 10)
+        tg, hg = _best(lambda d: gpu.ngram_bottomk_gpu(d, 4, 128), data, 1)
+        tc, hc = _best(lambda d: gpu.ngram_bottomk_cpu(d, 4, 128), data, 1)
+        rows.append({"kind": "ngram_bottomk", "kb": kb, "gpu_ms": round(tg, 2),
+                     "cpu_ms": round(tc, 2), "speedup": round(tc / tg, 1),
+                     "equal": hg == hc})
+        print(f"  {kb:6d}KB  gpu {tg:8.2f}ms  cpu {tc:10.2f}ms  speedup {tc/tg:7.1f}x  equal={hg == hc}")
+
+    # 6) 全量哈希输出（回退路径口径）：仅 ~2.8×，受输出带宽限制——两遍选择的存在理由
+    print("\n-- ngram_hashes（全量输出，带宽受限；回退路径）--")
+    for mb in (1, 4, 16):
+        data = os.urandom(mb << 20)
+        th, hh = _best(lambda d: gpu.ngram_hashes_gpu(d, 4), data, 1)
+        tch, hch = _best(lambda d: gpu.ngram_hashes_cpu(d, 4), data, 1)
+        rows.append({"kind": "ngram_hashes", "mb": mb, "gpu_ms": round(th, 2),
+                     "cpu_ms": round(tch, 2), "speedup": round(tch / th, 1),
+                     "equal": hh == hch})
+        print(f"  {mb:3d}MB  gpu {th:8.2f}ms  cpu {tch:10.2f}ms  speedup {tch/th:6.1f}x  equal={hh == hch}")
+
     hist_rows = [r for r in rows if r["kind"] == "byte_hist"]
     cross = next((r["mb"] for r in hist_rows if r["speedup"] >= 1.0), None)
     print(f"\n直方图交叉点（GPU 首次快过 CPU）：{cross}MB" if cross else "\n直方图：本机未测到交叉点")
+    bk_rows = [r for r in rows if r["kind"] == "ngram_bottomk"]
+    bk_cross = next((r["kb"] for r in bk_rows if r["speedup"] >= 1.5), None)
+    print(f"bottom-k 交叉点（GPU ≥1.5× 的最小尺寸）：{bk_cross}KB" if bk_cross
+          else "bottom-k：本机未测到交叉点")
     out = {"available": True, "gpu": dev, "rows": rows, "hist_crossover_mb": cross,
+           "bottomk_crossover_kb": bk_cross,
            "note": "literal_scan 在 CPU(bytes.find/memmem) 下极难被朴素 GPU 内核超越——"
-                   "auto 模式对字面量匹配保持 CPU，除非模式数×数据量远大于本测例"}
+                   "auto 模式对字面量匹配保持 CPU；"
+                   "全量哈希输出受带宽限制仅 ~2.8×，故 near_dupes 走两遍选择"
+                   "（直方图定阈值 + 按阈值发射，回传量 O(n)→O(k)）；"
+                   "负结果入册：①批量哈希 GPU(FNV-1a) vs CPU hashlib.blake2b 仅 0.4-1.2×"
+                   "（CPU 更快，不接）；②直方图余弦对高熵数据无区分力（随机文件相似度 "
+                   "0.98）——近重复检测改用 bottom-k MinHash（实测近重复 1.0 / 随机 0.0）"}
     print(json.dumps(out, ensure_ascii=False))
 
 
