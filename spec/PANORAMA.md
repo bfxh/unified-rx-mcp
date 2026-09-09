@@ -149,7 +149,7 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.36.0）
+## 五、现状坐标（2026-09-09 @ v2.37.0）
 
 **工具面 64/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(20) learn(1) meta(3) ops(5) scan(14) search(3)。
@@ -161,14 +161,18 @@ ide_outline/ide_read_symbol/locate_edit/ide_rename/code_context）；
 fs_read/fs_stat/fs_list 曾于 S79 薄壳化、**S95 回迁纯 Python**（读面微秒级操作
 不付进程拉起溢价：fs_stat p50 7.7-9.7ms→0.3ms，等价性由 golden master oracle
 40 场景锁定，EVAL §7）；另有
-rust_taint_scan 与 code_review 的 bug_scan 透镜经 exe 路径。**结构性留 Python**
+rust_taint_scan 与 code_review 的 bug_scan 透镜经 exe 路径。**S119 新增加速器面**：
+`rx-scan sketch`（n-gram bottom-k 批量指纹，std::thread 分块）供 `near_dupes` 走
+Rust 引擎（实测 16MB 5.4ms / 300×20KB 约 15ms，**比 GPU 逐文件快 6-13×**；
+GPU/CPU 降为回落并如实上报 `sketch_engine`/`sketch_fallback`）。**结构性留 Python**
 （判型在案，S85/S87/S91）：attack 五件（活体自审——攻击对象就是运行中的 registry,
 exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 + registry/文本计算混合，判型表 S91）、
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 698 passed + 2 skipped ／ 3.11 = 700 passed；cargo
-156 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
+**测试资产**：pytest 3.14 = 721 passed + 2 skipped ／ 3.11 = 723 passed；cargo
+161 绿零告警（lib 21 + sketch 5 = S119 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，
+bin_version_test
 = S94，fs_test 并发回归 = S95，search_test 资格门 4 = S101，repomap_test 6 = S102，
 nameres_test 25 = S107/S108）；selftest 58/12/SCHEMA_BAD 0 + 机器对账三行
 （VERSION_TAG / SKILLS_DOCS S91、EXE_TAG S94）；junction 逃逸回归（S88）；stdin 通道
@@ -198,7 +202,10 @@ S114/S115 GPU 11 测（内核 vs CPU oracle 逐位一致/交叉点选路/无运�
 file_scan 签名与打包与哈希/沙盒，test_s114_gpu）+ S116 内核扩面 7 测（异或枚举
 饱和口径/点积相对容差/hex crib 唯一锁钥/短 crib 拒绝，test_s116_gpu_kernels）+
 S117 近似重复 11 测（bottom-k 两遍选择 oracle 对拍/独立 FNV 实现/溢出回退/
-near_dupes 聚类与沙盒，test_s117_neardupes）+ bench/s114_gpu_bench.py
+near_dupes 聚类与沙盒，test_s117_neardupes）+ S118 规模化 5 测（精确候选剪枝
+不丢真对/剪枝 vs 暴力逐项相等/截断标记，test_s118_neardupes_scale）+
+S119 Rust sketch 7 测（rx-scan sketch vs Python oracle/三档引擎与回落如实上报/
+特殊路径帧流，test_s119_rust_sketch）+ bench/s114_gpu_bench.py
 （实测：熵 33-38×、异或枚举 3.6-3.8×、点积 14-78×、bottom-k 1.7-551×、
 字面量匹配 CPU 更快；负结果：批量哈希 0.4-1.2× 不接、直方图余弦无区分力
 ——spec/GPU.md §二）。
@@ -253,8 +260,9 @@ H1 口径已校正为"解决率增益+可核验性"，非"省 token"）。
    S93：locate_edit/ide_rename/code_context 并入 rx-ide（遍历+搜索与 rx-scan
    基建同构，oracle 51/51）。ide 域可迁面收官（余 ide_health_trend 低优缓，
    低频聚合不值得单开一轮）。
-6. **engine 域双实现归一**：BM25/语义引擎已住 rx-search/rx-semantic，engine_query
-   的 Python 降级路径与 exe 直连归一（去第二实现面），engine_status 保持探测壳。
+6. **engine 域双实现归一（✅ S119 核验已达成）**：BM25/语义引擎住在 rx-search/
+   rx-semantic，`engine_query` 的降级路径就是 `code_search`（已是 rx-search 薄壳），
+   Python 侧**没有第二份 BM25 实现**——engine_status 保持探测壳。核验见 S119 ROUNDLOG。
 
 ### 中期 · 量化收益（吃 ROI）
 7. **H1-H4 全指标复测一轮（S94 性能/内存/架构 + S95 H2 首测 + S97 H1-H4 台账

@@ -24,6 +24,8 @@
 //!             仍留 Python registry；Python 3.14 junction 真值 + Win32 relpath 归一
 //!             + GetLocalTime FFI 时间戳，与 tools/appaudit.py 逐条对齐）
 //! - `taint`   污点引擎（Python 子集词法 + 缩进作用域 + 来源→汇点浅数据流）
+//! - `sketch`  n-gram bottom-k MinHash 指纹（S119：near_dupes 的 sketch 原生化，
+//!             stdin 帧流 + std::thread 分块并行，与 Python/GPU 口径逐位一致）
 //! - `server`  MCP stdio 协议层（rx-mcp：独立协议实现——解析/分发/tools+ping 直答、
 //!             通知静默；S78 落地形态，转发代理 S79 评估后维持缓议）
 
@@ -44,4 +46,5 @@ pub mod search;
 pub mod sem;
 pub mod server;
 pub mod sha256;
+pub mod sketch;
 pub mod taint;

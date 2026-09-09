@@ -59,17 +59,20 @@
   （熵>阈值且 ≥4KB）。**熵计算走 GPU**（≥1MB 实测 31-38×，见 spec/GPU.md；
   auto 按实测交叉点选路，无 GPU 明确降级到 CPU）；`xor_crib` 启单字节异或层枚举
   （≥6 字节已知明文，二进制用 `hex:` 形式；≥2MB 走 GPU 实测 3.6-3.8×）。
-- **near_dupes（S117/S118）**：近似重复/同族文件聚类——目录遍历（CPU）+ **bottom-k MinHash
-  指纹（GPU 两遍选择）** + **精确候选剪枝** + Jaccard 阈值聚类。参数 `path`（沙盒内目录）/
-  `ng`（默认 4）/`k`（指纹长度，默认 128）/`threshold`（默认 0.8）/`max_files`（默认 100）/
-  `max_file_mb`（默认 64）/`engine`（auto/cpu/gpu）。返回 `pairs[{a,b,similarity}]` +
-  `clusters[][]` + `entropy_engine{gpu,cpu}`（实际用路）+ `candidates`/`shared_pairs`
-  （剪枝统计）+ `walk_truncated`（**文件被 max_files 截断时如实标记**，不再静默丢尾）+
-  `skipped[]`。**近似口径**：n-gram 指纹集合相似度，不是逐字节 diff；两两比较用倒排
-  索引 + Jaccard 下界 I ≥ 2tm/(1+t) 剪枝（**精确，不丢真对**；指纹极短时自动回退全对）；
-  GPU 两遍选择实测 8KB 1.7× → 16MB 551×（回传量 O(n)→O(k)），无 GPU/小文件回落 CPU
-  参考实现。实测：300 个 20KB 文件 engine=gpu 845ms vs cpu 3.2s；全随机语料 300 文件
-  候选对 44850→0。见 spec/GPU.md §二（含"直方图余弦对高熵数据无区分力"的负结果）。
+- **near_dupes（S117/S118/S119）**：近似重复/同族文件聚类——目录遍历（CPU）+ **bottom-k
+  MinHash 指纹（rust 批量 / GPU 两遍选择 / CPU 参考，三档如实上报）** + **精确候选剪枝**
+  + Jaccard 阈值聚类。参数 `path`（沙盒内目录）/`ng`（默认 4）/`k`（指纹长度，默认 128）/
+  `threshold`（默认 0.8）/`max_files`（默认 100）/`max_file_mb`（默认 64）/
+  `engine`（auto/rust/gpu/cpu；auto = exe 在走 rust，否则按实测交叉点）。返回
+  `pairs[{a,b,similarity}]` + `clusters[][]` + `sketch_engine{rust,gpu,cpu}`（实际用路）+
+  `sketch_fallback`（回落原因，null=未回落）+ `candidates`/`shared_pairs`（剪枝统计）+
+  `walk_truncated`（**文件被 max_files 截断时如实标记**）+ `skipped[]`。**近似口径**：
+  n-gram 指纹集合相似度，不是逐字节 diff；两两比较用倒排索引 + Jaccard 下界
+  I ≥ 2tm/(1+t) 剪枝（**精确，不丢真对**；指纹极短时自动回退全对）。指纹引擎实测：
+  rust 批量（`rx-scan sketch`，std::thread 分块）16MB 5.4ms、300×20KB 约 15ms，
+  比 GPU 逐文件快 6-13×（GPU 两遍选择 8KB 1.7× → 16MB 551× 是对纯 Python 基线）；
+  无 exe/无 GPU 回落 CPU 参考实现。全随机语料 300 文件候选对 44850→0。
+  见 spec/GPU.md §二（含"直方图余弦对高熵数据无区分力"的负结果）。
 - **结果缓存（S103）**：bug_scan/std_check/ui_check/ast_scan/bug_locate 等纯读
   工具的结果进入**进程内内容寻址缓存**（键 = 工具+参数+cursor+输入指纹；指纹含
   小文件内容哈希，文件一变即失效）。命中返回与冷跑逐字节一致；`__no_cache: true`

@@ -85,24 +85,7 @@ def main():
                      "equal": gh == ch})
         print(f"  {mb:3d}MB  gpu {tg:8.2f}ms  cpu {tc:9.2f}ms  speedup {tc/tg:6.1f}x  equal={gh == ch}")
 
-    # 4) 相似度矩阵（m×kk · kk×n）
-    print("\n-- dot_matrix（相似度矩阵，256×512 · 512×256）--")
-    import array as _arr
-    a = _arr.array("f", [0.001 * i for i in range(256 * 512)])
-    b = _arr.array("f", [0.001 * ((i * 7) % 512) for i in range(512 * 256)])
-    tg, cg = _best(lambda _: gpu.dot_matrix_gpu(list(a), list(b), 256, 512, 256), None, 1)
-    tc, cc = _best(lambda _: gpu.dot_matrix_cpu(list(a), list(b), 256, 512, 256), None, 1)
-    mx = max(abs(x) for x in cc) or 1.0
-    md = max(abs(x - y) for x, y in zip(cg, cc))
-    ok = (md / mx) < 1e-4      # float32 vs float64：相对容差
-    rows.append({"kind": "dot_matrix", "shape": "256x512x256",
-                 "gpu_ms": round(tg, 2), "cpu_ms": round(tc, 2),
-                 "speedup": round(tc / tg, 1), "equal": ok,
-                 "max_rel_diff": round(md / mx, 8)})
-    print(f"  256x512x256  gpu {tg:8.2f}ms  cpu {tc:9.2f}ms  speedup {tc/tg:6.1f}x  "
-          f"rel_diff={md/mx:.2e}")
-
-    # 5) n-gram bottom-k MinHash（GPU 两遍选择：直方图定阈值 + 按阈值发射）
+    # 4) n-gram bottom-k MinHash（GPU 两遍选择：直方图定阈值 + 按阈值发射）
     print("\n-- ngram_bottomk（ng=4, k=128；回传量 O(n)→O(k)）--")
     for kb in (8, 64, 256, 1024, 4096):
         data = os.urandom(kb << 10)
@@ -113,7 +96,7 @@ def main():
                      "equal": hg == hc})
         print(f"  {kb:6d}KB  gpu {tg:8.2f}ms  cpu {tc:10.2f}ms  speedup {tc/tg:7.1f}x  equal={hg == hc}")
 
-    # 6) 全量哈希输出（回退路径口径）：仅 ~2.8×，受输出带宽限制——两遍选择的存在理由
+    # 5) 全量哈希输出（回退路径口径）：仅 ~2.8×，受输出带宽限制——两遍选择的存在理由
     print("\n-- ngram_hashes（全量输出，带宽受限；回退路径）--")
     for mb in (1, 4, 16):
         data = os.urandom(mb << 20)

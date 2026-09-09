@@ -249,19 +249,6 @@ __kernel void xor_crib_scan(__global const uchar* data, const uint n,
 }
 """
 
-_K_DOT = r"""
-__kernel void dot_matrix(__global const float* A, __global const float* B,
-                         const uint m, const uint kk, const uint n,
-                         __global float* C) {
-    uint i = get_global_id(0), j = get_global_id(1);
-    if (i >= m || j >= n) return;
-    float acc = 0.0f;
-    for (uint t = 0; t < kk; ++t) acc += A[i * kk + t] * B[t * n + j];
-    C[i * n + j] = acc;
-}
-"""
-
-
 def _read_buf(cl, queue, mem, nbytes):
     out = (ctypes.c_char * nbytes)()
     _check(cl.clEnqueueReadBuffer(queue, mem, 1, 0, nbytes, out, 0, None, None),
@@ -389,9 +376,8 @@ def entropy(hist, n):
 # 换硬件/换数据分布请重跑 bench/s114_gpu_bench.py 再回填。
 CROSSOVER = {"literal_scan_bytes": 1 << 62, "byte_hist_bytes": 1 << 20,
              # 实测：1MB 0.6× / 4MB 3.8× → 取 2MB 为界
-             "xor_scan_bytes": 2 << 20,
-             # 实测：0.07M FLOPs 0.0× / 0.52M 13.9× → 取 0.25M 为界
-             "dot_matrix_flops": 250_000}
+             "xor_scan_bytes": 2 << 20}
+# S119 退役：dot_matrix（无调用方 + 朴素内核实测 22× 慢于原生 Rust）——见 spec/GPU.md §二
 
 
 def pick_mode(kind, nbytes, mode="auto"):
@@ -477,53 +463,6 @@ def xor_crib_scan_cpu(data, crib, keys=range(256)):
             out.append((k, c))
     return out
 
-
-def dot_matrix_gpu(a, b, m, kk, n):
-    """A(m×kk) · B(kk×n) → C(m×n)（float32 点积矩阵，大语料相似度用）。"""
-    cl = _cl()
-    ctx, queue, _ = _ensure_ctx()
-    err = ctypes.c_int()
-    fa = (ctypes.c_float * (m * kk))(*a)
-    fb = (ctypes.c_float * (kk * n))(*b)
-    amem = cl.clCreateBuffer(ctx, 4 | 32, 4 * m * kk, fa, ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(A)")
-    bmem = cl.clCreateBuffer(ctx, 4 | 32, 4 * kk * n, fb, ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(B)")
-    cmem = cl.clCreateBuffer(ctx, 2, 4 * m * n, None, ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(C)")
-    kern = cl.clCreateKernel(_program(_K_DOT), b"dot_matrix", ctypes.byref(err))
-    _check(err.value, "clCreateKernel")
-    _set_arg(cl, kern, 0, ctypes.c_void_p(amem))
-    _set_arg(cl, kern, 1, ctypes.c_void_p(bmem))
-    _set_arg(cl, kern, 2, ctypes.c_uint(m))
-    _set_arg(cl, kern, 3, ctypes.c_uint(kk))
-    _set_arg(cl, kern, 4, ctypes.c_uint(n))
-    _set_arg(cl, kern, 5, ctypes.c_void_p(cmem))
-    gsz = (ctypes.c_size_t * 2)(m, n)
-    _check(cl.clEnqueueNDRangeKernel(queue, kern, 2, None, gsz, None, 0, None, None),
-           "clEnqueueNDRangeKernel")
-    raw = _read_buf(cl, queue, cmem, 4 * m * n)
-    out = [0.0] * (m * n)
-    import struct
-    for i in range(m * n):
-        out[i] = struct.unpack_from("<f", raw, 4 * i)[0]
-    for mm in (amem, bmem, cmem):
-        cl.clReleaseMemObject(mm)
-    cl.clReleaseKernel(kern)
-    return out
-
-
-def dot_matrix_cpu(a, b, m, kk, n):
-    """CPU 参考（纯 Python，无 BLAS——本仓零依赖基线）。
-    注意：GPU 侧是 float32 累加、CPU 侧是 Python float64 → 比对用相对容差。"""
-    out = [0.0] * (m * n)
-    for i in range(m):
-        for j in range(n):
-            s = 0.0
-            for t in range(kk):
-                s += a[i * kk + t] * b[t * n + j]
-            out[i * n + j] = s
-    return out
 
 _K_NGBUCKET = r"""
 __kernel void ngram_buckets(__global const uchar* data, const uint n, const uint ng,

@@ -115,7 +115,8 @@ def test_near_dupes_cpu_engine_all_cpu(tmp_path):
     _mk_pair(tmp_path)
     r = registry.call("near_dupes", {"path": str(tmp_path), "engine": "cpu"})
     assert r.get("ok"), r
-    assert r["result"]["entropy_engine"] == {"gpu": 0, "cpu": 3}, r["result"]["entropy_engine"]
+    assert r["result"]["sketch_engine"] == {"rust": 0, "gpu": 0, "cpu": 3}, \
+        r["result"]["sketch_engine"]
 
 
 def test_near_dupes_sandbox_reject(tmp_path, monkeypatch):

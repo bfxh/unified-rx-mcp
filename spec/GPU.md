@@ -3,6 +3,11 @@
 > 目标：把**数据并行**的重活交给 GPU（扫描/统计/熵/批量匹配），同时**不破坏**
 > 本仓两条红线：Python 纯 stdlib、Rust `[dependencies]` 恒空。
 > 本文给出：运行时选择、实测交叉点、适用/不适用清单、降级纪律、接入面。
+>
+> **S119 口径修正（重要）**：本文所有倍数都是**对纯 Python 基线**。Rust 侧原生化后
+> 用原生 Rust（纯 std，无任何 crate）复测，**现有每一个 GPU 内核都被 Rust 打败**
+> （见 §二·三）。故从 S119 起：流式/哈希类热路径走 **Rust**，GPU 降为可选引擎
+> （`engine=gpu` 显式可调），新内核必须过"vs Rust 原生"这一关才允许进 `auto`。
 
 ## 一、运行时选择（零 pip 依赖）
 
@@ -19,12 +24,17 @@
 
 ## 二、实测交叉点（bench/s114_gpu_bench.py，留档 bench/results/s114_gpu.json）
 
+> 下表倍数 = **对纯 Python 基线**（S114-S117 口径）。S119 起与原生 Rust 的对照见 §二·三。
+
 | 内核 | 1MB | 4MB | 8MB | 64MB | 结论 |
 |---|---|---|---|---|---|
 | `byte_hist`（直方图 → 熵/打包检测） | GPU **33×** | — | GPU **36×** | GPU **38×** | ✅ ≥1MB auto 走 GPU（预热后；结果与 CPU 逐位一致） |
-| `xor_crib_scan`（单字节异或层枚举） | GPU **0.6×** | GPU **3.8×** | — | GPU **3.6×** | ✅ ≥2MB auto 走 GPU |
-| `dot_matrix`（相似度矩阵） | 0.07M FLOPs **0.0×** / 0.52M **14×** / 33.5M **78×** | | | | ✅ ≥0.25M FLOPs auto 走 GPU（float32 vs float64 相对误差 ~2e-6） |
+| `xor_crib_scan`（单字节异或层枚举） | GPU **0.6×** | GPU **3.8×** | — | GPU **3.6×** | ⚠️ ≥2MB auto 走 GPU（但 S119 实测 Rust 16 线程快 3.5×，见 §二·三） |
 | `literal_scan`（多模式字面量签名） | GPU **0.17×** | — | GPU **0.18×** | — | ❌ CPU 的 `bytes.find`(memmem) 太强，auto 恒走 CPU |
+
+**已退役**：`dot_matrix`（S116 交付、无调用方；S119 实测朴素内核 6.7 GFLOP/s，
+比原生 Rust 朴素实现慢 22×——1024³ GPU 317.9ms vs Rust 16 线程 14.1ms）。
+按"不留死代码"删除；若将来需要相似度矩阵，用 Rust 实现并过 §二·三 的门。
 
 ### n-gram / 近似重复（S117）
 
@@ -62,6 +72,30 @@
 GPU 内核保留（`engine="gpu"` 显式可调，供"海量模式 × 超大语料"的极端场景），
 但 `auto` 永不选它——数字在上表。
 
+### 二·三、vs 原生 Rust（S119 关键对照，16MB / min-of-3 / 同机）
+
+纯 std Rust（`std::thread`，`[dependencies]` 恒空，opt-level=2 与仓库 release 一致）
+对同口径内核复测——**现有 GPU 内核全部落后**：
+
+| 内核（16MB） | Rust 单线程 | Rust 16 线程 | GPU | 结论 |
+|---|---|---|---|---|
+| 字节直方图（流式） | 4.4ms | **1.4ms** | 15.4ms | Rust 快 **11×** |
+| n-gram bottom-k | 27.8ms | **5.4ms** | 32.5ms | Rust 快 **6×** |
+| 异或密钥枚举（256 键） | 3084ms | **365ms** | 1279ms | Rust 快 **3.5×** |
+| 矩阵乘 1024³（已退役内核） | 96.4ms | **14.1ms** | 317.9ms | Rust 快 **22×** |
+| 300×20KB 批量指纹（含 IO/进程） | ~50ms | 13ms | 651ms | Rust 快 **10-13×** |
+
+**为什么 GPU 输（不是 GPU 不行，是内核朴素 + 数据在 CPU 侧）**：
+1. 数据本来就在 CPU（文件由 Python 读）→ GPU 要付来回传输；
+2. 内核未优化：matmul 只有 6.7 GFLOP/s（4060 Ti 理论 20+ TFLOP/s，无 tiling/局部内存/
+   向量化）；**异或枚举只开 256 个 work item**（`gsz = len(keys)`，把并行度锁死在密钥
+   数上，而 GPU 有 4 千多个执行槽）；
+3. 流式内核（直方图/哈希）是内存带宽活，CPU 直接吃缓存就够。
+
+**门（S119 起）**：任何新 GPU 内核必须给出"vs 原生 Rust"的实测对照，赢了才允许进
+`auto`；只赢纯 Python 不算赢。当前已接路径：`near_dupes` 指纹走 `rx-scan sketch`
+（Rust 批量，`engine=auto` 优先），GPU 保留 `engine=gpu` 显式可选。
+
 ## 三、适用 / 不适用（如实，防"装了 GPU 什么都快"的错觉）
 
 **适用（数据并行、算术密集）**：
@@ -74,8 +108,9 @@ GPU 内核保留（`engine="gpu"` 显式可调，供"海量模式 × 超大语�
 - **IDE 编排类**：编译/测试/LSP 会话/调试器——瓶颈在外部进程与协议
 - **字面量匹配**：CPU 的 memmem 已优化到极致（实测见上表）
 - **小数据（<1MB）**：传输 + 内核启动开销 > 计算本身；**每次调用固定开销 ~3ms**
-  （缓冲创建/写入/两次启动）——大量小文件场景（300 个 20KB）GPU 仍 3.7× 胜 CPU
-  （845ms vs 3.2s，近重复聚类实测），但**单文件 <8KB 走 CPU 更快**（交叉点见上表）
+  （缓冲创建/写入/两次启动）——300 个 20KB 的批量指纹场景 GPU 651ms，Rust 一次
+  进程调用约 15ms（§二·三）
+- **凡是原生 Rust 更快的**：当前实测覆盖的全部内核（见 §二·三）——先 Rust，再谈 GPU
 
 ## 四、降级纪律（与 LSP/ast-grep 同款）
 
@@ -91,7 +126,7 @@ GPU 内核保留（`engine="gpu"` 显式可调，供"海量模式 × 超大语�
 |---|---|
 | **文件扫描**（扫病毒/扫漏洞的"量大"部分） | 新工具 `file_scan`：SHA-256 哈希匹配（CPU，快）+ **熵/打包检测（GPU）** + 字面量签名（CPU）——**签名/启发式扫描，非杀毒软件**，如实标注 |
 | **扫描域**（bug/vuln） | 规则匹配仍是 CPU（AST/正则）；统计类信号（熵、字节分布）走 GPU |
-| **近似重复**（S117/S118） | 新工具 `near_dupes`：目录遍历（CPU）+ bottom-k 指纹（**GPU 两遍选择**）+ **精确候选剪枝**（倒排索引 + Jaccard 下界，纯 CPU 算法优化，非 GPU）+ Jaccard 聚类（CPU）——重复代码分堆、样本同族归并 |
+| **近似重复**（S117-S119） | 新工具 `near_dupes`：目录遍历（CPU）+ bottom-k 指纹（**Rust 批量 `rx-scan sketch` 优先**，GPU 两遍选择 / CPU 参考为回落，三档如实上报）+ **精确候选剪枝**（倒排索引 + Jaccard 下界，纯 CPU 算法优化）+ Jaccard 聚类（CPU）——重复代码分堆、样本同族归并 |
 | **IDE 工具** | 编排类（build/test/lsp/debug）**不接 GPU**（瓶颈在外部进程）；批量文本统计（如大仓二进制/打包文件盘点）走 `file_scan` 的 GPU 路径 |
 | **遥测** | `gpu_status` 工具：运行时/设备/VRAM/CU 与降级原因 |
 
@@ -99,6 +134,7 @@ GPU 内核保留（`engine="gpu"` 显式可调，供"海量模式 × 超大语�
 
 - GPU 内核 vs CPU oracle 逐位一致（`tests/test_s114_gpu.py`、`tests/test_s116_gpu_kernels.py`、
   `tests/test_s117_neardupes.py`——含独立实现 oracle、溢出回退、无 GPU 降级）；
+- Rust sketch vs Python oracle 逐位一致 + 三档引擎回落上报（`tests/test_s119_rust_sketch.py`）；
 - 无运行时降级路径（monkeypatch 库名 → 明确错误）；
 - `pick_mode` 交叉点选路（含强制模式）；
 - 门禁沿用四道（pytest 双解释器 / cargo / selftest / S113 八门）。
