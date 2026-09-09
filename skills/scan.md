@@ -54,11 +54,14 @@
 - **code_coverage / module_stability**（metrics 域，S52）：`code_coverage` 用 stdlib
   trace 在子进程跑脚本产出覆盖数据（>10MB 拒读、runner 落沙盒内临时脚本）；
   `module_stability` 以历史改动频率 + 文件规模给稳定性评分（启发式，非缺陷判定）。
-- **file_scan（S115）**：签名/熵启发式/哈希扫描（**非杀毒软件**，如实标注）——
+- **file_scan（S115/S120）**：签名/熵启发式/哈希/异或层扫描（**非杀毒软件**，如实标注）——
   字面量签名（默认仅 EICAR 测试串）+ SHA-256 黑名单 + 打包熵启发式
   （熵>阈值且 ≥4KB）。**熵计算走 GPU**（≥1MB 实测 31-38×，见 spec/GPU.md；
-  auto 按实测交叉点选路，无 GPU 明确降级到 CPU）；`xor_crib` 启单字节异或层枚举
-  （≥6 字节已知明文，二进制用 `hex:` 形式；≥2MB 走 GPU 实测 3.6-3.8×）。
+  auto 按实测交叉点选路，无 GPU 明确降级到 CPU；**不迁 Rust**——逐文件调用时进程
+  启动 ~15ms ≥ 计算本身，S120 实测）；`xor_crib` 启单字节异或层枚举
+  （≥6 字节已知明文，二进制用 `hex:` 形式；**`xor_engine` 三档如实上报**：
+  ≥256KB rust（16MB 485ms）→ ≥128KB gpu（128-256KB 带最优）→ cpu；
+  回落原因写 `xor_fallback`，不静默降级）。
 - **near_dupes（S117/S118/S119）**：近似重复/同族文件聚类——目录遍历（CPU）+ **bottom-k
   MinHash 指纹（rust 批量 / GPU 两遍选择 / CPU 参考，三档如实上报）** + **精确候选剪枝**
   + Jaccard 阈值聚类。参数 `path`（沙盒内目录）/`ng`（默认 4）/`k`（指纹长度，默认 128）/

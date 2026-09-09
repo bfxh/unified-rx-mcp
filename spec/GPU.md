@@ -28,8 +28,8 @@
 
 | 内核 | 1MB | 4MB | 8MB | 64MB | 结论 |
 |---|---|---|---|---|---|
-| `byte_hist`（直方图 → 熵/打包检测） | GPU **33×** | — | GPU **36×** | GPU **38×** | ✅ ≥1MB auto 走 GPU（预热后；结果与 CPU 逐位一致） |
-| `xor_crib_scan`（单字节异或层枚举） | GPU **0.6×** | GPU **3.8×** | — | GPU **3.6×** | ⚠️ ≥2MB auto 走 GPU（但 S119 实测 Rust 16 线程快 3.5×，见 §二·三） |
+| `byte_hist`（直方图 → 熵/打包检测） | GPU **33×** | — | GPU **36×** | GPU **38×** | ✅ ≥1MB auto 走 GPU（预热后；结果与 CPU 逐位一致）。**不迁 Rust**（S120 实测：逐文件调用时进程启动 ~15ms ≥ 计算本身，16MB 时 Rust 1.4ms+15ms ≈ GPU 16ms；200×4KB 整目录仅 46ms） |
+| `xor_crib_scan`（单字节异或层枚举） | GPU **0.6×** | GPU **3.8×** | — | GPU **3.6×** | **S120 已迁 Rust**：`file_scan` 的异或枚举 ≥256KB 走 `rx-scan xor`（16MB 485ms vs GPU 1279ms vs CPU 3763ms）；GPU 保留 128KB-256KB 带（无启动开销，实测最优）与回落路径 |
 | `literal_scan`（多模式字面量签名） | GPU **0.17×** | — | GPU **0.18×** | — | ❌ CPU 的 `bytes.find`(memmem) 太强，auto 恒走 CPU |
 
 **已退役**：`dot_matrix`（S116 交付、无调用方；S119 实测朴素内核 6.7 GFLOP/s，
@@ -94,7 +94,13 @@ GPU 内核保留（`engine="gpu"` 显式可调，供"海量模式 × 超大语�
 
 **门（S119 起）**：任何新 GPU 内核必须给出"vs 原生 Rust"的实测对照，赢了才允许进
 `auto`；只赢纯 Python 不算赢。当前已接路径：`near_dupes` 指纹走 `rx-scan sketch`
-（Rust 批量，`engine=auto` 优先），GPU 保留 `engine=gpu` 显式可选。
+（Rust 批量，`engine=auto` 优先），`file_scan` 异或枚举走 `rx-scan xor`（≥256KB，
+`xor_engine=auto` 优先），GPU 保留 `engine=gpu` / `xor_engine=gpu` 显式可选与回落。
+
+**S120 三档选路实测（单文件异或枚举，min-of-3）**：64KB CPU 14.5ms 最优；
+128KB GPU 12.9ms < rust 19.2ms；256KB GPU 22.9ms ≈ rust 23.7ms（分界）；
+512KB rust 32.2ms < GPU 43.5ms；16MB rust 485ms < GPU 1279ms < CPU 3763ms。
+→ `xor_engine=auto`：≥256KB rust → ≥128KB gpu → cpu。
 
 ## 三、适用 / 不适用（如实，防"装了 GPU 什么都快"的错觉）
 
