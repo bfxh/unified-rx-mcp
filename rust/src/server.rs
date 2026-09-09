@@ -111,12 +111,11 @@ fn call_tool(args: &Value) -> Value {
 /// （回包会污染宿主 id 配对；S78 首测实锤未知通知被回 id:null）。
 fn dispatch(msg: &Value) -> Option<String> {
     // jsonrpc 字段校验（与 python 侧一致：缺省放行）
-    if let Some(j) = msg.get("jsonrpc") {
-        if j.as_str() != Some("2.0") {
+    if let Some(j) = msg.get("jsonrpc")
+        && j.as_str() != Some("2.0") {
             let id = msg.get("id").cloned().unwrap_or(Value::Null);
             return Some(error_resp(id, -32600, "Invalid Request: jsonrpc must be 2.0"));
         }
-    }
     let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
     if !method.is_empty() && msg.get("id").is_none() {
         return None; // 通知不回

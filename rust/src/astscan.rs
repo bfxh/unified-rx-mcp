@@ -170,7 +170,7 @@ fn relpath(fp: &str, base: &str) -> String {
     let fs: Vec<&str> = f.split('\\').collect();
     let bs: Vec<&str> = b.split('\\').collect();
     let mut k = 0;
-    while k < fs.len() && k < bs.len() && fs[k].eq_ignore_ascii_case(&bs[k]) {
+    while k < fs.len() && k < bs.len() && fs[k].eq_ignore_ascii_case(bs[k]) {
         k += 1;
     }
     let mut out: Vec<String> = vec!["..".into(); bs.len() - k];
@@ -510,9 +510,9 @@ fn scan_python(src: &str, fp: &str) -> Vec<Value> {
                     ("unit", s("call")),
                 ]));
             }
-        } else if n.kind == "Constant" {
-            if let CVal::Str(v) = &n.cval {
-                if let Some((mtext, _)) = find_secret(v) {
+        } else if n.kind == "Constant"
+            && let CVal::Str(v) = &n.cval
+                && let Some((mtext, _)) = find_secret(v) {
                     let head: String = mtext.chars().take(6).collect();
                     issues.push(o(vec![
                         ("file", s(fp)),
@@ -523,8 +523,6 @@ fn scan_python(src: &str, fp: &str) -> Vec<Value> {
                         ("unit", s("const")),
                     ]));
                 }
-            }
-        }
         for c in &n.children {
             q.push_back(c);
         }
@@ -562,24 +560,20 @@ fn find_secret(v: &str) -> Option<(String, usize)> {
             && cs[p + 1] == 'h'
             && matches!(cs[p + 2], 'p' | 'o' | 'u' | 's' | 'r')
             && cs[p + 3] == '_'
-        {
-            if let Some(m) = greedy_bounded(&cs, p + 4, 30, |c| c.is_ascii_alphanumeric()) {
+            && let Some(m) = greedy_bounded(&cs, p + 4, 30, |c| c.is_ascii_alphanumeric()) {
                 return Some((cs[p..m].iter().collect(), p));
             }
-        }
         // AKIA…：[0-9A-Z]{16}
         if cs[p] == 'A'
             && p + 4 <= n
             && cs[p + 1] == 'K'
             && cs[p + 2] == 'I'
             && cs[p + 3] == 'A'
-        {
-            if let Some(m) =
-                greedy_bounded(&cs, p + 4, 16, |c| c.is_ascii_digit() || ('A'..='Z').contains(&c))
+            && let Some(m) =
+                greedy_bounded(&cs, p + 4, 16, |c: char| c.is_ascii_digit() || c.is_ascii_uppercase())
             {
                 return Some((cs[p..m].iter().collect(), p));
             }
-        }
     }
     None
 }
@@ -626,8 +620,8 @@ fn mask_js(src: &str) -> (Vec<char>, usize, usize, usize) {
         let c = cs[i];
         let nxt = if i + 1 < n { cs[i + 1] } else { '\0' };
         // 模板文本区
-        if let Some(top) = stack.last() {
-            if !top.in_code {
+        if let Some(top) = stack.last()
+            && !top.in_code {
                 if c == '\\' && i + 1 < n {
                     out[i] = ' ';
                     out[i + 1] = ' ';
@@ -651,7 +645,6 @@ fn mask_js(src: &str) -> (Vec<char>, usize, usize, usize) {
                 i += 1;
                 continue;
             }
-        }
         if c == '/' && nxt == '/' {
             let mut j = i;
             while j < n && cs[j] != '\n' {
@@ -1151,12 +1144,11 @@ fn scan_rust_struct(masked: &[char], fp: &str) -> (Vec<Value>, RustMeta) {
             in_test_mod = false;
         }
         // 先压栈：本行命中才能归属到本 fn
-        if ln.contains('{') {
-            if let Some(name) = fn_re_search(ln) {
+        if ln.contains('{')
+            && let Some(name) = fn_re_search(ln) {
                 fn_stack.push((brace_depth, name.clone()));
                 fn_names.push(name);
             }
-        }
         if !in_test_mod {
             let uc = unsafe_count_line(ln);
             for _ in 0..uc {
@@ -1398,8 +1390,11 @@ fn rust_defs_and_refs(masked: &[char], fp: &str, is_test_file: bool) -> (Vec<Rus
     (defs, refs)
 }
 
+/// 每个函数的可达性边：fn -> [(file, line, reach)]
+type FnReach = (String, Vec<(String, usize, &'static str)>);
+
 struct ReachResult {
-    lmap: Vec<(String, Vec<(String, usize, &'static str)>)>, // fn -> [(file, line, reach)]
+    lmap: Vec<FnReach>,
     helpers: Vec<Value>,
 }
 
@@ -1420,7 +1415,7 @@ fn rust_reach(rs_sources: &[(String, String, bool)]) -> ReachResult {
             }
         }
     }
-    let mut lmap: Vec<(String, Vec<(String, usize, &'static str)>)> = Vec::new();
+    let mut lmap: Vec<FnReach> = Vec::new();
     let mut helpers: Vec<Value> = Vec::new();
     for d in &all_defs {
         if d.test {
@@ -1550,20 +1545,17 @@ pub fn ast_scan(path: &str, max_files: usize) -> Value {
                 Value::Str(x) => x.clone(),
                 _ => String::new(),
             });
-            if let (Some(file), Some(fnv), Some(rule)) = (file, fnv, rule) {
-                if matches!(
+            if let (Some(file), Some(fnv), Some(rule)) = (file, fnv, rule)
+                && matches!(
                     rule.as_str(),
                     "rust_unwrap_expect" | "rust_panic_macro" | "rust_unsafe"
-                ) {
-                    if let Some((_, lst)) = lmap.iter().find(|(k, _)| *k == fnv) {
-                        if let Some((_, _, v)) =
+                )
+                    && let Some((_, lst)) = lmap.iter().find(|(k, _)| *k == fnv)
+                        && let Some((_, _, v)) =
                             lst.iter().find(|(f, _, _)| *f == file)
                         {
                             kv.push(("reach".into(), s(v)));
                         }
-                    }
-                }
-            }
         }
         let mut c_prod = 0i128;
         let mut c_unref = 0i128;

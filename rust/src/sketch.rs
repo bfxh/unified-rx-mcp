@@ -40,12 +40,11 @@ fn bottomk_range(data: &[u8], ng: usize, from: usize, to: usize, k: usize) -> Ve
         let h = fnv1a32(data, i, ng);
         if heap.len() < k {
             heap.push(h);
-        } else if let Some(&top) = heap.peek() {
-            if h < top {
+        } else if let Some(&top) = heap.peek()
+            && h < top {
                 heap.pop();
                 heap.push(h);
             }
-        }
     }
     heap.into_sorted_vec()
 }
@@ -59,7 +58,7 @@ pub fn sketch_bytes(data: &[u8], ng: usize, k: usize, threads: usize) -> Vec<u32
     let nchunks = if threads <= 1 {
         1
     } else {
-        threads.min((m + CHUNK_POSITIONS - 1) / CHUNK_POSITIONS)
+        threads.min(m.div_ceil(CHUNK_POSITIONS))
     };
     if nchunks <= 1 {
         return bottomk_range(data, ng, 0, m, k);

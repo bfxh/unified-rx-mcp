@@ -203,7 +203,7 @@ fn skip_ws(s: &str, mut i: usize) -> usize {
 
 /// Python \w 的近似（本仓既定约定）：字母/数字/下划线（Unicode 口径）。
 fn is_word_char_at(s: &str, i: usize) -> bool {
-    s[i..].chars().next().map_or(false, |c| c.is_alphanumeric() || c == '_')
+    s[i..].chars().next().is_some_and(|c| c.is_alphanumeric() || c == '_')
 }
 
 // ---------- std_check ----------
@@ -262,8 +262,8 @@ fn std_check_file(src: &str, fp: &str, lang: &str, out: &mut Vec<Value>) {
                 break;
             }
         }
-        if MAGIC_LANGS.contains(&lang) {
-            if let Some(num) = magic_number(line) {
+        if MAGIC_LANGS.contains(&lang)
+            && let Some(num) = magic_number(line) {
                 out.push(Value::Obj(vec![
                     ("file".into(), Value::Str(fp.into())),
                     ("line".into(), Value::Int(idx)),
@@ -272,7 +272,6 @@ fn std_check_file(src: &str, fp: &str, lang: &str, out: &mut Vec<Value>) {
                     ("text".into(), Value::Str(strip80(line))),
                 ]));
             }
-        }
     }
 }
 
@@ -445,8 +444,8 @@ fn find_godot_button(src: &str) -> Vec<i128> {
     while i + 6 <= b.len() {
         if &b[i..i + 6] == b"Button" {
             let boundary = i + 6 == b.len() || !is_word_char_at(src, i + 6);
-            if boundary {
-                if let Some(cr) = src[i + 6..].find(':') {
+            if boundary
+                && let Some(cr) = src[i + 6..].find(':') {
                     let colon = i + 6 + cr;
                     let k = skip_ws(src, colon + 1);
                     let reaches_eof = k == b.len();
@@ -462,7 +461,6 @@ fn find_godot_button(src: &str) -> Vec<i128> {
                         continue;
                     }
                 }
-            }
         }
         i += 1;
     }
@@ -510,23 +508,21 @@ fn dead_buttons(src: &str, fp: &str, out: &mut Vec<Value>) {
         if is_lone {
             // 只向下看最多 2 行；撞到 ")" 或 "//" 注释即止
             let hi = (i + 3).min(lines.len());
-            for j in (i + 1)..hi {
-                if let Some(m) = match_marker_line(lines[j]) {
-                    if m != "Button" {
+            for l in lines.iter().take(hi).skip(i + 1) {
+                if let Some(m) = match_marker_line(l)
+                    && m != "Button" {
                         marker = Some(m);
                         break;
                     }
-                }
-                let st = lines[j].trim_start();
+                let st = l.trim_start();
                 if st.starts_with(')') || st.starts_with("//") {
                     break;
                 }
             }
-        } else if let Some(m) = button_comma_marker(line) {
-            if m != "Node" {
+        } else if let Some(m) = button_comma_marker(line)
+            && m != "Node" {
                 marker = Some(m);
             }
-        }
         let Some(marker) = marker else { continue };
         if src.contains(&format!("With<{}>", marker)) || marker_interaction_ref(src, &marker) {
             continue;
@@ -574,15 +570,14 @@ fn button_comma_marker(line: &str) -> Option<String> {
     while let Some(rel) = line[from..].find("Button,") {
         let j = skip_ws(line, from + rel + 7);
         let cs: Vec<char> = line[j..].chars().collect();
-        if let Some(&c0) = cs.first() {
-            if c0.is_ascii_uppercase() {
+        if let Some(&c0) = cs.first()
+            && c0.is_ascii_uppercase() {
                 let mut n = 1usize;
                 while n < cs.len() && (cs[n].is_ascii_alphanumeric() || cs[n] == '_') {
                     n += 1;
                 }
                 return Some(cs[..n].iter().collect());
             }
-        }
         from += rel + 7;
     }
     None
@@ -659,8 +654,8 @@ pub fn bug_locate(root: &str, error_text: &str) -> Value {
                     break;
                 }
             }
-            if let Some(fpath) = fpath {
-                if Path::new(&fpath).exists() {
+            if let Some(fpath) = fpath
+                && Path::new(&fpath).exists() {
                     match lineno {
                         Some(ln) => {
                             let snippet = file_ctx_line(&fpath, ln, &mut cache);
@@ -681,7 +676,6 @@ pub fn bug_locate(root: &str, error_text: &str) -> Value {
                         }
                     }
                 }
-            }
         } else {
             for fp in &files {
                 let lines = load_lines(fp, &mut cache);
@@ -902,13 +896,12 @@ fn extract_symbols(text: &str) -> Vec<String> {
             let c = b[q];
             if c == b'\'' || c == b'"' {
                 // 闭引号 = ≥1 个非引号字符后的首个引号（[^'\"]+ 可跨行）
-                if q + 1 < b.len() && b[q + 1] != b'\'' && b[q + 1] != b'"' {
-                    if let Some(cr) = text[q + 1..].find(['\'', '"']) {
+                if q + 1 < b.len() && b[q + 1] != b'\'' && b[q + 1] != b'"'
+                    && let Some(cr) = text[q + 1..].find(['\'', '"']) {
                         out.push(text[q + 1..q + 1 + cr].to_string());
                         pos = q + 1 + cr + 1;
                         continue 'scan;
                     }
-                }
             }
             q += 1;
         }

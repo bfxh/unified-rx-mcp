@@ -45,7 +45,7 @@ fn get_str<'a>(v: &'a Value, k: &str) -> &'a str {
     }
 }
 
-fn get_i128<'a>(v: &'a Value, k: &str) -> i128 {
+fn get_i128(v: &Value, k: &str) -> i128 {
     match v.get(k) {
         Some(Value::Int(i)) => *i,
         other => panic!("{} 应为整数，实得 {:?}", k, other),

@@ -59,8 +59,8 @@ pub fn op_write(cfg: &SandboxCfg, orig: &str, content: &[u8]) -> Result<Value, S
         Ok(t) => t,
         Err(_) => return Ok(err_obj("content 非 UTF-8（宿主通道损坏）")),
     };
-    if let Some(d) = p.parent() {
-        if !d.as_os_str().is_empty() && !d.is_dir() {
+    if let Some(d) = p.parent()
+        && !d.as_os_str().is_empty() && !d.is_dir() {
             // S95 高压电池（8 线程同靶写）验收：并发建目录允许瞬时竞争，
             // 失败后复查一次（对手可能已建好）；真实失败（父路径是文件等）
             // 立即报错，不做长退避——resolve 层已修掉 $Deleted 幽灵路径，
@@ -90,7 +90,6 @@ pub fn op_write(cfg: &SandboxCfg, orig: &str, content: &[u8]) -> Result<Value, S
                 )));
             }
         }
-    }
     // S62 原子写同款：tmp+replace，崩进程不留半截文件。tmp 名带进程级序列号：
     // 同进程并发写同靶时 pid 撞车会互踩 tmp（exe 单 op 一进程不触发，库函数
     // 直接并发调用会触发——S95 并发契约测试 pin 死）。

@@ -11,6 +11,7 @@
 //! - 引用归属算给"包含引用的文件"，而非"包含引用的定义"（省去作用域消歧）；
 //! - 同名定义共享引用权重（aider 按作用域/导入消歧）；
 //! - token 估计 = 字符数/4 的近似（aider 用真实分词器）。
+//!
 //! 定位：给 agent 一张"按相关度裁剪的仓库骨架"，不是精确调用图。
 
 use std::collections::HashMap;
@@ -143,9 +144,7 @@ pub fn repo_map(
     // ---- 图：节点 0..n_files = 文件，n_files..n_files+defs = 定义 ----
     let n_nodes = n_files + defs.len();
     let mut out: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n_nodes];
-    for fi in 0..n_files {
-        out[fi] = out_edges[fi].clone();
-    }
+    out[..n_files].clone_from_slice(&out_edges);
     // 包含边 file → 自己的每个 def（权重 1）：让"聚焦文件"的权重能流到
     // 它的定义上（aider 的 scope 边对位；没有它，未被引用的聚焦定义拿不到分）
     for (di, d) in defs.iter().enumerate() {
@@ -237,7 +236,7 @@ pub fn repo_map(
         ("files_scanned".into(), Value::Int(n_files as i128)),
         ("defs_total".into(), Value::Int(defs.len() as i128)),
         ("defs_shown".into(), Value::Int(shown as i128)),
-        ("tokens_est".into(), Value::Int(((map.len() + 3) / 4) as i128)),
+        ("tokens_est".into(), Value::Int(map.len().div_ceil(4) as i128)),
         ("engine".into(), Value::Str("pagerank".into())),
         ("truncated".into(), Value::Bool(shown < defs.len())),
         ("map".into(), Value::Str(map)),

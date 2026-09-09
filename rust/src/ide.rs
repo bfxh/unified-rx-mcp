@@ -14,6 +14,7 @@
 //! - 怪癖原样保留：js class 落 kind="fn"（type 判定只搜
 //!   struct/enum/trait/impl）；rust/go 列 0 才捕获、python/js 允许缩进；
 //!   `impl<T>` 泛型头不捕获；一行 `fn q() { struct S; }` 的 q 翻 kind=type。
+//!
 //! 沙盒门：SandboxCfg::resolve（Err → exit 2 → Python 壳 raise ValueError），
 //! 与 fs.rs 同纪律；文件级错误走 exit 0 + {"error": ...}（registry 转 ok:false）。
 
@@ -36,14 +37,8 @@ fn is_word(c: char) -> bool {
 }
 
 fn starts_with_at(cs: &[char], i: usize, s: &str) -> bool {
-    let mut j = i;
-    for c in s.chars() {
-        if cs.get(j) != Some(&c) {
-            return false;
-        }
-        j += 1;
-    }
-    true
+    let mut rest = cs.iter().skip(i);
+    s.chars().all(|c| rest.next() == Some(&c))
 }
 
 /// \s*：返回前导空白之后的下标。
@@ -93,24 +88,20 @@ fn match_python(line: &str) -> Option<(String, bool)> {
     if let Some(name) = py_def(&cs, i0) {
         return Some((name, false));
     }
-    if starts_with_at(&cs, i0, "class") {
-        if let Some(j) = ws_at(&cs, i0 + 5) {
-            if let Some((name, _)) = ident_at(&cs, j) {
+    if starts_with_at(&cs, i0, "class")
+        && let Some(j) = ws_at(&cs, i0 + 5)
+            && let Some((name, _)) = ident_at(&cs, j) {
                 return Some((name, true));
             }
-        }
-    }
     None
 }
 
 fn py_def(cs: &[char], i0: usize) -> Option<String> {
-    if starts_with_at(cs, i0, "async") {
-        if let Some(j) = ws_at(cs, i0 + 5) {
-            if let Some(name) = py_def_after(cs, j) {
+    if starts_with_at(cs, i0, "async")
+        && let Some(j) = ws_at(cs, i0 + 5)
+            && let Some(name) = py_def_after(cs, j) {
                 return Some(name);
             }
-        }
-    }
     py_def_after(cs, i0)
 }
 
@@ -149,22 +140,19 @@ fn after_pub(cs: &[char], i: usize) -> Option<usize> {
 }
 
 fn rust_fn(cs: &[char], i: usize) -> Option<String> {
-    if let Some(j) = after_pub(cs, i) {
-        if let Some(name) = rust_fn_after_async(cs, j) {
+    if let Some(j) = after_pub(cs, i)
+        && let Some(name) = rust_fn_after_async(cs, j) {
             return Some(name);
         }
-    }
     rust_fn_after_async(cs, i)
 }
 
 fn rust_fn_after_async(cs: &[char], i: usize) -> Option<String> {
-    if starts_with_at(cs, i, "async") {
-        if let Some(j) = ws_at(cs, i + 5) {
-            if let Some(name) = rust_fn_after(cs, j) {
+    if starts_with_at(cs, i, "async")
+        && let Some(j) = ws_at(cs, i + 5)
+            && let Some(name) = rust_fn_after(cs, j) {
                 return Some(name);
             }
-        }
-    }
     rust_fn_after(cs, i)
 }
 
@@ -177,23 +165,20 @@ fn rust_fn_after(cs: &[char], i: usize) -> Option<String> {
 }
 
 fn rust_type(cs: &[char], i: usize) -> Option<String> {
-    if let Some(j) = after_pub(cs, i) {
-        if let Some(name) = rust_type_kw(cs, j) {
+    if let Some(j) = after_pub(cs, i)
+        && let Some(name) = rust_type_kw(cs, j) {
             return Some(name);
         }
-    }
     rust_type_kw(cs, i)
 }
 
 fn rust_type_kw(cs: &[char], i: usize) -> Option<String> {
     for kw in ["struct", "enum", "trait", "impl"] {
-        if starts_with_at(cs, i, kw) {
-            if let Some(j) = ws_at(cs, i + kw.len()) {
-                if let Some((name, _)) = ident_at(cs, j) {
+        if starts_with_at(cs, i, kw)
+            && let Some(j) = ws_at(cs, i + kw.len())
+                && let Some((name, _)) = ident_at(cs, j) {
                     return Some(name);
                 }
-            }
-        }
     }
     None
 }
@@ -202,8 +187,8 @@ fn rust_type_kw(cs: &[char], i: usize) -> Option<String> {
 
 fn match_go(line: &str) -> Option<String> {
     let cs: Vec<char> = line.chars().collect();
-    if starts_with_at(&cs, 0, "func") {
-        if let Some(j) = ws_at(&cs, 4) {
+    if starts_with_at(&cs, 0, "func")
+        && let Some(j) = ws_at(&cs, 4) {
             // 接收器组贪婪先试：(recv)\s* 零或多空白；组缺席回退裸 ident
             if cs.get(j) == Some(&'(') {
                 let mut k = j + 1;
@@ -224,14 +209,11 @@ fn match_go(line: &str) -> Option<String> {
                 return Some(name);
             }
         }
-    }
-    if starts_with_at(&cs, 0, "type") {
-        if let Some(j) = ws_at(&cs, 4) {
-            if let Some((name, _)) = ident_at(&cs, j) {
+    if starts_with_at(&cs, 0, "type")
+        && let Some(j) = ws_at(&cs, 4)
+            && let Some((name, _)) = ident_at(&cs, j) {
                 return Some(name);
             }
-        }
-    }
     None
 }
 
@@ -243,35 +225,29 @@ fn match_js(line: &str) -> Option<String> {
     if let Some(name) = js_export(&cs, i0) {
         return Some(name);
     }
-    if starts_with_at(&cs, i0, "class") {
-        if let Some(j) = ws_at(&cs, i0 + 5) {
-            if let Some((name, _)) = ident_at(&cs, j) {
+    if starts_with_at(&cs, i0, "class")
+        && let Some(j) = ws_at(&cs, i0 + 5)
+            && let Some((name, _)) = ident_at(&cs, j) {
                 return Some(name);
             }
-        }
-    }
     None
 }
 
 fn js_export(cs: &[char], i0: usize) -> Option<String> {
-    if starts_with_at(cs, i0, "export") {
-        if let Some(j) = ws_at(cs, i0 + 6) {
-            if let Some(name) = js_fn(&cs, j) {
+    if starts_with_at(cs, i0, "export")
+        && let Some(j) = ws_at(cs, i0 + 6)
+            && let Some(name) = js_fn(cs, j) {
                 return Some(name);
             }
-        }
-    }
     js_fn(cs, i0)
 }
 
 fn js_fn(cs: &[char], i: usize) -> Option<String> {
-    if starts_with_at(cs, i, "async") {
-        if let Some(j) = ws_at(cs, i + 5) {
-            if let Some(name) = js_fn_after(cs, j) {
+    if starts_with_at(cs, i, "async")
+        && let Some(j) = ws_at(cs, i + 5)
+            && let Some(name) = js_fn_after(cs, j) {
                 return Some(name);
             }
-        }
-    }
     js_fn_after(cs, i)
 }
 
@@ -292,13 +268,11 @@ fn has_type_kw(line: &str) -> bool {
         let kwcs: Vec<char> = kw.chars().collect();
         let mut from = 0;
         while let Some(p) = find_sub(&cs, &kwcs, from) {
-            if p == 0 || !is_word(cs[p - 1]) {
-                if let Some(j) = ws_at(&cs, p + kwcs.len()) {
-                    if j < cs.len() && is_word(cs[j]) {
+            if (p == 0 || !is_word(cs[p - 1]))
+                && let Some(j) = ws_at(&cs, p + kwcs.len())
+                    && j < cs.len() && is_word(cs[j]) {
                         return true;
                     }
-                }
-            }
             from = p + 1;
         }
     }
@@ -375,8 +349,7 @@ pub(crate) fn symbol_spans(lines: &[String], lang: &str) -> Vec<Span> {
                 let cap = lines.len().min(i + FUNC_LONG * 6);
                 let mut depth: i64 = 0;
                 let mut opened = false;
-                for k in i..cap {
-                    let l = &lines[k];
+                for (k, l) in lines.iter().enumerate().take(cap).skip(i) {
                     depth += l.matches('{').count() as i64 - l.matches('}').count() as i64;
                     if l.contains('{') {
                         opened = true;
@@ -390,8 +363,7 @@ pub(crate) fn symbol_spans(lines: &[String], lang: &str) -> Vec<Span> {
         } else if lang == "python" {
             let ind = indent_of(&lines[i]);
             let mut last_body = i;
-            for k in i + 1..lines.len() {
-                let l = &lines[k];
+            for (k, l) in lines.iter().enumerate().skip(i + 1) {
                 if !l.trim().is_empty() {
                     let cur = indent_of(l);
                     if cur <= ind {
@@ -755,18 +727,17 @@ pub fn code_context(
     cursor_line: i64,
     radius: i64,
 ) -> Result<Value, String> {
-    if let Ok(m) = std::fs::metadata(path) {
-        if m.len() > MAX_EDIT_BYTES {
+    if let Ok(m) = std::fs::metadata(path)
+        && m.len() > MAX_EDIT_BYTES {
             return Ok(err_obj("文件超过 10MB——拒绝读取"));
         }
-    }
     let Some(src) = ide_read(cfg, path) else {
         return Ok(err_obj(&format!("文件不可读: {path}")));
     };
     let lines: Vec<&str> = src.split('\n').collect();
     let total = lines.len() as i64;
     let r = if radius == 0 { 30 } else { radius };
-    let r = r.max(5).min(200);
+    let r = r.clamp(5, 200);
     let (start, end) = if cursor_line == 0 {
         (0, total.min(80))
     } else {

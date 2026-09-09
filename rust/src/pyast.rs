@@ -44,7 +44,7 @@ pub enum CVal {
 
 /// 迷你 AST 节点。name/name2/ctx/aux/names 按节点类型取用：
 /// - `name`：Name.id、FunctionDef/ClassDef.name、arg.arg、alias.name、
-///           Attribute.attr、ExceptHandler.name（except-as）、ImportFrom.module
+///   Attribute.attr、ExceptHandler.name（except-as）、ImportFrom.module
 /// - `name2`：alias.asname
 /// - `aux`：ClassDef = bases 个数（children 前 aux 个是 bases）；ExceptHandler = 有无 type
 /// - `names`：Global/Nonlocal 的名字表
@@ -709,9 +709,7 @@ impl<'a> Lexer<'a> {
                     self.pos += 1;
                 }
                 Some(b')') | Some(b']') => {
-                    if sq > 0 {
-                        sq -= 1;
-                    }
+                    sq = sq.saturating_sub(1);
                     self.pos += 1;
                 }
                 Some(b'}') => {
@@ -869,12 +867,11 @@ impl<'a> Lexer<'a> {
                 let ch = self.out.last().unwrap().kind.text_or_empty().chars().next().unwrap();
                 self.opens.push((ch, self.line));
             }
-            Some(")") | Some("]") | Some("}") => {
-                if self.opens.pop().is_none() {
+            Some(")") | Some("]") | Some("}")
+                if self.opens.pop().is_none() => {
                     let ch = self.out.last().unwrap().kind.text_or_empty();
                     return Err(PyErr { line: self.line, msg: format!("unmatched '{}'", ch) });
                 }
-            }
             _ => {}
         }
         Ok(())
@@ -1793,7 +1790,7 @@ impl Parser {
                 Ok(n)
             }
             Tok::Kw("import") => self.import_stmt(),
-            Tok::Kw("from") => self.from_stmt(),
+            Tok::Kw("from") => self.parse_from_import(),
             Tok::Kw("del") => self.del_stmt(),
             Tok::Kw("yield") => {
                 let l = self.cur_line();
@@ -1830,7 +1827,7 @@ impl Parser {
         Ok(n)
     }
 
-    fn from_stmt(&mut self) -> Result<PyNode, PyErr> {
+    fn parse_from_import(&mut self) -> Result<PyNode, PyErr> {
         let line = self.cur_line();
         self.i += 1;
         // S108：记录相对导入层级（前导点数）到 aux——dump/ast_scan 不消费 aux，
@@ -1929,10 +1926,7 @@ impl Parser {
 
     fn expr_stmt(&mut self) -> Result<PyNode, PyErr> {
         let e1 = self.parse_testlist_star()?;
-        let aug = match &self.cur().kind {
-            Tok::Op(s) if AUG_OPS.contains(&s.as_str()) => true,
-            _ => false,
-        };
+        let aug = matches!(&self.cur().kind, Tok::Op(s) if AUG_OPS.contains(&s.as_str()));
         if aug {
             self.i += 1;
             let target = self.mark_target(e1, false)?;
@@ -2193,10 +2187,7 @@ impl Parser {
         ops: &[&str],
     ) -> Result<PyNode, PyErr> {
         let mut node = sub(self)?;
-        loop {
-            let Some(op) = ops.iter().find(|op| self.at_op(op)) else {
-                break;
-            };
+        while let Some(op) = ops.iter().find(|op| self.at_op(op)) {
             self.i += 1;
             let rhs = sub(self)?;
             let l = node.line;
