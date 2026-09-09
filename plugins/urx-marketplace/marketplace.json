@@ -1,0 +1,11 @@
+{
+  "name": "urx-local",
+  "description": "unified-rx 本地插件市场（ZCode）：工具熔断等本地防线。",
+  "plugins": [
+    {
+      "name": "zcode-breaker",
+      "source": "./zcode-breaker",
+      "description": "工具熔断：同一（工具+参数）窗口内重复超阈值即阻断；重复指令告警。与 unified-rx-mcp tools/breaker.py 同规则。"
+    }
+  ]
+}

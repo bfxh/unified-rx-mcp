@@ -18,6 +18,10 @@ os.environ.setdefault("UNIFIED_RX_SANDBOX", os.pathsep.join([
 ]))
 os.environ["UNIFIED_RX_SANDBOX"] = os.environ["UNIFIED_RX_SANDBOX"].replace(os.pathsep, ";")
 
+# S122：套件里有大量"故意重复同一工具+参数"的测试（缓存命中/压力/稳定性），
+# 熔断器默认旁路；熔断自身行为由 tests/test_s122_breaker.py 显式开启验证。
+os.environ["UNIFIED_RX_BREAKER"] = "off"
+
 tempfile.tempdir = _TMP_BASE
 
 

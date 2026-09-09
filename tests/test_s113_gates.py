@@ -169,6 +169,26 @@ def test_rust_clippy_clean():
     assert cp.returncode == 0, f"clippy 告警未清:\n{out[-2000:]}"
 
 
+def test_no_stale_tool_count_assertions():
+    """S122 补：测试文件里的工具数**硬编码上限**必须 ≥ registry 实际值。
+
+    S110-S112 放宽到 64、S122 又撞到 66——同一类漏网第二次（文档计数有门，
+    测试里的断言没有），故入机器门：上限低于实际值即红。
+    """
+    n = registry.tool_count()
+    tdir = os.path.join(ROOT, "tests")
+    stale = []
+    for fn in sorted(os.listdir(tdir)):
+        if not fn.endswith(".py"):
+            continue
+        with open(os.path.join(tdir, fn), encoding="utf-8") as f:
+            text = f.read()
+        for m in re.finditer(r"assert\s+\d+\s*<=\s*\w+\s*<=\s*(\d+)", text):
+            if int(m.group(1)) < n:
+                stale.append(f"{fn}: 上限 {m.group(1)} < 实际 {n}")
+    assert not stale, "工具数硬编码上限陈旧（先改断言再谈合入）: " + "; ".join(stale)
+
+
 def test_impact_check_runs_and_emits_json(tmp_path):
     """跨面检查器自检：能跑、末行是 JSON、六类面齐全。"""
     script = os.path.join(ROOT, "bench", "impact_check.py")

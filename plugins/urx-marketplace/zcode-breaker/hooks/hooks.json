@@ -1,0 +1,78 @@
+{
+  "description": "工具熔断（zcode-breaker）：同一（工具+参数）窗口内重复超阈值 → 阻断；同一 key 结果连续相同 → 阻断；重复指令 → 告警。阈值/窗口/冷却在 args 里调。",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${ZCODE_PLUGIN_ROOT}/hooks/breaker_hook.py",
+              "pre",
+              "10",
+              "300",
+              "120"
+            ],
+            "timeoutMs": 5000,
+            "statusMessage": "熔断器检查…"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${ZCODE_PLUGIN_ROOT}/hooks/breaker_hook.py",
+              "post",
+              "10",
+              "300",
+              "120"
+            ],
+            "timeoutMs": 5000
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${ZCODE_PLUGIN_ROOT}/hooks/breaker_hook.py",
+              "postfail",
+              "10",
+              "300",
+              "120"
+            ],
+            "timeoutMs": 5000
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${ZCODE_PLUGIN_ROOT}/hooks/breaker_hook.py",
+              "prompt",
+              "10",
+              "300",
+              "120"
+            ],
+            "timeoutMs": 5000
+          }
+        ]
+      }
+    ]
+  }
+}

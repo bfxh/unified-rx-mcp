@@ -537,3 +537,14 @@
 - 等价性：全部为语义等价重构（`clamp` 处上下界已核；`clone_from_slice` 长度已核；stable sort 语义保持），cargo test 167 全绿 + 双解释器全量 pytest 全绿兜底。
 - 验证：3.14 全量 **728 passed + 2 skipped**；3.11 全量 **730 passed**；cargo **167 绿零告警 + clippy 零告警**；selftest 三行全绿；版本锁步 **2.39.0** + exe 重建。
 - 提交：本次
+
+## S122 · 工具熔断：MCP 进程内刹车 + ZCode 宿主插件（两层同规则）
+- 项目：unified-rx-mcp｜时间：2026-09-10
+- 决策：用户定调「搞一个工具熔断机制……监测到消息重复或同工具同命令执行超过 10 次自动触发熔断的插件……得工具支持插件这些」。
+- 工具级：`tools/breaker.py` 挂在 `registry.call`（**门禁之后、缓存之前**——缓存命中的重复也是循环）——同一（工具+规范化参数+cursor）窗口内 **>10 次** 即熔断并冷却 120s；同一 key 连续返回**逐字节相同**结果达阈值 → 提前熔断（空转信号）；`breaker_status`/`breaker_reset` 两工具（meta 域，自身豁免）；env 旁路 `UNIFIED_RX_BREAKER=off`；跟踪上限 4096 key；**熔断器绝不抛穿**。
+- 宿主级：`plugins/urx-marketplace/zcode-breaker`（ZCode 插件，含 marketplace.json）——4 个 Hook（PreToolUse/PostToolUse/PostToolUseFailure/UserPromptSubmit），**覆盖 ZCode 里所有工具**（含 Bash/Read/Write/Agent 与任意 MCP）；退出码 2 阻断 + stderr 原因；重复指令**只告警不阻断**（用户反复说"继续"是正常用法）；状态 `%TEMP%\zcode-breaker\state.json` 按会话分块、上限 32 会话。
+- API 侧调研（用户要求「进 API 开发者页面看惩罚参数」）：宿主实调 **智谱 GLM（open.bigmodel.cn，Anthropic 兼容端点，GLM-5.3-Flash）**；官方核心参数页只有 `do_sample`/`temperature`/`top_p`，**无** frequency/presence/repetition penalty；第三方资料称 GLM-5 上惩罚参数不生效；宿主配置也只暴露 provider/model/推理档与上下文上限 → **惩罚参数这条路走不通，防死循环只能放编排层**（本模块 + 宿主插件），结论入 spec/BREAKER.md §四。
+- 过程缺陷（全量门禁当场抓出）：`tests/test_v2.py` 里工具数硬编码上限 64 未随 S122 更新（文档计数有门、测试断言没有）→ 修断言 + 新增机器门 `test_no_stale_tool_count_assertions`（测试内上限 < 实际值即红）；S113 门 10 → 11 测。
+- 交付：tools/breaker.py + registry 接线 + skills/meta.md 契约 + spec/BREAKER.md + plugins/urx-marketplace/（marketplace.json + zcode-breaker：manifest/hooks.json/breaker_hook.py/README）+ tests/test_s122_breaker.py 8 测 + tests/test_s122_plugin_hook.py 9 测。
+- 验证：3.14 全量 **746 passed + 2 skipped**；3.11 全量 **748 passed**；cargo **167 绿 + clippy 零告警**；selftest 三行全绿；版本锁步 **2.40.0** + exe 重建。
+- 提交：本次

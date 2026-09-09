@@ -35,9 +35,10 @@ from . import scip       # noqa: F401,E402  S112：SCIP 索引消费（外部索
 from . import gpu        # noqa: F401,E402  S114：GPU 计算支持（OpenCL/ctypes，零 pip 依赖）
 from . import filescan   # noqa: F401,E402  S115：文件扫描（签名/熵/哈希，GPU 加速熵）
 from . import neardupes  # noqa: F401,E402  S117：近似重复/同族聚类（n-gram + 余弦，GPU）
+from . import breaker    # noqa: F401,E402  S122：工具熔断（同工具+参数重复超限即断）
 
 __all__ = ["fs", "scan", "ide", "guard", "learn", "ops",
            "search", "game", "meta", "engine", "bevy", "attack",
            "appaudit", "astscan", "metrics", "lsp", "ide_test", "ide_doctor",
            "ide_read", "ide_vscode", "ide_autopilot", "vulnkb", "astgrep", "scip",
-           "gpu", "filescan", "neardupes"]
+           "gpu", "filescan", "neardupes", "breaker"]
