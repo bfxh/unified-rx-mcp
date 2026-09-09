@@ -462,3 +462,14 @@
 - 机器门：`tests/test_s113_gates.py` 8 测——①README/PANORAMA/skills-README 的**工具数与分组数必须等于 registry 实际值**（README 曾停更 80 轮就是这么漏的）；②**工具入文档双向**（旧 SKILLS_DOCS 只查单向）；③分组合法；④模块尺寸；⑤函数尺寸；⑥检查器自检。**首跑即抓到三处真漏**：`code_coverage`/`module_stability`/`ide_health_trend` 从未进过 skills 文档（旧门禁单向盲区）→ 已补文档。
 - 验证：3.14 全量 680 passed + 2 skipped；3.11 全量 682 passed；cargo 156 绿零告警。本轮零运行时改动（文档 + 测试 + bench 脚本），版本不另 bump（S98/S106 先例）；pre-commit 钩子的全量 pytest 自动纳入新门禁。
 - 提交：本次
+
+## S114-S115 · GPU 支持：OpenCL 引擎（零 pip 依赖）+ 熵加速扫描 + 遥测
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：用户定调「扫 bug/IDE 等，支持扫漏洞、扫病毒，以后扫文件等各种量大的活可以交给 GPU；搞搞支持 GPU，IDE 工具也要支持」。先按新规矩做**信息充分性**：探测硬件（RTX 4060 Ti 8GB / CUDA 13.1 / OpenCL.dll + nvcuda.dll 在；**nvcc 未装**）→ 定运行时路线 → 实测交叉点 → 再设计接入。
+- 运行时选型：**OpenCL（ctypes 直调系统运行时，零 pip 依赖）**——内核用 OpenCL C 写、`clBuildProgram` 运行时编译；CUDA Driver API 需 nvcc/PTX（本机无 nvcc）且 OpenCL 已覆盖同一 GPU；wgpu/torch 等违反零依赖红线。
+- 实测（bench/s114_gpu_bench.py，留档 bench/results/s114_gpu.json）：①**byte_hist（直方图/熵）GPU 31-38×**（1-64MB，预热后，结果与 CPU 逐位一致）；②**literal_scan GPU 慢 5-6×**（CPU 的 bytes.find/memmem 太强）→ `auto` 对字面量匹配恒走 CPU（诚实数字入 spec/GPU.md §二）。
+- 交付：`tools/gpu.py`（ctypes OpenCL 绑定：平台/设备枚举、上下文/队列/程序缓存、两个内核 + CPU 参考实现即 oracle、`pick_mode` 交叉点选路、`gpu_status` 工具）+ `spec/GPU.md`（运行时选型/交叉点/适用与不适用清单/降级纪律/接入面）+ `tools/filescan.py`（**file_scan**：字面量签名 + SHA-256 黑名单 + 打包熵启发式；熵走 GPU；内置 EICAR 测试串；**如实标注"非杀毒软件"**）+ bench/s114_gpu_bench.py + tests/test_s114_gpu.py 11 测（内核 vs CPU oracle 逐位一致/交叉点/无运行时降级/file_scan 三态/沙盒）。
+- 工具面 61→63（scan 13 / meta 3）；S113 门禁的文档计数一致性已同步（README/skills-README/PANORAMA 全对齐）。
+- 诚实边界（入文档）：GPU 只赢**数据并行统计类**（熵/直方图/批量特征）；**IO 主导**（读盘遍历）、**IDE 编排类**（编译/测试/LSP/调试——瓶颈在外部进程）、**字面量匹配**、**<1MB 小数据**都不接 GPU。IDE 侧的 GPU 支持 = 批量文本统计走 file_scan 的 GPU 路径，其余如实说明"GPU 帮不上"。
+- 验证：3.14 全量 691 passed + 2 skipped；3.11 全量 693 passed；cargo 156 绿零告警；版本锁步 2.33.0 + exe 重建。
+- 提交：本次

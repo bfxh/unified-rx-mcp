@@ -54,6 +54,10 @@
 - **code_coverage / module_stability**（metrics 域，S52）：`code_coverage` 用 stdlib
   trace 在子进程跑脚本产出覆盖数据（>10MB 拒读、runner 落沙盒内临时脚本）；
   `module_stability` 以历史改动频率 + 文件规模给稳定性评分（启发式，非缺陷判定）。
+- **file_scan（S115）**：签名/熵启发式/哈希扫描（**非杀毒软件**，如实标注）——
+  字面量签名（默认仅 EICAR 测试串）+ SHA-256 黑名单 + 打包熵启发式
+  （熵>阈值且 ≥4KB）。**熵计算走 GPU**（≥1MB 实测 31-38×，见 spec/GPU.md；
+  auto 按实测交叉点选路，无 GPU 明确降级到 CPU）。
 - **结果缓存（S103）**：bug_scan/std_check/ui_check/ast_scan/bug_locate 等纯读
   工具的结果进入**进程内内容寻址缓存**（键 = 工具+参数+cursor+输入指纹；指纹含
   小文件内容哈希，文件一变即失效）。命中返回与冷跑逐字节一致；`__no_cache: true`

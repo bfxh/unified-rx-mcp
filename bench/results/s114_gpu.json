@@ -1,0 +1,22 @@
+GPU: NVIDIA GeForce RTX 4060 Ti | CUs 34 | VRAM 8.0GB
+
+-- byte_hist（直方图/熵）--
+    1MB  gpu     1.19ms  cpu     34.41ms  speedup   28.9x  equal=True
+    2MB  gpu     2.31ms  cpu     67.74ms  speedup   29.3x  equal=True
+    4MB  gpu     4.22ms  cpu    134.62ms  speedup   31.9x  equal=True
+    8MB  gpu     7.41ms  cpu    274.88ms  speedup   37.1x  equal=True
+   16MB  gpu    14.35ms  cpu    524.78ms  speedup   36.6x  equal=True
+   32MB  gpu    27.74ms  cpu   1054.58ms  speedup   38.0x  equal=True
+   64MB  gpu    54.26ms  cpu   2142.17ms  speedup   39.5x  equal=True
+
+-- literal_scan（多模式签名匹配，CPU 基线=bytes.find）--
+    1MB  gpu   330.36ms  cpu     59.55ms  equal=True
+    2MB  gpu   651.07ms  cpu    115.77ms  equal=True
+    4MB  gpu  1489.57ms  cpu    238.47ms  equal=True
+    8MB  gpu  2465.41ms  cpu    471.65ms  equal=True
+   16MB  gpu  5081.73ms  cpu    937.43ms  equal=True
+   32MB  gpu    skip    cpu   1892.52ms  equal=None
+   64MB  gpu    skip    cpu   3766.04ms  equal=None
+
+直方图交叉点（GPU 首次快过 CPU）：1MB
+{"available": true, "gpu": {"name": "NVIDIA GeForce RTX 4060 Ti", "compute_units": 34, "vram_gb": 8.0}, "rows": [{"kind": "byte_hist", "mb": 1, "gpu_ms": 1.19, "cpu_ms": 34.41, "speedup": 28.9, "equal": true}, {"kind": "byte_hist", "mb": 2, "gpu_ms": 2.31, "cpu_ms": 67.74, "speedup": 29.3, "equal": true}, {"kind": "byte_hist", "mb": 4, "gpu_ms": 4.22, "cpu_ms": 134.62, "speedup": 31.9, "equal": true}, {"kind": "byte_hist", "mb": 8, "gpu_ms": 7.41, "cpu_ms": 274.88, "speedup": 37.1, "equal": true}, {"kind": "byte_hist", "mb": 16, "gpu_ms": 14.35, "cpu_ms": 524.78, "speedup": 36.6, "equal": true}, {"kind": "byte_hist", "mb": 32, "gpu_ms": 27.74, "cpu_ms": 1054.58, "speedup": 38.0, "equal": true}, {"kind": "byte_hist", "mb": 64, "gpu_ms": 54.26, "cpu_ms": 2142.17, "speedup": 39.5, "equal": true}, {"kind": "literal_scan", "mb": 1, "gpu_ms": 330.36, "cpu_ms": 59.55, "equal": true}, {"kind": "literal_scan", "mb": 2, "gpu_ms": 651.07, "cpu_ms": 115.77, "equal": true}, {"kind": "literal_scan", "mb": 4, "gpu_ms": 1489.57, "cpu_ms": 238.47, "equal": true}, {"kind": "literal_scan", "mb": 8, "gpu_ms": 2465.41, "cpu_ms": 471.65, "equal": true}, {"kind": "literal_scan", "mb": 16, "gpu_ms": 5081.73, "cpu_ms": 937.43, "equal": true}, {"kind": "literal_scan", "mb": 32, "gpu_ms": null, "cpu_ms": 1892.52, "equal": null}, {"kind": "literal_scan", "mb": 64, "gpu_ms": null, "cpu_ms": 3766.04, "equal": null}], "hist_crossover_mb": 1, "note": "literal_scan 在 CPU(bytes.find/memmem) 下极难被朴素 GPU 内核超越——auto 模式对字面量匹配保持 CPU，除非模式数×数据量远大于本测例"}

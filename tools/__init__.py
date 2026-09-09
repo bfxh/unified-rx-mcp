@@ -32,8 +32,11 @@ from . import ide_autopilot  # noqa: F401,E402  S69：开发目录自动驾驶�
 from . import vulnkb     # noqa: F401,E402  S110：漏洞知识库（规则号/关键词 → 成因/修法/先例）
 from . import astgrep    # noqa: F401,E402  S111：可选外部引擎 ast-grep 结构搜索（薄壳）
 from . import scip       # noqa: F401,E402  S112：SCIP 索引消费（外部索引器产物，只读）
+from . import gpu        # noqa: F401,E402  S114：GPU 计算支持（OpenCL/ctypes，零 pip 依赖）
+from . import filescan   # noqa: F401,E402  S115：文件扫描（签名/熵/哈希，GPU 加速熵）
 
 __all__ = ["fs", "scan", "ide", "guard", "learn", "ops",
            "search", "game", "meta", "engine", "bevy", "attack",
            "appaudit", "astscan", "metrics", "lsp", "ide_test", "ide_doctor",
-           "ide_read", "ide_vscode", "ide_autopilot", "vulnkb", "astgrep", "scip"]
+           "ide_read", "ide_vscode", "ide_autopilot", "vulnkb", "astgrep", "scip",
+           "gpu", "filescan"]
