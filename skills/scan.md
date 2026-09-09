@@ -59,6 +59,14 @@
   （熵>阈值且 ≥4KB）。**熵计算走 GPU**（≥1MB 实测 31-38×，见 spec/GPU.md；
   auto 按实测交叉点选路，无 GPU 明确降级到 CPU）；`xor_crib` 启单字节异或层枚举
   （≥6 字节已知明文，二进制用 `hex:` 形式；≥2MB 走 GPU 实测 3.6-3.8×）。
+- **near_dupes（S117）**：近似重复/同族文件聚类——目录遍历（CPU）+ **bottom-k MinHash
+  指纹（GPU 两遍选择）** + Jaccard 阈值聚类。参数 `path`（沙盒内目录）/`ng`（默认 4）/
+  `k`（指纹长度，默认 128）/`threshold`（默认 0.8）/`max_files`（默认 100）/
+  `max_file_mb`（默认 64）/`engine`（auto/cpu/gpu）。返回 `pairs[{a,b,similarity}]` +
+  `clusters[][]` + `entropy_engine{gpu,cpu}`（实际用路）+ `skipped[]`。**近似口径**：
+  n-gram 指纹集合相似度，不是逐字节 diff；GPU 两遍选择实测 8KB 1.7× → 4MB 199×
+  （回传量 O(n)→O(k)），无 GPU/小文件回落 CPU 参考实现（见 spec/GPU.md §二，
+  含"直方图余弦对高熵数据无区分力"的负结果）。
 - **结果缓存（S103）**：bug_scan/std_check/ui_check/ast_scan/bug_locate 等纯读
   工具的结果进入**进程内内容寻址缓存**（键 = 工具+参数+cursor+输入指纹；指纹含
   小文件内容哈希，文件一变即失效）。命中返回与冷跑逐字节一致；`__no_cache: true`

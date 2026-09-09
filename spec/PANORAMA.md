@@ -149,10 +149,10 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.33.0）
+## 五、现状坐标（2026-09-09 @ v2.35.0）
 
-**工具面 63/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
-guard(2) ide(20) learn(1) meta(3) ops(5) scan(13) search(3)。
+**工具面 64/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
+guard(2) ide(20) learn(1) meta(3) ops(5) scan(14) search(3)。
 
 **Rust 原生化进度**：16 个工具已薄壳化（fs_write、
 search 双件 code_search/code_semantic、scan 五件 bug_scan/std_check/ui_check/
@@ -197,8 +197,11 @@ S113 极致门禁 8 测（文档计数一致性×3/工具入文档双向/分组�
 S114/S115 GPU 11 测（内核 vs CPU oracle 逐位一致/交叉点选路/无运行时降级/
 file_scan 签名与打包与哈希/沙盒，test_s114_gpu）+ S116 内核扩面 7 测（异或枚举
 饱和口径/点积相对容差/hex crib 唯一锁钥/短 crib 拒绝，test_s116_gpu_kernels）+
-bench/s114_gpu_bench.py（实测：熵 33-38×、异或枚举 3.6-3.8×、点积 14-78×、
-字面量匹配 CPU 更快——spec/GPU.md）。
+S117 近似重复 11 测（bottom-k 两遍选择 oracle 对拍/独立 FNV 实现/溢出回退/
+near_dupes 聚类与沙盒，test_s117_neardupes）+ bench/s114_gpu_bench.py
+（实测：熵 33-38×、异或枚举 3.6-3.8×、点积 14-78×、bottom-k 1.7-551×、
+字面量匹配 CPU 更快；负结果：批量哈希 0.4-1.2× 不接、直方图余弦无区分力
+——spec/GPU.md §二）。
 
 **质量体检基线（S94 立账，S95 复测，详见 EVAL §6/§7）**：延迟热态 fs_stat
 p50 **0.3ms**（S95 回迁后，<10ms 预算余量 ~30 倍；v2.20.0 exe 路由期 7.7-9.7ms

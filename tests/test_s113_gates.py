@@ -9,6 +9,8 @@
 3. 模块与函数尺寸——默认模块化：tools ≤900 行、rust/src ≤3200 行、函数 ≤200 行
    （当前实测上限 tools/lsp.py 850、pyast.rs 2995、ide_lsp 168 行）；
 4. 分组合法 + 检查器自检（impact_check 能跑并输出 JSON）。
+5. 版本锁步（S117 补）——server.py / Cargo.toml / Cargo.lock / README 头部四处
+   必须同版本（S116 漏更 README 版本头，四道门禁全绿也没抓到，故入机器门）。
 """
 import ast
 import json
@@ -125,6 +127,22 @@ def test_function_size_gate():
                 if ln > _MAX_FUNC_LINES:
                     over.append(f"{fn}:{node.name}={ln}>{_MAX_FUNC_LINES}")
     assert not over, "函数超尺寸（先拆分再谈功能）: " + "; ".join(over)
+
+
+def test_version_lockstep_four_faces():
+    """S117 补：版本锁步四处一致（S116 漏更 README 版本头，四道门禁全绿也没抓到）。"""
+    srv = _read("server.py")
+    m = re.search(r'SERVER_VERSION = "([\d.]+)"', srv)
+    assert m, "server.py 缺 SERVER_VERSION"
+    ver = m.group(1)
+    cargo = _read("rust/Cargo.toml")
+    m2 = re.search(r'^version = "([\d.]+)"', cargo, re.M)
+    assert m2 and m2.group(1) == ver, f"Cargo.toml {m2 and m2.group(1)} != server {ver}"
+    lock = _read("rust/Cargo.lock")
+    m3 = re.search(r'name = "unified-rx-rs"\nversion = "([\d.]+)"', lock)
+    assert m3 and m3.group(1) == ver, f"Cargo.lock {m3 and m3.group(1)} != server {ver}"
+    m4 = re.search(r"\*\*当前 v([\d.]+)（S\d+）\*\*", _read("README.md"))
+    assert m4 and m4.group(1) == ver, f"README 版本头 {m4 and m4.group(1)} != server {ver}"
 
 
 def test_impact_check_runs_and_emits_json(tmp_path):

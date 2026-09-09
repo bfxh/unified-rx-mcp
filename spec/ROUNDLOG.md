@@ -482,3 +482,15 @@
 - 交付：tools/gpu.py（+`xor_crib_scan_gpu/cpu`、`dot_matrix_gpu/cpu`、交叉点回填）+ tools/filescan.py（`xor_crib` 参数：hex 形式/最小长度纪律/真密钥唯一锁定实测）+ tests/test_s116_gpu_kernels.py 7 测 + spec/GPU.md 更新（新内核数字/两坑入册）+ skills/scan.md 契约。
 - 验证：s116 7 + s114 11 = 18/18；3.14 全量 698 passed + 2 skipped；3.11 全量 700 passed；cargo 156 绿零告警；版本锁步 2.34.0 + exe 重建。
 - 提交：本次
+
+## S117 · GPU 再实测：批量哈希被否（0.4-1.2×）+ n-gram 两遍选择（1.7-551×）+ 近似重复聚类
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：用户定调「搞完这个看看还有没有其他吧不要比不过 GPU 啊，需要更有收益的地方去搞」并选定「批量哈希预筛、n-gram 统计」。按"先实测、后接入"办：两个候选都测，**只接赢得过的**。
+- 负结果 1（不接）：**批量哈希**（FNV-1a 64 每块）GPU vs CPU `hashlib.blake2b` 仅 **0.4×/0.8×/1.2×**（4/16/64MB）——CPU 的 C 实现更快；内核与 API 一并删除（不留死代码），数字入 spec/GPU.md §二。
+- 负结果 2（换口径）：**直方图余弦相似度对高熵数据无区分力**——随机文件之间也 0.9807，区分不出近重复 → 近重复检测改用经典 **bottom-k MinHash**（实测近重复 1.0 / 随机 0.0）。
+- 采纳（n-gram）：全量逐位置哈希输出只 **2.8×**（每字节回传 4 字节，受带宽限制）→ 设计**两遍选择**：第一遍按哈希高 12 位做 4096 桶直方图、取累计 ≥4k 的最小桶边界为阈值；第二遍只发射 ≤ 阈值的哈希（原子计数 + 容量上限），期望 ~4k 个。回传量 O(n)→O(k)，且**精确**（小于阈值的值全部发射、发射数 ≥k，故 bottom-k 与全量口径逐位一致）；单桶超上限的极端分布（全零文件）自动回退全量路径。实测 GPU vs CPU 参考：**1.7×@8KB、18×@64KB、64×@256KB、147×@1MB、199×@4MB、551×@16MB、444×@64MB**，交叉点取 **8KB**（4KB 时 0.9×，GPU 固定开销 ~4ms）。
+- 交付：tools/gpu.py（`_K_NGBUCKET`/`_K_NGEMIT` 两内核 + `ngram_bottomk_gpu/cpu` + 交叉点回填；`ngram_hist` 全直方图 API 因无调用方退役，数字留档）+ tools/neardupes.py（**near_dupes**：目录遍历 CPU + bottom-k 指纹 GPU + Jaccard 聚类；参数 ng/k/threshold/max_files/max_file_mb/engine）+ tests/test_s117_neardupes.py 11 测（独立 FNV 实现 oracle、bottom-k 对拍、溢出回退、聚类与随机排除、沙盒、超限跳过）+ bench/s114_gpu_bench.py（bottomk 扫点 + 全量哈希对照）+ spec/GPU.md（新表/两遍选择说明/四条负结果入册）+ skills/scan.md 契约。
+- 顺手修两个跨面漏网：①GPU.md 正文里有一个**真实 NUL 字节**（历史粘贴二进制 crib 留下），导致该文件被工具层判为二进制、读写受限 → 改为转义文本；②**README 版本头停在 v2.33.0**（server 已 2.34.0）——四道门禁都没抓到 → 新增机器门 `test_version_lockstep_four_faces`（server.py / Cargo.toml / Cargo.lock / README 头部四处同版本）。
+- 工具面 63→64（scan 14）；README/skills-README/PANORAMA 计数与版本同步。
+- 验证：s117 11/11；3.14 全量 710 passed + 2 skipped；3.11 全量 712 passed；cargo 156 绿零告警；selftest 三行全绿（tools=64 / scan(14) / EXE_TAG ok=9）；版本锁步 2.35.0 + exe 重建。
+- 提交：本次
