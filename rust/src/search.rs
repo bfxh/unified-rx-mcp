@@ -74,7 +74,7 @@ pub fn code_search(root: &Path, query: &str, k: usize) -> Value {
     }
     let mut uniq: Vec<&str> = Vec::new();
     for t in &q_toks {
-        if !uniq.iter().any(|u| *u == t.as_str()) {
+        if !uniq.contains(&t.as_str()) {
             uniq.push(t.as_str());
         }
     }
@@ -107,7 +107,7 @@ pub fn code_search(root: &Path, query: &str, k: usize) -> Value {
         Some(set)
     };
     scores.retain(|(id, s)| {
-        *s > 0.0 && eligible.as_ref().map_or(true, |e| e.contains(id))
+        *s > 0.0 && eligible.as_ref().is_none_or(|e| e.contains(id))
     });
     scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -296,7 +296,7 @@ fn query_roots(query: &str) -> Vec<String> {
         let ident_like = w.chars().any(|c| c.is_ascii_uppercase()) || w.contains('_');
         let push = |s: String, out: &mut Vec<String>| {
             if s.chars().count() > 1 && !STOPWORDS.contains(&s.as_str())
-                && !out.iter().any(|x| *x == s)
+                && !out.contains(&s)
             {
                 out.push(s);
             }
@@ -399,11 +399,10 @@ fn walk(root: &Path, out: &mut Vec<PathBuf>) {
             return;
         }
         let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy().to_lowercase()));
-        if let Some(ext) = ext {
-            if INDEX_EXTS.contains(&ext.as_str()) {
+        if let Some(ext) = ext
+            && INDEX_EXTS.contains(&ext.as_str()) {
                 out.push(p);
             }
-        }
     }
     for p in dirs {
         if out.len() >= MAX_FILES {

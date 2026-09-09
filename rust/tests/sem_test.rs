@@ -83,7 +83,7 @@ fn search_cjk_comment_bridge_and_kinds() {
     let res = sem::code_semantic(td.path(), "时钟累加", "search", 5);
     assert!(res.get("error").is_none(), "不应报错");
     assert_eq!(get_str(&res, "mode"), "search");
-    assert!(symbols(&res).iter().any(|s| *s == "tick"), "实得 {:?}", symbols(&res));
+    assert!(symbols(&res).contains(&"tick"), "实得 {:?}", symbols(&res));
     // 旧 S31 回归查询
     let res = sem::code_semantic(td.path(), "时钟经过的时间累加", "search", 5);
     assert!(symbols(&res).iter().any(|s| *s == "tick" || *s == "Clock"));
@@ -102,9 +102,9 @@ fn py_def_class_and_name_trigram() {
     write_rel(td.path(), "ui.py", "def render_panel(stats):\n    return stats\n\n\nclass PanelCache:\n    def __init__(self):\n        self.items = []\n");
     // 名称 trigram：rotat… 前缀查询命中 rotate_vehicle_y 同理走名称拆词+trigram
     let res = sem::code_semantic(td.path(), "render panel", "search", 5);
-    assert!(symbols(&res).iter().any(|s| *s == "render_panel"));
+    assert!(symbols(&res).contains(&"render_panel"));
     let res = sem::code_semantic(td.path(), "panel cache", "search", 5);
-    assert!(symbols(&res).iter().any(|s| *s == "PanelCache"));
+    assert!(symbols(&res).contains(&"PanelCache"));
     // def 与 class 同 kind="def"（Python 侧不细分）
     let hit = &get_arr(&res, "hits").iter().find(|h| get_str(h, "symbol") == "PanelCache").unwrap();
     assert_eq!(get_str(hit, "kind"), "def");
@@ -152,7 +152,7 @@ fn js_fn_class_and_ts_not_js_quirk() {
     write_rel(td.path(), "app.js", "export async function loadData() {}\n\nexport class Widget {}\n\nclass Plain {}\n");
     write_rel(td.path(), "mod.ts", "function hiddenTsFn() {}\n");
     let res = sem::code_semantic(td.path(), "loadData", "search", 5);
-    assert!(symbols(&res).iter().any(|s| *s == "loadData"));
+    assert!(symbols(&res).contains(&"loadData"));
     // related 命中不带 snippet（契约形状差异）
     let res = sem::code_semantic(td.path(), "Widget", "related", 5);
     assert_eq!(get_str(&res, "mode"), "related");
@@ -250,7 +250,7 @@ fn scores_rounded_and_positive() {
     let td = TempDir::new("round");
     write_bench_tree(td.path());
     let res = sem::code_semantic(td.path(), "rotat vehicle", "search", 5);
-    assert!(symbols(&res).iter().any(|s| *s == "rotate_vehicle_y"), "trigram 应命中部分名");
+    assert!(symbols(&res).contains(&"rotate_vehicle_y"), "trigram 应命中部分名");
     for h in get_arr(&res, "hits") {
         let s = get_f64(h, "score");
         assert!(s > 0.02, "低于阈值不应上榜：{}", s);

@@ -198,24 +198,19 @@ fn match_py_def(cs: &[char]) -> Option<(&'static str, String)> {
     // 分支1：（async）? def
     let after_async = eat_kw(cs, start, "async").and_then(|k| scan_ws1(cs, k));
     for pos in [after_async, Some(start)] {
-        if let Some(p) = pos {
-            if let Some(k) = eat_kw(cs, p, "def") {
-                if let Some(k) = scan_ws1(cs, k) {
-                    if let Some(name) = ident_at(cs, k) {
+        if let Some(p) = pos
+            && let Some(k) = eat_kw(cs, p, "def")
+                && let Some(k) = scan_ws1(cs, k)
+                    && let Some(name) = ident_at(cs, k) {
                         return Some(("def", name));
                     }
-                }
-            }
-        }
     }
     // 分支2：class
-    if let Some(k) = eat_kw(cs, start, "class") {
-        if let Some(k) = scan_ws1(cs, k) {
-            if let Some(name) = ident_at(cs, k) {
+    if let Some(k) = eat_kw(cs, start, "class")
+        && let Some(k) = scan_ws1(cs, k)
+            && let Some(name) = ident_at(cs, k) {
                 return Some(("def", name));
             }
-        }
-    }
     None
 }
 
@@ -230,15 +225,12 @@ fn match_rs_fn(cs: &[char]) -> Option<String> {
         };
         let after_async = eat_kw(cs, p, "async").and_then(|k| scan_ws1(cs, k));
         for a_pos in [after_async, Some(p)] {
-            if let Some(a) = a_pos {
-                if let Some(k) = eat_kw(cs, a, "fn") {
-                    if let Some(k) = scan_ws1(cs, k) {
-                        if let Some(name) = ident_at(cs, k) {
+            if let Some(a) = a_pos
+                && let Some(k) = eat_kw(cs, a, "fn")
+                    && let Some(k) = scan_ws1(cs, k)
+                        && let Some(name) = ident_at(cs, k) {
                             return Some(name);
                         }
-                    }
-                }
-            }
         }
     }
     None
@@ -254,13 +246,11 @@ fn match_rs_type(cs: &[char]) -> Option<(&'static str, String)> {
             None => continue,
         };
         for kw in ["struct", "enum", "trait"] {
-            if let Some(k) = eat_kw(cs, p, kw) {
-                if let Some(k) = scan_ws1(cs, k) {
-                    if let Some(name) = ident_at(cs, k) {
+            if let Some(k) = eat_kw(cs, p, kw)
+                && let Some(k) = scan_ws1(cs, k)
+                    && let Some(name) = ident_at(cs, k) {
                         return Some(("type", name));
                     }
-                }
-            }
         }
     }
     None
@@ -285,15 +275,12 @@ fn match_rs_impl(cs: &[char]) -> Option<String> {
     // A 分支：\w+ \s+ for \s+ \w+（\w+ 取最大值后无需内部回溯——词内无空白）
     if let Some((s, e)) = scan_ident(cs, i) {
         let _ = s;
-        if let Some(j) = scan_ws1(cs, e) {
-            if let Some(j) = eat_kw(cs, j, "for") {
-                if let Some(j) = scan_ws1(cs, j) {
-                    if let Some(name) = ident_at(cs, j) {
+        if let Some(j) = scan_ws1(cs, e)
+            && let Some(j) = eat_kw(cs, j, "for")
+                && let Some(j) = scan_ws1(cs, j)
+                    && let Some(name) = ident_at(cs, j) {
                         return Some(name);
                     }
-                }
-            }
-        }
     }
     // B 分支：可选组缺席
     ident_at(cs, i)
@@ -310,13 +297,11 @@ fn match_go_func(cs: &[char]) -> Option<(&'static str, String)> {
         while j < cs.len() && cs[j] != ')' {
             j += 1;
         }
-        if j < cs.len() {
-            if let Some(j) = scan_ws1(cs, j + 1) {
-                if let Some(name) = ident_at(cs, j) {
+        if j < cs.len()
+            && let Some(j) = scan_ws1(cs, j + 1)
+                && let Some(name) = ident_at(cs, j) {
                     return Some(("fn", name));
                 }
-            }
-        }
     }
     match ident_at(cs, save) {
         Some(name) => Some(("fn", name)),
@@ -335,15 +320,12 @@ fn match_js_fn(cs: &[char]) -> Option<(&'static str, String)> {
         };
         let after_async = eat_kw(cs, p, "async").and_then(|k| scan_ws1(cs, k));
         for a_pos in [after_async, Some(p)] {
-            if let Some(a) = a_pos {
-                if let Some(k) = eat_kw(cs, a, "function") {
-                    if let Some(k) = scan_ws1(cs, k) {
-                        if let Some(name) = ident_at(cs, k) {
+            if let Some(a) = a_pos
+                && let Some(k) = eat_kw(cs, a, "function")
+                    && let Some(k) = scan_ws1(cs, k)
+                        && let Some(name) = ident_at(cs, k) {
                             return Some(("fn", name));
                         }
-                    }
-                }
-            }
         }
     }
     None
@@ -354,15 +336,12 @@ fn match_js_class(cs: &[char]) -> Option<(&'static str, String)> {
     let start = skip_ws(cs, 0);
     let after_export = eat_kw(cs, start, "export").and_then(|k| scan_ws1(cs, k));
     for export_pos in [after_export, Some(start)] {
-        if let Some(p) = export_pos {
-            if let Some(k) = eat_kw(cs, p, "class") {
-                if let Some(k) = scan_ws1(cs, k) {
-                    if let Some(name) = ident_at(cs, k) {
+        if let Some(p) = export_pos
+            && let Some(k) = eat_kw(cs, p, "class")
+                && let Some(k) = scan_ws1(cs, k)
+                    && let Some(name) = ident_at(cs, k) {
                         return Some(("class", name));
                     }
-                }
-            }
-        }
     }
     None
 }

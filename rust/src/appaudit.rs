@@ -463,7 +463,7 @@ const SECRET_KEY_ALTS: &[&str] = &[
 fn ci_starts_with(c: &[char], lit: &str, at: usize) -> bool {
     let l: Vec<char> = lit.chars().collect();
     c.len() >= at + l.len()
-        && (0..l.len()).all(|k| c[at + k].to_ascii_lowercase() == l[k].to_ascii_lowercase())
+        && (0..l.len()).all(|k| c[at + k].eq_ignore_ascii_case(&l[k]))
 }
 
 /// 在 at 处试一个键名候选（re.I）；api_key/access_token/refresh_token/private_key
@@ -533,7 +533,7 @@ fn m_secret_by_key(line: &Chars) -> Option<(usize, usize)> {
             j += 1;
         }
         let run = j - v0;
-        if run < 8 || run > 200 {
+        if !(8..=200).contains(&run) {
             continue;
         }
         if j >= n || (line[j] != '"' && line[j] != '\'') {
@@ -682,12 +682,11 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
                 }
                 let a = jstart as usize;
                 let b = (jstart + l) as usize;
-                if let Ok(s) = std::str::from_utf8(&buf[a..b]) {
-                    if let Ok(o) = crate::json::parse(s) {
+                if let Ok(s) = std::str::from_utf8(&buf[a..b])
+                    && let Ok(o) = crate::json::parse(s) {
                         obj = Some(o);
                         break;
                     }
-                }
             }
         }
         if obj.is_some() {
@@ -700,8 +699,8 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
         let jstart_new = find_bytes(&grow, b"{\"files\"", 0);
         if jstart >= 0 || jstart_new.is_none() {
             buf.extend_from_slice(&grow); // 同窗续扫（跨窗边界截断的头）
-        } else {
-            jstart = buf.len() as i64 + jstart_new.unwrap() as i64;
+        } else if let Some(off) = jstart_new {
+            jstart = buf.len() as i64 + off as i64;
             buf.extend_from_slice(&grow);
         }
     }
@@ -783,7 +782,7 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
             if let Err(e) = fh.seek(SeekFrom::Start((cand + p.off) as u64)) {
                 return Err(AsarError(format!("OSError: {e}")));
             }
-            let data = read_up_to(&mut fh, p.size.max(0).min(MAX_ASAR_ENTRY_BYTES) as usize);
+            let data = read_up_to(&mut fh, p.size.clamp(0, MAX_ASAR_ENTRY_BYTES) as usize);
             if sha256::hex(&data) == want {
                 base = Some(cand);
                 break 'outer;
@@ -819,18 +818,16 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
             return Err(AsarError(format!("OSError: {e}")));
         }
         let data = read_up_to(&mut fh, l.size.max(0) as usize);
-        if let Some(ih) = &l.hash {
-            if sha256::hex(&data) != *ih {
+        if let Some(ih) = &l.hash
+            && sha256::hex(&data) != *ih {
                 n_skip += 1;
                 continue;
             }
-        }
         let dst = out_dir.join(l.rel.replace('/', "\\"));
-        if let Some(parent) = dst.parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
+        if let Some(parent) = dst.parent()
+            && let Err(e) = std::fs::create_dir_all(parent) {
                 return Err(AsarError(format!("OSError: {e}")));
             }
-        }
         if let Err(e) = std::fs::write(&dst, &data) {
             return Err(AsarError(format!("OSError: {e}")));
         }
@@ -900,7 +897,10 @@ impl ScanState {
     }
 }
 
-const SURFACE_FNS: &[(&str, fn(&Chars) -> Option<(usize, usize)>)] = &[
+/// 行级匹配器签名（S121 类型别名：满足 clippy::type_complexity 且便于阅读）
+type LineMatcher = fn(&Chars) -> Option<(usize, usize)>;
+
+const SURFACE_FNS: &[(&str, LineMatcher)] = &[
     ("eval_call", m_eval_call),
     ("new_function", m_new_function),
     ("child_process", m_child_process),
@@ -909,7 +909,7 @@ const SURFACE_FNS: &[(&str, fn(&Chars) -> Option<(usize, usize)>)] = &[
     ("protocol_register", m_protocol_register),
 ];
 
-const SECRET_FNS: &[(&str, &'static str, fn(&Chars) -> Option<(usize, usize)>)] = &[
+const SECRET_FNS: &[(&str, &str, LineMatcher)] = &[
     ("private_key_block", "definite", m_private_key_block),
     ("api_key_sk", "clue", m_api_key_sk),
     ("github_pat", "clue", m_github_pat),
@@ -971,7 +971,7 @@ fn scan_line(st: &mut ScanState, file_label: &str, ln: i128, line: &str, cap_sur
     }
     for (a, b) in url_matches(&chars) {
         let m = slice(&chars, a, b);
-        let after = m.splitn(2, "//").nth(1).unwrap_or("");
+        let after = m.split_once("//").map(|x| x.1).unwrap_or("");
         let host_part = after.split('/').next().unwrap_or("");
         let host = host_part.split(':').next().unwrap_or("").to_lowercase();
         st.host_add(host);
@@ -1080,7 +1080,7 @@ pub fn app_audit(snapshot_dir: &str, with_asar: bool) -> Value {
         }
     }
     let binaries_total = binaries.len() as i128;
-    binaries.sort_by(|a, b| b.1.cmp(&a.1)); // 稳定排序：同大保持遍历序
+    binaries.sort_by_key(|x| std::cmp::Reverse(x.1)); // 稳定排序：同大保持遍历序
 
     // ---------- 汇总 ----------
     st.findings.sort_by(|a, b| {
@@ -1094,7 +1094,7 @@ pub fn app_audit(snapshot_dir: &str, with_asar: bool) -> Value {
     let clues = st.findings.iter().filter(|f| f.kind == "clue").count() as i128;
 
     let mut hosts = st.hosts.clone();
-    hosts.sort_by(|a, b| b.1.cmp(&a.1)); // 稳定：同计数保持插入序（most_common 语义）
+    hosts.sort_by_key(|x| std::cmp::Reverse(x.1)); // 稳定：同计数保持插入序（most_common 语义）
     let url_host_top: Vec<Value> = hosts
         .iter()
         .take(25)

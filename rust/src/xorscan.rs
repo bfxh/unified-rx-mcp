@@ -36,7 +36,7 @@ pub fn xor_scan_bytes(data: &[u8], crib: &[u8], threads: usize) -> Vec<(u32, u32
             }
             handles.push(s.spawn(move || {
                 let mut out = vec![0u32; 256];
-                for key in from..to {
+                for (key, slot) in out.iter_mut().enumerate().take(to).skip(from) {
                     let k = key as u8;
                     let mut c = 0u32;
                     let mut i = 0usize;
@@ -53,7 +53,7 @@ pub fn xor_scan_bytes(data: &[u8], crib: &[u8], threads: usize) -> Vec<(u32, u32
                         }
                         i += 1;
                     }
-                    out[key] = c;
+                    *slot = c;
                 }
                 out
             }));
@@ -78,7 +78,7 @@ pub fn xor_scan_bytes(data: &[u8], crib: &[u8], threads: usize) -> Vec<(u32, u32
 /// hex 解码（`hex:4d5a...` 的载荷；无第三方 crate）。
 pub fn hex_decode(s: &str) -> Result<Vec<u8>, String> {
     let s = s.trim();
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("hex 长度必须为偶数".into());
     }
     let b = s.as_bytes();

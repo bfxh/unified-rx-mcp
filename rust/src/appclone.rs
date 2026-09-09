@@ -104,7 +104,7 @@ pub fn app_clone_under(src: &str, max_files: &str, max_bytes: &str, root: &Path)
         ("read_fails".into(), Value::Int(st.read_fails)),
         ("errors".into(), Value::Arr(st.errors.into_iter().map(Value::Str).collect())),
         ("truncated_by".into(), match st.truncation {
-            Some(t) => Value::Str(t.into()),
+            Some(t) => Value::Str(t),
             None => Value::Null,
         }),
     ])
@@ -571,7 +571,7 @@ mod tests {
         assert_eq!(num(&r, "files"), 3, "{}", r.to_json());
         assert_eq!(num(&r, "skipped_links"), 0);
         assert_eq!(num(&r, "read_fails"), 0);
-        assert_eq!(bl(&r, "verified"), true);
+        assert!(bl(&r, "verified"));
         let snap = PathBuf::from(st(&r, "snapshot"));
         assert!(snap.join("loop.junc").join("t.txt").is_file());
         assert!(!snap.join("broken.junc").exists(), "悬空 junction 必须静默剪枝");
@@ -606,7 +606,7 @@ mod tests {
         // 正常移除
         let dir = root.join("in");
         let r = app_clean_under(&dir.to_string_lossy(), &root);
-        assert_eq!(bl(&r, "removed"), true);
+        assert!(bl(&r, "removed"));
         assert!(!dir.exists());
         std::fs::remove_dir_all(&base).unwrap();
     }

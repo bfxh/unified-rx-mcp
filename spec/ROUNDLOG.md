@@ -528,3 +528,12 @@
 - 交付核验：GPU 内核定位再修正——xor GPU 内核**保留**（128-256KB 带最优 + 回落路径），不再进 `auto` 的大文件路径（它只有 256 个 work item，见 §二·三）。
 - 验证：s120 6 + s119 7 + s117 11 + s118 5 + s116 6 + s114 11 = 46/46；3.14 全量 **727 passed + 2 skipped**；3.11 全量 **729 passed**；cargo **167 绿**零告警；selftest 三行全绿；版本锁步 **2.38.0** + exe 重建。
 - 提交：本次
+
+## S121 · clippy 清账（155→0）+ 零告警门禁入机器门
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 起因：S119/S120 立了「vs 原生 Rust」性能门后，Rust 代码成为性能基线本体，其告警不能再当噪音——仓库此前的"零告警"只覆盖 build/test，clippy 有 **38 类 / 155 处**。
+- 清账：`cargo clippy --fix --all-targets` 机器可修部分（collapsible_if 86 等）→ 155→39；余 38 处手工清（文档缩进/`while let`/`needless_range_loop`/`manual_clamp`/`type_complexity` 别名/`sort_by_key`/`matches!`/`clone_from_slice`/`field_reassign_with_default`/`from_*` 命名），**零 `#[allow]`**。
+- 门禁：`tests/test_s113_gates.py` 新增 `test_rust_clippy_clean`（`cargo clippy --all-targets -- -D warnings` 必须过；cargo/clippy 不可用 → skip，不假装通过）——S113 门从 8 测 → 10 测。workflow 原则 8 同步补两行（clippy 门 + 性能基线纪律：加速倍数必须对原生实现测）。
+- 等价性：全部为语义等价重构（`clamp` 处上下界已核；`clone_from_slice` 长度已核；stable sort 语义保持），cargo test 167 全绿 + 双解释器全量 pytest 全绿兜底。
+- 验证：3.14 全量 **728 passed + 2 skipped**；3.11 全量 **730 passed**；cargo **167 绿零告警 + clippy 零告警**；selftest 三行全绿；版本锁步 **2.39.0** + exe 重建。
+- 提交：本次

@@ -249,7 +249,7 @@ fn bindings_scope_paths() {
 
 // ---------- S108：跨文件 import 拼接 ----------
 
-fn imp<'a>(v: &'a Value, file: &str, name: &str) -> Option<(String, i128, String)> {
+fn imp(v: &Value, file: &str, name: &str) -> Option<(String, i128, String)> {
     for e in arr(v, "imports") {
         let f = match e.get("file") { Some(Value::Str(s)) => s.as_str(), _ => continue };
         let n = match e.get("name") { Some(Value::Str(s)) => s.as_str(), _ => continue };

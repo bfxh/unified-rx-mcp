@@ -11,13 +11,19 @@
 4. 分组合法 + 检查器自检（impact_check 能跑并输出 JSON）。
 5. 版本锁步（S117 补）——server.py / Cargo.toml / Cargo.lock / README 头部四处
    必须同版本（S116 漏更 README 版本头，四道门禁全绿也没抓到，故入机器门）。
+6. clippy 零告警（S121 补）——`cargo clippy --all-targets -- -D warnings` 必须过
+   （S119/S120 立"vs 原生 Rust"门后，Rust 侧告警从 155 处清到 0；cargo 不可用
+   或 clippy 组件缺失 → skip，不假装通过）。
 """
 import ast
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+
+import pytest
 
 import registry
 import tools  # noqa: F401
@@ -143,6 +149,24 @@ def test_version_lockstep_four_faces():
     assert m3 and m3.group(1) == ver, f"Cargo.lock {m3 and m3.group(1)} != server {ver}"
     m4 = re.search(r"\*\*当前 v([\d.]+)（S\d+）\*\*", _read("README.md"))
     assert m4 and m4.group(1) == ver, f"README 版本头 {m4 and m4.group(1)} != server {ver}"
+
+
+def test_rust_clippy_clean():
+    """S121 门：Rust 侧 clippy 零告警（含测试目标）。
+
+    S119/S120 立了"vs 原生 Rust"门后，Rust 代码成为性能基线本体，其告警不能再
+    当噪音：155 处 → 0（86 处 collapsible_if 等机器可修 + 38 处手工清）。
+    cargo/clippy 不可用 → skip（与 exe 缺失同纪律：不假装通过）。
+    """
+    if shutil.which("cargo") is None:
+        pytest.skip("cargo 不可用")
+    cp = subprocess.run(["cargo", "clippy", "--all-targets", "--", "-D", "warnings"],
+                        capture_output=True, cwd=os.path.join(ROOT, "rust"),
+                        timeout=900, shell=False)
+    out = ((cp.stdout or b"") + (cp.stderr or b"")).decode("utf-8", "replace")
+    if cp.returncode != 0 and "no such command" in out:
+        pytest.skip("clippy 组件未安装（rustup component add clippy）")
+    assert cp.returncode == 0, f"clippy 告警未清:\n{out[-2000:]}"
 
 
 def test_impact_check_runs_and_emits_json(tmp_path):

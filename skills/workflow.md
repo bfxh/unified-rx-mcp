@@ -45,7 +45,10 @@
      工具化：`python bench/impact_check.py [file ...]` 自动列出上述关联面与必跑清单。
    - **四道门禁全绿才准合入**：pytest（3.14 + 3.11 双解释器）+ cargo test +
      `server.py --selftest` 三行对账 + `tests/test_s113_gates.py`（文档计数一致性/
-     模块与函数尺寸/工具入文档双向/分组合法）。
+     模块与函数尺寸/工具入文档双向/分组合法/版本锁步 S117/clippy 零告警 S121）。
+   - **性能基线纪律（S119/S120 立）**：GPU/Rust 内核的加速倍数必须**对原生实现**
+     测（不是对纯 Python）；新内核过不了"vs 原生 Rust"这一关就不进 `auto`——
+     当前所有已测内核 Rust 全胜（spec/GPU.md §二·三）。
    - **默认模块化**：新功能一律独立模块（cache/aci/tia/vulnkb/scip/astgrep/nameres
      为范例），不往既有大文件里堆；单文件上限 tools ≤900 行、rust/src ≤3200 行，
      单函数 ≤200 行——超限先拆分再谈功能（"上帝对象拆分大于测试"，SCAN-POLICY）。

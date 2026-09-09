@@ -651,8 +651,8 @@ impl Analyzer {
             let rhs_ends_sanitized = end >= start + 2
                 && matches!(&self.toks[end - 1].tk, Tk::Id(w) if w == "name" || w == "stem")
                 && matches!(&self.toks[end - 2].tk, Tk::Op(o) if o == ".");
-            if !targets.is_empty() && !rhs_ends_sanitized {
-                if let Some(hit) = self.expr_taint(scope, k + 1, end) {
+            if !targets.is_empty() && !rhs_ends_sanitized
+                && let Some(hit) = self.expr_taint(scope, k + 1, end) {
                     for t in &targets {
                         self.scopes[scope].taint.insert(t.clone(), TSrc {
                             line: hit.line, kind: hit.kind.clone(),
@@ -660,7 +660,6 @@ impl Analyzer {
                         });
                     }
                 }
-            }
             // x = f(...)：调用点挂上赋值目标（供污染返回值传播）
             for c in &mut self.calls[calls_before..] {
                 if c.scope == scope {
@@ -672,8 +671,8 @@ impl Analyzer {
         // 3) for x in expr:
         if let (Some(f), Some(n)) = (for_at, in_at) {
             let targets = self.lhs_targets(f + 1, n);
-            if !targets.is_empty() {
-                if let Some(hit) = self.expr_taint(scope, n + 1, end) {
+            if !targets.is_empty()
+                && let Some(hit) = self.expr_taint(scope, n + 1, end) {
                     for t in &targets {
                         self.scopes[scope].taint.insert(t.clone(), TSrc {
                             line: hit.line, kind: hit.kind.clone(),
@@ -681,14 +680,13 @@ impl Analyzer {
                         });
                     }
                 }
-            }
             return;
         }
         // 4) with expr as var:
         if let Some(a) = with_as {
             let targets = self.lhs_targets(a + 1, end);
-            if !targets.is_empty() {
-                if let Some(hit) = self.expr_taint(scope, start, a) {
+            if !targets.is_empty()
+                && let Some(hit) = self.expr_taint(scope, start, a) {
                     for t in &targets {
                         self.scopes[scope].taint.insert(t.clone(), TSrc {
                             line: hit.line, kind: hit.kind.clone(),
@@ -696,15 +694,13 @@ impl Analyzer {
                         });
                     }
                 }
-            }
             return;
         }
         // 5) return expr（记录供跨函数返回传播）
-        if let Tk::Id(w) = &self.toks[start].tk {
-            if w == "return" && start + 1 < end {
+        if let Tk::Id(w) = &self.toks[start].tk
+            && w == "return" && start + 1 < end {
                 self.scopes[scope].rets.push((start + 1, end, line));
             }
-        }
     }
 
     /// 赋值/for/with 目标：区间内的标识符（跳过属性位/关键字/括号内的 kwarg 名）。
@@ -769,20 +765,15 @@ impl Analyzer {
                 if !prev_dot {
                     let mut parts: Vec<String> = Vec::new();
                     let mut j = k;
-                    loop {
-                        match self.toks.get(j).map(|t| &t.tk) {
-                            Some(Tk::Id(w)) => {
-                                parts.push(w.clone());
-                                j += 1;
-                                if matches!(self.toks.get(j).map(|t| &t.tk), Some(Tk::Op(o)) if o == ".")
-                                    && matches!(self.toks.get(j + 1).map(|t| &t.tk), Some(Tk::Id(_)))
-                                {
-                                    j += 1; // 吃掉 '.'，下轮吃 Id
-                                } else {
-                                    break;
-                                }
-                            }
-                            _ => break,
+                    while let Some(Tk::Id(w)) = self.toks.get(j).map(|t| &t.tk) {
+                        parts.push(w.clone());
+                        j += 1;
+                        if matches!(self.toks.get(j).map(|t| &t.tk), Some(Tk::Op(o)) if o == ".")
+                            && matches!(self.toks.get(j + 1).map(|t| &t.tk), Some(Tk::Id(_)))
+                        {
+                            j += 1; // 吃掉 '.'，下轮吃 Id
+                        } else {
+                            break;
                         }
                     }
                     if j < end && matches!(self.toks.get(j).map(|t| &t.tk), Some(Tk::Op(o)) if o == "(") {
@@ -926,20 +917,15 @@ impl Analyzer {
     fn dotted_at(&self, k: usize, _end: usize) -> Option<(String, usize)> {
         let mut parts: Vec<String> = Vec::new();
         let mut j = k;
-        loop {
-            match self.toks.get(j).map(|t| &t.tk) {
-                Some(Tk::Id(w)) => {
-                    parts.push(w.clone());
-                    j += 1;
-                    if matches!(self.toks.get(j).map(|t| &t.tk), Some(Tk::Op(o)) if o == ".")
-                        && matches!(self.toks.get(j + 1).map(|t| &t.tk), Some(Tk::Id(_)))
-                    {
-                        j += 1;
-                    } else {
-                        break;
-                    }
-                }
-                _ => break,
+        while let Some(Tk::Id(w)) = self.toks.get(j).map(|t| &t.tk) {
+            parts.push(w.clone());
+            j += 1;
+            if matches!(self.toks.get(j).map(|t| &t.tk), Some(Tk::Op(o)) if o == ".")
+                && matches!(self.toks.get(j + 1).map(|t| &t.tk), Some(Tk::Id(_)))
+            {
+                j += 1;
+            } else {
+                break;
             }
         }
         if parts.len() >= 2 {
@@ -975,15 +961,12 @@ impl Analyzer {
         // 净化区：SANITIZERS 调用的括号内部
         let mut zones: Vec<(usize, usize)> = Vec::new();
         for k in start..end {
-            if let Tk::Id(w) = &self.toks[k].tk {
-                if SANITIZERS.contains(&w.as_str()) {
-                    if matches!(self.toks.get(k + 1).map(|t| &t.tk), Some(Tk::Op(o)) if o == "(") {
-                        if let Some(cl) = self.match_close(k + 1, end) {
+            if let Tk::Id(w) = &self.toks[k].tk
+                && SANITIZERS.contains(&w.as_str())
+                    && matches!(self.toks.get(k + 1).map(|t| &t.tk), Some(Tk::Op(o)) if o == "(")
+                        && let Some(cl) = self.match_close(k + 1, end) {
                             zones.push((k + 2, cl));
                         }
-                    }
-                }
-            }
         }
         let in_zone = |x: usize| zones.iter().any(|(a, b)| x >= *a && x < *b);
         let mut k = start;
@@ -1004,14 +987,12 @@ impl Analyzer {
                         continue;
                     }
                     // var.name / var.stem：净化（该 var 的这次出现不算）
-                    if (w == "name" || w == "stem") && k >= start + 2 {
-                        if let Tk::Id(base) = &self.toks[k - 2].tk {
-                            if self.lookup(scope, base).is_some() {
+                    if (w == "name" || w == "stem") && k >= start + 2
+                        && let Tk::Id(base) = &self.toks[k - 2].tk
+                            && self.lookup(scope, base).is_some() {
                                 k += 1;
                                 continue;
                             }
-                        }
-                    }
                     // 点路径来源
                     if let Some((dotted, next)) = self.dotted_at(k, end) {
                         let is_call = matches!(
@@ -1032,8 +1013,8 @@ impl Analyzer {
                         } else {
                             None
                         };
-                        if let Some(kind) = src {
-                            if !in_zone(k) {
+                        if let Some(kind) = src
+                            && !in_zone(k) {
                                 return Some(Hit {
                                     var: dotted,
                                     line: self.toks[k].line,
@@ -1042,7 +1023,6 @@ impl Analyzer {
                                     definite: true,
                                 });
                             }
-                        }
                         // 链尾 .name/.stem：属性访问取出的就是净化值，整条链不算污点
                         if dotted.ends_with(".name") || dotted.ends_with(".stem") {
                             k = next;
@@ -1051,9 +1031,9 @@ impl Analyzer {
                         // 非来源链：基变量污染则整条链的值视为污染
                         // （p.write_text 的接收者、tainted.strip() 等——dotted_at 已吃掉
                         // 整条链，不在这里查基变量接收者污点就永远轮不到）
-                        if !in_zone(k) {
-                            if let Some(base) = dotted.split('.').next() {
-                                if let Some(t) = self.lookup(scope, base) {
+                        if !in_zone(k)
+                            && let Some(base) = dotted.split('.').next()
+                                && let Some(t) = self.lookup(scope, base) {
                                     return Some(Hit {
                                         var: base.to_string(),
                                         line: t.line,
@@ -1062,8 +1042,6 @@ impl Analyzer {
                                         definite: t.definite,
                                     });
                                 }
-                            }
-                        }
                         k = next;
                         continue;
                     }
@@ -1103,8 +1081,8 @@ impl Analyzer {
                         });
                     }
                     // 污点变量
-                    if !in_zone(k) {
-                        if let Some(t) = self.lookup(scope, w) {
+                    if !in_zone(k)
+                        && let Some(t) = self.lookup(scope, w) {
                             return Some(Hit {
                                 var: w.clone(),
                                 line: t.line,
@@ -1113,7 +1091,6 @@ impl Analyzer {
                                 definite: t.definite,
                             });
                         }
-                    }
                     k += 1;
                 }
                 _ => k += 1,
@@ -1134,8 +1111,8 @@ impl Analyzer {
         for _round in 0..3 {
             // 返回值污点重算（先算后写，避免借用冲突）
             let mut ret_flags = vec![false; self.scopes.len()];
-            for id in 0..self.scopes.len() {
-                let rets = self.scopes[id].rets.clone();
+            for (id, sc) in self.scopes.iter().enumerate() {
+                let rets = sc.rets.clone();
                 for (s, e, _) in &rets {
                     if self.expr_taint(id, *s, *e).is_some() {
                         ret_flags[id] = true;
@@ -1330,8 +1307,10 @@ pub fn scan_path(root: &Path, naive: bool) -> ScanResult {
         walk_py(root, &mut files);
         files.sort();
     }
-    let mut res = ScanResult::default();
-    res.files_scanned = files.len();
+    let mut res = ScanResult {
+        files_scanned: files.len(),
+        ..Default::default()
+    };
     for f in &files {
         let bytes = match std::fs::read(f) {
             Ok(b) => b,

@@ -276,9 +276,9 @@ fn scan_python(src: &str, path: &str) -> Vec<Issue> {
                 kind: None,
             });
         }
-        if n.kind == "Call" {
-            if let Some(f) = n.children.first() {
-                if f.kind == "Name" && matches!(f.name.as_str(), "eval" | "exec" | "compile") {
+        if n.kind == "Call"
+            && let Some(f) = n.children.first()
+                && f.kind == "Name" && matches!(f.name.as_str(), "eval" | "exec" | "compile") {
                     // 只查裸 Name 调用：re.compile 等 Attribute 成员调用天然排除（S61 教训）
                     let hot = f.name == "eval" || f.name == "exec";
                     issues.push(Issue {
@@ -290,8 +290,6 @@ fn scan_python(src: &str, path: &str) -> Vec<Issue> {
                         kind: Some(if hot { "definite" } else { "clue" }),
                     });
                 }
-            }
-        }
         if n.kind == "Name" && n.ctx == Ctx::Load && !defined.contains(&n.name) {
             issues.push(Issue {
                 line: n.line,
@@ -447,8 +445,7 @@ fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
     {
         const TYPES: [&str; 8] = ["i64", "i32", "u64", "u32", "f64", "f32", "usize", "isize"];
         let mut cur = 0usize;
-        loop {
-            let Some(rel) = src[cur..].find("as") else { break };
+        while let Some(rel) = src[cur..].find("as") {
             let p = cur + rel;
             cur = p + 1;
             if p != 0 && is_word(src.as_bytes()[p - 1]) {
@@ -465,7 +462,7 @@ fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
             }
             let Some(t) = TYPES.iter().find(|t| src[j..].starts_with(**t)) else { continue };
             let after = src.as_bytes().get(j + t.len());
-            if after.map_or(true, |c| !is_word(*c)) {
+            if after.is_none_or(|c| !is_word(*c)) {
                 push_rule(&mut issues, p, "as_cast", "as 类型转换——截断/精度丢失（线索：建议 try_from）");
                 cur = p + 2 + ws + t.len();
             }
@@ -618,7 +615,7 @@ fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
         }
         if src[j..].starts_with("Vec3::Y") {
             let after = src.as_bytes().get(j + 7);
-            if after.map_or(true, |c| !is_word(*c)) {
+            if after.is_none_or(|c| !is_word(*c)) {
                 push_bevy(&mut issues, p, "bevy_phys_manual_support_force", "手写竖直支撑/弹簧力（Vec3::Y × f）——多轮/多执行器各自封顶≠总和有界：四轮同压可叠到 3×车重持续弹起（VoxelForge 09-04 四轮弹跳床案），须有整车总力预算", "med");
                 cur = j + 7;
                 continue;
@@ -637,7 +634,7 @@ fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
     }
     for i in issues.iter_mut() {
         let in_test =
-            is_test_file || test_start_line.map_or(false, |t| i.line >= t);
+            is_test_file || test_start_line.is_some_and(|t| i.line >= t);
         if in_test && matches!(i.rule, "unwrap" | "expect" | "as_cast" | "indexing") {
             i.sev = Some("low");
             i.kind = Some("clue");
@@ -785,29 +782,25 @@ fn units_then(src: &str, start: usize, branch_a: bool) -> Option<usize> {
         if branch_a {
             if src[j..].starts_with("RigidBody::Static") {
                 let k = skip_ws(src, j + "RigidBody::Static".len());
-                if src.as_bytes().get(k) == Some(&b',') {
-                    if let Some(end) = scan_for_marker(src, k + 1, 200) {
+                if src.as_bytes().get(k) == Some(&b',')
+                    && let Some(end) = scan_for_marker(src, k + 1, 200) {
                         return Some(end);
                     }
-                }
             }
         } else if let Some(mend) = marker_at(src, j) {
             let k = skip_ws(src, mend);
-            if src.as_bytes().get(k) == Some(&b',') {
-                if let Some(end) = scan_for_rigid(src, k + 1, 200) {
+            if src.as_bytes().get(k) == Some(&b',')
+                && let Some(end) = scan_for_rigid(src, k + 1, 200) {
                     return Some(end);
                 }
-            }
         }
         if count >= 160 {
             return None;
         }
-        match unit_step(src, j) {
-            Some(j2) => {
-                j = j2;
-                count += 1;
-            }
-            None => return None,
+        {
+            let j2 = unit_step(src, j)?;
+            j = j2;
+            count += 1;
         }
     }
 }
@@ -851,12 +844,10 @@ fn scan_for_marker(src: &str, from: usize, cap: usize) -> Option<usize> {
         if cnt >= cap {
             return None;
         }
-        match src[pos..].chars().next() {
-            Some(c) => {
-                pos += c.len_utf8();
-                cnt += 1;
-            }
-            None => return None,
+        {
+            let c = src[pos..].chars().next()?;
+            pos += c.len_utf8();
+            cnt += 1;
         }
     }
 }
@@ -875,12 +866,10 @@ fn scan_for_rigid(src: &str, from: usize, cap: usize) -> Option<usize> {
         if cnt >= cap {
             return None;
         }
-        match src[pos..].chars().next() {
-            Some(c) => {
-                pos += c.len_utf8();
-                cnt += 1;
-            }
-            None => return None,
+        {
+            let c = src[pos..].chars().next()?;
+            pos += c.len_utf8();
+            cnt += 1;
         }
     }
 }
@@ -918,7 +907,7 @@ fn scan_generic(src: &str, path: &str) -> Vec<Issue> {
         }
         if ws >= 1 && src[j..].starts_with("True") {
             let after = src.as_bytes().get(j + 4);
-            if after.map_or(true, |c| !is_word(*c)) {
+            if after.is_none_or(|c| !is_word(*c)) {
                 push(&mut issues, p, "assert_always_true", "恒真断言（永远通过，无意义）");
                 cur = j + 4;
                 continue;

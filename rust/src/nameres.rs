@@ -298,8 +298,8 @@ impl Resolver {
             "ListComp" | "SetComp" | "GeneratorExp" | "DictComp" => self.comp(n),
             "NamedExpr" => {
                 // 海象运算符：绑定到最近的函数/模块作用域（跳过推导式作用域）
-                if let Some(t) = n.children.first() {
-                    if t.kind == "Name" {
+                if let Some(t) = n.children.first()
+                    && t.kind == "Name" {
                         let (name, line) = (t.name.clone(), t.line);
                         let mut target = 0usize;
                         for i in (0..self.scopes.len()).rev() {
@@ -310,7 +310,6 @@ impl Resolver {
                         }
                         self.scopes[target].bind(&name, line, "assign");
                     }
-                }
                 for c in n.children.iter().skip(1) {
                     self.expr(c);
                 }
@@ -351,22 +350,20 @@ impl Resolver {
     fn comp(&mut self, n: &PyNode) {
         let comps: Vec<&PyNode> = n.children.iter().filter(|c| c.kind == "comprehension").collect();
         // 规则 2：首个 comprehension 的 iter 在外层求值
-        if let Some(first) = comps.first() {
-            if let Some(iter) = first.children.get(1) {
+        if let Some(first) = comps.first()
+            && let Some(iter) = first.children.get(1) {
                 self.expr(iter);
             }
-        }
         self.scopes.push(Scope::new(SK::Comp, "<comp>"));
         for (gi, g) in comps.iter().enumerate() {
             // 目标绑定进推导式作用域；后续 iter 也在其中
             if let Some(t) = g.children.first() {
                 self.bind_target(t, "comp");
             }
-            if gi > 0 {
-                if let Some(iter) = g.children.get(1) {
+            if gi > 0
+                && let Some(iter) = g.children.get(1) {
                     self.expr(iter);
                 }
-            }
             for c in g.children.iter().skip(2) {
                 self.expr(c);
             }
@@ -679,8 +676,8 @@ pub fn resolve_file(path: &str, src: &str) -> Value {
         };
         (line, name)
     };
-    r.edges.sort_by(|a, b| key(a).cmp(&key(b)));
-    r.unresolved.sort_by(|a, b| key(a).cmp(&key(b)));
+    r.edges.sort_by_key(|a| key(a));
+    r.unresolved.sort_by_key(|a| key(a));
     Value::Obj(vec![
         ("file".into(), Value::Str(path.to_string())),
         ("edges".into(), Value::Arr(r.edges)),
@@ -815,8 +812,8 @@ pub fn resolve_dir(root: &Path, max_files: usize) -> Value {
     let mut files: Vec<FileRes> = py.iter().filter_map(|p| analyze_file(root, p)).collect();
     // root 自身是包（有 __init__.py）时，模块名带包前缀（与 Python 在父目录
     // 导入时的视角一致：`tools/fs.py` → "tools.fs"）
-    if root.join("__init__.py").is_file() {
-        if let Some(base) = root.file_name().map(|s| s.to_string_lossy().into_owned()) {
+    if root.join("__init__.py").is_file()
+        && let Some(base) = root.file_name().map(|s| s.to_string_lossy().into_owned()) {
             for f in files.iter_mut() {
                 f.modname = if f.modname.is_empty() {
                     base.clone()
@@ -825,7 +822,6 @@ pub fn resolve_dir(root: &Path, max_files: usize) -> Value {
                 };
             }
         }
-    }
 
     // 模块索引：模块名 → 文件下标
     let mut index: HashMap<String, usize> = HashMap::new();
@@ -945,9 +941,9 @@ pub fn resolve_dir(root: &Path, max_files: usize) -> Value {
         let l = match v.get("line") { Some(Value::Int(i)) => *i, _ => 0 };
         (f, l)
     };
-    imports_out.sort_by(|a, b| key(a).cmp(&key(b)));
-    external_out.sort_by(|a, b| key(a).cmp(&key(b)));
-    unresolved_out.sort_by(|a, b| key(a).cmp(&key(b)));
+    imports_out.sort_by_key(|a| key(a));
+    external_out.sort_by_key(|a| key(a));
+    unresolved_out.sort_by_key(|a| key(a));
 
     Value::Obj(vec![
         ("root".into(), Value::Str(root.to_string_lossy().into_owned())),
