@@ -149,7 +149,7 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.35.0）
+## 五、现状坐标（2026-09-09 @ v2.36.0）
 
 **工具面 64/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(20) learn(1) meta(3) ops(5) scan(14) search(3)。
