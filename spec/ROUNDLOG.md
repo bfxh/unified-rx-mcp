@@ -494,3 +494,13 @@
 - 工具面 63→64（scan 14）；README/skills-README/PANORAMA 计数与版本同步。
 - 验证：s117 11/11；3.14 全量 710 passed + 2 skipped；3.11 全量 712 passed；cargo 156 绿零告警；selftest 三行全绿（tools=64 / scan(14) / EXE_TAG ok=9）；版本锁步 2.35.0 + exe 重建。
 - 提交：本次
+
+## S118 · near_dupes 规模化：精确候选剪枝 + 截断如实上报（实测 n² 悬崖）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 起因：S117 交付后按「看看还有没有其他、去更有收益的地方」实测近重复聚类的**规模曲线**——100 文件 263ms、300 文件 1033ms（纯 n² 两两 Jaccard），且 `max_files` 截断**静默**发生（结果看起来像全量）。
+- 修法（精确，不近似）：Jaccard ≥ t 的必要条件 I ≥ t(|A|+|B|)/(1+t) ≥ 2tm/(1+t)（m = 全库最小指纹长，对每对都成立的下界）→ 倒排索引按哈希累计共享数，只对达到下界的对算精确 Jaccard。**不丢真对**（测试用暴力全对路径逐项比对 pairs/clusters），指纹极短时自动退化为全对（安全方向）。新增 `walk_truncated` 标记 + `candidates`/`shared_pairs` 剪枝统计。
+- 实测：全随机 300 文件（20KB）候选对 **44850→0**；混合语料（90 近重复 + 210 随机）300 文件 1033ms→742ms（余下为线性 sketch 成本）；同语料 engine=gpu 845ms vs cpu 3.2s（**3.7×**，大量小文件场景 GPU 仍胜）。
+- 负结果（不接，已回滚）：内核句柄缓存（`clCreateKernel` 每调一次 → 按名缓存）实测仅 855→845ms（1%，噪声级）——按"只在有实测收益处改"回滚，不留无收益的状态。
+- 交付：tools/neardupes.py（`_walk` 返回截断标记 + `_candidate_pairs` 精确剪枝 + 结果新增三字段）+ tests/test_s118_neardupes_scale.py 5 测（剪枝不丢真对/退化全对/剪枝 vs 暴力逐项相等/截断标记/随机语料剪枝生效）+ skills/scan.md 契约 + spec/GPU.md（小文件固定开销边界）。
+- 验证：s117 11 + s118 5 = 16/16；3.14 全量 715 passed + 2 skipped；3.11 全量 717 passed；cargo 156 绿零告警；selftest 三行全绿；版本锁步 2.36.0 + exe 重建。
+- 提交：本次
