@@ -62,10 +62,13 @@ def _entropy_of(data, engine):
            "engine": {"type": "string", "enum": ["auto", "cpu", "gpu"],
                       "description": "熵计算引擎（默认 auto：按实测交叉点选路）"},
            "max_files": {"type": "integer", "description": "扫描文件上限（默认 200）"},
+           "xor_crib": {"type": "string",
+                        "description": "单字节异或层探测的已知明文（≥6 字节；二进制用 "
+                                       "hex:4d5a900003000000 形式；给则启用）"},
        },
        "required": ["path"]})
 def file_scan(path, signatures=None, hashes=None, entropy_threshold=7.0,
-              engine="auto", max_files=200):
+              engine="auto", max_files=200, xor_crib=None):
     try:
         path = _fs_resolve(path)
     except ValueError as e:
@@ -95,18 +98,43 @@ def file_scan(path, signatures=None, hashes=None, entropy_threshold=7.0,
             skipped.append({"file": fp, "reason": f"读取失败: {e}"})
             continue
         sha = hashlib.sha256(data).hexdigest()
+        xor_keys = []
+        if xor_crib:
+            # 二进制 crib 用 hex: 形式（字符串经 UTF-8 重编码会改变字节——实测坑）
+            if xor_crib.startswith("hex:"):
+                try:
+                    crib = bytes.fromhex(xor_crib[4:].strip())
+                except ValueError:
+                    return {"error": "xor_crib hex 解析失败（示例 hex:4d5a900003000000）"}
+            else:
+                crib = xor_crib.encode("utf-8", "replace")
+            if len(crib) < 4:
+                # 短 crib 在高熵数据上每个密钥都会随机命中（N/256^L 次）——如实拒绝
+                return {"error": f"xor_crib 太短（{len(crib)} 字节）：高熵数据上短 crib "
+                                 f"每个密钥都会随机命中，无法区分真密钥；请给 ≥6 字节"
+                                 f"的已知明文（如 PE 头 8 字节）"}
+            xmode = gpu.pick_mode("xor_scan_bytes", len(data), engine)
+            try:
+                pairs = (gpu.xor_crib_scan_gpu(data, crib) if xmode == "gpu"
+                         else gpu.xor_crib_scan_cpu(data, crib))
+            except gpu.GpuError:
+                pairs = gpu.xor_crib_scan_cpu(data, crib)
+            xor_keys = [{"key": k, "count": c} for k, c in pairs[:8]]
+            # 真密钥通常 count 小、随机密钥 count≈N/256^L；crib≥6 字节时噪声趋零
         hit_sigs = [s.decode("utf-8", "replace") for s in sigs if s and s in data]
         hit_hash = sha in bl
         ent, used = _entropy_of(data, engine)
         engines[used] = engines.get(used, 0) + 1
         packed = bool(size >= 4096 and ent > float(entropy_threshold))
-        if hit_sigs or hit_hash or packed:
+        if hit_sigs or hit_hash or packed or xor_keys:
             findings.append({"file": fp, "size": size, "sha256": sha,
                              "entropy": round(ent, 3), "engine": used,
                              "signatures": hit_sigs, "hash_hit": hit_hash,
-                             "packed": packed})
+                             "packed": packed, "xor_keys": xor_keys})
     return {"path": path, "scanned": len(files), "findings": findings,
             "skipped": skipped[:20], "entropy_engine": engines,
             "note": "签名/熵启发式扫描，**非杀毒软件**（无行为分析/沙箱/查全保证）；"
                     "默认签名仅含 EICAR 测试串；packed=熵>阈值且≥4KB（打包/加密启发式，"
-                    "会误报已压缩资源）。GPU 只加速熵计算（spec/GPU.md 实测）"}
+                    "会误报已压缩资源）。xor_keys=单字节异或层枚举（需给 xor_crib "
+                    "已知明文（≥6 字节，否则高熵数据上噪声淹没真密钥）；多字节异或不做）。"
+                    "GPU 加速熵与异或枚举（spec/GPU.md 实测）"}

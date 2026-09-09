@@ -473,3 +473,12 @@
 - 诚实边界（入文档）：GPU 只赢**数据并行统计类**（熵/直方图/批量特征）；**IO 主导**（读盘遍历）、**IDE 编排类**（编译/测试/LSP/调试——瓶颈在外部进程）、**字面量匹配**、**<1MB 小数据**都不接 GPU。IDE 侧的 GPU 支持 = 批量文本统计走 file_scan 的 GPU 路径，其余如实说明"GPU 帮不上"。
 - 验证：3.14 全量 691 passed + 2 skipped；3.11 全量 693 passed；cargo 156 绿零告警；版本锁步 2.33.0 + exe 重建。
 - 提交：本次
+
+## S116 · GPU 内核扩面：异或密钥枚举 + 相似度矩阵（实测选路 + 两个真缺陷入册）
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 决策：按"只在有实测收益处接 GPU"续做两件数据并行内核：单字节异或层枚举（恶意样本常见混淆）与点积矩阵（大语料相似度）。
+- 实测（bench/s114_gpu_bench.py 扩展，留档 bench/results/s114_gpu.json）：**xor_crib_scan** 1MB 0.6× / 4MB **3.8×** / 64MB **3.6×**（交叉点取 2MB）；**dot_matrix** 0.07M FLOPs 0.0× / 0.52M **14×** / 33.5M **78×**（交叉点取 0.25M，float32 vs float64 相对误差 ~2e-6 用相对容差判定）；byte_hist 复测 33-38×。
+- 两个真缺陷（基准与探针当场抓出，均修）：①**内核计数封顶后 early-return 跳过写回**——首版 `if (++count > 255) return;` 使 GPU 在高熵数据上恒报 0、与 CPU 不一致（16MB/64MB equal=False）→ 改饱和计数并恒写回，CPU 参考同口径。②**二进制 crib 经字符串会被 UTF-8 重编码改字节**——`\x90\x00` 传不进去、真密钥永远找不到 → `file_scan` 支持 `xor_crib="hex:4d5a900003000000"`；并立**crib ≥6 字节**纪律（高熵数据上短 crib 每个密钥随机命中 N/256^L 次，实测 3MB+2 字节 crib 每密钥约 48 次假命中，噪声淹没真密钥）。
+- 交付：tools/gpu.py（+`xor_crib_scan_gpu/cpu`、`dot_matrix_gpu/cpu`、交叉点回填）+ tools/filescan.py（`xor_crib` 参数：hex 形式/最小长度纪律/真密钥唯一锁定实测）+ tests/test_s116_gpu_kernels.py 7 测 + spec/GPU.md 更新（新内核数字/两坑入册）+ skills/scan.md 契约。
+- 验证：s116 7 + s114 11 = 18/18；3.14 全量 698 passed + 2 skipped；3.11 全量 700 passed；cargo 156 绿零告警；版本锁步 2.34.0 + exe 重建。
+- 提交：本次

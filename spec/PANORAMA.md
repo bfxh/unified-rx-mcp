@@ -167,7 +167,7 @@ exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 +
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 691 passed + 2 skipped ／ 3.11 = 693 passed；cargo
+**测试资产**：pytest 3.14 = 698 passed + 2 skipped ／ 3.11 = 700 passed；cargo
 156 绿零告警（lib 21 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，bin_version_test
 = S94，fs_test 并发回归 = S95，search_test 资格门 4 = S101，repomap_test 6 = S102，
 nameres_test 25 = S107/S108）；selftest 58/12/SCHEMA_BAD 0 + 机器对账三行
@@ -195,8 +195,10 @@ S113 极致门禁 8 测（文档计数一致性×3/工具入文档双向/分组�
 检查器自检，test_s113_gates）+ bench/impact_check.py（跨面耦合检查器，workflow
 原则 8 工具化）；
 S114/S115 GPU 11 测（内核 vs CPU oracle 逐位一致/交叉点选路/无运行时降级/
-file_scan 签名与打包与哈希/沙盒，test_s114_gpu）+ bench/s114_gpu_bench.py
-（实测：熵 GPU 31-38×，字面量匹配 CPU 更快——spec/GPU.md）。
+file_scan 签名与打包与哈希/沙盒，test_s114_gpu）+ S116 内核扩面 7 测（异或枚举
+饱和口径/点积相对容差/hex crib 唯一锁钥/短 crib 拒绝，test_s116_gpu_kernels）+
+bench/s114_gpu_bench.py（实测：熵 33-38×、异或枚举 3.6-3.8×、点积 14-78×、
+字面量匹配 CPU 更快——spec/GPU.md）。
 
 **质量体检基线（S94 立账，S95 复测，详见 EVAL §6/§7）**：延迟热态 fs_stat
 p50 **0.3ms**（S95 回迁后，<10ms 预算余量 ~30 倍；v2.20.0 exe 路由期 7.7-9.7ms

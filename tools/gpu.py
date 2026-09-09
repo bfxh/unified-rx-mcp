@@ -229,6 +229,39 @@ __kernel void byte_hist(__global const uchar* data, const uint n,
 """
 
 
+_K_XOR = r"""
+__kernel void xor_crib_scan(__global const uchar* data, const uint n,
+                            __global const uchar* crib, const uint clen,
+                            __global const uchar* keys, const uint nkeys,
+                            __global uint* hits) {
+    uint k = get_global_id(0);
+    if (k >= nkeys) return;
+    uchar key = keys[k];
+    uint count = 0;
+    for (uint i = 0; i + clen <= n; ++i) {
+        uint ok = 1;
+        for (uint j = 0; j < clen; ++j) {
+            if ((data[i + j] ^ key) != crib[j]) { ok = 0; break; }
+        }
+        if (ok && count < 256) count++;
+    }
+    hits[k] = count;
+}
+"""
+
+_K_DOT = r"""
+__kernel void dot_matrix(__global const float* A, __global const float* B,
+                         const uint m, const uint kk, const uint n,
+                         __global float* C) {
+    uint i = get_global_id(0), j = get_global_id(1);
+    if (i >= m || j >= n) return;
+    float acc = 0.0f;
+    for (uint t = 0; t < kk; ++t) acc += A[i * kk + t] * B[t * n + j];
+    C[i * n + j] = acc;
+}
+"""
+
+
 def _read_buf(cl, queue, mem, nbytes):
     out = (ctypes.c_char * nbytes)()
     _check(cl.clEnqueueReadBuffer(queue, mem, 1, 0, nbytes, out, 0, None, None),
@@ -354,7 +387,11 @@ def entropy(hist, n):
 # 实测：byte_hist GPU 31-38×（1-64MB，预热后，结果与 CPU 逐位一致）；
 #       literal_scan GPU 慢 5-6×（CPU bytes.find/memmem 太强）→ auto 恒走 CPU。
 # 换硬件/换数据分布请重跑 bench/s114_gpu_bench.py 再回填。
-CROSSOVER = {"literal_scan_bytes": 1 << 62, "byte_hist_bytes": 1 << 20}
+CROSSOVER = {"literal_scan_bytes": 1 << 62, "byte_hist_bytes": 1 << 20,
+             # 实测：1MB 0.6× / 4MB 3.8× → 取 2MB 为界
+             "xor_scan_bytes": 2 << 20,
+             # 实测：0.07M FLOPs 0.0× / 0.52M 13.9× → 取 0.25M 为界
+             "dot_matrix_flops": 250_000}
 
 
 def pick_mode(kind, nbytes, mode="auto"):
@@ -375,3 +412,118 @@ def gpu_status():
     st["note"] = ("GPU 只加速数据并行内核（直方图/熵等）；字面量匹配与 IO/编排类"
                   "仍走 CPU（交叉点实测见 spec/GPU.md）；auto 按实测选路")
     return st
+
+def xor_crib_scan_gpu(data, crib, keys=range(256)):
+    """单字节异或密钥枚举：找让 crib 在解码后出现的密钥 → [(key, count)]。
+
+    典型用途：恶意样本/混淆载荷的单字节 XOR 层探测（配已知明文 crib，如 "MZ"、
+    "PK"、EICAR 串）。多字节 XOR 需先爆破密钥空间，本函数不做（如实边界）。
+    """
+    cl = _cl()
+    ctx, queue, _ = _ensure_ctx()
+    keys = list(keys)
+    if not data or not crib or not keys:
+        return []
+    err = ctypes.c_int()
+    n = len(data)
+    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(data)")
+    cmem = cl.clCreateBuffer(ctx, 4 | 32, len(crib), ctypes.c_char_p(crib), ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(crib)")
+    kmem = cl.clCreateBuffer(ctx, 4 | 32, len(keys), (ctypes.c_ubyte * len(keys))(*keys),
+                             ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(keys)")
+    hmem = cl.clCreateBuffer(ctx, 2, 4 * len(keys), None, ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(hits)")
+    kern = cl.clCreateKernel(_program(_K_XOR), b"xor_crib_scan", ctypes.byref(err))
+    _check(err.value, "clCreateKernel")
+    _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
+    _set_arg(cl, kern, 1, ctypes.c_uint(n))
+    _set_arg(cl, kern, 2, ctypes.c_void_p(cmem))
+    _set_arg(cl, kern, 3, ctypes.c_uint(len(crib)))
+    _set_arg(cl, kern, 4, ctypes.c_void_p(kmem))
+    _set_arg(cl, kern, 5, ctypes.c_uint(len(keys)))
+    _set_arg(cl, kern, 6, ctypes.c_void_p(hmem))
+    gsz = ctypes.c_size_t(len(keys))
+    _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz), None, 0, None, None),
+           "clEnqueueNDRangeKernel")
+    raw = _read_buf(cl, queue, hmem, 4 * len(keys))
+    out = []
+    for i, k in enumerate(keys):
+        c = int.from_bytes(raw[4 * i:4 * i + 4], "little")
+        if c:
+            out.append((k, c))
+    for m in (dmem, cmem, kmem, hmem):
+        cl.clReleaseMemObject(m)
+    cl.clReleaseKernel(kern)
+    return out
+
+
+def xor_crib_scan_cpu(data, crib, keys=range(256)):
+    """CPU 参考（降级 + oracle）：bytes.translate 建 XOR 表 + find（C 速度）。"""
+    out = []
+    for k in keys:
+        table = bytes((i ^ k) for i in range(256))
+        decoded = data.translate(table)
+        start, c = 0, 0
+        while True:
+            j = decoded.find(crib, start)
+            if j < 0:
+                break
+            if c < 256:
+                c += 1
+            start = j + 1
+        if c:
+            out.append((k, c))
+    return out
+
+
+def dot_matrix_gpu(a, b, m, kk, n):
+    """A(m×kk) · B(kk×n) → C(m×n)（float32 点积矩阵，大语料相似度用）。"""
+    cl = _cl()
+    ctx, queue, _ = _ensure_ctx()
+    err = ctypes.c_int()
+    fa = (ctypes.c_float * (m * kk))(*a)
+    fb = (ctypes.c_float * (kk * n))(*b)
+    amem = cl.clCreateBuffer(ctx, 4 | 32, 4 * m * kk, fa, ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(A)")
+    bmem = cl.clCreateBuffer(ctx, 4 | 32, 4 * kk * n, fb, ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(B)")
+    cmem = cl.clCreateBuffer(ctx, 2, 4 * m * n, None, ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(C)")
+    kern = cl.clCreateKernel(_program(_K_DOT), b"dot_matrix", ctypes.byref(err))
+    _check(err.value, "clCreateKernel")
+    _set_arg(cl, kern, 0, ctypes.c_void_p(amem))
+    _set_arg(cl, kern, 1, ctypes.c_void_p(bmem))
+    _set_arg(cl, kern, 2, ctypes.c_uint(m))
+    _set_arg(cl, kern, 3, ctypes.c_uint(kk))
+    _set_arg(cl, kern, 4, ctypes.c_uint(n))
+    _set_arg(cl, kern, 5, ctypes.c_void_p(cmem))
+    gsz = (ctypes.c_size_t * 2)(m, n)
+    _check(cl.clEnqueueNDRangeKernel(queue, kern, 2, None, gsz, None, 0, None, None),
+           "clEnqueueNDRangeKernel")
+    raw = _read_buf(cl, queue, cmem, 4 * m * n)
+    out = [0.0] * (m * n)
+    import struct
+    for i in range(m * n):
+        out[i] = struct.unpack_from("<f", raw, 4 * i)[0]
+    for mm in (amem, bmem, cmem):
+        cl.clReleaseMemObject(mm)
+    cl.clReleaseKernel(kern)
+    return out
+
+
+def dot_matrix_cpu(a, b, m, kk, n):
+    """CPU 参考（纯 Python，无 BLAS——本仓零依赖基线）。
+    注意：GPU 侧是 float32 累加、CPU 侧是 Python float64 → 比对用相对容差。"""
+    out = [0.0] * (m * n)
+    for i in range(m):
+        for j in range(n):
+            s = 0.0
+            for t in range(kk):
+                s += a[i * kk + t] * b[t * n + j]
+            out[i * n + j] = s
+    return out
+
+
+
