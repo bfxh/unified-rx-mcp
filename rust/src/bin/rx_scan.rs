@@ -13,6 +13,8 @@
 //!                                           见 rust/src/nameres.rs；跨文件留给 S108）
 //!   rx-scan sketch   <ng> <k> [threads]   （S119：批量 n-gram bottom-k 指纹，
 //!                                           路径走 stdin 帧流，见 rust/src/sketch.rs）
+//!   rx-scan xor      <crib_hex> [threads]  （S120：单字节异或密钥枚举，
+//!                                           路径走 stdin 帧流，见 rust/src/xorscan.rs）
 //! 输出：stdout 一行 JSON（与旧 Python 实现同构，不排序——顺序即遍历序；
 //! bugscan 例外：结果按 (severity, file, line) 稳定排序，与 Python 版一致）。
 //! 退出码：0 = 工具级结果（含 {"error": ...}，registry 统一转 ok:false）；
@@ -26,9 +28,10 @@ use rxrs::json::Value;
 use rxrs::nameres;
 use rxrs::scan;
 use rxrs::sketch;
+use rxrs::xorscan;
 use std::io::Read;
 
-const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | astscan <path> [max_files] | buglocate <root> <error_text|-> | resolve <file> | sketch <ng> <k> [threads]";
+const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | astscan <path> [max_files] | buglocate <root> <error_text|-> | resolve <file> | sketch <ng> <k> [threads] | xor <crib_hex> [threads]";
 
 fn main() {
     if std::env::args().any(|a| a == "--version") {
@@ -164,6 +167,27 @@ fn run(args: &[String]) -> Result<Value, String> {
             };
             let paths = sketch::read_path_frames(std::io::stdin())?;
             Ok(sketch::sketch_batch(&paths, ng, k, threads))
+        }
+        "xor" => {
+            // S120：单字节异或枚举。crib 走 argv（ASCII hex），路径走 stdin 帧流。
+            let Some(hex) = args.get(1) else {
+                return Err(USAGE.into());
+            };
+            let crib = xorscan::hex_decode(hex)?;
+            if crib.is_empty() {
+                return Err("xor: crib_hex 为空".into());
+            }
+            let threads = match args.get(2) {
+                Some(s) => s.parse::<usize>().unwrap_or(0),
+                None => 0,
+            };
+            let threads = if threads == 0 {
+                std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+            } else {
+                threads
+            };
+            let paths = xorscan::read_path_frames(std::io::stdin())?;
+            Ok(xorscan::xor_scan_batch(&paths, &crib, threads))
         }
         _ => Err(USAGE.into()),
     }

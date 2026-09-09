@@ -149,7 +149,7 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.37.0）
+## 五、现状坐标（2026-09-09 @ v2.38.0）
 
 **工具面 64/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
 guard(2) ide(20) learn(1) meta(3) ops(5) scan(14) search(3)。
@@ -164,14 +164,17 @@ fs_read/fs_stat/fs_list 曾于 S79 薄壳化、**S95 回迁纯 Python**（读面
 rust_taint_scan 与 code_review 的 bug_scan 透镜经 exe 路径。**S119 新增加速器面**：
 `rx-scan sketch`（n-gram bottom-k 批量指纹，std::thread 分块）供 `near_dupes` 走
 Rust 引擎（实测 16MB 5.4ms / 300×20KB 约 15ms，**比 GPU 逐文件快 6-13×**；
-GPU/CPU 降为回落并如实上报 `sketch_engine`/`sketch_fallback`）。**结构性留 Python**
+GPU/CPU 降为回落并如实上报 `sketch_engine`/`sketch_fallback`）；
+`rx-scan xor`（单字节异或枚举，密钥分片并行）供 `file_scan` 的 `xor_crib` 走 Rust
+（16MB 485ms vs GPU 1279ms，`xor_engine` 三档如实上报；**熵/直方图经实测不迁**——
+逐文件调用时进程启动 ≥ 计算本身）。**结构性留 Python**
 （判型在案，S85/S87/S91）：attack 五件（活体自审——攻击对象就是运行中的 registry,
 exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 + registry/文本计算混合，判型表 S91）、
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 721 passed + 2 skipped ／ 3.11 = 723 passed；cargo
-161 绿零告警（lib 21 + sketch 5 = S119 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，
+**测试资产**：pytest 3.14 = 727 passed + 2 skipped ／ 3.11 = 729 passed；cargo
+167 绿零告警（lib 21 + sketch 5 = S119 + xorscan 6 = S120 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，
 bin_version_test
 = S94，fs_test 并发回归 = S95，search_test 资格门 4 = S101，repomap_test 6 = S102，
 nameres_test 25 = S107/S108）；selftest 58/12/SCHEMA_BAD 0 + 机器对账三行
@@ -205,7 +208,8 @@ S117 近似重复 11 测（bottom-k 两遍选择 oracle 对拍/独立 FNV 实现
 near_dupes 聚类与沙盒，test_s117_neardupes）+ S118 规模化 5 测（精确候选剪枝
 不丢真对/剪枝 vs 暴力逐项相等/截断标记，test_s118_neardupes_scale）+
 S119 Rust sketch 7 测（rx-scan sketch vs Python oracle/三档引擎与回落如实上报/
-特殊路径帧流，test_s119_rust_sketch）+ bench/s114_gpu_bench.py
+特殊路径帧流，test_s119_rust_sketch）+ S120 Rust 异或 6 测（rx-scan xor vs Python
+oracle/三档选路与回落如实上报，test_s120_rust_xor）+ bench/s114_gpu_bench.py
 （实测：熵 33-38×、异或枚举 3.6-3.8×、点积 14-78×、bottom-k 1.7-551×、
 字面量匹配 CPU 更快；负结果：批量哈希 0.4-1.2× 不接、直方图余弦无区分力
 ——spec/GPU.md §二）。

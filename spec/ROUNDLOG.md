@@ -518,3 +518,13 @@
 - 过程缺陷（全量门禁当场抓出）：删 dot_matrix 时连带删掉 `_K_NGBUCKET`/`_K_NGEMIT`/`_NGBUCKET_SHIFT`（验证脚本 `find` 返回 -1 被误读为存在）→ 按 HEAD 恢复并补测；教训：删除跨段代码后必须用**全量**测试验证，局部测试覆盖不到。
 - 验证：s119 7 + s117 11 + s118 5 + s116 6 + s114 11 = 40/40；3.14 全量 **721 passed + 2 skipped**；3.11 全量 **723 passed**；cargo **161 绿**零告警；selftest 三行全绿；版本锁步 **2.37.0** + exe 重建。
 - 提交：本次
+
+## S120 · 异或枚举迁 Rust（16MB 660ms vs GPU 1315ms）+ 直方图负结果入册
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 起因：S119 立了门「新 GPU 内核必须赢原生 Rust」，按 ROI 续做 R2（直方图/熵）与 R3（异或枚举）。**先量后做**：file_scan 16MB 扫描拆解 = sha256 8ms + 熵 GPU 16ms + 异或 GPU 1365ms → **异或枚举是绝对瓶颈**；200×4KB 整目录扫描仅 46ms → 熵路径没有优化空间。
+- R2 负结果（**不迁**）：直方图/熵逐文件调用时，进程启动 ~15ms ≥ 计算本身（16MB：Rust 1.4ms+15ms ≈ GPU 16ms；200 个小文件整目录 46ms）。数字入 spec/GPU.md §二，不留无效通道。
+- R3 交付：`rust/src/xorscan.rs`（密钥分片并行，饱和计数 256、允许重叠命中，与 Python/GPU 逐位一致；6 单测含多线程一致/饱和/重叠/hex 解码）+ `rx-scan xor <crib_hex> [threads]`（路径走 stdin 帧流）+ `tools/filescan.py` 三档选路（`xor_engine`：≥256KB rust → ≥128KB gpu → cpu；回落原因 `xor_fallback` 如实回传）+ `tests/test_s120_rust_xor.py` 6 测。
+- 实测（单文件 / min-of-3）：64KB cpu 14.5ms 最优；128KB gpu 12.9ms < rust 19.2ms；256KB 两者 ≈23ms（分界）；512KB rust 32.2ms < gpu 43.5ms；16MB **rust 485ms < gpu 1279ms < cpu 3763ms**。端到端 `file_scan` 16MB + xor_crib：**rust 660ms / gpu 1315ms / cpu 3810ms**（2× / 5.8×）。
+- 交付核验：GPU 内核定位再修正——xor GPU 内核**保留**（128-256KB 带最优 + 回落路径），不再进 `auto` 的大文件路径（它只有 256 个 work item，见 §二·三）。
+- 验证：s120 6 + s119 7 + s117 11 + s118 5 + s116 6 + s114 11 = 46/46；3.14 全量 **727 passed + 2 skipped**；3.11 全量 **729 passed**；cargo **167 绿**零告警；selftest 三行全绿；版本锁步 **2.38.0** + exe 重建。
+- 提交：本次
