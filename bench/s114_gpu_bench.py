@@ -72,6 +72,34 @@ def main():
         g = f"{tg:8.2f}ms" if tg else "   skip  "
         print(f"  {mb:3d}MB  gpu {g}  cpu {tc:9.2f}ms  equal={ok}")
 
+    # 3) 单字节异或密钥枚举（恶意样本混淆探测）
+    print("\n-- xor_crib_scan（单字节异或密钥枚举，crib=MZ）--")
+    for mb in (1, 4, 16, 64):
+        data = bytes(b ^ 0x5A for b in (b"MZ" + os.urandom((mb << 20) - 4)))
+        tg, gh = _best(lambda d: gpu.xor_crib_scan_gpu(d, b"MZ"), data, 1)
+        tc, ch = _best(lambda d: gpu.xor_crib_scan_cpu(d, b"MZ"), data, 1)
+        rows.append({"kind": "xor_scan", "mb": mb, "gpu_ms": round(tg, 2),
+                     "cpu_ms": round(tc, 2), "speedup": round(tc / tg, 1),
+                     "equal": gh == ch})
+        print(f"  {mb:3d}MB  gpu {tg:8.2f}ms  cpu {tc:9.2f}ms  speedup {tc/tg:6.1f}x  equal={gh == ch}")
+
+    # 4) 相似度矩阵（m×kk · kk×n）
+    print("\n-- dot_matrix（相似度矩阵，256×512 · 512×256）--")
+    import array as _arr
+    a = _arr.array("f", [0.001 * i for i in range(256 * 512)])
+    b = _arr.array("f", [0.001 * ((i * 7) % 512) for i in range(512 * 256)])
+    tg, cg = _best(lambda _: gpu.dot_matrix_gpu(list(a), list(b), 256, 512, 256), None, 1)
+    tc, cc = _best(lambda _: gpu.dot_matrix_cpu(list(a), list(b), 256, 512, 256), None, 1)
+    mx = max(abs(x) for x in cc) or 1.0
+    md = max(abs(x - y) for x, y in zip(cg, cc))
+    ok = (md / mx) < 1e-4      # float32 vs float64：相对容差
+    rows.append({"kind": "dot_matrix", "shape": "256x512x256",
+                 "gpu_ms": round(tg, 2), "cpu_ms": round(tc, 2),
+                 "speedup": round(tc / tg, 1), "equal": ok,
+                 "max_rel_diff": round(md / mx, 8)})
+    print(f"  256x512x256  gpu {tg:8.2f}ms  cpu {tc:9.2f}ms  speedup {tc/tg:6.1f}x  "
+          f"rel_diff={md/mx:.2e}")
+
     hist_rows = [r for r in rows if r["kind"] == "byte_hist"]
     cross = next((r["mb"] for r in hist_rows if r["speedup"] >= 1.0), None)
     print(f"\n直方图交叉点（GPU 首次快过 CPU）：{cross}MB" if cross else "\n直方图：本机未测到交叉点")
