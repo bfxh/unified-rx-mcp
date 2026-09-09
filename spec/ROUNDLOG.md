@@ -504,3 +504,17 @@
 - 交付：tools/neardupes.py（`_walk` 返回截断标记 + `_candidate_pairs` 精确剪枝 + 结果新增三字段）+ tests/test_s118_neardupes_scale.py 5 测（剪枝不丢真对/退化全对/剪枝 vs 暴力逐项相等/截断标记/随机语料剪枝生效）+ skills/scan.md 契约 + spec/GPU.md（小文件固定开销边界）。
 - 验证：s117 11 + s118 5 = 16/16；3.14 全量 715 passed + 2 skipped；3.11 全量 717 passed；cargo 156 绿零告警；selftest 三行全绿；版本锁步 2.36.0 + exe 重建。
 - 提交：本次
+
+## S119 · Rust 反超 GPU：n-gram sketch 原生化（rx-scan sketch）+ GPU 口径修正 + dot_matrix 退役
+- 项目：unified-rx-mcp｜时间：2026-09-09
+- 起因：用户问「Rust 那个看看怎么样」。按"信息充分性"做体检 + 一组此前没做过的对照实验：**用原生 Rust（纯 std，无任何 crate）复测 GPU 内核**。
+- 关键实测（16MB / min-of-3 / 同机 / opt-level=2 与仓库 release 一致）：**直方图 Rust 1.4ms vs GPU 15.4ms（11×）**；**n-gram bottom-k Rust 5.4ms vs GPU 32.5ms（6×）**；**异或枚举 Rust 365ms vs GPU 1279ms（3.5×）**；矩阵乘 1024³ Rust 14.1ms vs GPU 317.9ms（22×）；300×20KB 批量指纹 Rust 约 15ms vs GPU 651ms（10-13×）。**现有每一个 GPU 内核都被 Rust 打败**——此前 33-551× 的对照基线是**纯 Python**，不是原生代码。
+- 归因（入档）：①数据本来在 CPU（文件由 Python 读），GPU 要付传输；②内核朴素——matmul 只有 6.7 GFLOP/s（理论 20+ TFLOP/s）、异或枚举只开 256 个 work item（`gsz = len(keys)`，并行度锁死在密钥数上）；③流式内核是内存带宽活，CPU 吃缓存就够。**门**：新 GPU 内核必须给"vs 原生 Rust"对照，赢纯 Python 不算赢。
+- 交付 R1（最高 ROI）：`rust/src/sketch.rs`（bottom-k MinHash，stdin 帧流 + `std::thread` 按位置分块并行，5 单测含多线程逐位一致/帧流回环）+ `rx-scan sketch <ng> <k> [threads]` 子命令 + `tools/neardupes.py` 三档引擎（**rust 优先**、GPU 两遍选择、CPU 参考；`sketch_engine`/`sketch_fallback` 如实上报，路径含不可编码字符转逐文件通道）+ `tests/test_s119_rust_sketch.py` 7 测（vs Python oracle 逐位一致/三档上报/回落/特殊路径帧流）。
+- 端到端实测：300×20KB 近重复聚类 **rust 141ms vs gpu 860ms vs cpu 3220ms**（6.1× / 23×）；2×16MB **rust 38ms vs gpu 79ms**。
+- 交付 R4：`dot_matrix` **退役**（无调用方 + 朴素内核比 Rust 慢 22×）——删内核/API/交叉点/测试，数字留档 GPU.md。
+- 交付 R5：`spec/GPU.md` 口径修正——所有倍数标注"对纯 Python 基线"，新增 §二·三「vs 原生 Rust」对照表与归因，接入面改为 rust 优先。
+- 交付核验：路线图第 6 项「engine 域双实现归一」**核验已达成**（engine_query 降级路径即 code_search，而它是 rx-search 薄壳，Python 侧无第二份 BM25）——PANORAMA 标 ✅。
+- 过程缺陷（全量门禁当场抓出）：删 dot_matrix 时连带删掉 `_K_NGBUCKET`/`_K_NGEMIT`/`_NGBUCKET_SHIFT`（验证脚本 `find` 返回 -1 被误读为存在）→ 按 HEAD 恢复并补测；教训：删除跨段代码后必须用**全量**测试验证，局部测试覆盖不到。
+- 验证：s119 7 + s117 11 + s118 5 + s116 6 + s114 11 = 40/40；3.14 全量 **721 passed + 2 skipped**；3.11 全量 **723 passed**；cargo **161 绿**零告警；selftest 三行全绿；版本锁步 **2.37.0** + exe 重建。
+- 提交：本次

@@ -19,8 +19,6 @@ _HAS_GPU = gpu.status().get("available") is True
 def test_pick_mode_new_kernels():
     assert gpu.pick_mode("xor_scan_bytes", 1 << 20) == "cpu"
     assert gpu.pick_mode("xor_scan_bytes", 4 << 20) == "gpu"
-    assert gpu.pick_mode("dot_matrix_flops", 70_000) == "cpu"
-    assert gpu.pick_mode("dot_matrix_flops", 1_000_000) == "gpu"
 
 
 def test_xor_cpu_reference_saturates():
@@ -40,18 +38,6 @@ def test_xor_gpu_matches_cpu_oracle():
     c = gpu.xor_crib_scan_cpu(data, crib)
     assert g == c, (g[:5], c[:5])
     assert g == [(0x5A, 1)], f"应唯一锁定真密钥 0x5A: {g[:5]}"
-
-
-@pytest.mark.skipif(not _HAS_GPU, reason="本机无 GPU/OpenCL")
-def test_dot_matrix_gpu_matches_cpu_oracle():
-    m, k, n = 64, 128, 64
-    a = [0.001 * (i % 97) for i in range(m * k)]
-    b = [0.001 * (i % 89) for i in range(k * n)]
-    g = gpu.dot_matrix_gpu(a, b, m, k, n)
-    c = gpu.dot_matrix_cpu(a, b, m, k, n)
-    mx = max(abs(x) for x in c) or 1.0
-    md = max(abs(x - y) for x, y in zip(g, c))
-    assert md / mx < 1e-4, f"float32 vs float64 相对误差过大: {md/mx}"
 
 
 def _mk_obf(tmp_path, key=0x5A, crib=b"MZ\x90\x00\x03\x00\x00\x00", n=1 << 20):

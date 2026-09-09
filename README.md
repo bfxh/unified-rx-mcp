@@ -6,8 +6,8 @@
 > 设计哲学：**少而准**（64 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.36.0（S118）**：64 工具 / 12 域；pytest 3.14 = 715 passed + 2 skipped、
-3.11 = 717 passed；cargo test 156 绿；selftest 机器对账三行全绿（VERSION_TAG /
+**当前 v2.37.0（S119）**：64 工具 / 12 域；pytest 3.14 = 721 passed + 2 skipped、
+3.11 = 723 passed；cargo test 156 绿；selftest 机器对账三行全绿（VERSION_TAG /
 SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，
 逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)。
 
