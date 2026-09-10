@@ -14,8 +14,7 @@
 
 ## 诚实边界
 
-- 稳定版当前 2.39.0；`breaker_status`/`breaker_reset` 两个熔断工具在 2.40.0
-  （feat/s122 已提交，GitHub 恢复后合并同步稳定版即带上来）。
+- 稳定版已同步 v2.40.0（含 `breaker_status`/`breaker_reset` 熔断工具，meta 组 5 工具）。
 - 沙盒外的路径会被工具拒绝并给原因，不静默降级。
 - Rust 加速 exe 按 `%TEMP%\rx-rs-target\release` 惯例路径自动发现；缺失时报
   清晰错误，不静默降级。
