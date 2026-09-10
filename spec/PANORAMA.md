@@ -149,10 +149,10 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-09 @ v2.39.0）
+## 五、现状坐标（2026-09-09 @ v2.40.0）
 
-**工具面 64/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
-guard(2) ide(20) learn(1) meta(3) ops(5) scan(14) search(3)。
+**工具面 66/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
+guard(2) ide(20) learn(1) meta(5) ops(5) scan(14) search(3)。
 
 **Rust 原生化进度**：16 个工具已薄壳化（fs_write、
 search 双件 code_search/code_semantic、scan 五件 bug_scan/std_check/ui_check/
@@ -173,7 +173,7 @@ exe 化测错对象）、ide 余 14 件（LSP/编译/调试=外部进程编排 +
 ops 副作用面、meta 宿主内省、game 外部编排、learn 小+写、guard、engine 探测、
 授权门本体（registry.call 单一裁决点）。
 
-**测试资产**：pytest 3.14 = 728 passed + 2 skipped ／ 3.11 = 730 passed；cargo
+**测试资产**：pytest 3.14 = 746 passed + 2 skipped ／ 3.11 = 748 passed；cargo
 167 绿零告警（lib 21 + sketch 5 = S119 + xorscan 6 = S120 + 各 exe 集成测，ide_test 19 = S92 12 + S93 7，
 bin_version_test
 = S94，fs_test 并发回归 = S95，search_test 资格门 4 = S101，repomap_test 6 = S102，
@@ -198,8 +198,10 @@ S109 ide_impact 三级降级 4 测（解析级/ LSP 优先/文本回落/无符�
 test_s109_impact_resolved——显式 mock LSP，不依赖环境是否装 pylsp）；
 S110 知识库 8 测（KB 完整性/规则号与扫描器一致/未覆盖标注/检索/工具契约/注解开关）
 + S111 可选引擎 8 测（ast-grep 校验/探测/清晰报错 + SCIP 合成索引解析）；
-S113 极致门禁 10 测（文档计数一致性×3/工具入文档双向/分组合法/模块与函数尺寸/
-检查器自检/版本锁步 S117/clippy 零告警 S121，test_s113_gates）+ bench/impact_check.py（跨面耦合检查器，workflow
+S113 极致门禁 11 测（文档计数一致性×3/工具入文档双向/分组合法/模块与函数尺寸/
+检查器自检/版本锁步 S117/clippy 零告警 S121/测试内工具数上限 S122，test_s113_gates）
++ S122 熔断 17 测（工具级 8：阈值/冷却/滑窗/空转/旁路/豁免/registry 真链路/快照；
+宿主级 9：ZCode Hook 真子进程同形验证 + hooks.json 清单对账）+ bench/impact_check.py（跨面耦合检查器，workflow
 原则 8 工具化）；
 S114/S115 GPU 11 测（内核 vs CPU oracle 逐位一致/交叉点选路/无运行时降级/
 file_scan 签名与打包与哈希/沙盒，test_s114_gpu）+ S116 内核扩面 7 测（异或枚举

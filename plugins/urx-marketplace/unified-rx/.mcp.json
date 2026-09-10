@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "unified_rx": {
+      "type": "stdio",
+      "command": "C:\\Users\\lbx13\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+      "args": ["D:\\rj\\MCP\\server.py"],
+      "env": {
+        "PYTHONUTF8": "1",
+        "UNIFIED_RX_SANDBOX": "D:\\开发;D:\\rj\\MCP;C:\\Users\\lbx13\\.zcode\\workspace"
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "zcode-breaker",
+  "version": "1.0.0",
+  "description": "Tool circuit breaker for ZCode: blocks the same (tool + input) repeated over the limit within a window, and warns on repeated prompts. Same rule as unified-rx-mcp tools/breaker.py.",
+  "description_i18n": {
+    "en": "Tool circuit breaker for ZCode: blocks the same (tool + input) repeated over the limit within a window, and warns on repeated prompts.",
+    "zh-CN": "ZCode 工具熔断：同一（工具+参数）在窗口内重复超过阈值即阻断，重复指令告警。与 unified-rx-mcp 的 tools/breaker.py 同规则（宿主级 + 工具级双保险）。"
+  },
+  "author": {
+    "name": "unified-rx-mcp"
+  },
+  "license": "MIT",
+  "keywords": [
+    "breaker",
+    "circuit-breaker",
+    "hooks",
+    "loop-guard",
+    "unified-rx"
+  ],
+  "hooks": "hooks"
+}

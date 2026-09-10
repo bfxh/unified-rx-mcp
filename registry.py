@@ -388,6 +388,16 @@ def call(name, args):
     if verr:
         _record_stats(name, 0.0)
         return {"ok": False, "error": _aci_hint(verr)}
+    # S122 熔断门：同一（工具+参数）窗口内重复超限 → 拒绝执行（循环刹车，见 tools/breaker.py）。
+    # 位置：门禁之后、缓存之前——缓存命中的重复调用同样是循环，不能绕过刹车。
+    try:
+        from tools import breaker as _breaker
+        _trip = _breaker.check(name, a, cursor_arg)
+        if _trip:
+            _record_stats(name, 0.0)
+            return {"ok": False, "error": _aci_hint(_trip)}
+    except Exception:
+        pass                   # 熔断器自身绝不拖垮调用
     # S103 内容寻址缓存：门禁之后、执行之前查；只对纯读白名单工具生效。
     # 命中即返回（结果与冷跑逐字节一致，见 tools/cache.py 契约）
     ck = None
@@ -426,6 +436,11 @@ def call(name, args):
         except Exception:
             pass
         out = {"ok": True, "result": result}
+        try:
+            from tools import breaker as _breaker
+            _breaker.record(name, a, out, cursor_arg)   # S122：结果空转检测
+        except Exception:
+            pass
         if ck:
             try:
                 from tools import cache as _cache

@@ -1,0 +1,16 @@
+{
+  "name": "urx-local",
+  "description": "unified-rx 本地插件市场（ZCode）：MCP 服务器接入 + 工具熔断等本地防线。",
+  "plugins": [
+    {
+      "name": "zcode-breaker",
+      "source": "./zcode-breaker",
+      "description": "工具熔断：同一（工具+参数）窗口内重复超阈值即阻断；重复指令告警。与 unified-rx-mcp tools/breaker.py 同规则。"
+    },
+    {
+      "name": "unified-rx",
+      "source": "./unified-rx",
+      "description": "MCP 服务器：把 unified-rx-mcp（66 工具，Rust 加速）挂进 ZCode，指向稳定版入口。"
+    }
+  ]
+}
