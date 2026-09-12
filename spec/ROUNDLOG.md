@@ -548,3 +548,11 @@
 - 交付：tools/breaker.py + registry 接线 + skills/meta.md 契约 + spec/BREAKER.md + plugins/urx-marketplace/（marketplace.json + zcode-breaker：manifest/hooks.json/breaker_hook.py/README）+ tests/test_s122_breaker.py 8 测 + tests/test_s122_plugin_hook.py 9 测。
 - 验证：3.14 全量 **746 passed + 2 skipped**；3.11 全量 **748 passed**；cargo **167 绿 + clippy 零告警**；selftest 三行全绿；版本锁步 **2.40.0** + exe 重建。
 - 提交：本次
+
+## S123 · ide_dead_code（死符号可达性）+ secrets_hunt（凭据泄漏扫描）
+- 项目：unified-rx-mcp｜时间：2026-09-12
+- 决策：IDE/漏洞两侧工具缺口评估（S122 后盘点）点单开工。①**ide_dead_code**（ide 域 21st）：全库 ast 零引用口径（Name/Attribute 引用跨模块同权，`def` 定义处不产 Name 节点故零引用是真信号）+ **三重保守豁免**——带装饰器定义默认豁免（@tool 等框架注册点静态零引用不等于死，include_decorated=true 才纳入）、**pytest 约定入口豁免**（test_*/pytest_*/setup_*/teardown_*/conftest.py 按名收集从不按名引用——自测实录 conftest 的 pytest_configure 被误报死码后补的口径）、公有方法/嵌套函数/dunder 不查（鸭子类型/覆写/闭包）；名字出现在字符串字面量 → **suspect_dynamic 降级不判死**（getattr/注册表静态看不见）。②**secrets_hunt**（scan 域 15th）：模式层（AKIA/ghp_gho_/xox/AIza/sk_live/PEM 私钥头/JWT/通用赋值，赋值层滤占位符 changeme/${}/&lt;your&gt;/example）+ 熵层（≥20 长度 ≥3 字符类 Shannon≥4.5 → **suspect 不冒充确认**；Cargo.lock/package-lock 等锁文件熵层整文件跳过）；**输出一律掩码（前4后2+长度）——扫描结果本身不能变成二次泄漏源**；NUL 二进制跳过。③诚实边界入档：Rust 内核加速挂账后续轮（性能基线纪律：先测原生基线，实测赢才进 auto，本轮纯 stdlib）；依赖 CVE 离线匹配**不做**（需新鲜数据源，本机网络做出来是假新鲜度）。
+- 过程缺陷（当场抓改）：①熵层跳过正则少收括号（IndentationError 冒烟即炸）；②pytest 收集类误报（test_*/pytest_* 零 Name 引用）——测试跑自家仓库 686 dead 里混入 conftest 钩子，补约定豁免 + `exempted_pytest_entry` 计数字段；③**Mimosa hook 拦测试夹具**：夹具里 `auth_token = "…"`/行首 `password = "…"` 被判硬编码凭据拦截（值是假的但 hook 分不清）→ 夹具行改运行时字符串拼接构造，测试文件本身不长得像泄漏——hook 拦得对，测试文件也该守这个形状；④**GitHub push protection 拒推（同一课的第二层）**：首推 main/feat/v2.41.0 三 ref 全被 remote rejected（secret scanning，附 unblock URL）——①里漏掉的 ghp_/AKIA/AIza/sk_live/xoxb/PEM 形状假值以完整字面量进了提交，GitHub 分不清真假。全部改运行时拼接（测试文件只存碎片，完整形状只活在 tmp_path 夹具里），amend 原提交重推——不点 unblock 放行，源头治理。
+- 交付：tools/ide_deadcode.py + tools/secrets.py + tools/__init__.py 接线 + skills/ide.md & skills/scan.md 契约 + tests/test_s123_deadcode_secrets.py 11 测（掩码不含完整值/独立 Shannon oracle/占位符+锁文件+二进制过滤/pytest 豁免/跨模块判活/装饰器 opt-in/suspect 降级/parse_error 不致命）。
+- 验证：3.14 全量 **756 passed + 3 skipped**（3 skip 均 pylsp×2+VoxelForge 外部资产既有环境性）；3.11 全量 **758 passed + 1 skipped**；cargo **167 绿 + clippy 零告警**；selftest tools=68 / GROUPS 12（ide 21 scan 15）/ SCHEMA_BAD 0 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0；版本锁步 **2.41.0** + exe 重建。
+- 提交：本次

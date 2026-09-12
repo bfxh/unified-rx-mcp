@@ -151,8 +151,8 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 
 ## 五、现状坐标（2026-09-09 @ v2.40.0）
 
-**工具面 66/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
-guard(2) ide(20) learn(1) meta(5) ops(5) scan(14) search(3)。
+**工具面 68/12 组**（selftest 口径）：appaudit(3) attack(5) engine(2) fs(4) game(2)
+guard(2) ide(21) learn(1) meta(5) ops(5) scan(15) search(3)。
 
 **Rust 原生化进度**：16 个工具已薄壳化（fs_write、
 search 双件 code_search/code_semantic、scan 五件 bug_scan/std_check/ui_check/

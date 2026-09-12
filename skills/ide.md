@@ -70,6 +70,14 @@
   高频动作不付语言服务器成本）；S92 对照实验 43 场景 masked 全等——CRLF/
   尾幻影行/unicode 标识符/一行 fn 含 struct 翻 type/js class 落 fn 等
   S70 语义怪癖逐字节对齐
+- **ide_dead_code（S123）**：死符号可达性（上帝对象拆分候选的客观下界）——
+  全库 ast 扫描，报零 Name/Attribute 引用的顶层函数/类/私有方法。**保守口径**：
+  名字出现在字符串字面量 → 列 suspect_dynamic 不判死（getattr/注册表静态看不见）；
+  带装饰器定义默认豁免（框架注册点，include_decorated=true 才纳入）；pytest 约定
+  入口（test_*/pytest_*/setup_*/teardown_*/conftest.py）豁免（按名收集不按名引用，
+  不豁免整片误报——conftest 的 pytest_configure 自测实录）；公有方法/嵌套函数/dunder
+  不查。**零引用≠可安全删除**：别名 import as、exec/eval、globals() 拼接追不到，
+  删前人工确认。返回 dead[]/suspect_dynamic[]/exempted_decorated/exempted_pytest_entry。
 - 坑：JDK/gcc 本地化消息（中文"错误"）破坏诊断正则 → javac 强制
   `-J-Duser.language=en`、gcc `LC_ALL=C`；pytest 语法错误走 stdout 非 stderr；
   CPython 3.11+ line 事件 trace 返回 None 不关帧追踪（必须 sys.settrace(None)）；
