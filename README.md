@@ -3,11 +3,11 @@
 **本地工具代替智能体体力活的平台** — 凡是 AI 要做的确定性体力活，全部下沉为本地工具；AI 只保留决策层。
 > 定位：**工具箱，不是智能体，不是内核**。MCP 只是通道，价值在"工具 + 工作流"的完整链路。
 > 七维"掌握"：**结构 / 语义 / 定位 / 探索 / 记忆 / 反馈 / 质量**
-> 设计哲学：**少而准**（66 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
+> 设计哲学：**少而准**（68 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.40.0（S122）**：66 工具 / 12 域；pytest 3.14 = 746 passed + 2 skipped、
-3.11 = 748 passed；cargo test 156 绿；selftest 机器对账三行全绿（VERSION_TAG /
+**当前 v2.41.0（S123）**：68 工具 / 12 域；pytest 3.14 = 756 passed + 3 skipped、
+3.11 = 758 passed；cargo test 167 绿；selftest 机器对账三行全绿（VERSION_TAG /
 SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，
 逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)。
 
@@ -15,14 +15,14 @@ SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)�
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **66 个组合工具 / 12 域** |
+| 工具面 | 183（注入面 200+） | **68 个组合工具 / 12 域** |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 19 件 ide 工具 |
 
-## 工具面（12 域 · 66 工具）
+## 工具面（12 域 · 68 工具）
 
 | 域 | 工具 |
 |---|---|

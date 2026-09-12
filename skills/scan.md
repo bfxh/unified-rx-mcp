@@ -76,6 +76,15 @@
   比 GPU 逐文件快 6-13×（GPU 两遍选择 8KB 1.7× → 16MB 551× 是对纯 Python 基线）；
   无 exe/无 GPU 回落 CPU 参考实现。全随机语料 300 文件候选对 44850→0。
   见 spec/GPU.md §二（含"直方图余弦对高熵数据无区分力"的负结果）。
+- **secrets_hunt（S123）**：凭据/密钥泄漏扫描——**模式层**（AKIA/ghp_gho_/
+  xox/AIza/sk_live/PEM 私钥头/JWT 形状/通用赋值 password= api_key: 等，
+  赋值层滤占位符 changeme/${}/<your >/example）+ **熵层**（≥20 长度 ≥3 字符类
+  Shannon ≥4.5 bits/char → suspect 不冒充确认；锁文件 Cargo.lock/package-lock 等
+  熵层整文件跳过）。**输出一律掩码（前4后2+长度）**——扫描结果本身不能变成
+  二次泄漏源，完整值人工打开文件复核；二进制（NUL）跳过。诚实边界：静态启发
+  非保证，自定义格式漏报、随机 UUID/测试夹具误报；**Rust 内核加速是后续轮次
+  候选**（性能基线纪律：先测原生基线，实测赢才进 auto，本轮纯 stdlib）。
+  泄漏处置：先吊销轮换 key 再清 git 历史——改密不能撤回已泄漏凭据。
 - **结果缓存（S103）**：bug_scan/std_check/ui_check/ast_scan/bug_locate 等纯读
   工具的结果进入**进程内内容寻址缓存**（键 = 工具+参数+cursor+输入指纹；指纹含
   小文件内容哈希，文件一变即失效）。命中返回与冷跑逐字节一致；`__no_cache: true`
