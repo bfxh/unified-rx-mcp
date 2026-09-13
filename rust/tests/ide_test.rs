@@ -333,9 +333,12 @@ fn s93_locate_max_files_skip_dirs_and_errors() {
     // 非目录（指向文件）→ 工具级错误，含解析后路径
     let file_path = td.path().join("m1.py");
     let e2 = ide::locate_edit(&cfg, file_path.to_str().unwrap(), "x", 100, 10).unwrap();
+    // S125：错误文案里的路径是宽限 realpath 形态——CI 的 TEMP 为 junction 时与原始
+    // 路径不同形，须用同一函数解析后比较（appclone/fs_test 同族修法）。
+    let fp_res = rxrs::sandbox::lenient_realpath(&file_path);
     assert_eq!(
         get_str(&e2, "error"),
-        format!("不是目录: {}", file_path.display())
+        format!("不是目录: {}", fp_res.display())
     );
     // path 必填
     let e3 = ide::locate_edit(&cfg, "", "x", 100, 10).unwrap();
@@ -452,7 +455,9 @@ fn s93_rename_plan_cap_and_quirks() {
     assert_eq!(get_str(&e1, "error"), "path 必填");
     let fp = td.path().join("one.py");
     let e2 = ide_rename(&cfg, fp.to_str().unwrap(), "x", "y", false).unwrap();
-    assert_eq!(get_str(&e2, "error"), format!("不是目录: {}", fp.display()));
+    // S125：同 locate_edit——文案路径是解析后形态（junction 环境下与原始不同形）
+    let fp_res = rxrs::sandbox::lenient_realpath(&fp);
+    assert_eq!(get_str(&e2, "error"), format!("不是目录: {}", fp_res.display()));
 }
 
 #[test]
