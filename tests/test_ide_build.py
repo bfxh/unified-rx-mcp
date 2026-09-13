@@ -34,6 +34,24 @@ def call_tool(name, args):
 
 # ---------- 纯解析器 ----------
 
+def test_cargo_short_parser_strips_ansi_color():
+    """S125：CI（CARGO_TERM_COLOR=always）与强制着色终端把 \\x1b[..m 注入诊断行，
+    色码使 `file:line:col: level` 正则整体失配 → 诊断全空（CI 首跑实锤：
+    ide_build 报 ok=false 但 errors=[]）。解析器须先剥色码再匹配。"""
+    from tools.ide_common import _parse_cargo_short, _parse_gcc
+    colored = ("\x1b[1m\x1b[91msrc\\main.rs:3:18: \x1b[1m\x1b[91merror\x1b[0m"
+               "\x1b[1m\x1b[97m[E0308]\x1b[0m\x1b[1m\x1b[97m: mismatched types\x1b[0m")
+    diags = _parse_cargo_short(colored, "C:\\proj")
+    assert len(diags) == 1, diags
+    d = diags[0]
+    assert d["level"] == "error" and d["line"] == 3 and d["col"] == 18, d
+    assert d["msg"].startswith("mismatched types"), d
+    # 同规则覆盖 gcc 解析（共享 _strip_ansi）
+    gout = "\x1b[1m\x1b[31mmain.c:5:3: \x1b[1m\x1b[91merror\x1b[0m: bad token\x1b[0m"
+    gd = _parse_gcc(gout, "C:\\proj")
+    assert len(gd) == 1 and gd[0]["level"] == "error" and gd[0]["line"] == 5, gd
+
+
 def test_parse_py_traceback():
     tb = ('Traceback (most recent call last):\n'
           '  File "app/main.py", line 10, in run\n'
