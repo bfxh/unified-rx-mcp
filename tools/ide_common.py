@@ -85,7 +85,7 @@ _RE_GO_FRAME = re.compile(r"^\s+(?:[\w().*]+\.)?([\w().*]+)\(\)$|^\s+(.+?\.go):(
 def _parse_gcc(out, root):
     diags, seen = [], set()
     for line in out.splitlines():
-        m = _RE_GCC_DIAG.match(line.strip())
+        m = _RE_GCC_DIAG.match(_strip_ansi(line).strip())
         if not m:
             continue
         f, ln, col, level, msg = m.groups()
@@ -103,11 +103,20 @@ def _parse_gcc(out, root):
 _RE_CARGO_SHORT = re.compile(
     r"^(.+?):(\d+):(\d+):\s+(error|warning|note)\[?[EW0-9]*\]?:\s+(.*)$")
 
+# S125：ANSI 色码剥离——CI（CARGO_TERM_COLOR=always）与强制着色终端会把 \x1b[..m
+# 注入诊断行，行首/级别词前的色码使 `file:line:col: error` 正则整体失配（诊断全空，
+# 实测 CI 首跑）。所有行式解析器先剥色码再匹配。
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _strip_ansi(s):
+    return _ANSI_RE.sub("", s)
+
 
 def _parse_cargo_short(out, root):
     diags, seen = [], set()
     for line in out.splitlines():
-        m = _RE_CARGO_SHORT.match(line.strip())
+        m = _RE_CARGO_SHORT.match(_strip_ansi(line).strip())
         if not m:
             continue
         f, ln, col, level, msg = m.groups()
@@ -128,7 +137,7 @@ def _parse_go_build(out, root):
     """go build 错误无 level 词（`file:line:col: msg`），专用解析。"""
     diags, seen = [], set()
     for line in out.splitlines():
-        m = _RE_GO_BUILD.match(line.strip())
+        m = _RE_GO_BUILD.match(_strip_ansi(line).strip())
         if not m:
             continue
         f, ln, col, msg = m.groups()
