@@ -26,7 +26,11 @@ def test_core_workflow_keeps_hard_gates():
                    "clippy",                        # 零告警红线
                    "scripts/ci_secrets_gate.py",    # 明文红线机器化
                    "scripts/ci_gate.py",            # selftest 硬门禁
-                   "fetch-depth: 0"):               # VERSION_TAG 真对账
+                   "fetch-depth: 0",                # VERSION_TAG 真对账
+                   # S125：本机 config.toml 的 target-dir 是绝对路径，CI 必须 env 覆盖，
+                   # 否则 exe 落错位置 → EXE_TAG 硬门禁失败（S124 首跑 CI 实锤）
+                   "CARGO_TARGET_DIR",
+                   "UNIFIED_RX_SANDBOX"):           # selftest 内部 fs 自检在沙盒内跑
         assert needle in src, f"core.yml 丢了 {needle!r}——门禁只许加强不许退役"
 
 

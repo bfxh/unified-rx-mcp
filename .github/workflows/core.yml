@@ -26,6 +26,12 @@ jobs:
 
       - name: Install Rust toolchain + build exe
         uses: dtolnay/rust-toolchain@stable
+      # S125 修：仓库根 .cargo/config.toml 的 target-dir 是本机绝对路径（S78 workaround），
+      # CI 上必须用 env 覆盖（env 优先于 config）——让 exe 落在工具查找的 %TEMP%\rx-rs-target，
+      # 否则 EXE_TAG SKIP → 硬门禁失败（S124 首次 CI 实锤）。
+      - name: Point cargo target-dir into %TEMP% (override machine-local config)
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_ENV -Value ("CARGO_TARGET_DIR=" + $env:TEMP + "\rx-rs-target")
       # S124：exe 必建——加速工具在 CI 必须真跑，不做静默降级
       - run: cargo build --release --manifest-path rust/Cargo.toml
 
@@ -34,6 +40,8 @@ jobs:
         run: python -X utf8 scripts/ci_secrets_gate.py
 
       - name: Selftest hard gate（对账行从"提示"升为"退出码"）
+        env:
+          UNIFIED_RX_SANDBOX: ${{ github.workspace }}   # selftest 内部 fs 自检在沙盒内跑
         run: python -X utf8 scripts/ci_gate.py
 
       - name: Install LSP backends (pylsp 系；能力探测失败须如实降级)
@@ -60,6 +68,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - name: Point cargo target-dir into %TEMP% (同 pytest job：不落机器局部路径)
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_ENV -Value ("CARGO_TARGET_DIR=" + $env:TEMP + "\rx-rs-target")
       - name: cargo test（双绿纪律的 Rust 侧）
         run: cargo test --manifest-path rust/Cargo.toml
       - name: cargo clippy（零告警红线）

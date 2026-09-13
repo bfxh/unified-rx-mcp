@@ -48,7 +48,12 @@
      VERSION_TAG OK|NEXT / SKILLS_DOCS stale=0 dead=0；checkout `fetch-depth: 0`
      保真对账；
   5. 全量 pytest + bench dry-run 门禁（既有项保留）；
-  6. **rust job**：cargo test + clippy -D warnings（双绿纪律的 Rust 侧进 CI）。
+  6. **rust job**：cargo test + clippy -D warnings（双绿纪律的 Rust 侧进 CI）；
+  7. **机器局部配置的 CI 覆盖**（S125 补，首跑 CI 实锤）：仓库根
+     `.cargo/config.toml` 的 target-dir 是本机绝对路径（S78 中文路径 workaround）——
+     CI 用 `CARGO_TARGET_DIR=%TEMP%\rx-rs-target` 环境变量覆盖（env 优先于 config），
+     让 exe 落在工具查找的位置；selftest 步给 `UNIFIED_RX_SANDBOX=$GITHUB_WORKSPACE`
+     让内部 fs 自检在沙盒内跑。两根字符串已入形状锁（谁删谁红）。
 - **scan.yml**（每周一 03:23 UTC + 手动）：secrets_hunt 全仓周扫。
 - 边界（诚实声明）：CI 只扫工作树；**历史提交不在 CI 扫**（新推送由 GitHub
   push protection 兜底；改史治理走第 4 条泄漏响应顺序）。

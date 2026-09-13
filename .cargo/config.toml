@@ -3,5 +3,7 @@
 # 原先放在 rust/.cargo/ 只有 cd rust 才生效，仓库根运行即落回中文路径 rust/target 触发 S78
 # （症状：ld 报 "cannot find ....rcgu.o/symbols.o"，曾被误诊为增量缓存损坏）。移到仓库根后，
 # 仓内任何子目录运行 cargo 均可发现本文件；rust/target 目录为误诊期产物，可整目录删除。
+# 注意：本路径是本机绝对路径——CI 上由 CARGO_TARGET_DIR 环境变量覆盖（env 优先于本文件，
+# 见 .github/workflows/core.yml；S124 首跑 CI 实锤：不覆盖则 exe 落错位置、EXE_TAG 硬门禁失败）。
 [build]
 target-dir = "C:/Users/lbx13/AppData/Local/Temp/rx-rs-target"
