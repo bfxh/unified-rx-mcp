@@ -6,10 +6,12 @@
 > 设计哲学：**少而准**（68 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.41.0（S123）**：68 工具 / 12 域；pytest 3.14 = 756 passed + 3 skipped、
-3.11 = 758 passed；cargo test 167 绿；selftest 机器对账三行全绿（VERSION_TAG /
+**当前 v2.42.0（S124）**：68 工具 / 12 域；pytest 3.14 = 758 passed + 4 skipped、
+3.11 = 760 passed + 2 skipped（新增 skip=VoxelForge .codegraph 索引目录暂缺，
+外部资产环境性）；cargo test 167 绿；selftest 机器对账三行全绿（VERSION_TAG /
 SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，
-逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)。
+逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，加固红线与 CI 门禁见
+[spec/HARDENING.md](spec/HARDENING.md)。
 
 ## 与旧版 unified-rx-mcp 的关系
 

@@ -1,0 +1,20 @@
+name: scan
+
+on:
+  schedule:
+    - cron: '23 3 * * 1'   # 每周一 03:23 UTC：明文周扫
+  workflow_dispatch:
+
+jobs:
+  secrets-sweep:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      # 历史提交不在此扫（push protection 在推送侧兜底新推送；改史治理见 spec/HARDENING.md）
+      - name: secrets_hunt 全仓周扫（critical/high 出测试区即红）
+        run: python -X utf8 scripts/ci_secrets_gate.py

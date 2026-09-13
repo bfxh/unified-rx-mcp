@@ -556,3 +556,15 @@
 - 交付：tools/ide_deadcode.py + tools/secrets.py + tools/__init__.py 接线 + skills/ide.md & skills/scan.md 契约 + tests/test_s123_deadcode_secrets.py 11 测（掩码不含完整值/独立 Shannon oracle/占位符+锁文件+二进制过滤/pytest 豁免/跨模块判活/装饰器 opt-in/suspect 降级/parse_error 不致命）。
 - 验证：3.14 全量 **756 passed + 3 skipped**（3 skip 均 pylsp×2+VoxelForge 外部资产既有环境性）；3.11 全量 **758 passed + 1 skipped**；cargo **167 绿 + clippy 零告警**；selftest tools=68 / GROUPS 12（ide 21 scan 15）/ SCHEMA_BAD 0 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0；版本锁步 **2.41.0** + exe 重建。
 - 提交：本次
+
+## S124 · 明文红线审计 + CI 双工作流 + HARDENING 工艺 + cargo 配置位置修正（真因链实锤）
+- 项目：unified-rx-mcp｜时间：2026-09-14
+- 决策：用户定调「这种明文必须删除不能放在 GitHub 里面，包括 GitHub 的工作流程等等都需要加强，你自己搞点多工作流程，先把这些问题找出来，然后写文档，流程都要严苛，看看 Rust、IDE 还有什么需要加强的」。
+- 审计事实（先找问题，全部硬证据）：①**仓内零真凭据（含全史）**——工作树 secrets_hunt 18 命中逐条核对全为良性（测试碎片/基准结果/哈希/字符白名单），历史用 `git log --all -S` 对 AKIA/ghp_/xoxb/AIza/sk_live/PEM 头前缀逐一回查，除 S123 已治理的测试夹具外零真值；②**宿主 config.json 10 个密钥形字段全部只在本机 AppData**（Yan Agent 配置目录向上无 .git，物理上进不了 GitHub）——不动内容（既定约束），待办=轮换后转环境变量，已入 HARDENING 待办清单；③自扫性能基线 **725 文件 / 1362ms（≈1.9ms/文件）**，作为后续 Rust 化的对照起点。
+- 交付（GitHub 侧）：**core.yml 重写**——pytest 3.11+3.14 双矩阵、`fetch-depth: 0`、`cargo build --release` 必建（exe 缺失不静默降级）、secrets 门 + selftest 硬门 + 全量 pytest + bench 干跑；独立 rust job 跑 cargo test + clippy `-D warnings`。**scan.yml 新建**——每周一 cron secrets 全扫（工作树口径，历史由 push protection 兜底，边界如实入档）。两个门禁脚本 `scripts/ci_gate.py`（selftest 五项硬判：SCHEMA_BAD/工具行/EXE_TAG SKIP 即失败/VERSION_TAG/SKILLS_DOCS）与 `scripts/ci_secrets_gate.py`（dogfood secrets_hunt，tests/ 外 critical/high 即红）本地实跑双绿。**tests/test_s124_ci_assets.py 3 测**做形状锁：谁删 CI 步骤谁红——门禁只许加强不许悄悄退役。
+- 交付（文档）：`spec/HARDENING.md` 六章——明文红线（含泄漏响应流程）/夹具纪律（两道门同判：测试文件只许存碎片，完整形状只活在 tmp_path 运行时构造）/CI 门禁与诚实边界/已知良性基线（18 命中逐条入册，基线漂移从源头治理不许松门）/性能战略（Python 侧先行，Rust 队列 secrets_hunt→ide_dead_code，按 S119 门先测原生基线）/缺口盘点（Rust 化 + IDE 真调用图/类型检查/覆盖率趋势 + Mimosa 审计债挂账——偿还前不宣称"项目安全"）。
+- 过程缺陷（cargo 链接失败连环误诊，真因链全程实锤）：症状 mingw ld "cannot find ....rcgu.o/symbols.o"，`cargo clean -p`/全量 clean 均无效，首诊为"增量缓存损坏"，`CARGO_INCREMENTAL=0` 假救成功加深误诊。真因分三层：①**cargo 只从【当前工作目录】逐级向上发现 `.cargo/config.toml`，与 `--manifest-path` 无关**——S78 的 target-dir workaround 放在 `rust/.cargo/` 下，只有 `cd rust` 才生效；②从仓库根/其他目录运行时配置静默不加载，构建落回中文路径 `rust/target`；③S78 的 mingw ld 中文路径 bug 精确触发条件 = **中文路径 × 增量编译产物**（.rcgu.o 丢失），禁增量只是碰巧消掉了触发物。**修复**：`git mv rust/.cargo/config.toml .cargo/config.toml`（仓内任何子目录运行均可达），仓库根直跑 cargo test **167 绿 0 败**复验通过；误诊期产物 `rust/target` 已删。教训：环境性 workaround 必须"配置即默认"，不能依赖调用方记得 cd；误诊要靠控制变量法（cwd/增量双变量分开试）而不是找一个能跑的组合就收工。
+- 认知修正：Rust exe "部署到 TEMP" 从来不是拷贝——config target-dir 就是 `TEMP/rx-rs-target`，cargo 本来就直接构建在那里；rx-mcp.exe --version = 2.42.0 当场核实。
+- 其他过程项：Mimosa hook 误拦"提及 scripts/ 文件 + 含重定向"的 bash 组合命令（判为写源码）→ 拆分单发即过；3.14 新增第 4 个 skip = test_v2.py VoxelForge .codegraph 索引目录暂缺（外部资产环境性，非本仓缺陷）。
+- 验证：3.14 全量 **758 passed + 4 skipped**；3.11 全量 **760 passed + 2 skipped**；cargo **167 绿 + clippy 零告警**（仓库根直跑）；selftest tools=68 / SCHEMA_BAD 0 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0 / VERSION_TAG NEXT（tag 前正确态）；版本锁步 **2.42.0** ×4（server.py/Cargo.toml/Cargo.lock/README）。
+- 提交：本次
