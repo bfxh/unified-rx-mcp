@@ -292,14 +292,16 @@ def _break_python(path, cmd, breakpoints, max_hits):
 
 def _break_java(path, cmd, breakpoints, max_hits):
     """java/jdb：脚本化馈送（stop in/at → locals → where → cont）。
-    S38 安全：class 名白名单校验（防 jdb 命令注入）。"""
-    jdb = shutil.which("jdb")
-    if not jdb:
-        return {"error": "jdb 未找到（JDK bin 不在 PATH）"}
+    S38 安全：class 名白名单校验（防 jdb 命令注入）。
+    S125：参数校验在能力探测**之前**——畸形输入与环境无关地确定性拒绝
+    （CI 无 jdb 时注入测试仍须命中校验，而非落到"jdb 未找到"）。"""
     bp = breakpoints[0]
     cls = str(bp.get("class") or "")
     if not re.match(r"^[A-Za-z_][A-Za-z0-9_.$]*$", cls):
         return {"error": f"class 名非法（防 jdb 命令注入）: {cls[:40]}"}
+    jdb = shutil.which("jdb")
+    if not jdb:
+        return {"error": "jdb 未找到（JDK bin 不在 PATH）"}
     ln = int(bp.get("line", 0))
     cp = []
     for i, a in enumerate(cmd):
@@ -339,16 +341,17 @@ def _break_java(path, cmd, breakpoints, max_hits):
 
 def _break_go(path, cmd, breakpoints, max_hits):
     """go：dlv trace 函数级（行级断点需交互式 dlv——如实降级）。
-    S38 安全：函数名正则白名单（防 regex 注入）。"""
+    S38 安全：函数名正则白名单（防 regex 注入）。
+    S125：参数校验在能力探测**之前**——CI 无 dlv 时注入测试仍须命中校验。"""
+    names = "|".join(str(bp.get("func", "main.")) for bp in breakpoints)
+    if not re.match(r"^[\w.*?|\-]+$", names):
+        return {"error": f"函数名非法（防 regex 注入）: {names[:40]}"}
     dlv = shutil.which("dlv")
     if not dlv:
         return {"error": "dlv 未找到（go install github.com/go-delve/delve/cmd/dlv@latest）"}
     exe = cmd[0]
     if not os.path.isabs(exe):
         exe = os.path.join(path, exe)
-    names = "|".join(str(bp.get("func", "main.")) for bp in breakpoints)
-    if not re.match(r"^[\w.*?|\-]+$", names):
-        return {"error": f"函数名非法（防 regex 注入）: {names[:40]}"}
     env = dict(os.environ)
     env["MPLBACKEND"] = "Agg"
     try:

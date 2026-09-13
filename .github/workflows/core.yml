@@ -26,14 +26,16 @@ jobs:
 
       - name: Install Rust toolchain + build exe
         uses: dtolnay/rust-toolchain@stable
-      # S125 修：仓库根 .cargo/config.toml 的 target-dir 是本机绝对路径（S78 workaround），
-      # CI 上必须用 env 覆盖（env 优先于 config）——让 exe 落在工具查找的 %TEMP%\rx-rs-target，
-      # 否则 EXE_TAG SKIP → 硬门禁失败（S124 首次 CI 实锤）。
-      - name: Point cargo target-dir into %TEMP% (override machine-local config)
+      # S124：exe 必建——加速工具在 CI 必须真跑，不做静默降级。
+      # S125 修：target-dir 覆盖只限本步——仓库根 .cargo/config.toml 的 target-dir 是
+      # 本机绝对路径（S78 workaround），必须 env 覆盖让 exe 落在工具查找的
+      # %TEMP%\rx-rs-target；若用 GITHUB_ENV 全局导出，会污染后续 pytest 的 fixture
+      # crate（其 cargo 也跑去共享目录，exe 位置断言即败——CI 实锤）。
+      - name: Build Rust acceleration (exe 落在工具查找的 %TEMP%\rx-rs-target)
         shell: pwsh
-        run: Add-Content -Path $env:GITHUB_ENV -Value ("CARGO_TARGET_DIR=" + $env:TEMP + "\rx-rs-target")
-      # S124：exe 必建——加速工具在 CI 必须真跑，不做静默降级
-      - run: cargo build --release --manifest-path rust/Cargo.toml
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
+          cargo build --release --manifest-path rust/Cargo.toml
 
       # 先扫再建 target：秘密门禁的扫描面 = 干净工作树
       - name: Secrets gate（明文红线：critical/high 不得出测试区）
@@ -63,14 +65,14 @@ jobs:
 
   rust:
     runs-on: windows-latest
+    env:
+      # S125：不落机器局部路径（不涉及 exe 查找，用 runner.temp 即可）
+      CARGO_TARGET_DIR: ${{ runner.temp }}\rx-rs-target
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Point cargo target-dir into %TEMP% (同 pytest job：不落机器局部路径)
-        shell: pwsh
-        run: Add-Content -Path $env:GITHUB_ENV -Value ("CARGO_TARGET_DIR=" + $env:TEMP + "\rx-rs-target")
       - name: cargo test（双绿纪律的 Rust 侧）
         run: cargo test --manifest-path rust/Cargo.toml
       - name: cargo clippy（零告警红线）
