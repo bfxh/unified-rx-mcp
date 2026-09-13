@@ -51,9 +51,16 @@
   6. **rust job**：cargo test + clippy -D warnings（双绿纪律的 Rust 侧进 CI）；
   7. **机器局部配置的 CI 覆盖**（S125 补，首跑 CI 实锤）：仓库根
      `.cargo/config.toml` 的 target-dir 是本机绝对路径（S78 中文路径 workaround）——
-     CI 用 `CARGO_TARGET_DIR=%TEMP%\rx-rs-target` 环境变量覆盖（env 优先于 config），
+     CI 用 `CARGO_TARGET_DIR=%TEMP%\rx-rs-target` 环境变量覆盖（env 优先于 config，
+     且只放 build 单步——全局导出会污染 fixture crate 的 cargo），
      让 exe 落在工具查找的位置；selftest 步给 `UNIFIED_RX_SANDBOX=$GITHUB_WORKSPACE`
-     让内部 fs 自检在沙盒内跑。两根字符串已入形状锁（谁删谁红）。
+     让内部 fs 自检在沙盒内跑。三根字符串已入形状锁（谁删谁红）。
+- **CI 首绿战记（S125，8 轮 / 14 项缺陷全归档 ROUNDLOG S125 附）**，两条通用教训：
+  ①**外部工具输出必须按"最坏环境"解析**——CI 的 `CARGO_TERM_COLOR=always` 给诊断行
+  注 ANSI 色码，行式解析器必须先剥色码（本地管道无色 ≠ 可把"本地绿"当充分条件）；
+  ②**路径比较必须两侧同函数解析**——CI 的 TEMP 是 junction/symlink 形态，
+  canonical 与原始字符串不同形：`strictly_under` 只解析 target 是产品级缺陷
+  （违反"沙盒语义两侧等价"），测试里的原始路径断言同理（本地真 junction 回归已入册）。
 - **scan.yml**（每周一 03:23 UTC + 手动）：secrets_hunt 全仓周扫。
 - 边界（诚实声明）：CI 只扫工作树；**历史提交不在 CI 扫**（新推送由 GitHub
   push protection 兜底；改史治理走第 4 条泄漏响应顺序）。

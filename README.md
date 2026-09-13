@@ -8,10 +8,12 @@
 
 **当前 v2.43.0（S125）**：69 工具 / 12 域；新增 `ide_callgraph`（真调用图：符号级
 调用边 + callers/callees 遍历 + 环检出，Rust nameres 同一作用域引擎，
-见 [spec/CALLGRAPH.md](spec/CALLGRAPH.md)）。pytest 3.14 = 768 passed + 4 skipped、
+见 [spec/CALLGRAPH.md](spec/CALLGRAPH.md)）。本地 pytest 3.14 = 768 passed + 4 skipped、
 3.11 = 770 passed + 2 skipped（skip 为外部资产环境性：VoxelForge .codegraph 索引暂缺）；
-cargo test 183 绿（S125 callgraph 契约 16 测）；selftest 机器对账三行全绿（VERSION_TAG /
-SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，
+**CI 首次完整跑绿**（core.yml 三 job：pytest 双解释器 764 绿 + 10 跳[无 GPU/外部件，环境性如实跳]
++ rust job；`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`，战记见 ROUNDLOG S125 附）；
+cargo test 184 绿（S125 callgraph 契约 16 测 + junction 回归）；selftest 机器对账三行全绿
+（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，
 逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，加固红线与 CI 门禁见
 [spec/HARDENING.md](spec/HARDENING.md)。
 

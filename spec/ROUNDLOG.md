@@ -581,3 +581,15 @@
 - 过程项：①Mimosa hook 连拦三版测试夹具（`os.path.join(root, rel)` 判路径穿越，realpath 前缀校验也不认）→ 换 pathlib 字面量组件写法（`tmp_path / "pkg" / "mod.py"`）通过——夹具 helper 也不长得像穿越面，与 S123 夹具纪律同一课；②pytest 5 失败全部是**文档计数门工作正常**抓出的未更新处（README 三处计数 / PANORAMA 68→69+ide(22) / skills/README ide 21→22 / README 版本头 / exe 仍 2.42.0）——更新后 22/22 复绿，门即清单；③沙盒门实测拦下开发期无 env 调用（fail-closed 语义在线）；④GitHub push protection 无拦截（S124 夹具纪律持续生效）。
 - 验证：3.14 全量 **768 passed + 4 skipped**；3.11 全量 **770 passed + 2 skipped**；cargo **183 绿**（167+16 callgraph）+ clippy 零告警；selftest tools=69 / SCHEMA_BAD 0 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0 / VERSION_TAG NEXT（tag 前正确态）；版本锁步 **2.43.0** ×4。
 - 提交：本次
+
+### S125 附：CI 首绿战记（S124 建的工作流首次真正完整跑通，8 轮修复 / 14 项缺陷）
+
+S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG 门就挂，之后 8 轮逐步深挖）。本附记按缺陷类归档——每一类都是"看似不关联都可以被关联"的实例：
+
+1. **CI 环境与机器局部假设**：①仓库根 `.cargo/config.toml` 的 target-dir 是本机绝对路径（S78 workaround）→ CI 上 exe 落错位置，EXE_TAG SKIP → 硬门禁失败（修：CARGO_TARGET_DIR 覆盖）；②覆盖一度放 GITHUB_ENV 全局导出 → 污染后续 pytest 的 fixture crate（其 cargo 也跑去共享目录，exe 位置断言即败）→ 收窄到 build 单步 step 级 env；③`${{ runner.temp }}` 放 job 级 env 致 **workflow 整体非法**（runner 上下文只在 step 级可用，0 秒失败）→ 挪 step 级 + 缩进代理门锁死该项。
+2. **诊断解析的着色健壮性**：CI 的 `CARGO_TERM_COLOR=always` 把 ANSI 色码注入 short-format 诊断行 → `file:line:col: level` 正则整体失配 → ide_build errors/warnings 双空（**产品级缺陷**：任何强制着色环境同踩）→ 三个行式解析器先剥色码 + 色码用例本地锁死。
+3. **junction 路径家族（同根因四处受害）**：CI 的 TEMP 是 junction/symlink 形态，canonical 形态与原始字符串不同形——①`strictly_under` 只解析 target、root 用原始串 → 合法目标被误判"越界"（**产品级缺陷**，且违反"沙盒语义两侧等价"红线——Python 侧 realpath 双侧；修 + 本地真 mklink /J 回归测试）；②`fs_test` 沙盒根前缀断言、③④`ide_test` 两处"不是目录: <path>"文案断言（改同函数解析后比较）。
+4. **Rust 1.98 语义漂移**（本地 1.97）：`remove_dir_all` 对"不存在/非目录"双双静默成功（原报 NotFound/NotADirectory）→ appclone 清理语义改为 symlink_metadata 全判定，确定性稳定；新 clippy 规则 `chunks_exact`→`as_chunks`（本地旧版不报，本地零告警≠CI 零告警）。
+5. **测试可移植性/环境性**：`test_s122_breaker` 写死本机路径（沙盒外一调即败，熔断计数到不了阈值）；`test_swe_verify` 缺 duckdb → importorskip；`ide_break` go/java 参数校验在能力探测**之后**（CI 无 dlv 时注入测试落不到校验）→ 校验前置（环境无关地确定性拒绝）；`test_lsp_real` ra 冷启动首索超工具内 19s 退避预算 → 测试侧有界重试。
+6. **门禁的价值实证**：文档计数门一次抓出 5 处未同步；selftest 硬门在每轮 CI 都如实对账；CI 上 pytest **764 绿 + 10 跳**（比本地多 6 跳 = 无 GPU/外部件，全为环境性如实跳过，零假绿）。
+- 终态：三 job 全绿（rust + pytest 3.11 + pytest 3.14），硬证据链 `SECRETS-GATE OK` / `CI-GATE OK` / `VERSION_TAG OK latest=v2.43.0` / `EXE_TAG ok=9 drift=0 missing=0`；cargo 184 绿（本地 junction 回归入册）。
