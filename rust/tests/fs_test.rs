@@ -140,7 +140,12 @@ fn nonexistent_inside_sandbox_stats_as_missing() {
     let r = rxrs::fs::op_stat(&cfg, &ghost).unwrap();
     assert_eq!(r.get("exists"), Some(&Value::Bool(false)));
     let p = get_str(&r, "path");
-    assert!(p.starts_with(root.trim_end_matches(['\\', '/'])), "{}", p);
+    // S125：返回 path 是宽限 realpath（canonical 形态，S79 语义）——CI 上 TEMP 为
+    // junction/symlink 形态时 canonical(root) 与原始 root 字符串不同形，须用同一
+    // 函数解析根后比较（意图不变：返回路径仍在沙盒根之下）。
+    let root_c = rxrs::sandbox::lenient_realpath(std::path::Path::new(&root));
+    let root_c = root_c.to_string_lossy();
+    assert!(p.starts_with(root_c.trim_end_matches(['\\', '/'])), "{}", p);
 }
 
 #[test]
