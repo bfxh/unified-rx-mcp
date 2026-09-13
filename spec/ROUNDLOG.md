@@ -593,3 +593,13 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 5. **测试可移植性/环境性**：`test_s122_breaker` 写死本机路径（沙盒外一调即败，熔断计数到不了阈值）；`test_swe_verify` 缺 duckdb → importorskip；`ide_break` go/java 参数校验在能力探测**之后**（CI 无 dlv 时注入测试落不到校验）→ 校验前置（环境无关地确定性拒绝）；`test_lsp_real` ra 冷启动首索超工具内 19s 退避预算 → 测试侧有界重试。
 6. **门禁的价值实证**：文档计数门一次抓出 5 处未同步；selftest 硬门在每轮 CI 都如实对账；CI 上 pytest **764 绿 + 10 跳**（比本地多 6 跳 = 无 GPU/外部件，全为环境性如实跳过，零假绿）。
 - 终态：三 job 全绿（rust + pytest 3.11 + pytest 3.14），硬证据链 `SECRETS-GATE OK` / `CI-GATE OK` / `VERSION_TAG OK latest=v2.43.0` / `EXE_TAG ok=9 drift=0 missing=0`；cargo 184 绿（本地 junction 回归入册）。
+
+## S126 · 文档先行：整合除重 + 上帝对象拆分 + IDE 升级路线（CONSOLIDATION）
+- 项目：unified-rx-mcp｜时间：2026-09-14
+- 决策：用户点单「工具整合和除重 先写文档 / 拆分上帝对象 / IDE 整体升级 更能挖漏洞找问题」→ 按惯例文档先行，**纯文档轮不 bump 版本**（保持 2.43.0）。
+- 方法：dogfood——用自家工具盘自家家底（顺带实战检验 S125 交付物）：registry 全量 dump（69 工具/12 组对账）+ wc -l 行数榜 + ide_callgraph（全仓 183 文件 13831 调用 / resolved 2685 / rate 0.264，by_reason 四大头 external 3026·receiver_var 3168·attr_chain 999·self_attr_missing 112；tools/ 内 fan-in 榜 _resolve 47、gpu._check 35、gpu._set_arg 34）+ ide_dead_code（dead 7 + suspect 7）+ module_stability（scan.py 545 行/30 commits 头号 watch）+ ide_outline 扫 scan.py 结构（双域一文件实锤：Rust 壳域 ∥ 纯 Python 评审域 ~270 行/11 函数）。
+- 实锤发现（dogfood 的直接回报）：①**缺陷 D1**——`cache.cache_key` 在 registry.py:407 被属性调用却报死：ide_deadcode 引用模型**不数 Attribute 引用**（量尺缺陷，实施轮第一优先修 + 误报回归测试）；②真死代码 4 件（aci.strip_hint / cache.reset_stats / cache.cacheable / gpu.literal_scan_cpu 族）；③测试锁定死件 appaudit._rx_appops_exe（test_appaudit kept 名单锁其存在，接回或删+测试同步改，待决策）；④全家桶入口四件套（project_scan/project_health/code_review/ide_doctor）实现层全共享 runner——**重复在入口面不在代码**，不合并工具，写选型表；⑤模块级 import 无环（调用图环检出 4 个全部良性：两处 walk 自递归、watch 循环、find_cycles.dfs）。
+- 交付：spec/CONSOLIDATION.md（七章：dogfood 证据 / 重叠矩阵 A·B·C 分级（C1=五份 walker 统一、C2=breaker 组归位）/ 上帝对象拆分计划 P0 scan.py→scan+code_review、P1 lsp.py(850)→client+actions+impact、P1 gpu.py kernel 就近迁移、P2 Rust mod 拆分 / IDE 升级路线 / 实施顺序与门禁 / 不做边界 / HARDENING 映射）+ HARDENING §六 S126 指针。
+- IDE 升级路线要点（"更能挖漏洞找问题"的答案）：**P0-A taint×callgraph 贯通**（S78 过程内污点 × S125 调用边 = 跨函数污点链，带 edge 级证据链，净化器跨界规则如实）；P0-B 量尺先修（D1）；P1-A 高扇入×零覆盖风险榜（SCAN-POLICY 自动化 + 覆盖率趋势欠账同路）；P1-B ide_impact 第四档调用面（引用≠调用分层）；P2-A ruff/mypy/pyflakes 探测薄壳进 ide_diagnostics 统一形状（零 pip 依赖红线不破）；P2-B bug_scan 规则扩容八条（shell=True/pickle/yaml.load/md5 密码/SQL 拼接/mktemp 竞态/zip-slip/except:pass）每条配 vuln_knowledge；P3 attack 巡航一键编排。
+- 验证：纯文档轮——不改代码/工具面/计数，pytest/cargo 基线不变；CI 随推送复跑作回归确认。
+- 提交：本次

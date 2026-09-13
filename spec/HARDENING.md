@@ -91,6 +91,11 @@
 
 ## 六、缺口盘点（S125 时点，按优先级）
 
+> **S126 文档先行轮**：整合除重 / 上帝对象拆分 / IDE 升级的分项方案与实施排序
+> 已展开为 [spec/CONSOLIDATION.md](CONSOLIDATION.md)——基于 dogfood 实测证据
+> （调用图 fan-in/out 榜、死代码核验、模块稳定性榜），并实锤一项量尺缺陷
+> （ide_deadcode 不数 Attribute 引用）。实施按其 §五 顺序逐项过门禁。
+
 **Rust 侧**：
 - secrets_hunt 原生化（候选序第一，需先测原生基线再动）；
 - ide_dead_code 原生化（复用 pyast.rs；死码判定的作用域逻辑进 bug.rs 同层）；
