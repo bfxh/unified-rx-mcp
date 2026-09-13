@@ -1,4 +1,4 @@
-# ide 域（19 工具：读取/编辑/构建/调试/诊断/测试/体检/语义）
+# ide 域（22 工具：读取/编辑/构建/调试/诊断/测试/体检/语义/调用图）
 - **ide_edit_multi**：内容匹配（非行号），CRLF 保留，`dry_run: true` 出
   unified diff 预览不落盘（S34）；模拟在副本上整段跑，mismatch 不会半应用；
   S55 语法门（py 结果不可编译整批拒不落盘）；S55 `validate: true` 写前 LSP
@@ -78,6 +78,21 @@
   不豁免整片误报——conftest 的 pytest_configure 自测实录）；公有方法/嵌套函数/dunder
   不查。**零引用≠可安全删除**：别名 import as、exec/eval、globals() 拼接追不到，
   删前人工确认。返回 dead[]/suspect_dynamic[]/exempted_decorated/exempted_pytest_entry。
+- **ide_callgraph（S125）**：真调用图——符号级调用边（谁能调谁、调用点 file:line），
+  唯一实现在 rust/src/nameres.rs 的**同一作用域引擎**（rx-scan callgraph 子命令），
+  不另起第二份实现。两阶段：预扫描种子（模块/类级绑定，互递归与"先调用后定义"
+  的前向引用可解析）+ 主遍历采集 + 跨文件 import stitch。**可解析**：同名调用、
+  from-import（含 as 别名与相对导入）、`self.m()`/`cls.m()`（类表预种子、
+  方法定义在后亦可）、`C.m()`（同文件类）、`mod.f()`（import/子模块回退）；
+  **不可解析如实分类不猜**（reason）：external（外部依赖，含链式如 os.path.join）、
+  attr_chain（内部模块的链式调用/`a.b.c()`）、receiver_var（对普通变量取属性调）、
+  var_call（对变量/模块对象裸调）、self_attr_missing（实例属性静态不可见）、
+  re_export（只再导出不追踪，与 NAMERES §九 同边界）、star_import、not_found、
+  expr。查询层（本文件）：短名消歧（多命中给候选列表不猜）、callers/callees
+  有界 BFS（depth 1-8，边上限 400 置 truncated）、汇总模式（top fan-in/out +
+  环检出 ≤10、resolution_rate）。**stats 自洽**：calls = resolved + unresolved +
+  builtin_calls（Rust 侧测试锁死）。文档化边界（spec/CALLGRAPH.md）：函数体内
+  局部定义互递归（顺序绑定）、类型推断、运行时元编程。
 - 坑：JDK/gcc 本地化消息（中文"错误"）破坏诊断正则 → javac 强制
   `-J-Duser.language=en`、gcc `LC_ALL=C`；pytest 语法错误走 stdout 非 stderr；
   CPython 3.11+ line 事件 trace 返回 None 不关帧追踪（必须 sys.settrace(None)）；

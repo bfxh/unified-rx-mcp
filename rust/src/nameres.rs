@@ -76,6 +76,10 @@ struct ImportFact {
 
 struct Resolver {
     file: String,
+    /// 模块名（S125 调用图模式：qualname 前缀；旧路径为空串）
+    modname: String,
+    /// S125：调用图采集开关（节点/调用事实只在 callgraph 路径产出）
+    collect: bool,
     scopes: Vec<Scope>,
     edges: Vec<Value>,
     unresolved: Vec<Value>,
@@ -87,6 +91,94 @@ struct Resolver {
     star_import: bool,
     bindings: Vec<Value>,
     imports: Vec<ImportFact>,
+    // ---------- S125 调用图字段 ----------
+    /// 定义节点（qual/file/line/kind），collect 时产出
+    nodes: Vec<Value>,
+    /// 已解析调用边（同文件内解析完成；跨文件由 stitch 补齐）
+    calls: Vec<Value>,
+    /// 跨文件待定调用（目标模块 + 绑定名，stitch 阶段裁决）
+    deferred: Vec<Value>,
+    /// 不可解析调用（如实列出，不猜）
+    calls_unresolved: Vec<Value>,
+    n_calls: usize,
+    n_builtin_calls: usize,
+    /// 类作用域绑定表（label → 名字 → (行, 种类)）：self.m()/X.m() 的类方法解析用
+    class_tables: HashMap<String, HashMap<String, (usize, &'static str)>>,
+    /// 定义栈（标签路径，如 "C.m"；模块级为空）——调用者归属
+    def_stack: Vec<String>,
+}
+
+impl Resolver {
+    fn new(file: &str, modname: &str, collect: bool) -> Resolver {
+        Resolver {
+            file: file.to_string(),
+            modname: modname.to_string(),
+            collect,
+            scopes: vec![Scope::new(SK::Module, "module")],
+            edges: Vec::new(),
+            unresolved: Vec::new(),
+            n_local: 0,
+            n_module: 0,
+            n_builtin: 0,
+            n_unresolved: 0,
+            n_attr: 0,
+            star_import: false,
+            bindings: Vec::new(),
+            imports: Vec::new(),
+            nodes: Vec::new(),
+            calls: Vec::new(),
+            deferred: Vec::new(),
+            calls_unresolved: Vec::new(),
+            n_calls: 0,
+            n_builtin_calls: 0,
+            class_tables: HashMap::new(),
+            def_stack: Vec::new(),
+        }
+    }
+
+    /// 当前定义的全限定名（模块级为空串；与 callee 同为节点键口径）。
+    fn cur_def(&self) -> String {
+        match self.def_stack.last() {
+            Some(l) if !self.modname.is_empty() => format!("{}.{}", self.modname, l),
+            Some(l) => l.clone(),
+            None => String::new(),
+        }
+    }
+
+    /// 定义处限定名：modname + 标签路径 + 名字（模块级 = "mod.name"）。
+    fn qual_at(&self, scope_idx: usize, name: &str) -> String {
+        let label = &self.scopes[scope_idx].label;
+        if label == "module" {
+            format!("{}.{}", self.modname, name)
+        } else if self.modname.is_empty() {
+            format!("{}.{}", label, name)
+        } else {
+            format!("{}.{}.{}", self.modname, label, name)
+        }
+    }
+
+    /// self/cls 形态检测：`base` 解析到某方法的参数，且该方法的父作用域是类。
+    /// 返回类作用域标签（如 "C"）。
+    fn self_like_class(&self, base: &str) -> Option<String> {
+        let (idx, _l, bk) = self.resolve(base)?;
+        if bk != "param" || idx == 0 {
+            return None;
+        }
+        if self.scopes[idx].kind != SK::Func || self.scopes[idx - 1].kind != SK::Class {
+            return None;
+        }
+        Some(self.scopes[idx - 1].label.clone())
+    }
+
+    /// 类标签定位：绑定作用域标签 + 名字（模块级 "C"；嵌套 "Outer.Inner"）。
+    fn class_label_at(&self, scope_idx: usize, name: &str) -> String {
+        let label = &self.scopes[scope_idx].label;
+        if label == "module" {
+            name.to_string()
+        } else {
+            format!("{}.{}", label, name)
+        }
+    }
 }
 
 /// 语句节点集合（用于区分"子节点是语句还是表达式"——FunctionDef 的装饰器/注解
@@ -102,6 +194,33 @@ fn is_stmt(kind: &str) -> bool {
 
 fn is_builtin(name: &str) -> bool {
     BUILTINS.contains(&name)
+}
+
+/// 调用表达式文本形态（限深 3 防深链爆炸）：Name/Attribute 链、Call 加 "()"、
+/// Subscript 加 "[]"；其余按节点种类名。
+fn expr_text(n: &PyNode) -> String {
+    fn go(n: &PyNode, d: usize) -> String {
+        if d == 0 {
+            return n.kind.to_string();
+        }
+        match n.kind {
+            "Name" => n.name.clone(),
+            "Attribute" => match n.children.first() {
+                Some(b) => format!("{}.{}", go(b, d - 1), n.name),
+                None => n.name.clone(),
+            },
+            "Call" => match n.children.first() {
+                Some(f) => format!("{}()", go(f, d - 1)),
+                None => "()".into(),
+            },
+            "Subscript" => match n.children.first() {
+                Some(b) => format!("{}[]", go(b, d - 1)),
+                _ => "[]".into(),
+            },
+            _ => n.kind.to_string(),
+        }
+    }
+    go(n, 3)
 }
 
 impl Resolver {
@@ -157,6 +276,23 @@ impl Resolver {
             ("line".into(), Value::Int(line as i128)),
             ("kind".into(), Value::Str(kind.to_string())),
         ]));
+        // S125：调用图节点（def/class 才成节点；lambda/嵌套闭包按定义点计）
+        if self.collect && (kind == "def" || kind == "class") {
+            let node_kind = if kind == "class" {
+                "class"
+            } else if self.scopes[target].kind == SK::Class {
+                "method"
+            } else {
+                "func"
+            };
+            let qual = self.qual_at(target, name);
+            self.nodes.push(Value::Obj(vec![
+                ("qual".into(), Value::Str(qual)),
+                ("file".into(), Value::Str(self.file.clone())),
+                ("line".into(), Value::Int(line as i128)),
+                ("kind".into(), Value::Str(node_kind.into())),
+            ]));
+        }
     }
 
     /// 解析 `name` → (作用域下标, 绑定行, 绑定种类)。
@@ -282,6 +418,7 @@ impl Resolver {
 
     fn expr(&mut self, n: &PyNode) {
         match n.kind {
+            "Call" if self.collect => self.call(n),
             "Name" => {
                 if matches!(n.ctx, Ctx::Load) {
                     let (name, line) = (n.name.clone(), n.line);
@@ -320,6 +457,247 @@ impl Resolver {
                 }
             }
         }
+    }
+
+    // ---------- S125：调用点采集与解析 ----------
+
+    fn call(&mut self, n: &PyNode) {
+        self.n_calls += 1;
+        let line = n.line;
+        let caller = self.cur_def();
+        if let Some(func) = n.children.first() {
+            match func.kind {
+                "Name" => self.call_name(func, line, &caller),
+                "Attribute" => self.call_attr(func, line, &caller),
+                _ => {
+                    let expr = expr_text(func);
+                    self.calls_unresolved.push(self.ures(line, &caller, &expr, "expr"));
+                }
+            }
+        }
+        // func 与实参照常下钻（Name(Load) 仍记 load 边，口径与旧路径一致）
+        for c in &n.children {
+            self.expr(c);
+        }
+    }
+
+    fn ures(&self, line: usize, caller: &str, expr: &str, reason: &str) -> Value {
+        Value::Obj(vec![
+            ("file".into(), Value::Str(self.file.clone())),
+            ("line".into(), Value::Int(line as i128)),
+            ("caller".into(), Value::Str(caller.to_string())),
+            ("expr".into(), Value::Str(expr.to_string())),
+            ("reason".into(), Value::Str(reason.to_string())),
+        ])
+    }
+
+    fn edge(&self, line: usize, caller: &str, callee: &str, to_file: &str,
+            to_line: usize, kind: &str) -> Value {
+        Value::Obj(vec![
+            ("file".into(), Value::Str(self.file.clone())),
+            ("line".into(), Value::Int(line as i128)),
+            ("caller".into(), Value::Str(caller.to_string())),
+            ("callee".into(), Value::Str(callee.to_string())),
+            ("to_file".into(), Value::Str(to_file.to_string())),
+            ("to_line".into(), Value::Int(to_line as i128)),
+            ("kind".into(), Value::Str(kind.to_string())),
+        ])
+    }
+
+    /// 裸名调用 `f()`：同文件解析完成，或转跨文件待定，或如实未解析。
+    fn call_name(&mut self, f: &PyNode, line: usize, caller: &str) {
+        let name = f.name.clone();
+        match self.resolve(&name) {
+            Some((idx, to_line, bk)) => match bk {
+                "def" | "class" => {
+                    let qual = self.qual_at(idx, &name);
+                    let kind = if bk == "class" { "class" } else { "name" };
+                    let to_file = self.file.clone();
+                    self.calls.push(self.edge(line, caller, &qual, &to_file, to_line, kind));
+                }
+                "import" => self.defer_import(&name, line, caller, ""),
+                _ => {
+                    let (e, r) = (name.clone(), "var_call");
+                    self.calls_unresolved.push(self.ures(line, caller, &e, r));
+                }
+            },
+            None => {
+                if is_builtin(&name) {
+                    self.n_builtin_calls += 1;
+                } else {
+                    let reason = if self.star_import { "star_import" } else { "not_found" };
+                    let expr = name.clone();
+                    self.calls_unresolved.push(self.ures(line, caller, &expr, reason));
+                }
+            }
+        }
+    }
+
+    /// 属性调用 `base.attr()`：self/cls 方法、同文件类方法、跨文件模块成员，或如实未解析。
+    fn call_attr(&mut self, f: &PyNode, line: usize, caller: &str) {
+        let attr = f.name.clone();
+        let Some(base) = f.children.first() else { return };
+        let expr = expr_text(f);
+        if base.kind != "Name" {
+            // 链式调用（a.b.c() / f()()）：根是 import 的延迟到 stitch 区分 external/
+            // attr_chain（对外部模块的链式调用单列为 external，噪声归类更诚实）
+            let mut root = base;
+            while matches!(root.kind, "Attribute" | "Call" | "Subscript") {
+                match root.children.first() {
+                    Some(c) => root = c,
+                    None => break,
+                }
+            }
+            if root.kind == "Name"
+                && matches!(self.resolve(&root.name), Some((_, _, "import"))) {
+                    let rn = root.name.clone();
+                    self.defer_chain(&rn, line, caller, &expr);
+            } else {
+                self.calls_unresolved.push(self.ures(line, caller, &expr, "attr_chain"));
+            }
+            return;
+        }
+        let bname = base.name.clone();
+        // self.m() / cls.m()：基名是某方法的参数且方法直接位于类体
+        if let Some(cls_label) = self.self_like_class(&bname) {
+            match self.class_tables.get(&cls_label).and_then(|t| t.get(&attr)).copied() {
+                Some((tl, tk)) if tk == "def" || tk == "class" => {
+                    let qual = if self.modname.is_empty() {
+                        format!("{}.{}", cls_label, attr)
+                    } else {
+                        format!("{}.{}.{}", self.modname, cls_label, attr)
+                    };
+                    let to_file = self.file.clone();
+                    self.calls.push(self.edge(line, caller, &qual, &to_file, tl, "self_attr"));
+                }
+                Some(_) => self.calls_unresolved.push(self.ures(line, caller, &expr, "self_attr_var")),
+                None => self.calls_unresolved.push(self.ures(line, caller, &expr, "self_attr_missing")),
+            }
+            return;
+        }
+        match self.resolve(&bname) {
+            Some((idx, _l, bk)) => match bk {
+                "import" => self.defer_import(&bname, line, caller, &attr),
+                "class" => {
+                    let cls_label = self.class_label_at(idx, &bname);
+                    match self.class_tables.get(&cls_label).and_then(|t| t.get(&attr)).copied() {
+                        Some((tl, tk)) if tk == "def" || tk == "class" => {
+                            let qual = if self.modname.is_empty() {
+                                format!("{}.{}", cls_label, attr)
+                            } else {
+                                format!("{}.{}.{}", self.modname, cls_label, attr)
+                            };
+                            let to_file = self.file.clone();
+                            self.calls.push(self.edge(line, caller, &qual, &to_file, tl, "module_attr"));
+                        }
+                        Some(_) => self.calls_unresolved.push(self.ures(line, caller, &expr, "attr_var")),
+                        None => self.calls_unresolved.push(self.ures(line, caller, &expr, "attr_missing")),
+                    }
+                }
+                // 对普通变量取属性调用（含函数对象）：无类型推断，不猜
+                _ => self.calls_unresolved.push(self.ures(line, caller, &expr, "receiver_var")),
+            },
+            None => {
+                let reason = if self.star_import { "star_import" } else { "not_found" };
+                self.calls_unresolved.push(self.ures(line, caller, &expr, reason));
+            }
+        }
+    }
+
+    /// import 基名/名字 → 跨文件待定（stitch 阶段查模块索引）。
+    /// attr 为空 = 名字调用（`f()`）；非空 = `m.f()` 形态的成员调用（记 base）。
+    fn defer_import(&mut self, bound: &str, line: usize, caller: &str, attr: &str) {
+        let fact = self.imports.iter().find(|i| {
+            let b = if i.is_from {
+                if i.asname.is_empty() { i.name.clone() } else { i.asname.clone() }
+            } else if i.asname.is_empty() {
+                i.module.split('.').next().unwrap_or("").to_string()
+            } else {
+                i.asname.clone()
+            };
+            b == bound
+        }).map(|i| (i.is_from, i.level, i.module.clone(), i.name.clone()));
+        let (expr, reason) = if attr.is_empty() {
+            (bound.to_string(), "not_found")
+        } else {
+            (format!("{}.{}", bound, attr), "attr_missing")
+        };
+        let Some((is_from, level, module, fname)) = fact else {
+            // 绑定在但 import 事实缺失（罕见序）→ 如实未解析
+            self.calls_unresolved.push(self.ures(line, caller, &expr, reason));
+            return;
+        };
+        if attr.is_empty() && !is_from {
+            // `import a.b` 的裸名 `a()`：模块对象不可调用
+            self.calls_unresolved.push(self.ures(line, caller, &expr, "var_call"));
+            return;
+        }
+        // 目标模块名（相对导入按层级上溯包；公式与 resolve_dir 一致）
+        let target_mod = if is_from && level > 0 {
+            let mut base = pkg_of(&self.modname);
+            for _ in 1..level {
+                base = pkg_of(&base);
+            }
+            if module.is_empty() { base }
+            else if base.is_empty() { module.clone() }
+            else { format!("{}.{}", base, module) }
+        } else {
+            module.clone()
+        };
+        let (name, base_f, kind) = if attr.is_empty() {
+            (fname, String::new(), "from_import")
+        } else {
+            (attr.to_string(), bound.to_string(), "module_attr")
+        };
+        self.deferred.push(Value::Obj(vec![
+            ("file".into(), Value::Str(self.file.clone())),
+            ("line".into(), Value::Int(line as i128)),
+            ("caller".into(), Value::Str(caller.to_string())),
+            ("expr".into(), Value::Str(expr)),
+            ("target_mod".into(), Value::Str(target_mod)),
+            ("base".into(), Value::Str(base_f)),
+            ("name".into(), Value::Str(name)),
+            ("kind".into(), Value::Str(kind.into())),
+        ]));
+    }
+
+    /// 链式调用的根 import → 待定（仅用于 external/attr_chain 归类）。
+    fn defer_chain(&mut self, root_bound: &str, line: usize, caller: &str, expr: &str) {
+        let fact = self.imports.iter().find(|i| {
+            let b = if i.is_from {
+                if i.asname.is_empty() { i.name.clone() } else { i.asname.clone() }
+            } else if i.asname.is_empty() {
+                i.module.split('.').next().unwrap_or("").to_string()
+            } else {
+                i.asname.clone()
+            };
+            b == root_bound
+        }).map(|i| (i.is_from, i.level, i.module.clone()));
+        let Some((is_from, level, module)) = fact else {
+            self.calls_unresolved.push(self.ures(line, caller, expr, "attr_chain"));
+            return;
+        };
+        let target_mod = if is_from && level > 0 {
+            let mut base = pkg_of(&self.modname);
+            for _ in 1..level {
+                base = pkg_of(&base);
+            }
+            if module.is_empty() { base }
+            else if base.is_empty() { module.clone() }
+            else { format!("{}.{}", base, module) }
+        } else {
+            module.clone()
+        };
+        self.deferred.push(Value::Obj(vec![
+            ("file".into(), Value::Str(self.file.clone())),
+            ("line".into(), Value::Int(line as i128)),
+            ("caller".into(), Value::Str(caller.to_string())),
+            ("expr".into(), Value::Str(expr.to_string())),
+            ("target_mod".into(), Value::Str(target_mod)),
+            ("base".into(), Value::Str(root_bound.to_string())),
+            ("name".into(), Value::Str(String::new())),
+            ("kind".into(), Value::Str("attr_chain_root".into())),
+        ]));
     }
 
     fn lambda_(&mut self, n: &PyNode) {
@@ -598,6 +976,10 @@ impl Resolver {
         // 新函数作用域：参数绑定 + 函数体
         let label = self.child_label(&n.name);
         self.scopes.push(Scope::new(SK::Func, &label));
+        // S125：定义栈（调用者归属）；lambda 不入栈（归属最近的外层定义）
+        if self.collect {
+            self.def_stack.push(label.clone());
+        }
         if let Some(args) = n.children.first() {
             for c in &args.children {
                 if matches!(c.kind, "arg" | "vararg" | "kwarg") {
@@ -611,6 +993,9 @@ impl Resolver {
                 self.stmt(c);
             }
         }
+        if self.collect {
+            self.def_stack.pop();
+        }
         self.scopes.pop();
     }
 
@@ -623,6 +1008,17 @@ impl Resolver {
         }
         let label = self.child_label(&n.name);
         self.scopes.push(Scope::new(SK::Class, &label));
+        // S125：类作用域预种子——self.m() 的 m 可能在方法之后定义（前向引用）
+        if self.collect
+            && let Some(tbl) = self.class_tables.get(&label) {
+                for (k, v) in tbl {
+                    self.scopes.last_mut().expect("scope 非空").bindings.insert(k.clone(), *v);
+                }
+            }
+        // S125：类体直接执行的代码（如类级常量计算）归属该类
+        if self.collect {
+            self.def_stack.push(label.clone());
+        }
         for c in n.children.iter().skip(n.aux) {
             if c.kind == "keyword" {
                 self.expr(c);
@@ -631,6 +1027,9 @@ impl Resolver {
             } else {
                 self.expr(c);
             }
+        }
+        if self.collect {
+            self.def_stack.pop();
         }
         self.scopes.pop();
     }
@@ -647,20 +1046,7 @@ pub fn resolve_file(path: &str, src: &str) -> Value {
             ]);
         }
     };
-    let mut r = Resolver {
-        file: path.to_string(),
-        scopes: vec![Scope::new(SK::Module, "module")],
-        edges: Vec::new(),
-        unresolved: Vec::new(),
-        n_local: 0,
-        n_module: 0,
-        n_builtin: 0,
-        n_unresolved: 0,
-        n_attr: 0,
-        star_import: false,
-        bindings: Vec::new(),
-        imports: Vec::new(),
-    };
+    let mut r = Resolver::new(path, "", false);
     for c in &tree.children {
         r.stmt(c);
     }
@@ -779,20 +1165,7 @@ fn analyze_file(root: &Path, p: &Path) -> Option<FileRes> {
         Ok(t) => t,
         Err(_) => return None,   // 语法错误文件跳过（不拖垮整仓）
     };
-    let mut r = Resolver {
-        file: rel.clone(),
-        scopes: vec![Scope::new(SK::Module, "module")],
-        edges: Vec::new(),
-        unresolved: Vec::new(),
-        n_local: 0,
-        n_module: 0,
-        n_builtin: 0,
-        n_unresolved: 0,
-        n_attr: 0,
-        star_import: false,
-        bindings: Vec::new(),
-        imports: Vec::new(),
-    };
+    let mut r = Resolver::new(&rel, "", false);
     for c in &tree.children {
         r.stmt(c);
     }
@@ -955,6 +1328,378 @@ pub fn resolve_dir(root: &Path, max_files: usize) -> Value {
             ("internal".into(), Value::Int(n_internal as i128)),
             ("external".into(), Value::Int(n_external as i128)),
             ("unresolved".into(), Value::Int(n_unresolved as i128)),
+        ])),
+    ])
+}
+
+// ---------- S125：调用图（阶段 1 预扫描 + 阶段 2 主遍历 + stitch） ----------
+
+/// 预扫描结果：模块级/类级绑定表 + import 事实。
+/// 只扫 def/class/import/赋值目标（不下函数体）——前向引用（互递归、先调用后定义）
+/// 在主遍历开始前即有种子；函数体内的顺序绑定由主遍历按序处理（局部互递归是
+/// 文档化边界，见 spec/CALLGRAPH.md）。
+struct PreScan {
+    module: HashMap<String, (usize, &'static str)>,
+    classes: HashMap<String, HashMap<String, (usize, &'static str)>>,
+    imports: Vec<ImportFact>,
+    star: bool,
+}
+
+fn table_bind(ps: &mut PreScan, level: &str, name: &str, line: usize, kind: &'static str) {
+    if name.is_empty() {
+        return;
+    }
+    // 同名遮蔽取最后一次绑定（与 Scope::bind 同口径）
+    if level == "module" {
+        let e = ps.module.entry(name.to_string()).or_insert((line, kind));
+        if line >= e.0 {
+            *e = (line, kind);
+        }
+    } else {
+        let tbl = ps.classes.entry(level.to_string()).or_default();
+        let e = tbl.entry(name.to_string()).or_insert((line, kind));
+        if line >= e.0 {
+            *e = (line, kind);
+        }
+    }
+}
+
+fn target_names(n: &PyNode, out: &mut Vec<(String, usize)>) {
+    match n.kind {
+        "Name" => out.push((n.name.clone(), n.line)),
+        "Tuple" | "List" | "Starred" => {
+            for c in &n.children {
+                target_names(c, out);
+            }
+        }
+        _ => {} // Attribute/Subscript：基名是读取，不构成绑定
+    }
+}
+
+fn child_label_of(level: &str, name: &str) -> String {
+    if level == "module" {
+        name.to_string()
+    } else {
+        format!("{}.{}", level, name)
+    }
+}
+
+fn prenode(n: &PyNode, level: &str, ps: &mut PreScan) {
+    match n.kind {
+        "FunctionDef" | "AsyncFunctionDef" => {
+            let (nm, ln) = (n.name.clone(), n.line);
+            table_bind(ps, level, &nm, ln, "def");
+        }
+        "ClassDef" => {
+            let (nm, ln) = (n.name.clone(), n.line);
+            table_bind(ps, level, &nm, ln, "class");
+            let label = child_label_of(level, &nm);
+            ps.classes.entry(label.clone()).or_default();
+            for c in n.children.iter().skip(n.aux) {
+                if is_stmt(c.kind) {
+                    prenode(c, &label, ps);
+                }
+            }
+        }
+        "Import" => {
+            for a in &n.children {
+                let bound = if a.name2.is_empty() {
+                    a.name.split('.').next().unwrap_or("").to_string()
+                } else {
+                    a.name2.clone()
+                };
+                ps.imports.push(ImportFact {
+                    line: a.line, level: 0, module: a.name.clone(),
+                    name: String::new(), asname: a.name2.clone(), is_from: false,
+                });
+                table_bind(ps, level, &bound, a.line, "import");
+            }
+        }
+        "ImportFrom" => {
+            for a in &n.children {
+                if a.name == "*" {
+                    ps.star = true;
+                    continue;
+                }
+                ps.imports.push(ImportFact {
+                    line: a.line, level: n.aux, module: n.name.clone(),
+                    name: a.name.clone(), asname: a.name2.clone(), is_from: true,
+                });
+                let bound = if a.name2.is_empty() { a.name.clone() } else { a.name2.clone() };
+                table_bind(ps, level, &bound, a.line, "import");
+            }
+        }
+        "Assign" => {
+            let last = n.children.len().saturating_sub(1);
+            for (i, c) in n.children.iter().enumerate() {
+                if i == last {
+                    continue;
+                }
+                let mut names = Vec::new();
+                target_names(c, &mut names);
+                for (nm, ln) in names {
+                    table_bind(ps, level, &nm, ln, "assign");
+                }
+            }
+        }
+        "AnnAssign" | "AugAssign" => {
+            if let Some(t) = n.children.first() {
+                let mut names = Vec::new();
+                target_names(t, &mut names);
+                for (nm, ln) in names {
+                    table_bind(ps, level, &nm, ln, "assign");
+                }
+            }
+        }
+        "For" | "AsyncFor" => {
+            if let Some(t) = n.children.first() {
+                let mut names = Vec::new();
+                target_names(t, &mut names);
+                for (nm, ln) in names {
+                    table_bind(ps, level, &nm, ln, "for");
+                }
+            }
+            for c in n.children.iter().skip(1) {
+                if is_stmt(c.kind) {
+                    prenode(c, level, ps);
+                }
+            }
+        }
+        "With" | "AsyncWith" => {
+            for c in &n.children {
+                if c.kind == "withitem" {
+                    if let Some(t) = c.children.get(1) {
+                        let mut names = Vec::new();
+                        target_names(t, &mut names);
+                        for (nm, ln) in names {
+                            table_bind(ps, level, &nm, ln, "with");
+                        }
+                    }
+                } else if is_stmt(c.kind) {
+                    prenode(c, level, ps);
+                }
+            }
+        }
+        "If" | "While" | "Try" | "TryStar" | "Match" => {
+            for c in &n.children {
+                if is_stmt(c.kind) {
+                    prenode(c, level, ps);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn vstr(v: &Value, k: &str) -> String {
+    match v.get(k) {
+        Some(Value::Str(s)) => s.clone(),
+        _ => String::new(),
+    }
+}
+
+fn vint(v: &Value, k: &str) -> usize {
+    match v.get(k) {
+        Some(Value::Int(i)) => (*i).max(0) as usize,
+        _ => 0,
+    }
+}
+
+/// 目录级调用图（S125）：`{root, files, nodes, edges, unresolved, stats}`。
+/// 节点 = def/class 定义；边 = 调用点 → 定义（同文件直接裁决，跨文件 stitch）；
+/// 不可解析调用如实入 unresolved（reason 分类）。路径均相对 root。
+pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
+    let mut py: Vec<std::path::PathBuf> = Vec::new();
+    walk_py(root, &mut py, max_files);
+
+    let prefix = if root.join("__init__.py").is_file() {
+        root.file_name().map(|s| s.to_string_lossy().into_owned())
+    } else {
+        None
+    };
+
+    struct Pre {
+        rel: String,
+        modname: String,
+        ps: PreScan,
+    }
+
+    // 阶段 1：预扫描
+    let mut pre: Vec<Pre> = Vec::new();
+    for p in &py {
+        let rel = match p.strip_prefix(root) {
+            Ok(r) => r.to_string_lossy().replace('\\', "/"),
+            Err(_) => continue,
+        };
+        let src = match std::fs::read(p) {
+            Ok(b) => String::from_utf8_lossy(&b).into_owned(),
+            Err(_) => continue,
+        };
+        let tree = match parse_module(&src) {
+            Ok(t) => t,
+            Err(_) => continue, // 语法错误文件跳过（与 resolve_dir 一致）
+        };
+        let mut ps = PreScan {
+            module: HashMap::new(),
+            classes: HashMap::new(),
+            imports: Vec::new(),
+            star: false,
+        };
+        for c in &tree.children {
+            prenode(c, "module", &mut ps);
+        }
+        let mut m = rel_mod(&rel);
+        if let Some(base) = &prefix {
+            m = if m.is_empty() { base.clone() } else { format!("{}.{}", base, m) };
+        }
+        pre.push(Pre { rel, modname: m, ps });
+    }
+
+    // 模块索引
+    let mut index: HashMap<String, usize> = HashMap::new();
+    for (i, f) in pre.iter().enumerate() {
+        if !f.modname.is_empty() {
+            index.insert(f.modname.clone(), i);
+        }
+    }
+
+    // 阶段 2：主遍历（种子 + 调用采集）
+    let mut nodes: Vec<Value> = Vec::new();
+    let mut edges: Vec<Value> = Vec::new();
+    let mut unresolved: Vec<Value> = Vec::new();
+    let mut deferred: Vec<Value> = Vec::new();
+    let (mut n_calls, mut n_builtin_calls) = (0usize, 0usize);
+    for f in pre.iter_mut() {
+        let path = root.join(&f.rel);
+        let src = match std::fs::read(&path) {
+            Ok(b) => String::from_utf8_lossy(&b).into_owned(),
+            Err(_) => continue,
+        };
+        let tree = match parse_module(&src) {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+        let mut r = Resolver::new(&f.rel, &f.modname, true);
+        r.scopes[0].bindings = std::mem::take(&mut f.ps.module);
+        r.class_tables = std::mem::take(&mut f.ps.classes);
+        r.imports = std::mem::take(&mut f.ps.imports);
+        r.star_import = f.ps.star;
+        for c in &tree.children {
+            r.stmt(c);
+        }
+        nodes.append(&mut r.nodes);
+        edges.append(&mut r.calls);
+        unresolved.append(&mut r.calls_unresolved);
+        deferred.append(&mut r.deferred);
+        n_calls += r.n_calls;
+        n_builtin_calls += r.n_builtin_calls;
+        // 主遍历后的模块绑定表放回（stitch 用）
+        f.ps.module = std::mem::take(&mut r.scopes[0].bindings);
+    }
+
+    // stitch：跨文件待定调用裁决
+    let mut n_stitched = 0usize;
+    for d in &deferred {
+        let file = vstr(d, "file");
+        let line = vint(d, "line");
+        let caller = vstr(d, "caller");
+        let expr = vstr(d, "expr");
+        let target_mod = vstr(d, "target_mod");
+        let base = vstr(d, "base");
+        let name = vstr(d, "name");
+        let kind = vstr(d, "kind");
+        let mk_unres = |reason: &str| {
+            Value::Obj(vec![
+                ("file".into(), Value::Str(file.clone())),
+                ("line".into(), Value::Int(line as i128)),
+                ("caller".into(), Value::Str(caller.clone())),
+                ("expr".into(), Value::Str(expr.clone())),
+                ("reason".into(), Value::Str(reason.to_string())),
+            ])
+        };
+        let Some(&ti) = index.get(&target_mod) else {
+            unresolved.push(mk_unres("external"));
+            continue;
+        };
+        let tf = &pre[ti];
+        // 链根分类：根 import 命中内部模块 → 链式调用静态不可解，归 attr_chain
+        if kind == "attr_chain_root" {
+            unresolved.push(mk_unres("attr_chain"));
+            continue;
+        }
+        // 1) 目标模块直接找 name（`import mod; mod.f()` / `from m import f; f()`）
+        let mut hit: Option<(String, String, usize, &'static str)> = None;
+        if let Some((tl, tk)) = tf.ps.module.get(&name) {
+            hit = Some((format!("{}.{}", tf.modname, name), tf.rel.clone(), *tl, *tk));
+        }
+        // 2) module_attr 的基名回退：`from pkg import sub; sub.f()`
+        if hit.is_none() && kind == "module_attr" && !base.is_empty() {
+            let sub = format!("{}.{}", target_mod, base);
+            if let Some(&si) = index.get(&sub)
+                && let Some((tl, tk)) = pre[si].ps.module.get(&name) {
+                    hit = Some((format!("{}.{}", pre[si].modname, name),
+                                pre[si].rel.clone(), *tl, *tk));
+                }
+        }
+        match hit {
+            Some((callee, tfile, tline, tk)) if tk == "def" || tk == "class" => {
+                n_stitched += 1;
+                edges.push(Value::Obj(vec![
+                    ("file".into(), Value::Str(file.clone())),
+                    ("line".into(), Value::Int(line as i128)),
+                    ("caller".into(), Value::Str(caller.clone())),
+                    ("callee".into(), Value::Str(callee)),
+                    ("to_file".into(), Value::Str(tfile)),
+                    ("to_line".into(), Value::Int(tline as i128)),
+                    ("kind".into(), Value::Str(kind.clone())),
+                ]));
+            }
+            Some((_, _, _, "import")) => unresolved.push(mk_unres("re_export")),
+            Some(_) => unresolved.push(mk_unres("var_call")),
+            None => {
+                // from-import 的子模块形态：模块对象不可调用
+                let sub = format!("{}.{}", target_mod, name);
+                if kind == "from_import" && index.contains_key(&sub) {
+                    unresolved.push(mk_unres("var_call"));
+                } else if kind == "module_attr" {
+                    unresolved.push(mk_unres("attr_missing"));
+                } else {
+                    unresolved.push(mk_unres("name_not_found"));
+                }
+            }
+        }
+    }
+
+    // 稳定排序 + 统计
+    nodes.sort_by_key(|a| (vstr(a, "file"), vint(a, "line"), vstr(a, "qual")));
+    edges.sort_by_key(|a| (vstr(a, "file"), vint(a, "line"), vstr(a, "callee")));
+    unresolved.sort_by_key(|a| (vstr(a, "file"), vint(a, "line"), vstr(a, "expr")));
+    let mut by_reason: HashMap<String, usize> = HashMap::new();
+    for u in &unresolved {
+        *by_reason.entry(vstr(u, "reason")).or_insert(0) += 1;
+    }
+    let mut reasons: Vec<(String, usize)> = by_reason.into_iter().collect();
+    reasons.sort();
+    let n_nodes = nodes.len();
+    let n_resolved = edges.len();
+    let n_unresolved = unresolved.len();
+
+    Value::Obj(vec![
+        ("root".into(), Value::Str(root.to_string_lossy().into_owned())),
+        ("files".into(), Value::Int(pre.len() as i128)),
+        ("nodes".into(), Value::Arr(nodes)),
+        ("edges".into(), Value::Arr(edges)),
+        ("unresolved".into(), Value::Arr(unresolved)),
+        ("stats".into(), Value::Obj(vec![
+            ("files".into(), Value::Int(pre.len() as i128)),
+            ("nodes".into(), Value::Int(n_nodes as i128)),
+            ("calls".into(), Value::Int(n_calls as i128)),
+            ("resolved".into(), Value::Int(n_resolved as i128)),
+            ("unresolved".into(), Value::Int(n_unresolved as i128)),
+            ("builtin_calls".into(), Value::Int(n_builtin_calls as i128)),
+            ("stitched".into(), Value::Int(n_stitched as i128)),
+            ("by_reason".into(), Value::Obj(reasons.into_iter()
+                .map(|(k, c)| (k, Value::Int(c as i128))).collect())),
         ])),
     ])
 }

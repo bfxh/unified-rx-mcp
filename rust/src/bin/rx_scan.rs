@@ -11,6 +11,9 @@
 //!                                               超大报错文本，薄壳对大文本走此通道）
 //!   rx-scan resolve  <file>               （S107：单文件名字解析——引用→定义边，
 //!                                           见 rust/src/nameres.rs；跨文件留给 S108）
+//!   rx-scan resolvedir <root> [max_files] （S108：跨文件 import 拼接）
+//!   rx-scan callgraph <root> [max_files]  （S125：调用图——节点/调用边/未解析分类，
+//!                                           同一作用域引擎 + 预扫描种子；默认 300）
 //!   rx-scan sketch   <ng> <k> [threads]   （S119：批量 n-gram bottom-k 指纹，
 //!                                           路径走 stdin 帧流，见 rust/src/sketch.rs）
 //!   rx-scan xor      <crib_hex> [threads]  （S120：单字节异或密钥枚举，
@@ -31,7 +34,7 @@ use rxrs::sketch;
 use rxrs::xorscan;
 use std::io::Read;
 
-const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | astscan <path> [max_files] | buglocate <root> <error_text|-> | resolve <file> | sketch <ng> <k> [threads] | xor <crib_hex> [threads]";
+const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | astscan <path> [max_files] | buglocate <root> <error_text|-> | resolve <file> | resolvedir <root> [max_files] | callgraph <root> [max_files] | sketch <ng> <k> [threads] | xor <crib_hex> [threads]";
 
 fn main() {
     if std::env::args().any(|a| a == "--version") {
@@ -144,6 +147,25 @@ fn run(args: &[String]) -> Result<Value, String> {
                 )]));
             }
             Ok(nameres::resolve_dir(p, mf))
+        }
+        "callgraph" => {
+            // S125：调用图（同 resolve_dir 的目录/默认上限口径）
+            let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
+            if root.is_empty() {
+                return Err(USAGE.into());
+            }
+            let mf = match args.get(2) {
+                Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(300),
+                None => 300,
+            };
+            let p = std::path::Path::new(root);
+            if !p.is_dir() {
+                return Ok(Value::Obj(vec![(
+                    "error".into(),
+                    Value::Str(format!("不是目录: {}", root)),
+                )]));
+            }
+            Ok(nameres::callgraph_dir(p, mf))
         }
         "sketch" => {
             // S119：批量 bottom-k 指纹。ng/k 越界钳到合法域（与 Python 侧同口径）；

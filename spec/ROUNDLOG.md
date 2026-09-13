@@ -568,3 +568,16 @@
 - 其他过程项：Mimosa hook 误拦"提及 scripts/ 文件 + 含重定向"的 bash 组合命令（判为写源码）→ 拆分单发即过；3.14 新增第 4 个 skip = test_v2.py VoxelForge .codegraph 索引目录暂缺（外部资产环境性，非本仓缺陷）。
 - 验证：3.14 全量 **758 passed + 4 skipped**；3.11 全量 **760 passed + 2 skipped**；cargo **167 绿 + clippy 零告警**（仓库根直跑）；selftest tools=68 / SCHEMA_BAD 0 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0 / VERSION_TAG NEXT（tag 前正确态）；版本锁步 **2.42.0** ×4（server.py/Cargo.toml/Cargo.lock/README）。
 - 提交：本次
+
+## S125 · 真调用图（ide_callgraph）：NAMERES 同一作用域引擎 + 预扫描种子 + 跨文件 stitch
+- 项目：unified-rx-mcp｜时间：2026-09-14
+- 决策：用户点单「继续搞 IDE」——按 HARDENING 缺口清单优先级第一项（真调用图）开工。repo_map 只是 PageRank 骨架（"该看哪些定义"，不是精确调用边）、ide_impact 的解析档给的是**引用**（谁 import/引用了这个定义，调用关系要人肉再筛）、ide_dead_code 是零引用口径（≠零调用）——调用图是这三者共同缺的地基层，也是"模块化架构"主诉的直接工具（环检出/扇入扇出 = 上帝对象拆分的客观输入）。
+- 架构决策（关键）：**不另起第二份实现**——调用图建在 rust/src/nameres.rs 的**同一作用域引擎**上（S107/S108 的作用域栈 + import 拼接），`rx-scan callgraph` 子命令 + `tools/ide_callgraph.py` 薄壳（抽取在 Rust、查询形状在 Python，本仓惯例）。两阶段与 resolve_dir 同构：**预扫描种子**（新——只扫 def/class/import/赋值目标不下函数体，模块/类级绑定表在主遍历前种子化，互递归与"先调用后定义"的前向引用因此可解；这是相对单文件 nameres 的关键增量）+ 主遍历采集 + stitch（跨文件查模块索引，含相对导入/as 别名/子模块回退 `from pkg import sub; sub.f()`）。
+- 边模型：节点 = def/class 全限定名（模块.类.方法.嵌套）；边 = {file, line, caller, callee, to_file, to_line, kind}，kind ∈ name/self_attr/module_attr/from_import/class；模块级调用 caller=""（伪节点）。**可解析**：同名/from-import 别名/相对导入/`self.m()`（方法定义在后亦可）/`C.m()`/`mod.f()`；**不可解析如实分类不猜**（reason 九类）：external / attr_chain / receiver_var / var_call / self_attr_missing / re_export / star_import / not_found / expr。内建单列 `builtin_calls` 不进 unresolved（可解析的事实、只是没有内部节点）；**stats 自洽 calls = resolved + unresolved + builtin_calls**（测试锁死）。
+- 文档化边界（spec/CALLGRAPH.md §四）：函数体内局部定义互递归（顺序绑定，测试锁死）、类型推断、属性链（`pkg.leaf.f()` / `f()()` / `super().m()`）、re-export 追踪、运行时元编程——与 NAMERES §九 同边界；不承诺"解析不了 = 不存在"。
+- 工具面：`ide_callgraph`（ide 域 22nd，总数 68→**69**）——汇总模式（stats + top fan-in/out + 环检出 ≤10（迭代 DFS + 规范形去重）+ resolution_rate）+ 查询模式（短名消歧多命中给候选不猜 / callers·callees 有界 BFS depth 1-8、边 400 上限置 truncated）；符号取不到 = 清晰错误包络（同 ide_impact 口径）；exe 缺失报清晰错误不静默降级。
+- 实测（本仓 tools/ 30 文件）：nodes 240 / calls 2682 / resolved 421 / unresolved 1653 / builtin 608 / stitched 49——top_fan_in 命中真实高频件（`tools.gpu._check` 35、`tools.fs._resolve` 30）；环检出命中真实互递归（`_build_watch↔ide_build`）。**未解析率如实入档不美化**：receiver_var（无类型推断）与 external（外部依赖）是主要项，resolution_rate 0.203。
+- 交付：rust/src/nameres.rs（+约 600 行：预扫描/调用解析/stitch/节点边装配）+ rx_scan.rs 子命令 + rust/tests/callgraph_test.rs 16 测 + tools/ide_callgraph.py 245 行 + tools/__init__.py 接线 + tests/test_s125_callgraph.py 10 测 + skills/ide.md 契约 + spec/CALLGRAPH.md（六章：事实模型/算法/不做/接口/验收）。
+- 过程项：①Mimosa hook 连拦三版测试夹具（`os.path.join(root, rel)` 判路径穿越，realpath 前缀校验也不认）→ 换 pathlib 字面量组件写法（`tmp_path / "pkg" / "mod.py"`）通过——夹具 helper 也不长得像穿越面，与 S123 夹具纪律同一课；②pytest 5 失败全部是**文档计数门工作正常**抓出的未更新处（README 三处计数 / PANORAMA 68→69+ide(22) / skills/README ide 21→22 / README 版本头 / exe 仍 2.42.0）——更新后 22/22 复绿，门即清单；③沙盒门实测拦下开发期无 env 调用（fail-closed 语义在线）；④GitHub push protection 无拦截（S124 夹具纪律持续生效）。
+- 验证：3.14 全量 **768 passed + 4 skipped**；3.11 全量 **770 passed + 2 skipped**；cargo **183 绿**（167+16 callgraph）+ clippy 零告警；selftest tools=69 / SCHEMA_BAD 0 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0 / VERSION_TAG NEXT（tag 前正确态）；版本锁步 **2.43.0** ×4。
+- 提交：本次
