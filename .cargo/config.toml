@@ -1,0 +1,7 @@
+# mingw ld 在含中文的路径下链接失败：target-dir 挪到纯 ASCII 临时目录（本机 workaround，S78）
+# S124 修正位置：cargo 只从【当前工作目录】逐级向上发现 .cargo/config.toml（与 --manifest-path 无关）。
+# 原先放在 rust/.cargo/ 只有 cd rust 才生效，仓库根运行即落回中文路径 rust/target 触发 S78
+# （症状：ld 报 "cannot find ....rcgu.o/symbols.o"，曾被误诊为增量缓存损坏）。移到仓库根后，
+# 仓内任何子目录运行 cargo 均可发现本文件；rust/target 目录为误诊期产物，可整目录删除。
+[build]
+target-dir = "C:/Users/lbx13/AppData/Local/Temp/rx-rs-target"
