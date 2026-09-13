@@ -77,16 +77,20 @@
 3. **file_scan 熵层已有 rust/gpu 双档**（auto 已接），保持；
 4. 依赖红线不变：Cargo `[dependencies]` 恒空，零第三方 crate。
 
-## 六、缺口盘点（S124 时点，按优先级）
+## 六、缺口盘点（S125 时点，按优先级）
 
 **Rust 侧**：
-- secrets_hunt 原生化（上面的候选序第一，需先测原生基线再动）；
+- secrets_hunt 原生化（候选序第一，需先测原生基线再动）；
 - ide_dead_code 原生化（复用 pyast.rs；死码判定的作用域逻辑进 bug.rs 同层）；
 - astscan/bugscan 已全薄壳，无动作。
 
 **IDE 域**：
-- **真调用图**：repo_map 只是 PageRank 骨架，不是精确调用边；影响面分析
-  （ide_impact）目前三级降级（LSP→名字解析→文本计数），文本档噪声大；
+- ~~**真调用图**~~（**S125 已兑**：`ide_callgraph` —— 符号级调用边 + callers/callees
+  遍历 + 环检出，同一 nameres 作用域引擎 + 预扫描种子，见 spec/CALLGRAPH.md。
+  未解析率如实入档：本仓 tools/ 30 文件 resolved 421 / unresolved 1653；
+  已知边界=无类型推断（receiver_var 为主因）与外部依赖（external））；
+  下轮候选：ide_impact 的调用面补充（引用 vs 调用分层不混）、ide_dead_code
+  接"零调用"辅助证据；
 - **类型检查集成**：mypy/pyright 未接；零第三方依赖红线下只能走"外部工具
   探测 + 结果结构化"（能力探测失败如实降级，同 pylsp 模式），待设计；
 - **覆盖率趋势**：code_coverage 有单点，缺跨轮趋势存档与回归对比；
