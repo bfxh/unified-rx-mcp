@@ -626,4 +626,29 @@ mod tests {
         assert!(!dir.exists());
         std::fs::remove_dir_all(&base).unwrap();
     }
+
+    #[cfg(windows)]
+    #[test]
+    fn clean_accepts_junction_form_target() {
+        // S125：junction 形态路径下的合法目标不得被误判"越界"——strictly_under 原先
+        // 只解析 target、root 用原始字符串；canonical(target)（junction 已解引用）与
+        // 未解析的 root 不同形即误拒（CI 上 TEMP 为 junction 形态实测；本测试在真
+        // junction 上本地复现）。Python 侧 realpath 双侧是既定语义。
+        let base = std::env::temp_dir().join(format!("rx-appclean-junc-{}",
+                                                     std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let real = base.join("real");
+        std::fs::create_dir_all(real.join("sub")).unwrap();
+        let link = base.join("link");
+        let status = std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"]).arg(&link).arg(&real).output().unwrap();
+        assert!(status.status.success(), "mklink /J 失败");
+
+        // target 与 root 都走 junction 形态：canonical 后同根，必须放行并真实删除
+        let target = link.join("sub");
+        let r = app_clean_under(&target.to_string_lossy(), &link);
+        assert!(bl(&r, "removed"), "junction 形态目标被误拒: {}", r.to_json());
+        assert!(!real.join("sub").exists(), "junction 目标应真实删除");
+        let _ = std::fs::remove_dir_all(&base);
+    }
 }

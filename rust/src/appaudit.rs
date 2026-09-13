@@ -72,7 +72,10 @@ pub fn strictly_under(p: &str, root: &Path) -> bool {
         return false;
     }
     let pc = lenient_realpath(Path::new(p)).to_string_lossy().to_lowercase().replace('/', "\\");
-    let rc = root.to_string_lossy().to_lowercase().replace('/', "\\");
+    // S125：root 也解析（Python 侧 realpath 双侧等价，本函数此前只解析 target）——
+    // CI 上 TEMP 为 junction/短名形态时，canonical(target) 与原始 root 字符串不同形，
+    // 合法目标被误判"越界"（CI 实锤；本地 junction 回归测试复现）。
+    let rc = lenient_realpath(root).to_string_lossy().to_lowercase().replace('/', "\\");
     let rc = rc.trim_end_matches('\\');
     pc != rc && pc.starts_with(&format!("{}\\", rc))
 }
