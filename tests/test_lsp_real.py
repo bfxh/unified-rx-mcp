@@ -8,6 +8,7 @@
 import os
 import shutil
 import sys
+import time
 
 import pytest
 
@@ -103,11 +104,19 @@ def test_rust_analyzer_real_references(tmp_path, monkeypatch):
         "pub fn anchor_fn() -> u32 { 1 }\n"
         "pub fn caller() -> u32 { anchor_fn() }\n", encoding="utf-8")
     try:
-        r = registry.call("ide_lsp", {"action": "references", "file": str(lib),
-                                      "line": 0, "col": 7,
-                                      "include_decl": True})
-        assert r["ok"], r.get("error")
-        refs = r["result"]["references"]
+        # S125：冷启动索引竞态——工具内已有 19s 退避重试，CI 冷 runner 上 ra 首索
+        # 仍可能超预算（实测 3.14 首跑 references 空）。测试侧加有界重试（会话在
+        # _SESSIONS 缓存里，重试即温调用），最多 3 轮；仍空才判失败。
+        refs = []
+        for _attempt in range(3):
+            r = registry.call("ide_lsp", {"action": "references", "file": str(lib),
+                                          "line": 0, "col": 7,
+                                          "include_decl": True})
+            assert r["ok"], r.get("error")
+            refs = r["result"]["references"]
+            if len(refs) >= 2:
+                break
+            time.sleep(5)
         assert len(refs) >= 2, f"ra 真引用过少: {refs}"
         assert any(x["file"].endswith("lib.rs") for x in refs)
     finally:

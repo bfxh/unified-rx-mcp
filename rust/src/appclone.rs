@@ -118,12 +118,21 @@ pub fn app_clean_under(target: &str, root: &Path) -> Value {
         return err_obj("拒绝：清理目标必须在隔离沙箱内（app_clone 的 snapshot 路径）");
     }
     let p = lenient_realpath(Path::new(target));
-    // S125：显式存在性检查——remove_dir_all 对"不存在"的行为随 Rust 版本/平台漂移
-    // （本地 1.97 报 NotFound，CI 1.98 实测静默成功），Python 等价语义必须稳定。
-    if std::fs::symlink_metadata(&p).is_err() {
-        return err_obj(format!(
-            "清理失败: FileNotFoundError: {}（目标不存在；沙箱内可手动重试）",
-            p.to_string_lossy()));
+    // S125：清理前按 symlink_metadata 显式判定——remove_dir_all 对"不存在/非目录"的
+    // 行为随 Rust 版本漂移（本地 1.97 报 NotFound/NotADirectory；CI 1.98 两者实测均
+    // 静默成功），Python 等价语义（FileNotFoundError/NotADirectoryError）必须确定性稳定。
+    match std::fs::symlink_metadata(&p) {
+        Err(_) => {
+            return err_obj(format!(
+                "清理失败: FileNotFoundError: {}（目标不存在；沙箱内可手动重试）",
+                p.to_string_lossy()));
+        }
+        Ok(m) if !m.is_dir() => {
+            return err_obj(format!(
+                "清理失败: NotADirectoryError: {}（目标不是目录；沙箱内可手动重试）",
+                p.to_string_lossy()));
+        }
+        Ok(_) => {}
     }
     match std::fs::remove_dir_all(&p) {
         Ok(()) => Value::Obj(vec![
