@@ -65,15 +65,19 @@ jobs:
 
   rust:
     runs-on: windows-latest
-    env:
-      # S125：不落机器局部路径（不涉及 exe 查找，用 runner.temp 即可）
-      CARGO_TARGET_DIR: ${{ runner.temp }}\rx-rs-target
+    # 注意（S125 实锤）：runner 上下文在 job 级 env 不可用（只许 github/needs/strategy/
+    # matrix/vars/secrets/inputs）——${{ runner.temp }} 放这会导致 workflow 整体非法
+    # （0 秒失败、标题显示文件路径）。故 CARGO_TARGET_DIR 只放 step 级 env。
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - name: cargo test（双绿纪律的 Rust 侧）
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}\rx-rs-target
         run: cargo test --manifest-path rust/Cargo.toml
       - name: cargo clippy（零告警红线）
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}\rx-rs-target
         run: cargo clippy --manifest-path rust/Cargo.toml -- -D warnings

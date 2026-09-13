@@ -45,3 +45,21 @@ def test_gate_scripts_compile():
         p = os.path.join(ROOT, "scripts", name)
         assert os.path.isfile(p), f"缺 {name}"
         py_compile.compile(p, doraise=True)
+
+
+def test_runner_context_only_at_step_level():
+    """S125 实锤：runner 上下文在 job 级 env 不可用（只许 github/needs/strategy/
+    matrix/vars/secrets/inputs）——${{ runner.* }} 放 job 级会让 workflow 整体非法
+    （0 秒失败、运行标题显示文件路径）。缩进代理检查：引用 runner.* 的行必须
+    ≥8 空格缩进（job 级 env 是 6 空格，steps 内是 8+）。"""
+    for p in (CORE, SCAN):
+        bad = []
+        for i, line in enumerate(_read(p).splitlines(), 1):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue          # 注释里提到 ${{ runner. }} 是文档，不算引用
+            if "${{ runner." in line:
+                indent = len(line) - len(stripped)
+                if indent < 8:
+                    bad.append(f"L{i}: {stripped[:60]}")
+        assert not bad, f"{os.path.basename(p)} runner 上下文出现在 job 级（workflow 整体非法）: {bad}"
