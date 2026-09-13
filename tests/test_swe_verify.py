@@ -64,7 +64,8 @@ def test_pull_merges_once(tmp_path, monkeypatch):
     monkeypatch.setattr(sv, "SAMPLE", str(sample))
     monkeypatch.setattr(sv, "PARQUET", "fake.parquet")
 
-    import duckdb
+    # S125：duckdb 是可选外部依赖——能力探测缺失时如实跳过（不假装通过）
+    duckdb = pytest.importorskip("duckdb")
     class FakeCon:
         def execute(self, q):
             return self

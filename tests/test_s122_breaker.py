@@ -5,6 +5,8 @@
 同一 key 连续返回逐字节相同的结果达 limit 次 → 提前熔断（空转）。
 熔断器挂在 registry.call 单一裁决点（门禁之后、缓存之前）——缓存命中的重复也算循环。
 """
+import os
+
 import pytest
 
 import registry
@@ -87,8 +89,13 @@ def test_exempt_tools_never_trip():
 
 
 def test_registry_wiring_and_reset_tools():
-    """registry.call 真链路：第 4 次同参调用被拒；breaker_status/reset 可救火。"""
-    args = {"path": "D:/开发/unified-rx-mcp/README.md"}
+    """registry.call 真链路：第 4 次同参调用被拒；breaker_status/reset 可救火。
+
+    S125 修：路径改自仓库根推导（原为写死本机路径——CI 上沙盒外第一调即败，
+    熔断计数到不了阈值；本机路径硬编码是 S122 漏网的可移植性缺陷）。
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    args = {"path": os.path.join(root, "README.md").replace(os.sep, "/")}
     for _ in range(3):
         r = registry.call("fs_stat", args)
         assert r.get("ok") is True, r
