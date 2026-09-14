@@ -131,11 +131,14 @@ _git_changed_ranges/code_review`（纯 Python 评审域 ~270 行/11 函数）。
 `validate_content` 留 client——lsp_actions 对状态一律模块属性访问，test_s60/
 test_s99 的 monkeypatch 面继续生效）。
 
-### P1 `tools/gpu.py`（658 行）（**S129 延后一轮**）
-延后理由（如实）：kernel 就近迁移需整读 658 行并更新 ~30 处引用面
-（test_s114_gpu / bench/s114_gpu_bench / filescan / neardupes）——S129 已含
-三项大活 + C1b，硬塞易伤质量；S129 结束时 gpu.py 已是全仓最大 tools 文件
-（658），下一轮第一优先。exe/引擎探测逻辑不动（承诺不变）。
+### P1 `tools/gpu.py`（658 行）（**S130 已兑**）
+拆分：gpu.py = 运行时（加载/上下文/编译缓存/参数/读回 + CROSSOVER +
+pick_mode + gpu_status）；kernel 就近迁域——literal_scan/byte_hist(+entropy)/
+xor_crib_scan → filescan.py，ngram_bottomk/ngram_hashes/bottom_k/jaccard →
+neardupes.py（CPU oracle 与内核同行；公开名不变）。引用面全量随动：
+filescan/neardupes 内部调用点、6 个测试文件 + bench（含二次漏网的
+test_s117/118/119/120 一次扫清——首轮只改了显式清单里的两件，
+跑测试红出其余四件）。
 
 ### P2 Rust 侧（mod 内拆，不动 Cargo.toml）
 pyast.rs 2986（parser/scope/extract 分 mod）→ astscan.rs 1776 → nameres.rs 1705
@@ -195,7 +198,7 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
 4. ~~P0-A taint×callgraph~~ → **S128 已兑**（见 §四 P0-A 与 §八）
 5. ~~P1-A~~ / ~~P1-B~~ / ~~P1 拆分（lsp）~~ → **S129 已兑**；**gpu 拆分 + C1b
    剩余（cache 记账交织 walk 如实不并）→ 下一轮第一优先**
-6. P2-A / P2-B / C2 / P3
+6. ~~P2-A~~ → **S130 已兑**；P2-B / C2 / P3 待做（P2-B=bug_scan 八规则扩容，Rust 侧；C2=breaker 组归位；P3=attack 巡航）
 
 每步通用门禁：测试先行或同步迁移、注册名与工具面不破坏（A 级项需 deprecation
 说明）、计数门 69 不变、selftest 对账、pytest+cargo 双绿才准合入（pre-commit 强制）。
@@ -270,3 +273,20 @@ definite 131(+1) / cross_flows 7 / ambiguous 80——净新增 0 如实入档。
   恰好上限不标）；cache.py 记账交织 walk **如实不并**（预算/哈希与遍历交织，参数化
   会失真）；行为锁进 test_s127（含 venv 跳过/排序/截断三断言）。
 - **gpu 拆分延后**（理由见 §三 P1 gpu 段）：下一轮第一优先。
+
+**S130 实施记录（gpu 拆分收尾 + P2-A，第四实施轮）**：
+- **gpu 拆分**（§三 P1，上轮延后项）：gpu.py 658 → 运行时约 400 行；kernel 三簇
+  就近迁 filescan（472）/neardupes（467）；CROSSOVER 表留 gpu.py 完整（含 ngram
+  条目，注释合并）；tests/bench 引用面 8 文件全量随动，GPU 系 46 例全绿；
+  尺寸门最大件：gpu.py 658 → lsp.py 507（comment 同步）。
+- **P2-A 外部 linter 探测薄壳**（§四 P2-A 已兑）：ide_diagnostics 增 ruff
+  （--output-format=json --no-cache）→ 无则 pyflakes 回退 + mypy（类型面，
+  MYPY_CACHE_DIR 钉 TEMP）；三个解析器独立成函数可单测（E9*/F82* → error）；
+  能力缺席/超时/失败一律进新 skipped 列表。
+- **实锤缺陷顺带修（S130 发现）**：ide_diagnostics 的 clippy 透镜在生产路径上
+  是死的——内层 registry.call(ide_build) 无 __authorized 被授权门拒绝，又被
+  except 静默吞成 engine=none, total=0（真机实测）。修：本工具升**执行类挂门**
+  （schema 声明 __authorized + 必填）+ 内层调用显式传授权 + 拒绝/失败进 skipped；
+  callers 随动（swe_repair ×2、test_ide_diag 往返）；新增回归门
+  test_clippy_refusal_is_visible_not_silent。这是 S55 静默吞家族的授权门变体
+  ——同一病灶换了个触发面。

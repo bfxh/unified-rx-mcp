@@ -255,7 +255,8 @@ def repair_loop(args):
             try:
                 from bench.diag_history import append_diag
                 dias = (swe_repair.registry.call('ide_diagnostics',
-                        {'path': root, 'files': files_show[:3]}) or {}
+                        {'path': root, 'files': files_show[:3],
+                         '__authorized': True}) or {}
                         ).get('result', {}).get('diagnostics') or []
                 append_diag(iid, 'repair', f'round{rnd}', dias)
             except Exception:
@@ -430,7 +431,8 @@ def _diag_section(root, files):
     走同一通道）+ 触碰文件复杂度发现（code_review 复杂度透镜）。"""
     try:
         r = registry.call("ide_diagnostics", {"path": root, "files": files,
-                                              "include_lint": True})
+                                              "include_lint": True,
+                                              "__authorized": True})
         res = r.get("result") or r
         dias = res.get("diagnostics") or []
         errs = [d for d in dias if d["severity"] == "error"]

@@ -23,6 +23,11 @@ from registry import tool
 from tools import gpu
 from tools.fs import _resolve as _fs_resolve
 from tools.filewalk import TOOLCHAIN_SKIP_DIRS, iter_files
+# S130：GPU kernel 就近迁移到本域（见文件尾）——运行时助手自 gpu 引入
+from tools.gpu import _check, _cl, _ensure_ctx, _program, _read_buf, _set_arg
+
+import ctypes
+import math
 
 _MAX_FILE_BYTES = 256 * 1024 * 1024        # 单文件上限（超过跳过并如实报）
 # AV 业界标准测试串（EICAR）——可验证"签名匹配确实工作"，不含真实恶意样本
@@ -114,10 +119,10 @@ def _xor_scan(fp, data, crib, engine):
                 engine = "auto"
     if engine in ("auto", "gpu") and (engine == "gpu" or n >= _XOR_GPU_MIN):
         try:
-            return gpu.xor_crib_scan_gpu(data, crib), "gpu", fallback
+            return xor_crib_scan_gpu(data, crib), "gpu", fallback
         except gpu.GpuError as e:
             fallback = (fallback + "；" if fallback else "") + f"GPU 不可用: {e}"
-    return gpu.xor_crib_scan_cpu(data, crib), "cpu", fallback
+    return xor_crib_scan_cpu(data, crib), "cpu", fallback
 
 
 def _entropy_of(data, engine):
@@ -125,12 +130,12 @@ def _entropy_of(data, engine):
     mode = gpu.pick_mode("byte_hist_bytes", len(data), engine)
     if mode == "gpu":
         try:
-            hist = gpu.byte_hist_gpu(data)
-            return gpu.entropy(hist, len(data)), "gpu"
+            hist = byte_hist_gpu(data)
+            return entropy(hist, len(data)), "gpu"
         except gpu.GpuError:
             pass                     # 明确降级到 CPU（gpu_status 可查原因）
-    hist = gpu.byte_hist_cpu(data)
-    return gpu.entropy(hist, len(data)), "cpu"
+    hist = byte_hist_cpu(data)
+    return entropy(hist, len(data)), "cpu"
 
 
 @tool("file_scan", "文件扫描（签名/熵启发式/哈希/异或层；非杀毒软件）：字面量签名 + "
@@ -229,3 +234,239 @@ def file_scan(path, signatures=None, hashes=None, entropy_threshold=7.0,
                     "会误报已压缩资源）。xor_keys=单字节异或层枚举（需给 xor_crib "
                     "已知明文（≥6 字节，否则高熵数据上噪声淹没真密钥）；多字节异或不做）。"
                     "熵走 GPU；异或枚举 rust（≥256KB）→ GPU（≥128KB）→ CPU，见 xor_engine"}
+
+
+# ---------- GPU kernel 簇（S130 自 tools/gpu.py 逐字迁移，CONSOLIDATION §三 P1 gpu）----------
+# 运行时（OpenCL 加载/上下文/编译缓存/参数/读回）在 tools/gpu.py；本簇含 kernel 源码、
+# GPU 实现与 CPU oracle（降级路径 + 对拍基准）。公开名不变（域内直呼）。
+
+_K_LITERAL = r"""
+__kernel void literal_scan(__global const uchar* data, const uint n,
+                           __global const uchar* pats, __global const uint* poff,
+                           const uint plen_total, const uint npats,
+                           __global uint* hits) {
+    uint i = get_global_id(0);
+    if (i >= n) return;
+    for (uint k = 0; k < npats; ++k) {
+        uint off = poff[k], plen = poff[k+1] - off;
+        if (plen == 0 || i + plen > n) continue;
+        uint ok = 1;
+        for (uint j = 0; j < plen; ++j) {
+            if (data[i + j] != pats[off + j]) { ok = 0; break; }
+        }
+        if (ok) { hits[i] = k + 1; return; }
+    }
+}
+"""
+
+_K_HIST = r"""
+__kernel void byte_hist(__global const uchar* data, const uint n,
+                        __global uint* hist) {
+    uint gid = get_global_id(0), gsz = get_global_size(0);
+    uint bins[256];
+    for (uint i = 0; i < 256; ++i) bins[i] = 0;
+    for (uint i = gid; i < n; i += gsz) bins[data[i]]++;
+    for (uint i = 0; i < 256; ++i) {
+        if (bins[i]) atomic_add(&hist[i], bins[i]);
+    }
+}
+"""
+
+
+_K_XOR = r"""
+__kernel void xor_crib_scan(__global const uchar* data, const uint n,
+                            __global const uchar* crib, const uint clen,
+                            __global const uchar* keys, const uint nkeys,
+                            __global uint* hits) {
+    uint k = get_global_id(0);
+    if (k >= nkeys) return;
+    uchar key = keys[k];
+    uint count = 0;
+    for (uint i = 0; i + clen <= n; ++i) {
+        uint ok = 1;
+        for (uint j = 0; j < clen; ++j) {
+            if ((data[i + j] ^ key) != crib[j]) { ok = 0; break; }
+        }
+        if (ok && count < 256) count++;
+    }
+    hits[k] = count;
+}
+"""
+
+
+def literal_scan_gpu(data, patterns):
+    """GPU 多模式字面量匹配 → [(offset, pattern_index)]（同偏移多模式只报第一个）。"""
+    cl = _cl()
+    ctx, queue, _ = _ensure_ctx()
+    pats = [p for p in patterns if p]
+    if not data or not pats:
+        return []
+    flat = b"".join(pats)
+    poff = [0]
+    for p in pats:
+        poff.append(poff[-1] + len(p))
+    err = ctypes.c_int()
+    n = len(data)
+    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(data)")
+    pmem = cl.clCreateBuffer(ctx, 4 | 32, len(flat), ctypes.c_char_p(flat), ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(pats)")
+    omem = cl.clCreateBuffer(ctx, 4 | 32, 4 * (len(poff)), (ctypes.c_uint * len(poff))(*poff),
+                             ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(poff)")
+    hmem = cl.clCreateBuffer(ctx, 2, 4 * n, None, ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(hits)")
+    zero = (ctypes.c_char * (4 * n))()
+    _check(cl.clEnqueueWriteBuffer(queue, hmem, 1, 0, 4 * n, zero, 0, None, None), "写零 hits")
+    kern = cl.clCreateKernel(_program(_K_LITERAL), b"literal_scan", ctypes.byref(err))
+    _check(err.value, "clCreateKernel")
+    _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
+    _set_arg(cl, kern, 1, ctypes.c_uint(n))
+    _set_arg(cl, kern, 2, ctypes.c_void_p(pmem))
+    _set_arg(cl, kern, 3, ctypes.c_void_p(omem))
+    _set_arg(cl, kern, 4, ctypes.c_uint(len(flat)))
+    _set_arg(cl, kern, 5, ctypes.c_uint(len(pats)))
+    _set_arg(cl, kern, 6, ctypes.c_void_p(hmem))
+    gsz = ctypes.c_size_t(n)
+    _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz), None, 0, None, None),
+           "clEnqueueNDRangeKernel")
+    raw = _read_buf(cl, queue, hmem, 4 * n)
+    hits = []
+    for i in range(n):
+        v = int.from_bytes(raw[4 * i:4 * i + 4], "little")
+        if v:
+            hits.append((i, v - 1))
+    for h in (dmem, pmem, omem, hmem):
+        cl.clReleaseMemObject(h)
+    cl.clReleaseKernel(kern)
+    return hits
+
+
+def literal_scan_cpu(data, patterns):
+    """CPU 参考实现（降级路径 + GPU 的 oracle）：bytes.find 逐个模式取所有出现位置。"""
+    hits = []
+    for i, p in enumerate(patterns):
+        if not p:
+            continue
+        start = 0
+        while True:
+            j = data.find(p, start)
+            if j < 0:
+                break
+            hits.append((j, i))
+            start = j + 1
+    hits.sort()
+    return hits
+
+
+def byte_hist_gpu(data):
+    """GPU 字节直方图（256 桶）→ list[int]。"""
+    cl = _cl()
+    ctx, queue, _ = _ensure_ctx()
+    n = len(data)
+    if not n:
+        return [0] * 256
+    err = ctypes.c_int()
+    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(data)")
+    hmem = cl.clCreateBuffer(ctx, 2 | 32, 4 * 256, (ctypes.c_uint * 256)(*([0] * 256)),
+                             ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(hist)")
+    kern = cl.clCreateKernel(_program(_K_HIST), b"byte_hist", ctypes.byref(err))
+    _check(err.value, "clCreateKernel")
+    _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
+    _set_arg(cl, kern, 1, ctypes.c_uint(n))
+    _set_arg(cl, kern, 2, ctypes.c_void_p(hmem))
+    gsz = ctypes.c_size_t(min(65536, max(1, n // 64)))
+    _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz), None, 0, None, None),
+           "clEnqueueNDRangeKernel")
+    raw = _read_buf(cl, queue, hmem, 4 * 256)
+    hist = [int.from_bytes(raw[4 * i:4 * i + 4], "little") for i in range(256)]
+    cl.clReleaseMemObject(dmem)
+    cl.clReleaseMemObject(hmem)
+    cl.clReleaseKernel(kern)
+    return hist
+
+
+def byte_hist_cpu(data):
+    hist = [0] * 256
+    for b in data:
+        hist[b] += 1
+    return hist
+
+
+def entropy(hist, n):
+    """香农熵（0-8 bits/byte）——直方图直接算。"""
+    if not n:
+        return 0.0
+    h = 0.0
+    for c in hist:
+        if c:
+            p = c / n
+            h -= p * math.log2(p)
+    return h
+
+
+def xor_crib_scan_gpu(data, crib, keys=range(256)):
+    """单字节异或密钥枚举：找让 crib 在解码后出现的密钥 → [(key, count)]。
+
+    典型用途：恶意样本/混淆载荷的单字节 XOR 层探测（配已知明文 crib，如 "MZ"、
+    "PK"、EICAR 串）。多字节 XOR 需先爆破密钥空间，本函数不做（如实边界）。
+    """
+    cl = _cl()
+    ctx, queue, _ = _ensure_ctx()
+    keys = list(keys)
+    if not data or not crib or not keys:
+        return []
+    err = ctypes.c_int()
+    n = len(data)
+    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(data)")
+    cmem = cl.clCreateBuffer(ctx, 4 | 32, len(crib), ctypes.c_char_p(crib), ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(crib)")
+    kmem = cl.clCreateBuffer(ctx, 4 | 32, len(keys), (ctypes.c_ubyte * len(keys))(*keys),
+                             ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(keys)")
+    hmem = cl.clCreateBuffer(ctx, 2, 4 * len(keys), None, ctypes.byref(err))
+    _check(err.value, "clCreateBuffer(hits)")
+    kern = cl.clCreateKernel(_program(_K_XOR), b"xor_crib_scan", ctypes.byref(err))
+    _check(err.value, "clCreateKernel")
+    _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
+    _set_arg(cl, kern, 1, ctypes.c_uint(n))
+    _set_arg(cl, kern, 2, ctypes.c_void_p(cmem))
+    _set_arg(cl, kern, 3, ctypes.c_uint(len(crib)))
+    _set_arg(cl, kern, 4, ctypes.c_void_p(kmem))
+    _set_arg(cl, kern, 5, ctypes.c_uint(len(keys)))
+    _set_arg(cl, kern, 6, ctypes.c_void_p(hmem))
+    gsz = ctypes.c_size_t(len(keys))
+    _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz), None, 0, None, None),
+           "clEnqueueNDRangeKernel")
+    raw = _read_buf(cl, queue, hmem, 4 * len(keys))
+    out = []
+    for i, k in enumerate(keys):
+        c = int.from_bytes(raw[4 * i:4 * i + 4], "little")
+        if c:
+            out.append((k, c))
+    for m in (dmem, cmem, kmem, hmem):
+        cl.clReleaseMemObject(m)
+    cl.clReleaseKernel(kern)
+    return out
+
+
+def xor_crib_scan_cpu(data, crib, keys=range(256)):
+    """CPU 参考（降级 + oracle）：bytes.translate 建 XOR 表 + find（C 速度）。"""
+    out = []
+    for k in keys:
+        table = bytes((i ^ k) for i in range(256))
+        decoded = data.translate(table)
+        start, c = 0, 0
+        while True:
+            j = decoded.find(crib, start)
+            if j < 0:
+                break
+            if c < 256:
+                c += 1
+            start = j + 1
+        if c:
+            out.append((k, c))
+    return out

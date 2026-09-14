@@ -3,6 +3,7 @@
 
 两个实测坑入册：
 ① 内核计数封顶后 early-return 会跳过写回（GPU/CPU 结果不一致）→ 改饱和计数恒写回；
+S130：xor kernel 自 tools/gpu.py 平移 tools/filescan.py（公开名不变，引用面随动）；
 ② 二进制 crib 经 UTF-8 重编码会改变字节 → 支持 `hex:` 形式（否则真密钥永远找不到）。
 """
 import os
@@ -12,6 +13,7 @@ import pytest
 import registry
 import tools  # noqa: F401
 from tools import gpu
+from tools import filescan as filescan_mod  # S130：kernel 就近迁移
 
 _HAS_GPU = gpu.status().get("available") is True
 
@@ -25,7 +27,7 @@ def test_xor_cpu_reference_saturates():
     # 饱和口径：同一 crib 出现 >256 次也只记 256（GPU 内核同口径）。
     # 注："MZ"*400 对 key=0 与 key=0x17（M^Z）都命中——两者都应封顶 256。
     data = b"MZ" * 400
-    hits = dict(gpu.xor_crib_scan_cpu(data, b"MZ"))
+    hits = dict(filescan_mod.xor_crib_scan_cpu(data, b"MZ"))
     assert hits.get(0) == 256 and hits.get(0x17) == 256, hits
     assert all(v <= 256 for v in hits.values()), hits
 
@@ -34,8 +36,8 @@ def test_xor_cpu_reference_saturates():
 def test_xor_gpu_matches_cpu_oracle():
     crib = b"MZ\x90\x00\x03\x00\x00\x00"
     data = bytes(b ^ 0x5A for b in (crib + os.urandom(1 << 20)))
-    g = gpu.xor_crib_scan_gpu(data, crib)
-    c = gpu.xor_crib_scan_cpu(data, crib)
+    g = filescan_mod.xor_crib_scan_gpu(data, crib)
+    c = filescan_mod.xor_crib_scan_cpu(data, crib)
     assert g == c, (g[:5], c[:5])
     assert g == [(0x5A, 1)], f"应唯一锁定真密钥 0x5A: {g[:5]}"
 

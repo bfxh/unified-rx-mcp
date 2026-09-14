@@ -12,6 +12,7 @@ import pytest
 import registry
 import tools  # noqa: F401
 from tools import gpu, neardupes
+from tools import neardupes as neardupes_mod  # S130：kernel 就近迁移
 
 _HAS_EXE = neardupes._rx_scan_exe() is not None
 _EXE_HINT = "rx-scan.exe 未构建（cargo build --release）"
@@ -33,7 +34,7 @@ def test_rust_sketch_matches_python_oracle(tmp_path):
     table, errors = neardupes._rust_sketch(files, 4, 32)
     assert errors == {}, errors
     for fp in files:
-        want = gpu.ngram_bottomk_cpu(open(fp, "rb").read(), 4, 32)
+        want = neardupes_mod.ngram_bottomk_cpu(open(fp, "rb").read(), 4, 32)
         assert table[fp] == want, fp
 
 

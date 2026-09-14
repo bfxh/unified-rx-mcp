@@ -13,10 +13,11 @@ import pytest
 import registry
 import tools  # noqa: F401
 from tools import gpu, neardupes
+from tools import neardupes as neardupes_mod  # S130：kernel 就近迁移
 
 
 def _jacc(a, b):
-    return gpu.jaccard(a, b)
+    return neardupes_mod.jaccard(a, b)
 
 
 def test_candidate_pruning_never_misses_true_pair():

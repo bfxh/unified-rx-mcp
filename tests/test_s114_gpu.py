@@ -11,6 +11,7 @@ import registry
 import tools  # noqa: F401
 from tools import filescan
 from tools import gpu
+from tools import filescan as filescan_mod  # S130：kernel 就近迁移
 
 _HAS_GPU = gpu.status().get("available") is True
 # EICAR 测试串（业界标准可验证样例，非真实恶意样本）——分片拼接，避免源码里成串
@@ -28,8 +29,8 @@ def test_status_shape():
 
 
 def test_entropy_math():
-    assert gpu.entropy([100, 0] + [0] * 254, 100) == 0.0
-    assert abs(gpu.entropy([1] * 256, 256) - 8.0) < 1e-9
+    assert filescan_mod.entropy([100, 0] + [0] * 254, 100) == 0.0
+    assert abs(filescan_mod.entropy([1] * 256, 256) - 8.0) < 1e-9
 
 
 def test_pick_mode_crossover():
@@ -46,15 +47,15 @@ def test_degrade_when_runtime_missing(monkeypatch):
     st = gpu.status()
     assert st["available"] is False and "加载失败" in st["reason"], st
     with pytest.raises(gpu.GpuError):
-        gpu.byte_hist_gpu(b"abc")
+        filescan_mod.byte_hist_gpu(b"abc")
     monkeypatch.setattr(gpu, "_CL", None)
 
 
 @pytest.mark.skipif(not _HAS_GPU, reason="本机无 GPU/OpenCL")
 def test_hist_gpu_matches_cpu_oracle():
     data = os.urandom(2_400_000)
-    hg = gpu.byte_hist_gpu(data)
-    hc = gpu.byte_hist_cpu(data)
+    hg = filescan_mod.byte_hist_gpu(data)
+    hc = filescan_mod.byte_hist_cpu(data)
     assert hg == hc, "GPU 直方图必须与 CPU 逐位一致"
     assert sum(hg) == len(data)
 
@@ -63,7 +64,7 @@ def test_hist_gpu_matches_cpu_oracle():
 def test_literal_gpu_matches_cpu_oracle():
     data = (b"alpha beta gamma delta " * 5000) + b"SIG_MARKER"
     pats = [b"SIG_MARKER", b"gamma delta", b"nope-xyz"]
-    assert gpu.literal_scan_gpu(data, pats) == gpu.literal_scan_cpu(data, pats)
+    assert filescan_mod.literal_scan_gpu(data, pats) == filescan_mod.literal_scan_cpu(data, pats)
 
 
 # ---------- file_scan ----------

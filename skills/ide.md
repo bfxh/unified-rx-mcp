@@ -40,8 +40,14 @@
   写前验证；S62 入站帧 64MB 上限。S99：status 对 `python -m <mod>` 形态**验到
   模块层**——pylsp 未装时如实 detected=false + reason（旧版 exe=解释器本身，
   which 检查假阳性，违反"绝不假装支持"）
-- **ide_diagnostics**（S37 统一通道）：LSP+clippy 聚合同形状
-  {source,file,line(1-based),severity,message}，修复循环直接消费
+- **ide_diagnostics**（S37 统一通道；**S130 升执行类挂门 + linter 探测**）：
+  LSP 诊断 + cargo clippy + **Python 外部 linter 探测薄壳**（ruff 优先→pyflakes，
+  mypy 独立[类型面]，装了就用）聚合为同形状 {source, file, line(1-based), col,
+  severity, message}，修复循环直接消费。**执行类需 `__authorized`**（会跑
+  clippy/ruff/mypy 子进程）；能力缺席/超时/失败**一律进 `skipped` 列表如实上报**
+  ——修正背景：旧实现无门致 clippy 透镜在生产路径被授权门拒绝又被静默吞成空信号
+  （S130 实测 engine=none 实锤，回归门 test_ide_diag）。ruff 走 `--no-cache`、
+  mypy 缓存钉 TEMP；E9*/F82*（语法级）归 error。零 pip 依赖：外调不内嵌。
 - **ide_health_trend**（S69，低优缓迁移）：读自动驾驶历史 JSONL，输出最近 N 次
   体检时间线与 per-project verdict 变化（root 参数是记录字段过滤，非路径读）。
 - **scip_refs（S112）**：SCIP 索引消费（只读）——外部索引器（`rust-analyzer scip .`、

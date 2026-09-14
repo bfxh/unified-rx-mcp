@@ -6,19 +6,21 @@
 > 设计哲学：**少而准**（70 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.46.0（S129）**：70 工具 / 12 域；**IDE 升级三件套 + walker 除重**——
-①`lsp.py` 850 行三分收敛（客户端核心 507 + `lsp_actions.py` 动作分发 +
-`impact.py` 影响面，注册名/语义零变化）；②`ide_impact` 新增独立 `calls` 段=
-**调用面**（Rust 调用图调用边，按定义点 to_file/to_line 对齐消歧；引用面≠调用面
-分层不混）；③新工具 `ide_risk_rank` **风险榜**——高扇入 × 无测试文件自动排序
-（SCAN-POLICY「拆分大于测试」机器化），JSONL 记账 + `mode=history` 趋势；
-④C1b：filescan/neardupes 的文件遍历收敛 `tools/filewalk.py` 单一实现
-（cache 的记账交织 walk 如实不并）。gpu.py（658 行）拆分延后为独立轮，理由见
-ROUNDLOG S129。历史链：S128 `rust_taint_scan` 跨文件污点链（REPLAY 3/3 命中、
-131 ≤ 755/2）；S127 scan.py 双域拆分；S125 `ide_callgraph`
+**当前 v2.47.0（S130）**：70 工具 / 12 域；**gpu 拆分收尾 + 诊断面挂门修正 + linter 探测**——
+①`tools/gpu.py`（658 行，上轮如实延后的最大件）拆分：该文件收敛为**运行时**
+（OpenCL 加载/上下文/编译缓存/CROSSOVER/pick_mode），kernel 就近迁域
+（literal/hist(+entropy)/xor→`filescan.py`，ngram/bottom_k/jaccard→`neardupes.py`，
+CPU oracle 与内核同行，公开名不变）；②**实锤修复**：`ide_diagnostics` 的 clippy
+透镜在生产路径上被授权门拒绝、又被 `except` 静默吞成空信号（`engine=none, total=0`
+实测）——升**执行类挂门**（`__authorized`）+ 内层调用显式传授权，信号缺席/拒绝/
+超时/失败**一律进 `skipped` 列表可见**（S55 类"静默吞"的授权门变体，回归门锁死）；
+③P2-A：Python 外部 linter 探测薄壳进统一诊断面——`ruff`（优先，`--no-cache`）→
+无则 `pyflakes`，`mypy` 独立（类型面，缓存钉 TEMP），同形状聚合、装了就用、没装
+如实报（零 pip 依赖：外调不内嵌）。历史链：S129 风险榜/调用面/lsp 三分；S128
+跨文件污点链（REPLAY 3/3、131 ≤ 755/2）；S125 `ide_callgraph`
 （[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首次完整跑绿（`SECRETS-GATE OK` /
-`CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 794 passed + 4 skipped、
-3.11 = 796 passed + 2 skipped（skip 为外部资产环境性）；cargo 188 绿 + clippy 零告警；
+`CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 797 passed + 4 skipped、
+3.11 = 799 passed + 2 skipped（skip 为外部资产环境性）；cargo 188 绿 + clippy 零告警；
 selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与
 IDE 升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，

@@ -11,6 +11,7 @@ import pytest
 
 import registry
 import tools  # noqa: F401
+from tools import filescan as filescan_mod  # S130：kernel 就近迁移
 from tools import filescan, gpu
 
 _HAS_EXE = filescan._rx_scan_exe() is not None
@@ -31,7 +32,7 @@ def test_rust_xor_matches_python_oracle(tmp_path):
     fp = str(tmp_path / "obf.bin")
     data = _mk_obf(fp, 300_000)
     got = filescan._rust_xor(fp, _CRIB)
-    assert got == gpu.xor_crib_scan_cpu(data, _CRIB), (got[:5],)
+    assert got == filescan_mod.xor_crib_scan_cpu(data, _CRIB), (got[:5],)
 
 
 @pytest.mark.skipif(not _HAS_EXE, reason=_EXE_HINT)

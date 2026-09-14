@@ -17,8 +17,11 @@
 | CUDA Driver API | `nvcuda.dll` + 需要 nvcc 或预编译 PTX | ❌ 本机无 nvcc；OpenCL 已覆盖同一 GPU |
 | wgpu/cust/torch/cupy | 第三方包 | ❌ 违反零依赖红线 |
 
-实现：`tools/gpu.py` —— ctypes 直调 OpenCL（显式 argtypes，避免 64 位句柄截断），
-上下文/队列/程序按进程缓存；内核用 OpenCL C 写、运行时编译。
+实现（S130 拆分后）：`tools/gpu.py` = **运行时**——ctypes 直调 OpenCL（显式 argtypes，
+避免 64 位句柄截断），上下文/队列/程序按进程缓存 + 交叉点表（CROSSOVER）+ pick_mode
+选路；**内核就近在各域**：literal_scan/byte_hist(+entropy)/xor_crib_scan 在
+`tools/filescan.py`，ngram_bottomk/ngram_hashes/bottom_k/jaccard 在 `tools/neardupes.py`
+——内核用 OpenCL C 写、运行时编译，CPU oracle 与 kernel 同居一文件。
 
 **本机实测环境**：NVIDIA GeForce RTX 4060 Ti（34 CU / 8GB / OpenCL 3.0 CUDA 13.1）。
 

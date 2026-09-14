@@ -14,6 +14,7 @@ import pytest
 import registry
 import tools  # noqa: F401
 from tools import gpu
+from tools import neardupes as neardupes_mod  # S130：kernel 就近迁移
 from tools import neardupes  # noqa: F401
 
 _HAS_GPU = gpu.status().get("available") is True
@@ -31,21 +32,21 @@ def _fnv1a32_independent(data, ng):
 
 
 def test_bottom_k_and_jaccard_units():
-    assert gpu.bottom_k([], 8) == frozenset()
+    assert neardupes_mod.bottom_k([], 8) == frozenset()
     # 取 k 个最小，重复值只算一个（CPU/GPU 两路同口径）
-    assert gpu.bottom_k([5, 1, 9, 1, 3], 2) == frozenset({1})
-    assert gpu.bottom_k([5, 1, 9, 1, 3], 3) == frozenset({1, 3})
-    assert gpu.bottom_k([5, 1, 9], 99) == frozenset({1, 5, 9})
-    assert gpu.jaccard(frozenset(), frozenset()) == 0.0
-    assert gpu.jaccard(frozenset({1, 2}), frozenset({1, 2})) == 1.0
-    assert gpu.jaccard(frozenset({1, 2}), frozenset({3, 4})) == 0.0
-    assert gpu.jaccard(frozenset({1, 2}), frozenset({2, 3})) == pytest.approx(1 / 3)
+    assert neardupes_mod.bottom_k([5, 1, 9, 1, 3], 2) == frozenset({1})
+    assert neardupes_mod.bottom_k([5, 1, 9, 1, 3], 3) == frozenset({1, 3})
+    assert neardupes_mod.bottom_k([5, 1, 9], 99) == frozenset({1, 5, 9})
+    assert neardupes_mod.jaccard(frozenset(), frozenset()) == 0.0
+    assert neardupes_mod.jaccard(frozenset({1, 2}), frozenset({1, 2})) == 1.0
+    assert neardupes_mod.jaccard(frozenset({1, 2}), frozenset({3, 4})) == 0.0
+    assert neardupes_mod.jaccard(frozenset({1, 2}), frozenset({2, 3})) == pytest.approx(1 / 3)
 
 
 def test_fnv_cpu_matches_independent_oracle():
     data = os.urandom(4096)
     for ng in (2, 4, 7):
-        assert gpu.ngram_hashes_cpu(data, ng) == _fnv1a32_independent(data, ng), ng
+        assert neardupes_mod.ngram_hashes_cpu(data, ng) == _fnv1a32_independent(data, ng), ng
 
 
 def test_bottomk_cpu_matches_bruteforce():
@@ -53,9 +54,9 @@ def test_bottomk_cpu_matches_bruteforce():
     for ng, k in ((4, 128), (3, 16)):
         allh = _fnv1a32_independent(data, ng)
         want = frozenset(sorted(allh)[:k])
-        assert gpu.ngram_bottomk_cpu(data, ng, k) == want, (ng, k)
+        assert neardupes_mod.ngram_bottomk_cpu(data, ng, k) == want, (ng, k)
     # 短于 n-gram / 空数据：空指纹（不抛穿）
-    assert gpu.ngram_bottomk_cpu(b"ab", 4, 8) == frozenset()
+    assert neardupes_mod.ngram_bottomk_cpu(b"ab", 4, 8) == frozenset()
 
 
 def test_pick_mode_bottomk_crossover():
@@ -69,8 +70,8 @@ def test_bottomk_gpu_matches_cpu_oracle():
     for n in (9, 5000, 300_000):
         data = os.urandom(n)
         for ng, k in ((4, 128), (2, 16)):
-            g = gpu.ngram_bottomk_gpu(data, ng, k)
-            c = gpu.ngram_bottomk_cpu(data, ng, k)
+            g = neardupes_mod.ngram_bottomk_gpu(data, ng, k)
+            c = neardupes_mod.ngram_bottomk_cpu(data, ng, k)
             assert g == c, (n, ng, k, len(g), len(c))
             assert g <= set(_fnv1a32_independent(data, ng)), "指纹必须是真实哈希子集"
 
@@ -80,15 +81,15 @@ def test_bottomk_gpu_overflow_falls_back():
     # 全零数据：所有 n-gram 哈希相同 → 单桶计数 = n 远超容量上限 → 回退全量路径
     data = bytes(200_000)
     want = frozenset({_fnv1a32_independent(bytes(4), 4)[0]})
-    assert gpu.ngram_bottomk_gpu(data, 4, 128) == gpu.ngram_bottomk_cpu(data, 4, 128)
-    assert gpu.ngram_bottomk_gpu(data, 4, 128) == want
-    assert gpu.ngram_bottomk_gpu(b"", 4, 8) == frozenset()
+    assert neardupes_mod.ngram_bottomk_gpu(data, 4, 128) == neardupes_mod.ngram_bottomk_cpu(data, 4, 128)
+    assert neardupes_mod.ngram_bottomk_gpu(data, 4, 128) == want
+    assert neardupes_mod.ngram_bottomk_gpu(b"", 4, 8) == frozenset()
 
 
 @pytest.mark.skipif(not _HAS_GPU, reason="本机无 GPU/OpenCL")
 def test_ngram_hashes_gpu_matches_cpu_oracle():
     data = os.urandom(50_000)
-    assert gpu.ngram_hashes_gpu(data, 4) == gpu.ngram_hashes_cpu(data, 4)
+    assert neardupes_mod.ngram_hashes_gpu(data, 4) == neardupes_mod.ngram_hashes_cpu(data, 4)
 
 
 def _mk_pair(tmp_path):

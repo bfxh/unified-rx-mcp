@@ -3,7 +3,7 @@
 
 口径：预热一次（内核编译/上下文只付一次），再按尺寸扫；每个尺寸取 3 次最小值。
 输出：stdout 表 + 末行 JSON（留档 bench/results/s114_gpu.json）。
-结论回填到 tools/gpu.py 的 CROSSOVER（auto 模式据此选路）。
+结论回填到 tools/gpu.py 的 CROSSOVER（auto 模式据此选路）；S130 后 kernel 在 filescan/neardupes，运行时在 gpu.py。
 
 用法：python bench/s114_gpu_bench.py
 """
@@ -17,6 +17,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
 import tools.gpu as gpu  # noqa: E402
+import tools.filescan as filescan_mod  # noqa: E402  S130：kernel 就近迁移
+import tools.neardupes as neardupes_mod  # noqa: E402
 
 SIZES_MB = (1, 2, 4, 8, 16, 32, 64)
 
@@ -43,17 +45,17 @@ def main():
 
     # 预热（编译内核 + 建上下文）
     warm = b"x" * (1 << 20)
-    gpu.byte_hist_gpu(warm)
-    gpu.literal_scan_gpu(warm, [b"needle"])
-    gpu.ngram_bottomk_gpu(warm, 4, 128)
-    gpu.ngram_hashes_gpu(warm, 4)
+    filescan_mod.byte_hist_gpu(warm)
+    filescan_mod.literal_scan_gpu(warm, [b"needle"])
+    neardupes_mod.ngram_bottomk_gpu(warm, 4, 128)
+    neardupes_mod.ngram_hashes_gpu(warm, 4)
 
     # 1) 字节直方图/熵
     print("\n-- byte_hist（直方图/熵）--")
     for mb in SIZES_MB:
         data = os.urandom(mb << 20)
-        tg, hg = _best(gpu.byte_hist_gpu, data)
-        tc, hc = _best(gpu.byte_hist_cpu, data)
+        tg, hg = _best(filescan_mod.byte_hist_gpu, data)
+        tc, hc = _best(filescan_mod.byte_hist_cpu, data)
         ok = hg == hc
         rows.append({"kind": "byte_hist", "mb": mb, "gpu_ms": round(tg, 2),
                      "cpu_ms": round(tc, 2), "speedup": round(tc / tg, 1), "equal": ok})
@@ -64,9 +66,9 @@ def main():
     pats = [f"SIG_{i:04d}".encode() for i in range(64)] + [b"EVIL_MARKER_42"]
     for mb in SIZES_MB:
         data = (b"benign payload " * (mb << 17)) + b"EVIL_MARKER_42"
-        tg, gh = (_best(lambda d: gpu.literal_scan_gpu(d, pats), data, 1)
+        tg, gh = (_best(lambda d: filescan_mod.literal_scan_gpu(d, pats), data, 1)
                   if mb <= 16 else (None, None))
-        tc, ch = _best(lambda d: gpu.literal_scan_cpu(d, pats), data, 1)
+        tc, ch = _best(lambda d: filescan_mod.literal_scan_cpu(d, pats), data, 1)
         ok = (gh == ch) if gh is not None else None
         rows.append({"kind": "literal_scan", "mb": mb,
                      "gpu_ms": round(tg, 2) if tg else None,
@@ -78,8 +80,8 @@ def main():
     print("\n-- xor_crib_scan（单字节异或密钥枚举，crib=MZ）--")
     for mb in (1, 4, 16, 64):
         data = bytes(b ^ 0x5A for b in (b"MZ" + os.urandom((mb << 20) - 4)))
-        tg, gh = _best(lambda d: gpu.xor_crib_scan_gpu(d, b"MZ"), data, 1)
-        tc, ch = _best(lambda d: gpu.xor_crib_scan_cpu(d, b"MZ"), data, 1)
+        tg, gh = _best(lambda d: filescan_mod.xor_crib_scan_gpu(d, b"MZ"), data, 1)
+        tc, ch = _best(lambda d: filescan_mod.xor_crib_scan_cpu(d, b"MZ"), data, 1)
         rows.append({"kind": "xor_scan", "mb": mb, "gpu_ms": round(tg, 2),
                      "cpu_ms": round(tc, 2), "speedup": round(tc / tg, 1),
                      "equal": gh == ch})
@@ -89,8 +91,8 @@ def main():
     print("\n-- ngram_bottomk（ng=4, k=128；回传量 O(n)→O(k)）--")
     for kb in (8, 64, 256, 1024, 4096):
         data = os.urandom(kb << 10)
-        tg, hg = _best(lambda d: gpu.ngram_bottomk_gpu(d, 4, 128), data, 1)
-        tc, hc = _best(lambda d: gpu.ngram_bottomk_cpu(d, 4, 128), data, 1)
+        tg, hg = _best(lambda d: neardupes_mod.ngram_bottomk_gpu(d, 4, 128), data, 1)
+        tc, hc = _best(lambda d: neardupes_mod.ngram_bottomk_cpu(d, 4, 128), data, 1)
         rows.append({"kind": "ngram_bottomk", "kb": kb, "gpu_ms": round(tg, 2),
                      "cpu_ms": round(tc, 2), "speedup": round(tc / tg, 1),
                      "equal": hg == hc})
@@ -100,8 +102,8 @@ def main():
     print("\n-- ngram_hashes（全量输出，带宽受限；回退路径）--")
     for mb in (1, 4, 16):
         data = os.urandom(mb << 20)
-        th, hh = _best(lambda d: gpu.ngram_hashes_gpu(d, 4), data, 1)
-        tch, hch = _best(lambda d: gpu.ngram_hashes_cpu(d, 4), data, 1)
+        th, hh = _best(lambda d: neardupes_mod.ngram_hashes_gpu(d, 4), data, 1)
+        tch, hch = _best(lambda d: neardupes_mod.ngram_hashes_cpu(d, 4), data, 1)
         rows.append({"kind": "ngram_hashes", "mb": mb, "gpu_ms": round(th, 2),
                      "cpu_ms": round(tch, 2), "speedup": round(tch / th, 1),
                      "equal": hh == hch})

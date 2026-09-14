@@ -1,22 +1,24 @@
 # -*- coding: utf-8 -*-
-"""tools/gpu.py —— GPU 计算支持（S114）：ctypes 直调系统 OpenCL 运行时，零 pip 依赖。
+"""tools/gpu.py —— GPU 计算运行时与选路（S114；S130 拆分：kernel 就近迁移）。
+
+S130 拆分（CONSOLIDATION §三 P1 gpu）：本文件收敛为**运行时**——OpenCL 加载/
+上下文/编译缓存/参数设置/读回 + 交叉点表（CROSSOVER）+ pick_mode 选路 +
+gpu_status 工具。各域 kernel 与其 CPU oracle 已就近迁移：
+- `literal_scan` / `byte_hist`（含 entropy）/ `xor_crib_scan` → tools/filescan.py；
+- `ngram_bottomk` / `ngram_hashes` / `bottom_k` / `jaccard` → tools/neardupes.py。
+公开名不变（域内直呼）；本模块零 kernel，只剩运行时与共享选路。
 
 设计口径（与 LSP/ast-grep 同款"可选外部引擎 + 优雅降级"）：
 - **运行时**：`OpenCL.dll`（Windows）/ `libOpenCL.so`（Linux）——系统自带，不装 pip 包；
   NVIDIA 驱动即提供（本机 RTX 4060 Ti / OpenCL 3.0）。CUDA 路线需 nvcc 或 PTX，
   故不采用（nvcc 未装；OpenCL 运行时编译等价且跨厂商）。
 - **诚实边界**：GPU 只加速**数据并行**内核（字面量多模式匹配、字节直方图/熵、
-  异或密钥爆破）。IO 主导的活（读盘/解析/索引）不因 GPU 变快——交叉点由
-  bench/s114_gpu_bench.py 实测给出，`mode="auto"` 据此选路。
+  异或密钥爆破、n-gram 指纹）。IO 主导的活（读盘/解析/索引）不因 GPU 变快——
+  交叉点由 bench/s114_gpu_bench.py 实测给出，`mode="auto"` 据此选路。
 - **降级纪律**：无运行时/无 GPU 设备/内核编译失败 → 明确错误或回落 CPU（不静默、
-  不假装）。CPU 参考实现在同文件（`*_cpu`），既是降级路径也是 GPU 的 oracle。
-
-内核（OpenCL C，运行时编译）：
-- `literal_scan`：每 work-item 负责一个偏移，检查任一模式是否在此处出现（memcmp）。
-- `byte_hist`：每 work-item 统计一个块的 256 桶直方图（原子加），用于熵/打包检测。
+  不假装）。CPU 参考实现在各域文件（`*_cpu`），既是降级路径也是 GPU 的 oracle。
 """
 import ctypes
-import math
 import os
 import threading
 
@@ -196,59 +198,6 @@ def _program(src):
     return prog
 
 
-_K_LITERAL = r"""
-__kernel void literal_scan(__global const uchar* data, const uint n,
-                           __global const uchar* pats, __global const uint* poff,
-                           const uint plen_total, const uint npats,
-                           __global uint* hits) {
-    uint i = get_global_id(0);
-    if (i >= n) return;
-    for (uint k = 0; k < npats; ++k) {
-        uint off = poff[k], plen = poff[k+1] - off;
-        if (plen == 0 || i + plen > n) continue;
-        uint ok = 1;
-        for (uint j = 0; j < plen; ++j) {
-            if (data[i + j] != pats[off + j]) { ok = 0; break; }
-        }
-        if (ok) { hits[i] = k + 1; return; }
-    }
-}
-"""
-
-_K_HIST = r"""
-__kernel void byte_hist(__global const uchar* data, const uint n,
-                        __global uint* hist) {
-    uint gid = get_global_id(0), gsz = get_global_size(0);
-    uint bins[256];
-    for (uint i = 0; i < 256; ++i) bins[i] = 0;
-    for (uint i = gid; i < n; i += gsz) bins[data[i]]++;
-    for (uint i = 0; i < 256; ++i) {
-        if (bins[i]) atomic_add(&hist[i], bins[i]);
-    }
-}
-"""
-
-
-_K_XOR = r"""
-__kernel void xor_crib_scan(__global const uchar* data, const uint n,
-                            __global const uchar* crib, const uint clen,
-                            __global const uchar* keys, const uint nkeys,
-                            __global uint* hits) {
-    uint k = get_global_id(0);
-    if (k >= nkeys) return;
-    uchar key = keys[k];
-    uint count = 0;
-    for (uint i = 0; i + clen <= n; ++i) {
-        uint ok = 1;
-        for (uint j = 0; j < clen; ++j) {
-            if ((data[i + j] ^ key) != crib[j]) { ok = 0; break; }
-        }
-        if (ok && count < 256) count++;
-    }
-    hits[k] = count;
-}
-"""
-
 def _read_buf(cl, queue, mem, nbytes):
     out = (ctypes.c_char * nbytes)()
     _check(cl.clEnqueueReadBuffer(queue, mem, 1, 0, nbytes, out, 0, None, None),
@@ -257,127 +206,17 @@ def _read_buf(cl, queue, mem, nbytes):
     return bytes(out)
 
 
-def literal_scan_gpu(data, patterns):
-    """GPU 多模式字面量匹配 → [(offset, pattern_index)]（同偏移多模式只报第一个）。"""
-    cl = _cl()
-    ctx, queue, _ = _ensure_ctx()
-    pats = [p for p in patterns if p]
-    if not data or not pats:
-        return []
-    flat = b"".join(pats)
-    poff = [0]
-    for p in pats:
-        poff.append(poff[-1] + len(p))
-    err = ctypes.c_int()
-    n = len(data)
-    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(data)")
-    pmem = cl.clCreateBuffer(ctx, 4 | 32, len(flat), ctypes.c_char_p(flat), ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(pats)")
-    omem = cl.clCreateBuffer(ctx, 4 | 32, 4 * (len(poff)), (ctypes.c_uint * len(poff))(*poff),
-                             ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(poff)")
-    hmem = cl.clCreateBuffer(ctx, 2, 4 * n, None, ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(hits)")
-    zero = (ctypes.c_char * (4 * n))()
-    _check(cl.clEnqueueWriteBuffer(queue, hmem, 1, 0, 4 * n, zero, 0, None, None), "写零 hits")
-    kern = cl.clCreateKernel(_program(_K_LITERAL), b"literal_scan", ctypes.byref(err))
-    _check(err.value, "clCreateKernel")
-    _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
-    _set_arg(cl, kern, 1, ctypes.c_uint(n))
-    _set_arg(cl, kern, 2, ctypes.c_void_p(pmem))
-    _set_arg(cl, kern, 3, ctypes.c_void_p(omem))
-    _set_arg(cl, kern, 4, ctypes.c_uint(len(flat)))
-    _set_arg(cl, kern, 5, ctypes.c_uint(len(pats)))
-    _set_arg(cl, kern, 6, ctypes.c_void_p(hmem))
-    gsz = ctypes.c_size_t(n)
-    _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz), None, 0, None, None),
-           "clEnqueueNDRangeKernel")
-    raw = _read_buf(cl, queue, hmem, 4 * n)
-    hits = []
-    for i in range(n):
-        v = int.from_bytes(raw[4 * i:4 * i + 4], "little")
-        if v:
-            hits.append((i, v - 1))
-    for h in (dmem, pmem, omem, hmem):
-        cl.clReleaseMemObject(h)
-    cl.clReleaseKernel(kern)
-    return hits
-
-
-def literal_scan_cpu(data, patterns):
-    """CPU 参考实现（降级路径 + GPU 的 oracle）：bytes.find 逐个模式取所有出现位置。"""
-    hits = []
-    for i, p in enumerate(patterns):
-        if not p:
-            continue
-        start = 0
-        while True:
-            j = data.find(p, start)
-            if j < 0:
-                break
-            hits.append((j, i))
-            start = j + 1
-    hits.sort()
-    return hits
-
-
-def byte_hist_gpu(data):
-    """GPU 字节直方图（256 桶）→ list[int]。"""
-    cl = _cl()
-    ctx, queue, _ = _ensure_ctx()
-    n = len(data)
-    if not n:
-        return [0] * 256
-    err = ctypes.c_int()
-    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(data)")
-    hmem = cl.clCreateBuffer(ctx, 2 | 32, 4 * 256, (ctypes.c_uint * 256)(*([0] * 256)),
-                             ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(hist)")
-    kern = cl.clCreateKernel(_program(_K_HIST), b"byte_hist", ctypes.byref(err))
-    _check(err.value, "clCreateKernel")
-    _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
-    _set_arg(cl, kern, 1, ctypes.c_uint(n))
-    _set_arg(cl, kern, 2, ctypes.c_void_p(hmem))
-    gsz = ctypes.c_size_t(min(65536, max(1, n // 64)))
-    _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz), None, 0, None, None),
-           "clEnqueueNDRangeKernel")
-    raw = _read_buf(cl, queue, hmem, 4 * 256)
-    hist = [int.from_bytes(raw[4 * i:4 * i + 4], "little") for i in range(256)]
-    cl.clReleaseMemObject(dmem)
-    cl.clReleaseMemObject(hmem)
-    cl.clReleaseKernel(kern)
-    return hist
-
-
-def byte_hist_cpu(data):
-    hist = [0] * 256
-    for b in data:
-        hist[b] += 1
-    return hist
-
-
-def entropy(hist, n):
-    """香农熵（0-8 bits/byte）——直方图直接算。"""
-    if not n:
-        return 0.0
-    h = 0.0
-    for c in hist:
-        if c:
-            p = c / n
-            h -= p * math.log2(p)
-    return h
-
-
 # ---- 交叉点（bench/s114_gpu_bench.py 实测回填，2026-09-09 / RTX 4060 Ti）----
 # 实测：byte_hist GPU 31-38×（1-64MB，预热后，结果与 CPU 逐位一致）；
-#       literal_scan GPU 慢 5-6×（CPU bytes.find/memmem 太强）→ auto 恒走 CPU。
+#       literal_scan GPU 慢 5-6×（CPU bytes.find/memmem 太强）→ auto 恒走 CPU；
+#       xor_scan 1MB 0.6× / 4MB 3.8× → 取 2MB 为界；
+#       ngram_bottomk 两遍选择 2.1×@8KB→551×@16MB（4KB 时 0.9×，GPU 固定开销 ~4ms）
+#       → 交叉点取 8KB；ngram_hashes 全量输出仅 2.8×（带宽受限），只作回退与对拍。
 # 换硬件/换数据分布请重跑 bench/s114_gpu_bench.py 再回填。
-CROSSOVER = {"literal_scan_bytes": 1 << 62, "byte_hist_bytes": 1 << 20,
-             # 实测：1MB 0.6× / 4MB 3.8× → 取 2MB 为界
-             "xor_scan_bytes": 2 << 20}
 # S119 退役：dot_matrix（无调用方 + 朴素内核实测 22× 慢于原生 Rust）——见 spec/GPU.md §二
+CROSSOVER = {"literal_scan_bytes": 1 << 62, "byte_hist_bytes": 1 << 20,
+             "xor_scan_bytes": 2 << 20,
+             "ngram_bottomk_bytes": 1 << 13, "ngram_hashes_bytes": 2 << 20}
 
 
 def pick_mode(kind, nbytes, mode="auto"):
@@ -395,264 +234,7 @@ from registry import tool  # noqa: E402
       {"type": "object", "properties": {}, "required": []})
 def gpu_status():
     st = status()
-    st["note"] = ("GPU 只加速数据并行内核（直方图/熵等）；字面量匹配与 IO/编排类"
-                  "仍走 CPU（交叉点实测见 spec/GPU.md）；auto 按实测选路")
+    st["note"] = ("GPU 只加速数据并行内核（直方图/熵/异或枚举/n-gram 指纹等）；"
+                  "字面量匹配与 IO/编排类仍走 CPU（交叉点实测见 spec/GPU.md）；"
+                  "auto 按实测选路")
     return st
-
-def xor_crib_scan_gpu(data, crib, keys=range(256)):
-    """单字节异或密钥枚举：找让 crib 在解码后出现的密钥 → [(key, count)]。
-
-    典型用途：恶意样本/混淆载荷的单字节 XOR 层探测（配已知明文 crib，如 "MZ"、
-    "PK"、EICAR 串）。多字节 XOR 需先爆破密钥空间，本函数不做（如实边界）。
-    """
-    cl = _cl()
-    ctx, queue, _ = _ensure_ctx()
-    keys = list(keys)
-    if not data or not crib or not keys:
-        return []
-    err = ctypes.c_int()
-    n = len(data)
-    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(data)")
-    cmem = cl.clCreateBuffer(ctx, 4 | 32, len(crib), ctypes.c_char_p(crib), ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(crib)")
-    kmem = cl.clCreateBuffer(ctx, 4 | 32, len(keys), (ctypes.c_ubyte * len(keys))(*keys),
-                             ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(keys)")
-    hmem = cl.clCreateBuffer(ctx, 2, 4 * len(keys), None, ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(hits)")
-    kern = cl.clCreateKernel(_program(_K_XOR), b"xor_crib_scan", ctypes.byref(err))
-    _check(err.value, "clCreateKernel")
-    _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
-    _set_arg(cl, kern, 1, ctypes.c_uint(n))
-    _set_arg(cl, kern, 2, ctypes.c_void_p(cmem))
-    _set_arg(cl, kern, 3, ctypes.c_uint(len(crib)))
-    _set_arg(cl, kern, 4, ctypes.c_void_p(kmem))
-    _set_arg(cl, kern, 5, ctypes.c_uint(len(keys)))
-    _set_arg(cl, kern, 6, ctypes.c_void_p(hmem))
-    gsz = ctypes.c_size_t(len(keys))
-    _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz), None, 0, None, None),
-           "clEnqueueNDRangeKernel")
-    raw = _read_buf(cl, queue, hmem, 4 * len(keys))
-    out = []
-    for i, k in enumerate(keys):
-        c = int.from_bytes(raw[4 * i:4 * i + 4], "little")
-        if c:
-            out.append((k, c))
-    for m in (dmem, cmem, kmem, hmem):
-        cl.clReleaseMemObject(m)
-    cl.clReleaseKernel(kern)
-    return out
-
-
-def xor_crib_scan_cpu(data, crib, keys=range(256)):
-    """CPU 参考（降级 + oracle）：bytes.translate 建 XOR 表 + find（C 速度）。"""
-    out = []
-    for k in keys:
-        table = bytes((i ^ k) for i in range(256))
-        decoded = data.translate(table)
-        start, c = 0, 0
-        while True:
-            j = decoded.find(crib, start)
-            if j < 0:
-                break
-            if c < 256:
-                c += 1
-            start = j + 1
-        if c:
-            out.append((k, c))
-    return out
-
-
-_K_NGBUCKET = r"""
-__kernel void ngram_buckets(__global const uchar* data, const uint n, const uint ng,
-                            const uint shift, __global uint* bins) {
-    uint gid = get_global_id(0), gsz = get_global_size(0);
-    for (uint i = gid; i + ng <= n; i += gsz) {
-        uint h = 2166136261u;                 /* FNV-1a 32 */
-        for (uint j = 0; j < ng; ++j) h = (h ^ (uint)data[i + j]) * 16777619u;
-        atomic_add(&bins[h >> shift], 1u);
-    }
-}
-"""
-
-_K_NGEMIT = r"""
-__kernel void ngram_emit(__global const uchar* data, const uint n, const uint ng,
-                         const uint shift, const uint hi, const uint cap,
-                         __global uint* out, __global uint* count) {
-    uint gid = get_global_id(0), gsz = get_global_size(0);
-    for (uint i = gid; i + ng <= n; i += gsz) {
-        uint h = 2166136261u;
-        for (uint j = 0; j < ng; ++j) h = (h ^ (uint)data[i + j]) * 16777619u;
-        if ((h >> shift) <= hi) {
-            uint idx = atomic_inc(&count[0]);
-            if (idx < cap) out[idx] = h;
-        }
-    }
-}
-"""
-
-_NGBUCKET_SHIFT = 20          # 4096 桶：按哈希高 12 位定阈值，桶边界即阈值边界
-
-
-def ngram_bottomk_gpu(data, ng, k=128):
-    """bottom-k MinHash 指纹（GPU 两遍选择；FNV-1a 32 口径，与 CPU 参考逐位一致）。
-
-    第一遍按哈希高 12 位做直方图，取累计 ≥ 4k 的最小桶边界为阈值；
-    第二遍只发射 ≤ 阈值的哈希（期望 ~4k 个）。回传量 O(n)→O(k)，
-    大文件不再受输出带宽限制（全量输出实测仅 2.8×，见 spec/GPU.md §二）。
-    单桶超过容量上限的极端分布自动回退全量哈希路径，结果口径不变。
-    """
-    cl = _cl()
-    ctx, queue, _ = _ensure_ctx()
-    n = len(data)
-    m = n - ng + 1
-    if m <= 0 or ng < 1:
-        return frozenset()
-    err = ctypes.c_int()
-    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(data)")
-    shift = _NGBUCKET_SHIFT
-    nb = 1 << (32 - shift)
-    try:
-        bmem = cl.clCreateBuffer(ctx, 2 | 32, 4 * nb,
-                                 (ctypes.c_uint * nb)(*([0] * nb)), ctypes.byref(err))
-        _check(err.value, "clCreateBuffer(bins)")
-        kern = cl.clCreateKernel(_program(_K_NGBUCKET), b"ngram_buckets", ctypes.byref(err))
-        _check(err.value, "clCreateKernel(buckets)")
-        _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
-        _set_arg(cl, kern, 1, ctypes.c_uint(n))
-        _set_arg(cl, kern, 2, ctypes.c_uint(ng))
-        _set_arg(cl, kern, 3, ctypes.c_uint(shift))
-        _set_arg(cl, kern, 4, ctypes.c_void_p(bmem))
-        gsz = ctypes.c_size_t(min(65536, max(1, m // 16)))
-        _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz),
-                                         None, 0, None, None),
-               "clEnqueueNDRangeKernel(buckets)")
-        raw = _read_buf(cl, queue, bmem, 4 * nb)
-        cl.clReleaseMemObject(bmem)
-        cl.clReleaseKernel(kern)
-        hist = [int.from_bytes(raw[4 * i:4 * i + 4], "little") for i in range(nb)]
-        target = max(4 * int(k), 64)
-        cum, hi = 0, nb - 1
-        for b, c in enumerate(hist):
-            cum += c
-            if cum >= target:
-                hi = b
-                break
-        cap = min(m, max(1 << 16, 16 * int(k)))
-        omem = cl.clCreateBuffer(ctx, 2, 4 * cap, None, ctypes.byref(err))
-        _check(err.value, "clCreateBuffer(out)")
-        cmem = cl.clCreateBuffer(ctx, 2 | 32, 4, (ctypes.c_uint * 1)(0), ctypes.byref(err))
-        _check(err.value, "clCreateBuffer(count)")
-        kern2 = cl.clCreateKernel(_program(_K_NGEMIT), b"ngram_emit", ctypes.byref(err))
-        _check(err.value, "clCreateKernel(emit)")
-        _set_arg(cl, kern2, 0, ctypes.c_void_p(dmem))
-        _set_arg(cl, kern2, 1, ctypes.c_uint(n))
-        _set_arg(cl, kern2, 2, ctypes.c_uint(ng))
-        _set_arg(cl, kern2, 3, ctypes.c_uint(shift))
-        _set_arg(cl, kern2, 4, ctypes.c_uint(hi))
-        _set_arg(cl, kern2, 5, ctypes.c_uint(cap))
-        _set_arg(cl, kern2, 6, ctypes.c_void_p(omem))
-        _set_arg(cl, kern2, 7, ctypes.c_void_p(cmem))
-        gsz = ctypes.c_size_t(m)
-        _check(cl.clEnqueueNDRangeKernel(queue, kern2, 1, None, ctypes.byref(gsz),
-                                         None, 0, None, None),
-               "clEnqueueNDRangeKernel(emit)")
-        cnt = int.from_bytes(_read_buf(cl, queue, cmem, 4), "little")
-        cl.clReleaseMemObject(cmem)
-        cl.clReleaseKernel(kern2)
-        if cnt > cap:
-            cl.clReleaseMemObject(omem)
-            return bottom_k(ngram_hashes_gpu(data, ng), k)
-        raw = _read_buf(cl, queue, omem, 4 * cnt) if cnt else b""
-        cl.clReleaseMemObject(omem)
-        got = [int.from_bytes(raw[4 * i:4 * i + 4], "little") for i in range(cnt)]
-        return bottom_k(got, k)
-    finally:
-        cl.clReleaseMemObject(dmem)
-
-
-_K_NGHASH = r"""
-__kernel void ngram_hashes(__global const uchar* data, const uint n, const uint ng,
-                           __global uint* out) {
-    uint i = get_global_id(0);
-    if (i + ng > n) return;
-    uint h = 2166136261u;
-    for (uint j = 0; j < ng; ++j) h = (h ^ (uint)data[i + j]) * 16777619u;
-    out[i] = h;
-}
-"""
-
-
-def ngram_hashes_gpu(data, ng):
-    """每位置一个 n-gram 哈希（FNV-1a 32）→ list[int]（len = n-ng+1）。"""
-    cl = _cl()
-    ctx, queue, _ = _ensure_ctx()
-    n = len(data)
-    m = n - ng + 1
-    if m <= 0:
-        return []
-    err = ctypes.c_int()
-    dmem = cl.clCreateBuffer(ctx, 4 | 32, n, ctypes.c_char_p(data), ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(data)")
-    omem = cl.clCreateBuffer(ctx, 2, 4 * m, None, ctypes.byref(err))
-    _check(err.value, "clCreateBuffer(out)")
-    kern = cl.clCreateKernel(_program(_K_NGHASH), b"ngram_hashes", ctypes.byref(err))
-    _check(err.value, "clCreateKernel")
-    _set_arg(cl, kern, 0, ctypes.c_void_p(dmem))
-    _set_arg(cl, kern, 1, ctypes.c_uint(n))
-    _set_arg(cl, kern, 2, ctypes.c_uint(ng))
-    _set_arg(cl, kern, 3, ctypes.c_void_p(omem))
-    gsz = ctypes.c_size_t(m)
-    _check(cl.clEnqueueNDRangeKernel(queue, kern, 1, None, ctypes.byref(gsz), None, 0, None, None),
-           "clEnqueueNDRangeKernel")
-    raw = _read_buf(cl, queue, omem, 4 * m)
-    out = [int.from_bytes(raw[4 * i:4 * i + 4], "little") for i in range(m)]
-    cl.clReleaseMemObject(dmem)
-    cl.clReleaseMemObject(omem)
-    cl.clReleaseKernel(kern)
-    return out
-
-
-def ngram_hashes_cpu(data, ng):
-    """CPU 参考（同 FNV-1a 32 口径；纯 Python 基线）。"""
-    out = []
-    n = len(data)
-    for i in range(max(0, n - ng + 1)):
-        h = 2166136261
-        for j in range(ng):
-            h = ((h ^ data[i + j]) * 16777619) & 0xFFFFFFFF
-        out.append(h)
-    return out
-
-
-def bottom_k(hashes, k=128):
-    """bottom-k MinHash 指纹：取 k 个最小且互异的哈希（近重复检测经典口径）。"""
-    import heapq
-    if not hashes:
-        return frozenset()
-    return frozenset(heapq.nsmallest(int(k), hashes))
-
-
-def jaccard(a, b):
-    if not a and not b:
-        return 0.0
-    inter = len(a & b)
-    union = len(a | b)
-    return inter / union if union else 0.0
-
-
-def ngram_bottomk_cpu(data, ng, k=128):
-    """CPU 参考：独立算法（全量哈希 + heapq 选择），用作 GPU 路径的 oracle 对拍。"""
-    return bottom_k(ngram_hashes_cpu(data, ng), k)
-
-
-# 实测（2026-09-09，RTX 4060 Ti）：bottom-k 两遍选择 GPU vs CPU 参考——2.1×@8KB、
-# 12.3×@64KB、49.7×@256KB、187×@1MB、281×@4MB、551×@16MB（4KB 时 0.9×，GPU 固定
-# 开销 ~4ms）→ 交叉点取 8KB。全量哈希输出仅 2.8×（输出带宽受限），故 sketch 走两遍
-# 选择，该口径只留作回退路径与对拍 oracle。**负结果入册**：批量哈希（FNV-1a 64 每块）
-# GPU vs CPU hashlib.blake2b 仅 0.4-1.2× —— CPU 的 C 实现更快，故**不接**（删内核避免
-# 死代码；数字见 spec/GPU.md §二）。
-CROSSOVER.update({"ngram_bottomk_bytes": 1 << 13, "ngram_hashes_bytes": 2 << 20})
-

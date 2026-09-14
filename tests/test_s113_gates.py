@@ -7,8 +7,8 @@
 2. 工具入文档**双向**——在册工具必须出现在 skills/*.md（旧 SKILLS_DOCS 只查
    单向，漏了 code_coverage/module_stability/ide_health_trend 三个）；
 3. 模块与函数尺寸——默认模块化：tools ≤900 行、rust/src ≤3200 行、函数 ≤200 行
-   （S129 实测上限 tools/gpu.py 658、pyast.rs 2986、ide_lsp 168 行——lsp.py 已由
-   850 拆至 507，见 ROUNDLOG S129）；
+   （S130 实测上限 tools/lsp.py 507、pyast.rs 2986、ide_lsp 168 行——gpu.py 658
+   已拆至各域 kernel，见 ROUNDLOG S130）；
 4. 分组合法 + 检查器自检（impact_check 能跑并输出 JSON）。
 5. 版本锁步（S117 补）——server.py / Cargo.toml / Cargo.lock / README 头部四处
    必须同版本（S116 漏更 README 版本头，四道门禁全绿也没抓到，故入机器门）。
