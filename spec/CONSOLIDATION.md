@@ -330,6 +330,16 @@ definite 131(+1) / cross_flows 7 / ambiguous 80——净新增 0 如实入档。
 - 计数门全套随动：README ×5、PANORAMA attack(6)/71、skills/README attack 6、
   test_v2 上限 71、test_s127 ==71；skills/attack.md 头 + 巡航契约。
 
+**S134 实施记录（secrets_hunt 原生化，第八实施轮；HARDENING §六候选一）**：
+- rust/src/secrets.rs（手写 8 模式 + 熵层，Unicode 词边界/splitlines 全字符集/
+  首现序 Shannon/贪婪回溯语义）+ `rx-scan secrets` 子命令 + 薄壳化 tools/secrets.py
+  （读路径补沙盒）+ rust 测试 +4 单元/3 集成。
+- 对照实验：同夹具六字段 + hits 逐字节一致（14/8 规则）；对拍抓修两处偏差
+  （行号 1-based、赋值层值区间语义）。性能：1.94s → 0.55s（3.5×；首版 16.4s 的
+  两处热点已重构）。
+- 本文档缺口清单（§五）在 S133 已清零；本项属 HARDENING §六 Rust 候选序列，
+  下一候选 = ide_dead_code 原生化（pyast.rs 节点面已就绪）。
+
 **S130 实施记录（gpu 拆分收尾 + P2-A，第四实施轮）**：
 - **gpu 拆分**（§三 P1，上轮延后项）：gpu.py 658 → 运行时约 400 行；kernel 三簇
   就近迁 filescan（472）/neardupes（467）；CROSSOVER 表留 gpu.py 完整（含 ngram

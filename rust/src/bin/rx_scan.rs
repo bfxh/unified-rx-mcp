@@ -14,6 +14,9 @@
 //!   rx-scan resolvedir <root> [max_files] （S108：跨文件 import 拼接）
 //!   rx-scan callgraph <root> [max_files]  （S125：调用图——节点/调用边/未解析分类，
 //!                                           同一作用域引擎 + 预扫描种子；默认 300）
+//!   rx-scan secrets <root> [max_files] [max_kb] [min_entropy] [max_results] [include_csv]
+//!                                         （S134：凭据泄漏扫描原生化——8 模式规则 +
+//!                                           熵层，掩码输出，见 rust/src/secrets.rs）
 //!   rx-scan sketch   <ng> <k> [threads]   （S119：批量 n-gram bottom-k 指纹，
 //!                                           路径走 stdin 帧流，见 rust/src/sketch.rs）
 //!   rx-scan xor      <crib_hex> [threads]  （S120：单字节异或密钥枚举，
@@ -30,11 +33,12 @@ use rxrs::bug;
 use rxrs::json::Value;
 use rxrs::nameres;
 use rxrs::scan;
+use rxrs::secrets;
 use rxrs::sketch;
 use rxrs::xorscan;
 use std::io::Read;
 
-const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | astscan <path> [max_files] | buglocate <root> <error_text|-> | resolve <file> | resolvedir <root> [max_files] | callgraph <root> [max_files] | sketch <ng> <k> [threads] | xor <crib_hex> [threads]";
+const USAGE: &str = "用法: rx-scan stdcheck <path> [max_files] | uicheck <path> [max_files] | bugscan <path> [max_files] | astscan <path> [max_files] | buglocate <root> <error_text|-> | resolve <file> | resolvedir <root> [max_files] | callgraph <root> [max_files] | secrets <root> [max_files] [max_kb] [min_entropy] [max_results] [include_csv] | sketch <ng> <k> [threads] | xor <crib_hex> [threads]";
 
 fn main() {
     if std::env::args().any(|a| a == "--version") {
@@ -166,6 +170,20 @@ fn run(args: &[String]) -> Result<Value, String> {
                 )]));
             }
             Ok(nameres::callgraph_dir(p, mf))
+        }
+        "secrets" => {
+            // S134：凭据泄漏扫描原生化（语义与 tools/secrets.py 逐字节对齐；
+            // min_entropy 走 f64 字面量解析，垃圾回退 4.5）
+            let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
+            if root.is_empty() {
+                return Err(USAGE.into());
+            }
+            let mf = args.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(3000);
+            let mk = args.get(3).and_then(|s| s.parse::<usize>().ok()).unwrap_or(512);
+            let me = args.get(4).and_then(|s| s.parse::<f64>().ok()).unwrap_or(4.5);
+            let mr = args.get(5).and_then(|s| s.parse::<usize>().ok()).unwrap_or(200);
+            let inc = args.get(6).map(|s| s.as_str()).unwrap_or("");
+            Ok(secrets::secrets_scan(std::path::Path::new(root), mf, mk, me, mr, inc))
         }
         "sketch" => {
             // S119：批量 bottom-k 指纹。ng/k 越界钳到合法域（与 Python 侧同口径）；

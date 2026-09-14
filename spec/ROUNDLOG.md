@@ -739,3 +739,45 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - **缺口清单清零**：CONSOLIDATION §五 全部项目已兑（P0-A/P0-B撤/P1-A/P1-B/P2-A/P2-B/
   C1/C1b/C2/H1/H2/H3/M1/M4/P3），仅 M2（metrics 组轴错位）挂"下次动刀顺手"批次。
 - 提交：本次
+
+## S134 · 实施轮八：secrets_hunt 原生化（HARDENING §六 候选一）+ 版本 2.51.0
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.50.0 → **2.51.0**（tag v2.51.0）
+- 决策：缺口清单清零后按路线图走 Rust 侧第一候选（secrets_hunt 原生化，纪律=
+  **先测 Python 基线再动、对照实验为删码依据**）。
+- **基线**：Python 版整仓 745 文件 **1.94s**（HARDENING §五 旧记 725 文件 1362ms，
+  随仓增长）。
+- **Rust 实现**（rust/src/secrets.rs ~700 行 + `rx-scan secrets` 子命令）：8 条模式
+  规则 + 熵层全部**手写匹配器**（零依赖红线）：Unicode `\w` 词边界（中文相邻
+  无边界——与 Python str 正则一致，含夹具实测）、贪婪+回溯语义（`{m,n}` + 边界
+  的从右往左回溯、PEM 的 `[A-Z ]*` 回溯、JWT 三段）、Python `str.splitlines()`
+  全字符集（\n\r\v\f\x1c-\x1e\x85\U0002028\U0002029）、**首现序** Shannon
+  累加（与 dict 插入序一致 → f64 逐位一致）、占位符 27 词过滤、锁文件熵层跳过、
+  二进制/超尺寸 files_skipped、hits 按 (severity,file,line) 稳定排序、1-based 行号。
+- **对照实验**（本仓夹具，运行时拼接构造防静态门）：Python 版与 Rust 版输出
+  六字段 + hits 列表**逐字节一致**（14 命中 / 8 规则）。对拍过程抓出并修掉两处
+  偏差——①行号 0-based（Python enumerate(...,1)）；②赋值层掩码区间用了关键词
+  起点而非值区间（Python group(2) 语义）——**先对拍后接线，两处都在薄壳化前
+  由 diff 实锤**（若按"跑得通就切"会带病上线）。
+- **性能**：Rust 首版 **16.4s（比 Python 慢 8.5×）**——两处热点：kw 匹配每字符
+  位置 `format!` 建候选串、shannon 线性查找 O(k²)；重构（字面比较+首字符过滤、
+  字节数组 O(n) 计数）后 **0.55s = 3.5× 于 Python**；clippy --fix 后再验 parity
+  OK（机修不得改语义，复验过）。
+- **薄壳化**（tools/secrets.py 44→薄壳）：保留 docstring/note/elapsed 语义；
+  子进程转调 `_rx_scan_call`（与 scan 域同一桥）；**读路径补过沙盒**
+  （S88 纪律补全——原实现直付 abspath，本轮对齐）；测试同步：`_shannon/_mask`
+  直接单测迁 Rust 侧（src 单测锁 mask/shannon 值 + 集成锁输出面掩码格式），
+  Python 测试改黑盒（输出面断言掩码与熵层），missing-path 断言按新沙盒门双门化。
+- 测试：rust +4 单元（mask/shannon 契约、Unicode 边界、splitlines、锁文件名）+
+  3 集成（八规则掩码与不泄漏/占位符过滤/截断与 include）→ cargo **197 绿**；
+  Python 全量不变（804+4 / 806+2，测试文件同数改黑盒）。
+- 文档：PANORAMA 原生化进度 16→**17**（scan 六件）；HARDENING §五候选销账
+  （~~secrets_hunt~~ 已兑+数字）§六 strike；skills/scan.md secrets bullet 重写
+  （原生化+边界）；README 头 + 版本锁步 **2.51.0 ×5**。
+- 过程项：clippy 抓首版 9 处（collapsible_if×8 + sort_by_key）走 --fix 机器修 +
+  2 处手工，零告警回绿；Mimosa hook 拦组合命令（selftest+heredoc）拆单发即过
+  （与 S131 同款纪律）。
+- 验证：3.14 全量 **804 passed + 4 skipped**；3.11 全量 **806 passed + 2 skipped**；
+  cargo **197 绿** + clippy **零告警**；selftest 五线全绿（GROUPS 71 工具 /
+  VERSION_TAG NEXT=tag 前正确态 / EXE_TAG ok=9（rx-scan 重建至 2.51.0））；
+  PARITY（clippy-fix 后）OK。
+- 提交：本次

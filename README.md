@@ -6,19 +6,19 @@
 > 设计哲学：**少而准**（71 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.50.0（S133）**：71 工具 / 12 域；**attack 巡航收官 + 键语言统一**——
-①新工具 `attack_cruise`（attack 域第 6 件）：全攻击面一键巡航——薄聚合
-（同 ide_doctor 惯例）授权门自审 + 路径探针 + 主动模糊（input_fuzz×big_input），
-默认四靶电池=对本包回归式对抗，`targets` 可增补；输出 verdict（clean/issues）+
-failures/errors 全量列出不吞；首跑 clean（1.8s）——CONSOLIDATION §四 P3 收官。
-②**M1 键语言统一**：`auth_gate_sweep` 输出键英文化（评审复核修正：初评误报三件，
-实锤仅此一件；game 两件的中文在值里=合规）——至此 71 工具"中文进值不进键"零例外。
-历史链：S132 设计评审整改第一波（H1 授权三档/H3 组合透传检查器/M4 选型表/词汇表）；
-S131 bug_scan 八规则 + breaker 组归位 + [spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)；
-S130 gpu 拆分 + ide_diagnostics 挂门实锤修复；S128 跨文件污点链（REPLAY 3/3）；
-S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首次完整跑绿
-（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 804 passed
-+ 4 skipped、3.11 = 806 passed + 2 skipped（skip 为外部资产环境性）；cargo 190 绿 +
+**当前 v2.51.0（S134）**：71 工具 / 12 域；**secrets_hunt 原生化（HARDENING §六候选一）**——
+唯一实现迁 `rust/src/secrets.rs`（`rx-scan secrets` 子命令）：8 条模式规则 + 熵层
+全部手写匹配器（零依赖；Unicode 词边界、Python splitlines 全字符集、首现序
+Shannon 累加、贪婪回溯语义逐一对齐），Python 侧收敛为薄壳（44→~50 行，
+读路径补过沙盒）。**对照实验**：同夹具六字段 + hits 列表与 Python 版**逐字节
+一致**（14 命中/8 规则；过程中对拍抓出并修掉行号 0/1-based 与赋值层值区间
+两处偏差）；**性能**：整仓 745 文件 Python 1.94s → Rust **0.55s（3.5×）**，
+首版 16.4s 的两处热点（每字符位置建字符串、O(k²) 熵计数）已重构消除。
+历史链：S133 attack 巡航 + 键语言统一；S132 设计评审整改（H1/H3/M4/词汇表）；
+S131 bug_scan 八规则 + [spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)；S130 gpu
+拆分 + ide_diagnostics 挂门修复；S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）
++ CI 首次完整跑绿（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest
+3.14 = 804 passed + 4 skipped、3.11 = 806 passed + 2 skipped；cargo **197 绿** +
 clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。
 整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，

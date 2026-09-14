@@ -112,8 +112,14 @@
   赋值层滤占位符 changeme/${}/<your >/example）+ **熵层**（≥20 长度 ≥3 字符类
   Shannon ≥4.5 bits/char → suspect 不冒充确认；锁文件 Cargo.lock/package-lock 等
   熵层整文件跳过）。**输出一律掩码（前4后2+长度）**——扫描结果本身不能变成
-  二次泄漏源，完整值人工打开文件复核；二进制（NUL）跳过。诚实边界：静态启发
-  非保证，自定义格式漏报、随机 UUID/测试夹具误报；**Rust 内核加速是后续轮次
+  二次泄漏源，完整值人工打开文件复核；二进制（NUL）跳过。**S134 原生化**：唯一实现
+  rust/src/secrets.rs（`rx-scan secrets` 子命令；8 模式规则+熵层全手写匹配器，
+  Unicode 词边界/Python splitlines/首现序熵累加逐字节对齐）——对照实验同夹具
+  六字段+hits 逐字节一致（14 命中/8 规则），整仓 1.94s→**0.55s（3.5×）**；
+  本文件=薄壳（沙盒解析+转调+root/note/elapsed 补齐；exe 缺失清晰报错）。
+  诚实边界：静态启发
+  非保证，自定义格式漏报、随机 UUID/测试夹具误报；非 UTF-8 文件的 snippet
+  替换字符边界可能与旧 Python 版有差（命中/掩码不受影响）
   候选**（性能基线纪律：先测原生基线，实测赢才进 auto，本轮纯 stdlib）。
   泄漏处置：先吊销轮换 key 再清 git 历史——改密不能撤回已泄漏凭据。
 - **结果缓存（S103）**：bug_scan/std_check/ui_check/ast_scan/bug_locate 等纯读

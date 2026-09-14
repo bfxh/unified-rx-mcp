@@ -44,6 +44,7 @@ pub mod pyast;
 pub mod repomap;
 pub mod scan;
 pub mod sandbox;
+pub mod secrets;
 pub mod search;
 pub mod sem;
 pub mod server;

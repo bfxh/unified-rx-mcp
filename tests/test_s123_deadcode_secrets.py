@@ -256,26 +256,36 @@ def test_secrets_private_key_and_binary_skip(tmp_path):
     assert "MIIEowIBAAKCAQEA" not in repr(res)
 
 
-def test_secrets_entropy_math_independent_oracle():
-    # Shannon 熵独立实现对照（测试侧手算，不复用被测代码）
-    def oracle(s):
-        from collections import Counter
-        import math as m
-        n = len(s)
-        return -sum((c / n) * m.log2(c / n) for c in Counter(s).values())
+def test_secrets_entropy_math_and_mask_via_output(tmp_path):
+    """S134：数学 oracle（_shannon/_mask 直接单测）随原生化迁往 Rust 侧
+    （rust/src/secrets.rs 单元测试 + rust/tests/secrets_test.rs 锁值）；
+    Python 侧改为**输出面**黑盒锁掩码格式与熵层命中（不依赖被测内部）。"""
+    ent = "Kx9mQ2vB7wZ3sP6dL1cH5jG0R4nT8yUe"          # 32 位四类字符高熵
+    low = "xY" * 4                                     # 8 位两字符重复 → 低熵
+    _mk_project(tmp_path, {
+        "m.py": NL.join([
+            "blob = " + repr(ent),
+            "pad = " + repr(low),
+        ]),
+    })
+    res = _call("secrets_hunt", {"path": str(tmp_path)})
+    hits = [h for h in res["hits"] if h["rule"] == "high_entropy"]
+    assert hits, res["hits"]
+    masked = {h["masked"] for h in hits}
+    # 掩码契约：前 4 + …(U+2026) + 后 2 + (len=N)
+    assert "Kx9m…Ue(len=32)" in masked, masked
+    assert all(ent not in repr(res) for _ in (0,)), "完整值泄漏进结果"
+    assert not any("len=8" in m for m in masked), masked   # 低熵 8 位不进熵层
+    assert hits[0]["line"] == 1, hits                      # 行号 1-based
 
-    for tok in ("aaaaaaaaaaaaaaaaaaaa", "abcdefghij0123456789",
-                "Kx9mQ2vB7wZ3sP6dL1cH5jG0R4nT8yUe"):
-        assert secrets_mod._shannon(tok) == oracle(tok), tok
-    assert secrets_mod._shannon("") == 0.0
-    # 掩码契约：<8 全遮，否则前4后2+长度
-    assert secrets_mod._mask("short") == "***"
-    assert secrets_mod._mask("Kx9mQ2vB7wZ3sP6dL1cH5jG0") == "Kx9m…G0(len=24)"
 
-
-def test_secrets_respects_include_and_missing_path():
-    r = registry.call("secrets_hunt", {"path": "D:/__no_such_dir_urx__"})
-    assert not r["ok"] and "不存在" in r["error"]
+def test_secrets_respects_include_and_missing_path(tmp_path):
+    # S134：读路径过沙盒（S88 纪律补全）——沙盒内不存在 → "不存在"；
+    # 沙盒外先被沙盒门拦（越界），两门都在测
+    r = registry.call("secrets_hunt", {"path": str(tmp_path / "nope_dir")})
+    assert not r["ok"] and "不存在" in r["error"], r
+    r_out = registry.call("secrets_hunt", {"path": "D:/__no_such_dir_urx__"})
+    assert not r_out["ok"] and "越界" in r_out["error"], r_out
     r2 = registry.call("secrets_hunt", {"path": ".",
                                         "include": "nosuchext_xyz"})
     assert r2["ok"] and r2["result"]["files_scanned"] == 0
