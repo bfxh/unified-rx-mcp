@@ -48,7 +48,8 @@ def test_burnwatch_alarms_once_per_tier(monkeypatch):
     monkeypatch.setenv("UNIFIED_RX_BURN_MB", "15")
     monkeypatch.setattr(burnwatch, "_LAST", 0.0)
     monkeypatch.setattr(burnwatch, "_SEEN", {})
-    sess = [{"file": "model-io-sess_abcdef12-0000.jsonl", "mb": 16.0, "mtime": 0}]
+    mt = int(time.time())
+    sess = [{"file": "model-io-sess_abcdef12-0000.jsonl", "mb": 16.0, "mtime": mt}]
     monkeypatch.setattr(burnwatch, "sessions", lambda: sess)
     burnwatch.maybe_check()
     assert len(alarms) == 1 and alarms[0][0] == "session_burn"
@@ -56,10 +57,25 @@ def test_burnwatch_alarms_once_per_tier(monkeypatch):
     monkeypatch.setattr(burnwatch, "_LAST", 0.0)
     burnwatch.maybe_check()
     assert len(alarms) == 1, "同会话同档不得重复告警"
-    sess[0] = {"file": "model-io-sess_abcdef12-0000.jsonl", "mb": 31.0, "mtime": 0}
+    sess[0] = {"file": "model-io-sess_abcdef12-0000.jsonl", "mb": 31.0, "mtime": mt}
     monkeypatch.setattr(burnwatch, "_LAST", 0.0)
     burnwatch.maybe_check()
     assert len(alarms) == 2, "升档应再告警一次"
+
+
+def test_burnwatch_skips_stale_sessions(monkeypatch):
+    """陈旧大文件不告警（已结束的会话不再刷旧账，重启后不炸三条）。"""
+    alarms = []
+    monkeypatch.setattr(burnwatch, "_alarm",
+                        lambda rule, msg, level="WARN": alarms.append(rule))
+    monkeypatch.setenv("UNIFIED_RX_BURN_MB", "15")
+    monkeypatch.setattr(burnwatch, "_LAST", 0.0)
+    monkeypatch.setattr(burnwatch, "_SEEN", {})
+    monkeypatch.setattr(burnwatch, "sessions", lambda: [
+        {"file": "model-io-sess_old00000-1.jsonl", "mb": 99.0,
+         "mtime": int(time.time()) - 7200}])
+    burnwatch.maybe_check()
+    assert alarms == []
 
 
 def test_burnwatch_off_switch(monkeypatch):

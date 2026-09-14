@@ -22,6 +22,7 @@ _LOCK = threading.Lock()
 _LAST = 0.0          # 上次探测时刻（节流）
 _SEEN = {}           # file -> {已告警档位}（有界滚动，防无界增长）
 _INTERVAL = 60.0
+_FRESH_S = 3600.0    # 只盯活跃会话：mtime 超过 1 小时的陈旧文件不告警（否则重启即刷旧账）
 
 
 def _rollout_dir():
@@ -79,6 +80,8 @@ def maybe_check():
         _LAST = now
     try:
         for s in sessions():
+            if now - s.get("mtime", 0) > _FRESH_S:
+                continue                        # 陈旧会话不报警（已结束的账不再刷）
             tier = int(s["mb"] // thr)          # 15MB→第1档、30MB→第2档……
             if tier < 1:
                 break
