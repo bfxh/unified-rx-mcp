@@ -26,7 +26,7 @@ def _mkpkg(tmp_path):
 
 def test_schema_contract():
     ent = registry._TOOLS["dep_graph"]
-    assert ent["group"] == "scan"
+    assert ent["group"] == "metrics"  # S136：M2 组轴归位（dep_graph 随 metrics 域）
     assert set(ent["schema"]["properties"]) == {"path", "resolved"}
     assert ent["schema"]["required"] == ["path"]
 

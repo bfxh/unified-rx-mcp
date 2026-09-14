@@ -62,7 +62,7 @@ def _imports_of(fp):
 # ==================== code_coverage ====================
 
 @tool("code_coverage", "行覆盖率测量：stdlib trace 模块（零依赖），跑目标脚本并报告"
-      "哪些行执行了/没执行——每一行都要强", "scan",
+      "哪些行执行了/没执行——每一行都要强", "metrics",
       {"type": "object",
        "properties": {
            "script": {"type": "string", "description": "要跑的 Python 脚本路径"},
@@ -155,7 +155,7 @@ def code_coverage(script, source_dir, args=None, timeout=120, __authorized=False
 
 @tool("dep_graph", "依赖图：提取所有 .py 的 import 关系 → {模块: [依赖]}，"
       "标记循环依赖和外部依赖；resolved=true 时附语法级解析边"
-      "（引用→定义，含相对导入/别名/子模块，S108）", "scan",
+      "（引用→定义，含相对导入/别名/子模块，S108）", "metrics",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目根目录"},
@@ -253,7 +253,7 @@ from collections import defaultdict
 # ==================== module_stability ====================
 
 @tool("module_stability", "模块稳定性评分：git 提交频率（30 天）× 测试存在 × "
-      "行覆盖率 = 每模块稳定性——低的优先补测试/重构", "scan",
+      "行覆盖率 = 每模块稳定性——低的优先补测试/重构", "metrics",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目根（必须是 git 仓库）"},

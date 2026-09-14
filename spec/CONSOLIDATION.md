@@ -345,6 +345,10 @@ definite 131(+1) / cross_flows 7 / ambiguous 80——净新增 0 如实入档。
   真仓**双对照逐字节等价**，0.51s→0.23s（2.2×）；**HARDENING §六 Rust 候选清零**。
 - 新增 spec/LIBRARY-POLICY.md（库选型三问，理念之一，跨项目适用）。
 
+**S136 实施记录（M2 组轴归位，第十实施轮）**：metrics 组新建（三件自 scan 归位，
+模块/组两轴对齐）+ project_health 归 scan；文档/计数门全套随动（13 域 71 工具）。
+DESIGN-REVIEW 清单至此全清；本文档缺口清单（S133 起）维持清零。
+
 **S130 实施记录（gpu 拆分收尾 + P2-A，第四实施轮）**：
 - **gpu 拆分**（§三 P1，上轮延后项）：gpu.py 658 → 运行时约 400 行；kernel 三簇
   就近迁 filescan（472）/neardupes（467）；CROSSOVER 表留 gpu.py 完整（含 ngram

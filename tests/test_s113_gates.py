@@ -31,7 +31,7 @@ import tools  # noqa: F401
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KNOWN_GROUPS = {"fs", "scan", "ide", "search", "guard", "learn", "ops",
-                "game", "engine", "attack", "appaudit", "meta"}
+                "game", "engine", "attack", "appaudit", "meta", "metrics"}
 
 # 尺寸上限（超限先拆分再谈功能；上调需在 workflow.md 原则 8 写明理由）
 _MAX_TOOL_LINES = 900
@@ -54,9 +54,9 @@ def _groups():
 def test_readme_counts_match_registry():
     readme = _read("README.md")
     n = registry.tool_count()
-    pats = [r"\*\*当前 v[\d.]+（S\d+）\*\*：(\d+) 工具 / 12 域",
-            r"## 工具面（12 域 · (\d+) 工具）",
-            r"\*\*(\d+) 个组合工具 / 12 域\*\*"]
+    pats = [r"\*\*当前 v[\d.]+（S\d+）\*\*：(\d+) 工具 / 13 域",
+            r"## 工具面（13 域 · (\d+) 工具）",
+            r"\*\*(\d+) 个组合工具 / 13 域\*\*"]
     for pat in pats:
         m = re.search(pat, readme)
         assert m, f"README 缺少计数模式: {pat}"
@@ -66,7 +66,7 @@ def test_readme_counts_match_registry():
 def test_panorama_counts_match_registry():
     pan = _read("spec/PANORAMA.md")
     n = registry.tool_count()
-    m = re.search(r"\*\*工具面 (\d+)/12 组\*\*", pan)
+    m = re.search(r"\*\*工具面 (\d+)/13 组\*\*", pan)
     assert m and int(m.group(1)) == n, f"PANORAMA 工具数不一致: {m and m.group(1)} != {n}"
     m2 = re.search(r"（selftest 口径）：(.+?)。", pan, re.S)
     assert m2, "PANORAMA 缺分组清单"

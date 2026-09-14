@@ -82,9 +82,6 @@
 - **ast_grep（S111）**：可选外部引擎（ast-grep）结构搜索——模式即代码
   （`$VAR`/`$$$` 通配）。**未安装 → 清晰报错 + 安装提示，不静默降级**；实现在
   Rust 侧探测 + argv 直调（Python 薄壳只做校验与转调）；只读搜索，不做 rewrite。
-- **code_coverage / module_stability**（metrics 域，S52）：`code_coverage` 用 stdlib
-  trace 在子进程跑脚本产出覆盖数据（>10MB 拒读、runner 落沙盒内临时脚本）；
-  `module_stability` 以历史改动频率 + 文件规模给稳定性评分（启发式，非缺陷判定）。
 - **file_scan（S115/S120）**：签名/熵启发式/哈希/异或层扫描（**非杀毒软件**，如实标注）——
   字面量签名（默认仅 EICAR 测试串）+ SHA-256 黑名单 + 打包熵启发式
   （熵>阈值且 ≥4KB）。**熵计算走 GPU**（≥1MB 实测 31-38×，见 spec/GPU.md；
@@ -127,9 +124,8 @@
   小文件内容哈希，文件一变即失效）。命中返回与冷跑逐字节一致；`__no_cache: true`
   或 `UNIFIED_RX_NO_CACHE=1` 旁路。实测 ast_scan 45ms→3.7ms（约 12×）。大文件
   只按 size+mtime、大仓不缓存等边界写在 tools/cache.py 契约里。
-- **dep_graph(resolved=true)（S108）**：附语法级解析边（rx-scan resolvedir）——
-  `resolved.imports[{file,line,name,module,to_file,to_line,kind}]`（相对导入按
-  层级上溯包、别名绑定、`from pkg import submodule` 回退）、`resolved.external`
-  （外部依赖如实分离）、`resolved.unresolved`（name_not_found/star_import）、
-  `stats`。默认 false 输出与旧版同形；exe 缺失入 `resolved.error` 不静默。
-  本仓对比：文本级引用 93.9% 是假阳性（注释/字符串/子串），解析级 resolved_only=0。
+
+- **契约变化（S88，S136 自 ops 域随迁）**：project_health 的 path 先过沙盒钳制——
+  越界返回 `{"error": "路径越界（沙盒外）：…"}` 且**不给分**（旧版越界路径会把
+  子扫错误吞成 0 问题、返回假满分，已修）（S73 纪律补全）；S136 组归位 ops→scan
+  （评分=三路扫描语义）

@@ -214,7 +214,7 @@ def usage_stats(top=10, days=0):
     }
 
 
-@tool("project_health", "项目健康度评分（bug/std/ui 综合 0-100）", "ops",
+@tool("project_health", "项目健康度评分（bug/std/ui 综合 0-100）", "scan",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目根目录"},

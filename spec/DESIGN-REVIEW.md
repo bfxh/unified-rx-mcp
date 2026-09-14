@@ -62,7 +62,9 @@ gated/deny_missing/declared_missing/forced_missing/manual_gate/
 manifest_consistency/compose_passthrough），test_s77 与 skills 同步——至此
 全仓 71 工具键语言一致，"中文进值不进键"成为无例外惯例。
 
-### M2 组/模块双轴错位：metrics 三件挂 scan 组；project_health 在 ops
+### M2 组/模块双轴错位（**S136 已修**）
+复核实施：新增 metrics 组收三件（与模块 metrics.py 对齐）+ project_health 自 ops 归 scan——
+计数门/文档全套随动（13 域）。原分析：metrics 三件挂 scan 组；project_health 在 ops
 证据：`code_coverage`/`dep_graph`/`module_stability` 实现在 `tools/metrics.py`
 （S52 自称"代码质量度量域"）却注册进 `scan` 组；`project_health`（bug/std/ui
 评分）在 `ops` 组。S131 已修掉同类样板（breaker meta→guard）。

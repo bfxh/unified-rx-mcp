@@ -8,20 +8,19 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.52.0（S135）**：71 工具 / 12 域；**库选型理念立文 + ide_dead_code 原生化**——
-①新增 [spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)（**理念之一，跨项目适用**）：
-库选型三问=**理念与设计契合 > 版本前沿 > 省 token**（能用库优先用库≠为用库而用库；
-本仓红线下的合法形态=外部工具探测薄壳；"这个库不行"常是旧版本不行，看当前版本）；
-②`ide_dead_code` 原生化（HARDENING §六候选二，**Rust 候选到此清零**）：唯一实现迁
-`rust/src/deadcode.rs`（rx-ide deadcode；pyast 加 `deco` 字段承载装饰器判定）——
-夹具八字段 + **真仓全量**（192 文件/1496 defs/exempted 137·730）双对照逐字节等价，
-整仓 0.51s→0.23s（2.2×）；Python 侧薄壳化 + 读路径补沙盒。历史链：S134 secrets_hunt
-原生化（3.5×，CI 首红修复=门禁自给自足）；S133 attack 巡航；S132 设计评审整改；
-S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首绿
-（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 805 passed
-+ 4 skipped、3.11 = 807 passed + 2 skipped；cargo **200 绿** + clippy 零告警；
-selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与
-升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
+**当前 v2.53.0（S136）**：71 工具 / 13 域；**M2 组轴归位——设计评审清单全清**——
+①**新建 metrics 组**收 `code_coverage`/`dep_graph`/`module_stability`（与模块
+`tools/metrics.py` 两轴对齐；S52 自立度量域时组轴没跟上）+ `project_health` 自 ops
+归 scan（评分=三路扫描语义）；scan 15→13、ops 5→4，文档/计数门全套随动。
+②**里程碑**：DESIGN-REVIEW（S131 立）全部条目清账——H1 授权三档/H3 组合透传检查器/
+M4 选型表/H2+M3 词汇表（S132）、M1 键语言（S133）、M2 组轴（S136），L 系记录在案。
+历史链：S135 库选型理念立文（[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)，
+跨项目）+ ide_dead_code 原生化（HARDENING §六 Rust 候选清零）；S134 secrets_hunt
+原生化（3.5×）；S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+
+CI 首次完整跑绿（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest
+3.14 = 805 passed + 4 skipped、3.11 = 807 passed + 2 skipped；cargo **200 绿** +
+clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。
+整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
 加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 
@@ -29,24 +28,25 @@ selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **71 个组合工具 / 12 域** |
+| 工具面 | 183（注入面 200+） | **71 个组合工具 / 13 域** |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（12 域 · 71 工具）
+## 工具面（13 域 · 71 工具）
 
 | 域 | 工具 |
 |---|---|
 | 📁 fs (4) | `fs_read` `fs_write` `fs_stat` `fs_list` — 沙盒 fail-closed；读面纯 Python（S95 回迁，golden oracle 锁等价），写面 rx-fs.exe |
-| 🐛 scan (15) | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` `ast_scan` `code_review` `dep_graph` `module_stability` `code_coverage` `vuln_knowledge` `ast_grep` `file_scan` `near_dupes` `secrets_hunt`（S123：凭据泄漏扫描，掩码输出） — 正则 + AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
+| 🐛 scan (13) | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` `project_health`（S136 自 ops 归位：评分=三路扫描语义）`ast_scan` `code_review` `vuln_knowledge` `ast_grep` `file_scan` `near_dupes` `secrets_hunt`（S123：凭据泄漏扫描，掩码输出） — 正则 + AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
+| 📐 metrics (3) | `code_coverage` `dep_graph` `module_stability` — 代码质量度量（S136 自 scan 域归位：模块 metrics.py 与组轴对齐；代码模式扫描仍属 scan） |
 | 🛠️ ide (23) | `ide_outline` `ide_read_symbol` `locate_edit` `code_context` `ide_edit_multi` `ide_batch_edit` `ide_rename` `ide_lsp` `ide_impact` `ide_diagnostics` `ide_build` `ide_test` `ide_debug` `ide_break` `ide_doctor` `ide_multi_check` `ide_vscode` `ide_auto_report` `ide_health_trend` `scip_refs` `ide_dead_code`（S123：死符号可达性）`ide_callgraph`（S125：真调用图）`ide_risk_rank`（S129：风险榜——高扇入×无测试排序） |
 | 🔍 search (3) | `code_search`（BM25，`hybrid=true` 时与语义路 RRF 融合）`code_semantic`（tf-idf 定义级）`repo_map`（个人化 PageRank 符号地图） |
 | 🛡️ guard (4) | `hallucination_guard` `capability_manifest` — 声明核查（读取过沙盒，S97）；`breaker_status` `breaker_reset` — **工具熔断**（同一工具+参数窗口内 >10 次即断，S122；S131 自 meta 域归位） |
 | 🧠 learn (1) | `lesson` — 教训记忆（关键词检索，非向量） |
-| ⚙️ ops (5) | `backup` `scan_log` `usage_stats` `project_health` `lesson_stats` |
+| ⚙️ ops (4) | `backup` `scan_log` `usage_stats` `lesson_stats` |
 | 🎮 game (2) | `game_check` `blender_verify` |
 | 🚀 engine (2) | `engine_status` `engine_query` |
 | 🕵️ attack (6) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航） — 自攻面常驻 |

@@ -825,3 +825,26 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   cargo **200 绿**（+3 deadcode 集成）+ clippy **零告警**；selftest 五线全绿；
   PARITY（真仓，clippy-fix 后）OK。
 - 提交：本次
+
+## S136 · 实施轮十：M2 组轴归位（metrics 域立 + project_health 归 scan）——缺口清单全清
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.52.0 → **2.53.0**（tag v2.53.0）
+- 决策：DESIGN-REVIEW M2（组/模块双轴错位）"若动一次做全"——本轮兑现：
+  **新建 metrics 组**收 code_coverage/dep_graph/module_stability（与模块
+  tools/metrics.py 对齐，S52 自立"代码质量度量域"时组轴就没跟上）+ **project_health
+  自 ops 归 scan**（评分=三路扫描语义）。13 组：scan 15→13、ops 5→4、metrics 3。
+- 文档迁移（同 S131 meta→guard 范例）：新 skills/metrics.md（三件 bullet 自 scan.md
+  迁出 + S136 归位说明）；project_health 的 S88 沙盒契约段自 ops.md 迁入 scan.md
+  （随组走）；ops.md 头部瘦身；skills/README 行 + README 工具表行（scan 瘦身/新
+  metrics 行/ops 瘦身）+ 三处 "12 域→13 域" + PANORAMA 分组清单与页头。
+- 门随动：test_s113 KNOWN_GROUPS + metrics、README 三模式与 PANORAMA 模式改 13 域；
+  test_v2 分组测试本就宽松（>=8）无改；selftest GROUPS 行动态 ✓。
+- 过程项：全量红 2 处——exe 版本漂移（预期，重建 2.53.0）+ **test_s108 嵌组断言**
+  （`dep_graph.group == "scan"`，recon 漏网的逐工具钉组断言）→ 全测试面 grep 组
+  断言一次扫清（其余 9 处均为不落本轮回的组，核对无改）；教训=改组前先 grep
+  `["group"] ==` 全量断言面，与 S127 import 面同款纪律。
+- 里程碑：**DESIGN-REVIEW 清单至此全清**（H1/H2/H3/M1/M2/M3/M4 + L 系记录在案），
+  CONSOLIDATION 缺口清单（S133 清零）+ 评审整改（S132 一波 + S136 收尾）双清单归零。
+- 验证：3.14 全量 **805 passed + 4 skipped**；3.11 全量 **807 passed + 2 skipped**；
+  cargo **200 绿** + clippy **零告警**；selftest 五线全绿（GROUPS 13 组 71 工具）；
+  版本锁步 **2.53.0 ×5**。
+- 提交：本次
