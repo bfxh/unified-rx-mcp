@@ -4,23 +4,24 @@
 > 定位：**工具箱，不是智能体，不是内核**。MCP 只是通道，价值在"工具 + 工作流"的完整链路。
 > 七维"掌握"：**结构 / 语义 / 定位 / 探索 / 记忆 / 反馈 / 质量**
 > 设计哲学：**少而准**（71 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
-> **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
+> **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）·
+> **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
+> 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.51.0（S134）**：71 工具 / 12 域；**secrets_hunt 原生化（HARDENING §六候选一）**——
-唯一实现迁 `rust/src/secrets.rs`（`rx-scan secrets` 子命令）：8 条模式规则 + 熵层
-全部手写匹配器（零依赖；Unicode 词边界、Python splitlines 全字符集、首现序
-Shannon 累加、贪婪回溯语义逐一对齐），Python 侧收敛为薄壳（44→~50 行，
-读路径补过沙盒）。**对照实验**：同夹具六字段 + hits 列表与 Python 版**逐字节
-一致**（14 命中/8 规则；过程中对拍抓出并修掉行号 0/1-based 与赋值层值区间
-两处偏差）；**性能**：整仓 745 文件 Python 1.94s → Rust **0.55s（3.5×）**，
-首版 16.4s 的两处热点（每字符位置建字符串、O(k²) 熵计数）已重构消除。
-历史链：S133 attack 巡航 + 键语言统一；S132 设计评审整改（H1/H3/M4/词汇表）；
-S131 bug_scan 八规则 + [spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)；S130 gpu
-拆分 + ide_diagnostics 挂门修复；S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）
-+ CI 首次完整跑绿（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest
-3.14 = 805 passed + 4 skipped、3.11 = 807 passed + 2 skipped；cargo **197 绿** +
-clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。
-整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
+**当前 v2.52.0（S135）**：71 工具 / 12 域；**库选型理念立文 + ide_dead_code 原生化**——
+①新增 [spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)（**理念之一，跨项目适用**）：
+库选型三问=**理念与设计契合 > 版本前沿 > 省 token**（能用库优先用库≠为用库而用库；
+本仓红线下的合法形态=外部工具探测薄壳；"这个库不行"常是旧版本不行，看当前版本）；
+②`ide_dead_code` 原生化（HARDENING §六候选二，**Rust 候选到此清零**）：唯一实现迁
+`rust/src/deadcode.rs`（rx-ide deadcode；pyast 加 `deco` 字段承载装饰器判定）——
+夹具八字段 + **真仓全量**（192 文件/1496 defs/exempted 137·730）双对照逐字节等价，
+整仓 0.51s→0.23s（2.2×）；Python 侧薄壳化 + 读路径补沙盒。历史链：S134 secrets_hunt
+原生化（3.5×，CI 首红修复=门禁自给自足）；S133 attack 巡航；S132 设计评审整改；
+S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首绿
+（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 805 passed
++ 4 skipped、3.11 = 807 passed + 2 skipped；cargo **200 绿** + clippy 零告警；
+selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与
+升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
 加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 

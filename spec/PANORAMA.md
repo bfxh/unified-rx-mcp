@@ -149,16 +149,18 @@ ROUNDLOG 由 bench/log_round.py 自 S38 起追加，但 **S54-S71 十八轮未�
 （S89 起恢复"提交前必有本轮条目"）；②S53-S71 期间 serverInfo 版本停更，靠
 84034eb 事后对齐 2.5.6——版本账本需要机器对账（见"六、开发方向"#2）。
 
-## 五、现状坐标（2026-09-14 @ v2.51.0）
+## 五、现状坐标（2026-09-14 @ v2.52.0）
 
 **工具面 71/12 组**（selftest 口径）：appaudit(3) attack(6) engine(2) fs(4) game(2)
 guard(4) ide(23) learn(1) meta(3) ops(5) scan(15) search(3)。
 
-**Rust 原生化进度**：17 个工具已薄壳化（fs_write、
+**Rust 原生化进度**：18 个工具已薄壳化（fs_write、
 search 双件 code_search/code_semantic、scan 六件 bug_scan/std_check/ui_check/
 bug_locate/ast_scan/secrets_hunt（S134 原生化：对照实验逐字节等价、
 整仓 1.94s→0.55s 3.5×）、appaudit 三件 app_audit/app_clone/app_clean、ide 五件
-ide_outline/ide_read_symbol/locate_edit/ide_rename/code_context）；
+ide_outline/ide_read_symbol/locate_edit/ide_rename/code_context/
+ide_dead_code（S135 原生化：venv 迁移 pyast+deco 字段，夹具与真仓**双对照**
+逐字节等价，整仓 0.51s→0.23s 2.2×））；
 fs_read/fs_stat/fs_list 曾于 S79 薄壳化、**S95 回迁纯 Python**（读面微秒级操作
 不付进程拉起溢价：fs_stat p50 7.7-9.7ms→0.3ms，等价性由 golden master oracle
 40 场景锁定，EVAL §7）；另有

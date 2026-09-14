@@ -791,3 +791,37 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   71 工具 / VERSION_TAG NEXT=tag 前正确态 / EXE_TAG ok=9（rx-scan 重建至 2.51.0））；
   PARITY（clippy-fix 后）OK；SECRETS-GATE（剥 env）OK。
 - 提交：本次
+
+## S135 · 实施轮九：库选型理念立文 + ide_dead_code 原生化（Rust 候选清零）
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.51.0 → **2.52.0**（tag v2.52.0）
+- **库选型理念立文**（用户指令，记为理念之一）：spec/LIBRARY-POLICY.md——三问
+  「**理念与设计契合 > 版本前沿 > 省 token**」；"这个库不行"常是**旧版本不行**
+  （候选必须看当前版本）；能用库优先用库（自研=四份 token，库=探测+调用+解析三件套），
+  但不为用库而用库；红线优先序=安全/审计面 > 契合 > 前沿 > 省 token；本仓红线下的
+  合法形态=外部工具探测薄壳；**协助用户开发其他项目同此纪律**。联动：README 设计
+  哲学行 + Cargo.toml 红线注释指向。
+- **ide_dead_code 原生化**（HARDENING §六候选二）：①pyast.rs 加 `deco` 装饰器计数
+  （装饰器表达式挂 children 尾部无标记，计数是从尾部数回的唯一边界；单点构造 +
+  结构更新语法，其余消费者零影响）；②rust/src/deadcode.rs：Name/Attribute 双引用面、
+  字符串→suspect、装饰器/ pytest 约定豁免、类私有方法判定、类体切片（aux/deco 边界 +
+  滤 keyword）、(file,line) 稳定排序、dead 截断/suspect 恒 50；③rx-ide deadcode 子命令
+  （沙盒 cfg.resolve）；④Python 薄壳化（读路径补沙盒，S88 纪律——本次先查调用面，
+  无 CI 脚本依赖，未重演 S134 的坑）。
+- **对照实验两连**：①夹具（含 Attribute 引用活口/字符串嫌疑/装饰器/pytest 双豁免/
+  语法错文件）八字段 + dead/suspect 列表**逐字节一致**（dead 7 / suspect 1 / defs 12）；
+  ②**真仓全量逐项一致**（192 文件 / 1496 defs / dead 6 / suspect 3 / exempted
+  137·730）——比 secrets 那轮更强的证据（真数据面全覆盖）。性能 **0.51s → 0.23s
+  （2.2×）**（Python ast 是 C 实现，增量小于 secrets 的纯正则场景，如实记账）。
+- 过程项：①首版 Rust 测试三处 `conv(&[...])` 借用错（编译期抓）；②自写排序断言
+  过严（假设全局行号单调，实际按 (file,line) 跨文件分段——测试红后改对，教训=
+  断言语义要对齐实现口径）；③clippy 首版 2 处（unused import/collapsible_if）修至
+  零告警，**clippy-fix 后复验真仓 parity 仍 OK**；④test_s127 的 C1b 内部 walker 断言
+  随原生化改为**工具级**断言（venv 跳过/非 .py 不计/files_scanned=1）——比内部实现
+  断言更外层更稳；⑤脚本忘设沙盒 env 被自家门拦（fail-closed 实证，补 env 即过）。
+- 文档：LIBRARY-POLICY 新增；PANORAMA 原生化 17→**18**；HARDENING §五候选推进 +
+  §六双 strike（**Rust 候选清零**）；skills/ide.md dead_code bullet 重写；README 头 +
+  版本锁步 **2.52.0 ×5**。
+- 验证：3.14 全量 **805 passed + 4 skipped**；3.11 全量 **807 passed + 2 skipped**；
+  cargo **200 绿**（+3 deadcode 集成）+ clippy **零告警**；selftest 五线全绿；
+  PARITY（真仓，clippy-fix 后）OK。
+- 提交：本次

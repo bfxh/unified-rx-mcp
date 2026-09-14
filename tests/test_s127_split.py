@@ -79,11 +79,17 @@ def test_ide_common_profile_and_extra_skip(tmp_path):
 
 
 def test_deadcode_profile_venv_and_py_only(tmp_path):
-    _w(tmp_path / "app" / "x.py", "X = 1\n")
+    # S135：ide_dead_code 原生化后 _walk_py 迁 Rust（rex-ide deadcode）——
+    # C1b 语义改为**工具级**断言（venv 跳过 / 非 .py 不计）：更强也更稳。
+    _w(tmp_path / "app" / "x.py", "def lone():\n    return 1\n")
     _w(tmp_path / "app" / "y.txt", "y\n")
-    _w(tmp_path / "app" / "venv" / "z.py", "Z = 1\n")
-    got = {os.path.basename(p) for p in ide_deadcode._walk_py(tmp_path, 100)}
-    assert got == {"x.py"}, got
+    _w(tmp_path / "app" / "venv" / "z.py", "def zz():\n    return 2\n")
+    r = registry.call("ide_dead_code", {"path": str(tmp_path), "__no_cache": True})
+    assert r.get("ok"), r
+    res = r["result"]
+    assert res["files_scanned"] == 1, res          # venv/y.txt 都不计
+    assert res["defs_total"] == 1, res             # 只有 x.py 的 lone
+    assert {d["name"] for d in res["dead"]} == {"lone"}, res
 
 
 # ---------- 2. 防回流锁 ----------

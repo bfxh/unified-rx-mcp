@@ -81,7 +81,11 @@
   高频动作不付语言服务器成本）；S92 对照实验 43 场景 masked 全等——CRLF/
   尾幻影行/unicode 标识符/一行 fn 含 struct 翻 type/js class 落 fn 等
   S70 语义怪癖逐字节对齐
-- **ide_dead_code（S123）**：死符号可达性（上帝对象拆分候选的客观下界）——
+- **ide_dead_code（S123；S135 原生化）**：死符号可达性（上帝对象拆分候选的客观
+  下界）——唯一实现在 rust/src/deadcode.rs（rx-ide deadcode 子命令；复用 pyast.rs
+  迷你解析器，S135 为其加 `deco` 装饰器计数）。对照实验：夹具八字段逐字节一致
+  （dead 7/suspect 1）+ **真仓全量逐项一致**（192 文件/1496 defs）；性能 0.51s→
+  0.23s（2.2×）。边界：parse_errors 报文为 pyast 文本（形状一致、字数不同）。
   全库 ast 扫描，报零 Name/Attribute 引用的顶层函数/类/私有方法。**保守口径**：
   名字出现在字符串字面量 → 列 suspect_dynamic 不判死（getattr/注册表静态看不见）；
   带装饰器定义默认豁免（框架注册点，include_decorated=true 才纳入）；pytest 约定

@@ -7,6 +7,9 @@
 //!   rx-ide context <path> [cursor_line] [radius]
 //!   rx-ide rename <root> <symbol> <new_name> [include_plan 0|1]
 //!   rx-ide repomap <root> [focus_a;focus_b] [budget_tokens] [max_files]
+//!   rx-ide deadcode <root> [max_files] [max_results] [include_decorated 0|1]
+//!                                         （S135：死符号可达性——pyast 全库扫描，
+//!                                           零引用顶层 def/类/私有方法，见 rust/src/deadcode.rs）
 //! 输出：stdout 一行 JSON（与旧 Python 实现同构）。
 //! 退出码：0 = 工具级结果（含 {"error": ...}，registry 统一转 ok:false）；
 //!         2 = 用法错误 / 沙盒拒绝（Python 壳 raise ValueError，同旧实现包络）。
@@ -21,7 +24,8 @@ use rxrs::sandbox::SandboxCfg;
 
 const USAGE: &str = "用法: rx-ide outline <file> | read_symbol <file> <name> [occurrence] | \
 locate <path> <query> [max_files] [limit] | context <path> [cursor_line] [radius] | \
-rename <root> <symbol> <new_name> [include_plan 0|1]";
+rename <root> <symbol> <new_name> [include_plan 0|1] | \
+deadcode <root> [max_files] [max_results] [include_decorated 0|1]";
 
 fn main() {
     if std::env::args().any(|a| a == "--version") {
@@ -119,6 +123,31 @@ fn run(args: &[String]) -> Result<Value, String> {
                 None => 200,
             };
             rxrs::repomap::repo_map(&root, &focus, budget, max_files)
+        }
+        "deadcode" => {
+            // S135：死符号可达性原生化（语义与 tools/ide_deadcode.py 逐字节对齐）
+            if args.len() < 2 {
+                return Err(USAGE.into());
+            }
+            let root = cfg.resolve(std::path::Path::new(file))?;
+            let max_files = match args.get(2) {
+                Some(s) => s.parse::<usize>().map_err(|_| "max_files 必须是整数".to_string())?,
+                None => 2000,
+            };
+            let max_results = match args.get(3) {
+                Some(s) => s.parse::<usize>().map_err(|_| "max_results 必须是整数".to_string())?,
+                None => 200,
+            };
+            let include_decorated = match args.get(4) {
+                Some(s) => match s.as_str() {
+                    "0" => false,
+                    "1" => true,
+                    _ => return Err("include_decorated 必须是 0 或 1".into()),
+                },
+                None => false,
+            };
+            Ok(rxrs::deadcode::dead_code_scan(&root, max_files, max_results,
+                                              include_decorated))
         }
         _ => Err(USAGE.into()),
     }

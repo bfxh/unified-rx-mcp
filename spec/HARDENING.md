@@ -84,10 +84,9 @@
 1. **Python 侧先优化**（不等 Rust）：算法/IO 层的便宜优化先行（单遍读、
    批量 read、正则预编译已是现状；下一步可测 mmap 大文件路径）；
 2. **Rust 化按实测收益排队**：先测原生基线，实测赢才进 auto（S84/S90 纪律）。
-   ~~secrets_hunt~~（**S134 已兑**：Rust 整仓 0.55s vs Python 1.94s = 3.5×，
-   对照实验六字段+hits 逐字节等价；首版 16.4s 的两处热点=每位置建字符串 +
-   O(k²) 熵计数，见 ROUNDLOG S134）→ **ide_dead_code**（pyast.rs 节点面已就绪，
-   ast 全库遍历是 Python 热区）为下一候选；
+   ~~secrets_hunt~~（**S134 已兑** 3.5×）→ ~~ide_dead_code~~（**S135 已兑**：
+   pyast 加 deco 字段承载装饰器判定，夹具 + 真仓双对照逐字节等价，
+   0.51s→0.23s 2.2×）——**§六 Rust 候选到此清零**（astscan/bugscan 早已全薄壳）；
 3. **file_scan 熵层已有 rust/gpu 双档**（auto 已接），保持；
 4. 依赖红线不变：Cargo `[dependencies]` 恒空，零第三方 crate。
 
@@ -103,7 +102,7 @@
 
 **Rust 侧**：
 - ~~secrets_hunt 原生化~~（**S134 已兑**，见 §五）；
-- ide_dead_code 原生化（复用 pyast.rs；死码判定的作用域逻辑进 bug.rs 同层）；
+- ~~ide_dead_code 原生化~~（**S135 已兑**：独立 deadcode.rs 复用 pyast.rs）；
 - astscan/bugscan 已全薄壳，无动作。
 
 **IDE 域**：

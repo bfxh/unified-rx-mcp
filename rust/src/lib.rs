@@ -36,6 +36,7 @@ pub mod astgrep;
 pub mod appclone;
 pub mod astscan;
 pub mod bug;
+pub mod deadcode;
 pub mod fs;
 pub mod ide;
 pub mod json;

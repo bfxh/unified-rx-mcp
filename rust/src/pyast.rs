@@ -60,6 +60,9 @@ pub struct PyNode {
     pub ctx: Ctx,
     pub aux: usize,
     pub names: Vec<String>,
+    /// S135：装饰器个数（FunctionDef/AsyncFunctionDef/ClassDef 专用；其余恒 0）。
+    /// 装饰器表达式挂在 children 尾部，本计数是从尾部数回去的唯一边界依据。
+    pub deco: usize,
     pub cval: CVal,
     pub children: Vec<PyNode>,
 }
@@ -75,6 +78,7 @@ impl PyNode {
             ctx: Ctx::Load,
             aux: 0,
             names: Vec::new(),
+            deco: 0,
             cval: CVal::NoneC,
             children: Vec::new(),
         }
@@ -1331,6 +1335,7 @@ impl Parser {
             line,
             name,
         );
+        n.deco = decs.len();
         n.children.push(args);
         n.children.extend(body);
         n.children.extend(decs);
@@ -1462,6 +1467,7 @@ impl Parser {
         let body = self.block("class definition", line)?;
         let mut n = PyNode::with_name("ClassDef", line, name);
         n.aux = bases.len();
+        n.deco = decs.len();
         n.children.extend(bases);
         n.children.extend(kws);
         n.children.extend(body);
