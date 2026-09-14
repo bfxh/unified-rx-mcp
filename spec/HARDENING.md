@@ -154,6 +154,18 @@ CI 侧对应的自动化门 = **Self-attack gate**（`scripts/attack_gate.py`：
 - **覆盖率趋势**：code_coverage 有单点，缺跨轮趋势存档与回归对比；
 - **审计欠账（S137 更新）**：copy-based 全量审计已执行两轮（见 §四·补台账，封印在案），复审收敛（59→57，唯一差量=修复项）；**工具标记 inconclusive 仍未消**——欠账部分收敛，继续挂账；在收敛/结清前任何文档/输出都不得宣称"项目安全"。
 
+**外部对标（S142 新组）**——联网对标全文 [spec/EXTERNAL-ALIGNMENT.md](EXTERNAL-ALIGNMENT.md)
+（四块坐标 + 实测对标 + 精选三档待办，不堆）：
+- **协议线落后四代**（我们钉 2025-03-26；最新 2026-07-28 无状态化大改：删 initialize
+  握手、server/discover、resultType 必带、MRTR、JSON Schema 2020-12）——升级有宿主
+  决策点，先探 ZCode/Yan Agent 支持线（B1 挂账）；
+- **annotations/title 未发**（规范 2025-06-18 起）——readOnlyHint/destructiveHint 可
+  直接映射现有三档授权语义；A1 立即可做（低成本一致性，下一轮一条落地）；
+- **工具面定义摊派**实测 32,147 字符 ≈ 11–13K token/请求（72 工具；外部基线
+  58 工具≈55K——我们水位明显低，但仍有瘦身位）——A2 仪表 + 软上限挂账；
+- **间接注入无立场**（fs_read/bug_scan/lsp 输出=外部内容直入宿主上下文）——B3 评估；
+- **任务级工具评测（evals）缺**——B2 挂账。
+
 ## 七、授权三档（S132 立文；兑现 DESIGN-REVIEW H1）
 
 工具注册按**动作性质**自证分档——`auth_gate_sweep` 端到端复核（含组合透传项）：

@@ -915,3 +915,46 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：3.14 全量 **810 passed + 4 skipped**（+2）；3.11 全量 **812 passed + 2 skipped**；
   cargo **200 绿** + clippy 零告警；selftest 五线全绿；版本锁步 **2.56.0 ×5**。
 - 提交：本次
+
+## S140 · 实施轮十四（并行会话，本窗口按提交 c2af9b2 回填）
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.56.0 → **2.57.0**
+- 消耗洪峰护栏：全局 QPM 熔断 + 每日总量告警（tools/breaker.py、registry.py 接线）；
+  stats 打点按来源拆分 **mcp/embedded**（tools/ops.py）；taint-baseline 随行更新；
+  测试 +2（test_s122_breaker / test_s140_stats_src）。
+
+## S141 · 实施轮十五（并行会话，本窗口按提交 4f50081/8d5f091/e42b23f 回填）
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.57.0 → **2.58.0**
+- 烧量护栏标定 + 会话哨兵：QPM 600→3000（实测标定）、日量告警 5 万→10 万、
+  日计数跨重启持久化（tools/breaker.py 63 行改动）；**burnwatch** 会话烧量分级
+  告警（tools/burnwatch.py 新增）+ **session_burn 工具（#72）**（tools/ops.py）；
+  ZCode 侧配套插件（zcode-breaker/burnwatch 哨兵，只盯 mtime 1h 内活跃会话，
+  重启后不拿陈旧大文件刷告警）；skills/ops.md、PANORAMA 随行；测试 +1 文件
+  （test_s141_guards）。
+- 注：本两轮由并行会话实施并各自提交，ROUNDLOG 由 S142 轮按 git 提交实况补记，
+  细节以提交信息与代码为准。
+
+## S142 · 外部对标轮（文档）：联网调研 → EXTERNAL-ALIGNMENT + 缺口入账
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.58.0（**文档轮不加版**）
+- 用户指令：「你自己看看网上 想想这个项目……你光想的 范围都太弱了 看看网上 然后
+  你看看你那些标准 审核还有什么要记啊的不要一股脑就搞堆东西 还有考虑这个智能体的
+  其他情况 还有 大量的东西是要搞的」——研究先行、文档先行、**不堆功能**。
+- **调研四块（来源入档）**：①MCP 规范线——钉 2025-03-26 落后四代，最新 2026-07-28
+  无状态化大改（删 initialize 握手、server/discover、resultType 必带、MRTR、
+  Extensions、JSON Schema 2020-12、新错误码；2025-06-18 已起提 outputSchema/
+  annotations/title）——实测 server.py 固定回包不协商、无四件新字段；②工具设计
+  最佳实践（Anthropic writing-tools-for-agents：合并/命名空间/response_format/
+  描述当 onboarding/任务级 evals）——我们已对齐多数、缺 evals 与"何时不用"入 schema；
+  ③token 经济——外部基线 58 工具≈55K token、Tool Search -85~95%、Code Mode -98.7%+；
+  **我方实测 tools/list = 32,147 字符（CJK 4,216 + ASCII 27,931）≈ 11–13K token/72
+  工具**，水位明显低于外部基线，仍有三处瘦身位（CJK 计费、头部单件近千字符、域级
+  冗余）；④安全标准（OWASP MCP Top10 / Microsoft 安全最佳实践：工具投毒·rug-pull·
+  间接注入·confused deputy）——授权三档/沙盒/审计三连已覆盖大半，**未覆盖=间接注入
+  立场**（工具输出即外部内容直入宿主上下文）。
+- **产出**：`spec/EXTERNAL-ALIGNMENT.md`（对标表 + 要记的 4 条 + 精选三档待办：
+  A1 annotations/title、A2 工具面体量仪表、B1 协议升级决策、B2 任务级 evals、
+  B3 间接注入立场、B4 描述瘦身与语种账、C 档记录接受；含消费方智能体场景矩阵
+  7 行）；**HARDENING §六 增「外部对标」缺口组**（五项挂账，逐项指向本文档）。
+- 纪律：本轮只写文档与台账，不动代码、不加版；A 档两项（低成本一致性）列入下一
+  实施轮一条落地。
+- 验证：全量 pytest + cargo test 双绿（无代码变更，防文档误撞计数门）。
+- 提交：本次
