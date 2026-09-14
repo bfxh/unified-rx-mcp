@@ -36,19 +36,24 @@ SCAN_WALK_SKIP = ('.git', 'node_modules', 'target', '__pycache__', 'dist', 'buil
 SCAN_SKIP_DIRS = ('.git', 'node_modules', 'target', '__pycache__', 'dist', 'build',
                   '.unified-rx-index', 'backups')
 
+# 工具链遍历跳过集（S129/C1b：filescan 与 neardupes 曾各持一份同款集合，此处唯一）
+TOOLCHAIN_SKIP_DIRS = ('.git', 'node_modules', 'target', '__pycache__', 'dist',
+                       'build', '.venv', 'venv', '.pytest_cache')
+
 
 def is_code_file(fp):
     """有语言映射的代码文件（原 scan._iter_files 判定）。"""
     return bool(LANG_BY_EXT.get(os.path.splitext(fp)[1].lower(), ""))
 
 
-def iter_files(path, max_files, match, skip_dirs, file_ok=False):
+def iter_files(path, max_files, match, skip_dirs, file_ok=False, sort_files=False):
     """统一遍历（全仓唯一 os.walk 文件遍历实现）。
 
-    语义与三份旧实现逐字等价：
+    语义与各旧实现逐字等价：
     - `file_ok=True` 且路径是文件 → **无条件产出**（不改判——原 scan._iter_files
       单文件行为如此，保持兼容）；目录不存在 → 空；
     - 目录按 os.walk 序（不排序）产出 `match(fp)` 为真的文件；
+      `sort_files=True` 时每层文件名排序（filescan/neardupes 原语义）；
     - `count` 只计**产出项**，达 max_files 即停；非匹配文件不占额。
     """
     if file_ok and os.path.isfile(path):
@@ -60,6 +65,8 @@ def iter_files(path, max_files, match, skip_dirs, file_ok=False):
     count = 0
     for r, dirs, files in os.walk(path):
         dirs[:] = [d for d in dirs if d not in skip]
+        if sort_files:
+            files = sorted(files)
         for fn in files:
             fp = os.path.join(r, fn)
             if not match(fp):

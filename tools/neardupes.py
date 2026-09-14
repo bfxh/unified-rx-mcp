@@ -25,26 +25,21 @@ import subprocess
 from registry import tool
 from tools import gpu
 from tools.fs import _resolve as _fs_resolve
-
-_SKIP_DIRS = {".git", "node_modules", "target", "__pycache__", "dist", "build",
-              ".venv", "venv", ".pytest_cache"}
+from tools.filewalk import TOOLCHAIN_SKIP_DIRS, iter_files
 
 _RX_SCAN_EXE_NAME = "rx-scan.exe"
 
 
 def _walk(root, max_files):
-    """遍历（跳过 _SKIP_DIRS）→ (文件列表, 是否因上限截断)。
+    """遍历 → (文件列表, 是否因上限截断)。S129/C1b：收敛到 tools/filewalk 单一实现。
 
-    截断必须如实上报：静默丢尾会让"扫描结果"看起来是全量（S118 修）。
+    截断必须如实上报：静默丢尾会让"扫描结果"看起来是全量（S118 修）——
+    多取 1 个判截断，语义与旧实现逐字等价（恰好 max_files 个时不标截断）。
     """
-    out = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
-        for fn in sorted(filenames):
-            if len(out) >= max_files:
-                return out, True
-            out.append(os.path.join(dirpath, fn))
-    return out, False
+    files = list(iter_files(root, max_files + 1, lambda _fp: True,
+                            TOOLCHAIN_SKIP_DIRS, sort_files=True))
+    truncated = len(files) > max_files
+    return files[:max_files], truncated
 
 
 def _candidate_pairs(vecs, threshold):

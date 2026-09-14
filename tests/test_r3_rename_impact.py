@@ -13,7 +13,8 @@ sys.path.insert(0, ROOT)
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-from tools import lsp as lsp_mod  # noqa: E402
+from tools import lsp as lsp_mod
+from tools import impact as impact_mod  # noqa: E402
 from tools.lsp import _apply_text_edits  # noqa: E402
 
 
@@ -146,6 +147,6 @@ def test_impact_has_test_proxy(tmp_path, monkeypatch):
     (src / "tests").mkdir()
     (src / "tests" / "test_mod_x.py").write_text("import mod_x\n",
                                                  encoding="utf-8")
-    assert lsp_mod._has_local_test(str(src / "mod_x.py")) is True
+    assert impact_mod._has_local_test(str(src / "mod_x.py")) is True
     (src / "mod_y.py").write_text("y = 1\n", encoding="utf-8")
-    assert lsp_mod._has_local_test(str(src / "mod_y.py")) is False
+    assert impact_mod._has_local_test(str(src / "mod_y.py")) is False

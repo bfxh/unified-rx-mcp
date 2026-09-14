@@ -276,6 +276,12 @@ def _dup_file_findings(root):
 _TEST_LANG_EXTS = (".py", ".java", ".go")
 
 
+def test_candidates(stem, ext):
+    """S129：测试文件候选名（覆盖透镜与 ide_risk_rank 共用的唯一口径）。"""
+    return (f"test_{stem}{ext}", f"{stem}_test{ext}",
+            f"test_{stem.replace('test_', '')}{ext}")
+
+
 def _untested_findings(root, files):
     """S49 卫生透镜：有测试约定的语言（py/java/go）源文件无对应测试文件。
     rust 走内联 #[cfg(test)]，文件级约定不适用 → 如实排除。"""
@@ -292,9 +298,7 @@ def _untested_findings(root, files):
         stem = os.path.splitext(os.path.basename(fp))[0]
         if stem.startswith("test_") or stem.endswith("_test") or stem == "conftest":
             continue
-        cands = [f"test_{stem}{ext}", f"{stem}_test{ext}",
-                 f"test_{stem.replace('test_', '')}{ext}"]
-        if any(c in repo_files for c in cands):
+        if any(c in repo_files for c in test_candidates(stem, ext)):
             continue
         if stem in seen:
             continue

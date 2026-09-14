@@ -19,6 +19,8 @@ from . import search    # noqa: F401,E402
 from . import game      # noqa: F401,E402
 from . import meta      # noqa: F401,E402
 from . import lsp       # noqa: F401,E402  S17：真 LSP 客户端（rust-analyzer/pylsp）
+from . import lsp_actions  # noqa: F401,E402  S129：ide_lsp 动作分发（自 lsp.py 拆出）
+from . import impact    # noqa: F401,E402  S129：ide_impact 影响面（自 lsp.py 拆出 + 调用面档）
 from . import engine    # noqa: F401,E402
 from . import bevy      # noqa: F401,E402
 from . import attack    # noqa: F401,E402  S7 默认化：攻击面工具随包常驻
@@ -40,10 +42,12 @@ from . import breaker    # noqa: F401,E402  S122：工具熔断（同工具+参�
 from . import ide_deadcode  # noqa: F401,E402  S123：死符号可达性（ast 保守口径）
 from . import secrets    # noqa: F401,E402  S123：凭据/密钥泄漏扫描（模式+高熵，掩码输出）
 from . import ide_callgraph  # noqa: F401,E402  S125：真调用图（同 nameres 作用域引擎 + stitch）
+from . import ide_riskrank  # noqa: F401,E402  S129：风险榜（高扇入×无测试 → 拆分/补测排序）
 
 __all__ = ["fs", "scan", "code_review", "ide", "guard", "learn", "ops",
            "search", "game", "meta", "engine", "bevy", "attack",
-           "appaudit", "astscan", "metrics", "lsp", "ide_test", "ide_doctor",
+           "appaudit", "astscan", "metrics", "lsp", "lsp_actions", "impact",
+           "ide_test", "ide_doctor",
            "ide_read", "ide_vscode", "ide_autopilot", "vulnkb", "astgrep", "scip",
            "gpu", "filescan", "neardupes", "breaker", "ide_deadcode", "secrets",
            "ide_callgraph"]

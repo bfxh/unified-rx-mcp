@@ -22,9 +22,8 @@ import subprocess
 from registry import tool
 from tools import gpu
 from tools.fs import _resolve as _fs_resolve
+from tools.filewalk import TOOLCHAIN_SKIP_DIRS, iter_files
 
-_SKIP_DIRS = {".git", "node_modules", "target", "__pycache__", "dist", "build",
-              ".venv", "venv", ".pytest_cache"}
 _MAX_FILE_BYTES = 256 * 1024 * 1024        # 单文件上限（超过跳过并如实报）
 # AV 业界标准测试串（EICAR）——可验证"签名匹配确实工作"，不含真实恶意样本
 _EICAR = (b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*")
@@ -41,14 +40,9 @@ _XOR_GPU_MIN = 128 * 1024
 
 
 def _walk(root, max_files):
-    out = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
-        for fn in sorted(filenames):
-            out.append(os.path.join(dirpath, fn))
-            if len(out) >= max_files:
-                return out
-    return out
+    """S129/C1b：遍历收敛到 tools/filewalk 单一实现（每层文件名排序语义保留）。"""
+    return list(iter_files(root, max_files, lambda _fp: True,
+                           TOOLCHAIN_SKIP_DIRS, sort_files=True))
 
 
 def _rx_scan_exe():

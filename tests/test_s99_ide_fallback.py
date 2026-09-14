@@ -21,6 +21,7 @@ import registry
 import tools  # noqa: F401
 from tools import ide_read
 from tools import lsp as lsp_mod
+from tools import impact as impact_mod
 
 
 def _status():
@@ -52,11 +53,11 @@ def test_impact_lsp_path_shape_unchanged(monkeypatch, tmp_path):
     f = tmp_path / "a.py"
     f.write_text("def target():\n    pass\n", encoding="utf-8")
     other = tmp_path / "b.py"
-    monkeypatch.setattr(lsp_mod, "ide_lsp", lambda *a, **k: {
+    monkeypatch.setattr(impact_mod, "ide_lsp", lambda *a, **k: {
         "engine": "lsp", "total": 2,
         "references": [{"file": str(other), "line": 3},
                        {"file": str(f), "line": 1}]})
-    r = lsp_mod.ide_impact(str(f), 0, 4)
+    r = impact_mod.ide_impact(str(f), 0, 4)
     assert r.get("engine") == "lsp", r
     assert r["total_refs"] == 2 and len(r["files"]) == 2, r
     assert "fallback_reason" not in r, r
@@ -75,10 +76,10 @@ def test_impact_text_fallback_when_lsp_unavailable(monkeypatch, tmp_path):
     def boom(*a_, **k_):
         raise ConnectionError("server closed")
 
-    monkeypatch.setattr(lsp_mod, "ide_lsp", boom)
+    monkeypatch.setattr(impact_mod, "ide_lsp", boom)
     # S109：三级降级——本测试显式关掉解析级，专测最底层的文本兜底
-    monkeypatch.setattr(lsp_mod, "_resolved_impact", lambda *x, **k: None)
-    r = lsp_mod.ide_impact(str(a), 0, 4)
+    monkeypatch.setattr(impact_mod, "_resolved_impact", lambda *x, **k: None)
+    r = impact_mod.ide_impact(str(a), 0, 4)
     assert r.get("engine") == "text", r
     assert r.get("symbol") == "target", r
     assert "ConnectionError" in r.get("fallback_reason", ""), r
@@ -91,7 +92,7 @@ def test_impact_text_fallback_when_lsp_unavailable(monkeypatch, tmp_path):
 def test_impact_text_fallback_no_ident(monkeypatch, tmp_path):
     f = tmp_path / "empty.py"
     f.write_text("\n\n", encoding="utf-8")
-    monkeypatch.setattr(lsp_mod, "ide_lsp",
+    monkeypatch.setattr(impact_mod, "ide_lsp",
                         lambda *a, **k: {"error": "pylsp 未安装"})
-    r = lsp_mod.ide_impact(str(f), 0, 0)
+    r = impact_mod.ide_impact(str(f), 0, 0)
     assert "error" in r and "文本兜底也取不到符号" in r["error"], r

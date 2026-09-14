@@ -16,7 +16,8 @@ sys.path.insert(0, ROOT)
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-from tools import lsp as lsp_mod  # noqa: E402
+from tools import lsp as lsp_mod
+from tools import lsp_actions as lsp_actions_mod  # noqa: E402
 from tools.lsp import _session_root  # noqa: E402
 
 
@@ -53,8 +54,8 @@ def test_lsp_session_unified_across_dirs(tmp_path, monkeypatch):
     fa.write_text("x = 1\n", encoding="utf-8")
     fb.write_text("import src.a\n", encoding="utf-8")
     try:
-        r1 = lsp_mod.ide_lsp("diagnostics", file=str(fa))
-        r2 = lsp_mod.ide_lsp("diagnostics", file=str(fb))
+        r1 = lsp_actions_mod.ide_lsp("diagnostics", file=str(fa))
+        r2 = lsp_actions_mod.ide_lsp("diagnostics", file=str(fb))
         assert r1.get("error") is None and r1.get("engine"), r1
         assert r2.get("error") is None and r2.get("engine"), r2
         assert len(lsp_mod._SESSIONS) == 1, \

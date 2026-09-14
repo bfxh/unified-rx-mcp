@@ -627,3 +627,15 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：3.14 全量 **784 passed + 4 skipped**；3.11 全量 **786 passed + 2 skipped**；cargo **188 绿**（+4 新测试）+ clippy **零告警**；selftest 五线全绿（GROUPS 12 组 69 工具 / FS_STAT ok / SCHEMA_BAD 0 / VERSION_TAG NEXT=tag 前正确态 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0）；版本锁步 **2.45.0 ×5**。
 - 文档：VULN-HUNTING P1-a 落地注记（S128 全规则与边界）+ 附录 B Python 行"真污点"格 ⚠️→✅（跨函数/跨文件，含浅数据流边界）+ 行外注更新；CONSOLIDATION §四 P0-A 标已兑 + §八 S128 记录；skills/attack.md 契约；README 头。
 - 提交：本次
+
+## S129 · 实施轮三：P1-A 风险榜 + P1-B 调用面 + lsp.py 拆分 + C1b 遍历除重
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.45.0 → **2.46.0**（tag v2.46.0）
+- 决策：用户点单四件套（P1-A/P1-B/lsp·gpu 拆分/C1b）——按 CONSOLIDATION §五 顺序实施；**gpu 拆分如实延后**（理由：需整读 658 行 + ~30 处引用面更新，本轮已含三件大活 + C1b，硬塞易伤质量；下一轮第一优先，见 CONSOLIDATION §三 P1 gpu 段）。
+- **P1-B 双份交付**：①**lsp.py 拆分**（模块尺寸门最大件 850 → client 507 行）——`lsp_actions.py`（ide_lsp 动作分发）对 client 状态一律**模块属性访问**（`_lsp._SESSIONS` 等），使既有 monkeypatch 面零破坏（test_s60 换 `_SESSIONS`、test_s99 换 `_module_available` 继续生效；这是拆分纪律的关键设计点——直接 from-import 可变状态会静默切断测试的替换面）；`impact.py` 收降级链。测试引用面更新：属性式 5 处 + **字符串式 setattr 4 处**（首轮 grep 属性式漏掉字符串式，跑出来 3 红当场补——"看似不关联"的又一实例）；②**ide_impact 调用面档**：输出新增独立 `calls` 段（不混入 engine 降级链）——Rust 调用图调用边，**定义点对齐**（to_file/to_line 精确圈定符号；未对齐退化文件+短名并在 note 如实标注"同名函数调用边可能合并"），`def_line_aligned` 字段透明；`calls=false` 开关；exe 缺失/报错该段如实缺席（fail-open 有界，绝不拖垮主结果）。契约测试 4 例（跨文件 from-import 边实锤 + 开关 + 缺席 + schema）。
+- **P1-A 风险榜**：新工具 `ide_risk_rank`（70 工具 / ide 域第 23 件）——高扇入×无测试排序 = SCAN-POLICY「上帝对象拆分大于测试」的机器化：扇入=调用图可解析调用边（按被调定义 to_file/to_line 聚合，与 ide_callgraph 同数据单一实现）；无测试=静态文件约定代理（**`test_candidates` 自 code_review 提取成共享函数——真除重**；rust 认内联 cfg(test)；输出 note 明确"非实测行覆盖，实测用 code_coverage"）；score=扇入×(无测试?2:1)，公式随输出透明；JSONL 记账（默认 ~/.unified-rx/risk_history.jsonl）+ `mode=history` 同 root 趋势（总扇入/无测试数首末 delta）——还 HARDENING「覆盖率趋势」欠账的静态版；`include_tests` 开关；exe 缺失清晰报错不静默。测试 5 例（排序权重/测试排除/记账回读+delta/exe 缺失/schema+沙盒）。
+- **C1b 遍历除重**：filescan/neardupes 的 `_walk` 收敛到 filewalk（新增 `sort_files` 参数**保留每层排序语义**；`TOOLCHAIN_SKIP_DIRS` 消灭两份同款 skip 集副本）；neardupes 截断如实语义逐字等价（多取 1 判截断，恰好上限不标）；**cache.py 的记账交织 walk 如实不并**（预算/哈希与遍历交织在循环体内，参数化会失真——边界写进文档）；行为锁进 test_s127（venv 跳过/排序/截断三断言）。
+- 门连锁（全部为门在正常工作）：①计数门一次抓出**5 处未同步**（README 版本头/对比表"69 个组合工具"/README 工具面计数/test_v2 上限 69/test_s127 == 69）——其中"个组合工具"是首轮漏掉的第四模式，门逮住后补刀；②模块尺寸门注释随实测更新（lsp.py 850→507，新最大件 gpu.py 658）；③文档双向门要求新工具入 skills/ide.md（已写契约）；④字符串式 monkeypatch 漏网由测试红当场暴露（见上）。
+- 版本锁步 **2.46.0 ×5**（server.py / Cargo.toml / Cargo.lock / README / PANORAMA）+ exe 重建（9 个 → 2.46.0，rx-scan --version 实测）。
+- 验证：3.14 全量 **794 passed + 4 skipped**；3.11 全量 **796 passed + 2 skipped**（新增 10 例：impact 调用面 4 + 风险榜 5 + C1b 行为 1）；cargo **188 绿** + clippy **零告警**；selftest 五线全绿（GROUPS 12 组 70 工具 / FS_STAT ok / SCHEMA_BAD 0 / VERSION_TAG NEXT=tag 前正确态 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0）；S113 门 11/11。
+- 文档：README 头部（S129 三件套 + gpu 延后如实 + 数字）；CONSOLIDATION §三（lsp 已兑/gpu 延后理由）§四（P0-B 标误诊撤销、P1-A/P1-B 已兑）§五 §八 S129 记录；skills/ide.md（头部 23 + impact 契约 +S129 + risk_rank 契约）；skills/README ide 23；PANORAMA 70/ide(23)。
+- 提交：本次

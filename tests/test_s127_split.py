@@ -114,7 +114,7 @@ def test_scan_no_longer_hosts_review_domain():
 # ---------- 3. 注册面契约 ----------
 
 def test_registry_surface_unchanged():
-    assert registry.tool_count() == 69
+    assert registry.tool_count() == 70
     entry = registry._TOOLS["code_review"]
     assert entry["handler"].__module__ == "tools.code_review"
     assert entry["group"] == "scan"
@@ -123,6 +123,30 @@ def test_registry_surface_unchanged():
 def test_dead_code_cleanup_sticks():
     from tools import aci
     assert not hasattr(aci, "strip_hint")
+
+
+def test_c1b_filescan_neardupes_delegate_to_filewalk(tmp_path):
+    """S129/C1b：filescan/neardupes 的 walk 收敛到 filewalk 单一实现——
+    每层排序语义保留、neardupes 截断如实（恰好上限不标截断）。"""
+    from tools import filescan, neardupes
+    assert "os.walk(" not in _src("filescan.py")
+    assert "os.walk(" not in _src("neardupes.py")
+    for name in ("z.py", "a.py", "m.py"):
+        _w(tmp_path / "sub" / name, "X = 1\n")
+    _w(tmp_path / "venv" / "hidden.py", "H = 1\n")
+
+    got = filescan._walk(str(tmp_path), 100)
+    names = [os.path.basename(p) for p in got]
+    assert "hidden.py" not in names, names        # venv 跳过
+    assert names == sorted(names), names          # 每层排序语义
+    assert len(filescan._walk(str(tmp_path), 2)) == 2
+
+    two, trunc2 = neardupes._walk(str(tmp_path), 2)
+    assert len(two) == 2 and trunc2 is True       # 有更多 → 如实标截断
+    allf, trunc_all = neardupes._walk(str(tmp_path), 100)
+    assert len(allf) == 3 and trunc_all is False  # 恰好全量不标截断
+    exact, trunc_exact = neardupes._walk(str(tmp_path), 3)
+    assert len(exact) == 3 and trunc_exact is False
 
 
 # ---------- 4. code_review 功能烟测（拆分后真跑）----------

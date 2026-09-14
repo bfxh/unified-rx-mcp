@@ -1,4 +1,4 @@
-# ide 域（22 工具：读取/编辑/构建/调试/诊断/测试/体检/语义/调用图）
+# ide 域（23 工具：读取/编辑/构建/调试/诊断/测试/体检/语义/调用图/风险榜）
 - **ide_edit_multi**：内容匹配（非行号），CRLF 保留，`dry_run: true` 出
   unified diff 预览不落盘（S34）；模拟在副本上整段跑，mismatch 不会半应用；
   S55 语法门（py 结果不可编译整批拒不落盘）；S55 `validate: true` 写前 LSP
@@ -55,8 +55,13 @@
   （跨文件精确到 import 行、**别名绑定也覆盖**）＋同文件精确到引用行；③`text`
   文本级兜底（大小写敏感全文计数，含注释/字符串、无行号，受 200 文件帽限制）。
   取不到符号/exe 缺失/解析失败 → 逐级回落，最终包络给出清晰错误。
+  **S129 新增独立 `calls` 段（调用面，与引用面分层不混）**：Rust 调用图的
+  调用边——按**定义点对齐**（to_file/to_line）消歧，答"谁在调用它"（引用面答
+  "谁提到了它"）；`def_line_aligned=false` 时为文件+短名圈定（同名函数调用边
+  可能合并，note 如实标注）；调用图不可用/`calls=false` 时该段如实缺席。
   实测（本仓 `_resolve` 定义）：解析级 21 文件 23 处（含 `_fs_resolve` 别名），
   文本级同符号假阳性率 93.9%（bench/results/s108_resolve_compare.json）。
+  S129 拆分：本工具实现已平移 tools/impact.py（lsp.py 只留客户端核心）。
 - **ide_rename / rename_apply**（S58）：rename_plan 只出预案；rename_apply
   落盘需 `__authorized: true`，UTF-16 列正确、CRLF 保留、逐文件沙盒防逃逸、
   非 file: uri 拒绝
@@ -93,6 +98,15 @@
   环检出 ≤10、resolution_rate）。**stats 自洽**：calls = resolved + unresolved +
   builtin_calls（Rust 侧测试锁死）。文档化边界（spec/CALLGRAPH.md）：函数体内
   局部定义互递归（顺序绑定）、类型推断、运行时元编程。
+- **ide_risk_rank（S129）**：风险榜——高扇入 × 无测试文件自动排序（SCAN-POLICY
+  「拆分大于测试」的机器化落地）。扇入=调用图**可解析**调用边（按被调定义
+  to_file/to_line 聚合，不可解析调用如实缺席——与 ide_callgraph 同数据、单一
+  实现）；无测试=**静态文件约定代理**（与 code_review 覆盖透镜共用
+  test_candidates 口径；rust 认内联 `#[cfg(test)]`；**非实测行覆盖**，实测用
+  code_coverage）。分数=扇入×(无测试?2:1)，公式随输出透明给出。`record=true`
+  存 JSONL（默认 ~/.unified-rx/risk_history.jsonl），`mode=history` 读同 root
+  历史出趋势（总扇入/无测试数首末对比）——覆盖率趋势欠账的静态版。
+  `include_tests=true` 才把测试文件纳入榜单；exe 缺失清晰报错不静默。
 - 坑：JDK/gcc 本地化消息（中文"错误"）破坏诊断正则 → javac 强制
   `-J-Duser.language=en`、gcc `LC_ALL=C`；pytest 语法错误走 stdout 非 stderr；
   CPython 3.11+ line 事件 trace 返回 None 不关帧追踪（必须 sys.settrace(None)）；

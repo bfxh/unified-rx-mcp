@@ -124,14 +124,18 @@ _git_changed_ranges/code_review`（纯 Python 评审域 ~270 行/11 函数）。
 逻辑零改动（git mv 式平移）、导入面只动 tools/__init__.py 与测试 import。
 与 C1 walker 统一同轮做。
 
-### P1 `tools/lsp.py`（850 行三职责）
-LSP 客户端协议层 ∥ `ide_lsp` 动作分发（fan-out 25）∥ `ide_impact` 三级降级。
-拆 `lsp.py`（client）+ `lsp_actions.py`（动作）+ `impact.py`（影响面），工具名全部不变。
+### P1 `tools/lsp.py`（850 行三职责）（**S129 已兑**）
+拆为 `lsp.py`（client 核心 507 行）+ `lsp_actions.py`（ide_lsp 动作分发）+
+`impact.py`（影响面 + 调用面档），注册名/语义零变化；测试引用面按包属性访问
+纪律平移（`_SESSIONS`/`_Session`/`_from_utf16_col`/`_apply_text_edits`/
+`validate_content` 留 client——lsp_actions 对状态一律模块属性访问，test_s60/
+test_s99 的 monkeypatch 面继续生效）。
 
-### P1 `tools/gpu.py`（658 行）
-helper 簇（`_check/_set_arg/_cl/_read_buf`，fan-in 35/34）+ 各域 kernel 混装。
-kernel 就近迁移：ngram→neardupes、literal/xor/byte_hist→filescan，gpu.py 留 runtime+
-helper。exe/引擎探测逻辑不动。
+### P1 `tools/gpu.py`（658 行）（**S129 延后一轮**）
+延后理由（如实）：kernel 就近迁移需整读 658 行并更新 ~30 处引用面
+（test_s114_gpu / bench/s114_gpu_bench / filescan / neardupes）——S129 已含
+三项大活 + C1b，硬塞易伤质量；S129 结束时 gpu.py 已是全仓最大 tools 文件
+（658），下一轮第一优先。exe/引擎探测逻辑不动（承诺不变）。
 
 ### P2 Rust 侧（mod 内拆，不动 Cargo.toml）
 pyast.rs 2986（parser/scope/extract 分 mod）→ astscan.rs 1776 → nameres.rs 1705
@@ -151,18 +155,22 @@ pyast.rs 2986（parser/scope/extract 分 mod）→ astscan.rs 1776 → nameres.r
 注记（S128）；实现与测试清单见 ROUNDLOG S128。**未竟**：字段/路径敏感、getattr
 动态面（附录 B 仍标 ⚠️）。
 
-### P0-B ide_dead_code Attribute 盲区修复（D1，dogfood 实锤）
-引用模型补 Attribute 引用采集 + `cache_key` 误报回归测试。这是"找问题"工具自己
-先过硬——量尺不准，量出来的死代码清单就不可信。
+### P0-B ide_dead_code Attribute 盲区修复（**S127 撤销：误诊，见 §1.4**）
+原"D1 缺陷"经全仓复扫证伪——引用模型本就数 Attribute，假阳性系扫描范围错误。
+工具零改动；教训（判死范围=全仓）已入 ROUNDLOG S126 更正条目。
 
-### P1-A 覆盖率 × 调用图风险榜
-`code_coverage`（stdlib trace）× `ide_callgraph` fan-in → **高扇入 × 零覆盖**优先级
-清单 = SCAN-POLICY 的自动化落地（拆分/补测排序不再拍脑袋）。结果存 JSONL，
-与 ide_health_trend 同库出趋势（顺带还 HARDENING"覆盖率趋势"欠账）。
+### P1-A 覆盖率 × 调用图风险榜（**S129 已兑**）
+`ide_risk_rank`（ide 域第 23 件，总 70）：高扇入（调用图可解析调用边，按被调定义
+to_file/to_line 聚合）× 无测试（静态文件约定代理——与 code_review 覆盖透镜共用
+`test_candidates` 口径；rust 认内联 cfg(test)；**非实测覆盖**，实测仍走
+code_coverage）→ score=扇入×(无测试?2:1) 排序；JSONL 记账 +
+`mode=history` 同 root 趋势（总扇入/无测试数首末对比，还 HARDENING 覆盖率趋势
+欠账的静态版）。
 
-### P1-B ide_impact 接调用面
-三级降级链加第四档：LSP references（引用）→ 名字解析（引用）→ **调用图（调用）**，
-engine 字段如实标注档位——引用≠调用分层不混（HARDENING 缺口清单既定候选）。
+### P1-B ide_impact 接调用面（**S129 已兑**）
+独立 `calls` 段（不混入降级链的 engine 标注）：Rust 调用图调用边，
+**定义点对齐**（to_file/to_line）消歧，未对齐退文件+短名并在 note 如实标注；
+`calls=false`/exe 缺失该段如实缺席（fail-open 有界，不拖垮主结果）。
 
 ### P2-A 外部 linter 编排
 ruff/pyflakes/mypy 能力探测薄壳（同 pylsp/ast-grep 惯例：装了就用、没装清晰报错
@@ -185,7 +193,8 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
 2. ~~P0 scan.py 拆分 + C1 walker 统一~~ → **S127 已兑**（见 §八）
 3. ~~死代码清理~~ → **S127 已兑**（真死收敛为 1 件 strip_hint，已删加锁）
 4. ~~P0-A taint×callgraph~~ → **S128 已兑**（见 §四 P0-A 与 §八）
-5. P1-A / P1-B / P1 拆分（lsp/gpu）；C1b（内联 walk 族）
+5. ~~P1-A~~ / ~~P1-B~~ / ~~P1 拆分（lsp）~~ → **S129 已兑**；**gpu 拆分 + C1b
+   剩余（cache 记账交织 walk 如实不并）→ 下一轮第一优先**
 6. P2-A / P2-B / C2 / P3
 
 每步通用门禁：测试先行或同步迁移、注册名与工具面不破坏（A 级项需 deprecation
@@ -238,3 +247,26 @@ Python 工具测试 +1（别名链 + 开关）；REPLAY 新增 `test_s128_cross_
 （超集不变量 + origin 必带 + A/B 记账行）。A/B（快照 395e4cd）：all 627(+0) /
 definite 131(+1) / cross_flows 7 / ambiguous 80——净新增 0 如实入档。已知未竟：
 字段/路径敏感、getattr 动态面（附录 B 维持 ⚠️）。
+
+**S129 实施记录（P1-A + P1-B + lsp 拆分 + C1b，第三实施轮）**：
+- **lsp.py 拆分**：850 → client 507（`_SESSIONS`/`_Session`/`_from_utf16_col`/
+  `_apply_text_edits`/`validate_content` 全留 client）；`lsp_actions.py`（ide_lsp，
+  对 client 状态一律模块属性访问——既有 monkeypatch 面零破坏）；`impact.py`
+  （降级链 + 新调用面）。测试引用面 5 处属性 + 4 处字符串 setattr 全数更新
+  （test_s109/test_s99/test_s60/test_r3）。门连锁：模块尺寸门最大值从 lsp.py 850
+  降到 gpu.py 658（test_s113 注释同步实测值）。
+- **P1-B 调用面**：`ide_impact` 输出新增 `calls` 段——engine=rust:nameres-callgraph，
+  **定义点对齐**（to_file/to_line 精确圈定；未对齐退化文件+短名 + note 标注），
+  `call_sites`/`callers`（file/line/caller）/`def_line_aligned`；`calls=false`
+  关闭；exe 缺失/报错如实缺席。契约测试 4 例（跨文件 from-import 边实锤）。
+- **P1-A 风险榜**：新工具 `ide_risk_rank`（70 工具 / ide 23）——扇入×无测试
+  （score=扇入×(无测试?2:1) 公式随输出透明）；`test_candidates` 自 code_review
+  提取共享（真除重）；JSONL 记账 + history 趋势（空历史/同 root 过滤/首末 delta）；
+  测试 5 例（排序权重/测试排除开关/记账回读+delta/exe 缺失清晰错/schema+沙盒）。
+  计数门全套随动：README ×4、PANORAMA、skills/README、skills/ide.md、test_v2、
+  test_s127、README 对比表"70 个组合工具"。
+- **C1b**：filescan/neardupes walk 收敛 filewalk（新增 `sort_files` 参数保留每层
+  排序语义 + `TOOLCHAIN_SKIP_DIRS` 唯一副本）；neardupes 截断如实（多取 1 判截断，
+  恰好上限不标）；cache.py 记账交织 walk **如实不并**（预算/哈希与遍历交织，参数化
+  会失真）；行为锁进 test_s127（含 venv 跳过/排序/截断三断言）。
+- **gpu 拆分延后**（理由见 §三 P1 gpu 段）：下一轮第一优先。

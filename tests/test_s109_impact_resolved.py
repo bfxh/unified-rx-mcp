@@ -10,7 +10,7 @@ import pytest
 
 import registry
 import tools  # noqa: F401
-from tools import lsp as lsp_mod
+from tools import impact as impact_mod
 from tools import scan as scan_mod
 
 
@@ -26,10 +26,11 @@ def _mkpkg(tmp_path):
 
 
 def _no_lsp(monkeypatch):
-    """强制 LSP 层不可用（不依赖环境是否装 pylsp——3.11 本机装了）。"""
+    """强制 LSP 层不可用（不依赖环境是否装 pylsp——3.11 本机装了）。
+    S129：ide_impact 自 lsp.py 平移至 tools/impact.py——patch 面随之。"""
     def boom(*a, **k):
         raise ConnectionError("server closed")
-    monkeypatch.setattr(lsp_mod, "ide_lsp", boom)
+    monkeypatch.setattr(impact_mod, "ide_lsp", boom)
 
 
 def _call(file, line=0, col=4):
@@ -54,7 +55,7 @@ def test_resolved_tier(tmp_path, monkeypatch):
 
 def test_lsp_tier_precedence(tmp_path, monkeypatch):
     a = _mkpkg(tmp_path)
-    monkeypatch.setattr(lsp_mod, "ide_lsp", lambda *x, **k: {
+    monkeypatch.setattr(impact_mod, "ide_lsp", lambda *x, **k: {
         "engine": "lsp", "total": 2,
         "references": [{"file": str(a), "line": 4},
                        {"file": str(a.parent / "b.py"), "line": 4}]})
@@ -66,7 +67,7 @@ def test_lsp_tier_precedence(tmp_path, monkeypatch):
 def test_text_tier_when_resolution_unavailable(tmp_path, monkeypatch):
     _no_lsp(monkeypatch)
     a = _mkpkg(tmp_path)
-    monkeypatch.setattr(lsp_mod, "_resolved_impact", lambda *x, **k: None)
+    monkeypatch.setattr(impact_mod, "_resolved_impact", lambda *x, **k: None)
     res = _call(a)
     assert res["engine"] == "text", res
     assert "fallback_reason" in res, res
