@@ -88,6 +88,12 @@ CI 侧对应的自动化门 = **Self-attack gate**（`scripts/attack_gate.py`：
 | 首轮 | TEMP/s137_audit_copy | sha256:7890b599… | 59 | **inconclusive**（工具侧覆盖缺口） | — |
 | 修复 | local_run shell=True→argv（实锤） | — | — | — | — |
 | 复审 | TEMP/s137_audit_copy2 | sha256:3159dfad… | 57 | inconclusive | **唯一差量=修掉的两条**，零新增 |
+| 复审二（S143 后） | TEMP/urx-audit-copy @4eae149 | sha256:426d0a37… | 57 | inconclusive | added=0；gone=2（均为已修的命令注入，对照的是修复前基线——S137 首轮报告留档） |
+
+**复审二记账（S143）**：副本 778 文件 / head=4eae149（S143 提交，含 toolmeta.py、
+toolface_budget.py 新面）；深扫 9s 完成；差量**零新增**、白名单外无漂移——
+S140-S143 的改动（breaker/burnwatch/annotations/仪表）未引入新发现。运行状态仍
+**inconclusive**（覆盖缺口未消），**不据此宣称"项目安全"**，继续挂账。
 
 **首轮 59 条分类**（产品面 7 处 + bench 面 45 + 冻结快照 6 + 杂 1）：
 - 产品面：`local_run` 命令注入 ×2 = **实锤修复**（shell=True 与契约矛盾→argv
@@ -98,9 +104,10 @@ CI 侧对应的自动化门 = **Self-attack gate**（`scripts/attack_gate.py`：
   `game.py:43`=本机固定 127.0.0.1 端点（仅端口参数），SSRF moot。
 - bench 面 ~45 条（路径穿越/SSRF/弱随机）=开发夹具面（非工具面发布面），
   记录接受；`manual_snaps` 6 条=冻结历史快照（零引用≠可删，S126 已定）。
-- **欠账状态（如实）**：两轮副本审计已执行、封印在案、复审收敛（59→57，唯一
-  差量=修复项）；但两次运行都被工具标记 **inconclusive**（其覆盖缺口未消），
-  **不据此宣称"项目安全"**——欠账部分收敛、继续挂账，复审时机=每次 tag 前。
+- **欠账状态（如实）**：三轮副本审计已执行（S137 两轮 + S143 复审二）、封印在案、
+  复审保持收敛（59→57→57，差量全为修复项、零新增）；但三次运行都被工具标记
+  **inconclusive**（其覆盖缺口未消），**不据此宣称"项目安全"**——欠账部分收敛、
+  继续挂账，复审时机=每次 tag 前。
 
 ## 四、已知良性基线（本仓 secrets_hunt 自扫，2026-09-14）
 

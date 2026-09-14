@@ -983,4 +983,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   修复后 1）；cargo **200 绿** + clippy 零告警；selftest 五线全绿
   （SCHEMA_BAD 0 / VERSION_TAG NEXT / SKILLS_DOCS 0 / **EXE_TAG ok=9**——版本
   bump 后已重建 release exe）；版本锁步 **2.59.0 ×4**。
+- **③ Mimosa 副本审计·复审二**（闭合 hook 欠账提醒）：副本 TEMP/urx-audit-copy
+  @4eae149（778 文件）→ 深扫 57 条 seal **sha256:426d0a37…** → 差量 **added=0**、
+  gone=2（均= S137 已修的命令注入，对照的是修复前基线）；S140-S143 改动面零新增。
+  运行状态仍 inconclusive——**不宣称安全**，台账入 HARDENING §四·补。
 - 提交：本次
