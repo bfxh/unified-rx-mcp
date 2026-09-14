@@ -1,15 +1,19 @@
-# zcode-breaker —— ZCode 工具熔断插件
+# zcode-breaker —— ZCode 工具熔断 + 会话烧量哨兵插件
 
 同一（工具 + 参数）在窗口内重复超过阈值 → **阻断**；同一命令反复返回完全相同的结果 →
 **阻断**；同一指令反复提交 → **告警**。与 `unified-rx-mcp` 的 `tools/breaker.py`
 同规则（宿主级 + 工具级双保险）。
+
+S141 起同插件携带 **session-guard 会话烧量哨兵**：会话 model-io（≈累计 prompt
+请求字节）越档（15/30/50/80MB）→ 向对话注入收尾建议；会话启动时注入"会话卫生"规则
+与今日已烧量。为什么做成钩子：烧钱发生在会话内，提醒必须让智能体在会话里看得见。
 
 ## 安装（推荐：本地市场）
 
 1. 打开 **Settings → Plugin Management → Discover**，点右上角 **`+`**（Add marketplace）
 2. 选择目录：`D:\开发\unified-rx-mcp\plugins\urx-marketplace`（内含 `marketplace.json`）
 3. 在市场列表里找到 **zcode-breaker** → 点 **Get**
-4. 到 **Installed** 页确认开关为开；点进详情页应能看到 **4 个 Hook** 且可运行
+4. 到 **Installed** 页确认开关为开；点进详情页应能看到 **6 个 Hook**（5 类事件）且可运行
 
 > 备用：把 `zcode-breaker/` 整个目录复制进 `~/.zcode/cli/plugins/cache/<marketplace>/zcode-breaker/1.0.0/`
 > 并登记到 `installed_plugins.json`（不推荐——升级/卸载会绕开界面管理）。
@@ -40,11 +44,27 @@
 - 这是**循环刹车，不是安全边界**：拦不住"每次换参数的穷举"。
 - 状态落在 `%TEMP%`，系统清理临时目录时计数会归零（无害）。
 
+## 会话烧量哨兵（session-guard，S141）
+
+| 事件 | 行为 |
+|---|---|
+| `SessionStart` | 注入"会话卫生"规则 + 今日已烧量（mtime 落在今天的会话文件体积之和） |
+| `UserPromptSubmit` / `PostToolUse` | 会话 model-io 越 15/30/50/80MB 档 → 注入收尾建议（每档只报一次，不刷屏） |
+
+- 口径：`~/.zcode/cli/rollout/model-io-<session_id>.jsonl` 体积 ≈ 累计 prompt 请求字节；
+  MB×~28 万 ≈ token 量级（混合中英粗估）。会话越长每轮重发越多（成本二次增长）。
+- **旁路**：`ZCODE_SESSION_GUARD=off`；复位：删
+  `%TEMP%\zcode-session-guard-state.jsonl`
+- 与 MCP 侧 `tools/burnwatch.py` 分工：MCP 侧写 `~/.unified-rx/alarms.jsonl`（留痕/统计），
+  宿主侧注入对话（让智能体看见）；两侧阈值独立（默认都 15MB 起）。
+- 与 MCP 侧 `session_burn` 工具配套：会话内可随时查全量体积视图。
+
 ## 与 MCP 侧熔断的关系
 
 | 层 | 实现 | 覆盖 |
 |---|---|---|
 | 宿主级（本插件） | ZCode Hook，计数在 `%TEMP%\zcode-breaker\state.json` | **所有**工具（含 Bash/Read/Write/Agent 与任意 MCP 工具） |
+| 宿主级·烧量（session-guard） | ZCode Hook，读 rollout 会话文件体积 | 会话 token 消耗档位 → 注入对话提醒（15/30/50/80MB 每档一次） |
 | 工具级（MCP 内） | `unified-rx-mcp/tools/breaker.py` 挂在 `registry.call` | 该 MCP 的全部工具（进程内计数、`breaker_status`/`breaker_reset` 可查可复位） |
 
 两层同规则、互不依赖：插件管全局，MCP 自己管自己（换宿主也带着刹车）。

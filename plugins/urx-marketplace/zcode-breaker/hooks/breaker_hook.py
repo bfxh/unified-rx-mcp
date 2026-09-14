@@ -145,6 +145,15 @@ def main(argv):
             s["x"] = trips
             streaks.pop(key, None)
         _save(st)
+        try:                                   # S141：搭车跑烧量哨兵（不额外起进程）
+            import session_guard_hook as _sg   # 同目录；仅在档位上升时有输出
+            _msg = _sg.tick(ev.get("session_id"))
+            if _msg:
+                print(json.dumps({"hookSpecificOutput": {
+                    "hookEventName": "PostToolUse", "additionalContext": _msg}},
+                    ensure_ascii=False))
+        except Exception:                      # noqa: BLE001
+            pass                               # 哨兵绝不拖垮熔断
         return 0
 
     if mode == "prompt":

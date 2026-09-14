@@ -1,5 +1,5 @@
 {
-  "description": "工具熔断（zcode-breaker）：同一（工具+参数）窗口内重复超阈值 → 阻断；同一 key 结果连续相同 → 阻断；重复指令 → 告警。阈值/窗口/冷却在 args 里调。",
+  "description": "工具熔断（zcode-breaker）+ 会话烧量哨兵（session-guard，S141）：同一（工具+参数）窗口内重复超阈值 → 阻断；同一 key 结果连续相同 → 阻断；重复指令 → 告警；会话 model-io 越档（15/30/50/80MB）→ 注入收尾建议。阈值/窗口/冷却在 args 里调。",
   "hooks": {
     "PreToolUse": [
       {
@@ -70,6 +70,31 @@
               "120"
             ],
             "timeoutMs": 5000
+          },
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${ZCODE_PLUGIN_ROOT}/hooks/session_guard_hook.py",
+              "prompt"
+            ],
+            "timeoutMs": 5000
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${ZCODE_PLUGIN_ROOT}/hooks/session_guard_hook.py",
+              "start"
+            ],
+            "timeoutMs": 5000,
+            "statusMessage": "会话卫生检查…"
           }
         ]
       }

@@ -109,12 +109,20 @@ def test_state_file_created_under_temp(tmp_path):
 
 
 def test_hooks_manifest_matches_script(tmp_path):
-    """hooks.json 必须注册七个事件里的四个，且都指向本脚本（防手改漂移）。"""
+    """hooks.json 事件面（七事件里的五个）与脚本引用必须配套（防手改漂移）。
+
+    S141：新增 SessionStart 与 UserPromptSubmit 的 session_guard_hook（烧量哨兵）；
+    每个钩子必须指向本插件的两个脚本之一，且两个脚本都被注册。"""
     manifest = json.loads((HOOK.parent / "hooks.json").read_text(encoding="utf-8"))
     events = set(manifest["hooks"])
-    assert events == {"PreToolUse", "PostToolUse", "PostToolUseFailure", "UserPromptSubmit"}
+    assert events == {"PreToolUse", "PostToolUse", "PostToolUseFailure",
+                      "UserPromptSubmit", "SessionStart"}
+    refs = set()
     for ev, entries in manifest["hooks"].items():
         for entry in entries:
             for h in entry["hooks"]:
                 assert h["type"] == "process" and h["command"] == "python"
-                assert any("breaker_hook.py" in a for a in h["args"]), (ev, h)
+                assert any(("breaker_hook.py" in a) or ("session_guard_hook.py" in a)
+                           for a in h["args"]), (ev, h)
+                refs |= {os.path.basename(a) for a in h["args"] if a.endswith(".py")}
+    assert refs == {"breaker_hook.py", "session_guard_hook.py"}, refs
