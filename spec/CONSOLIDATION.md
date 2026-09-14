@@ -198,7 +198,7 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
 4. ~~P0-A taint×callgraph~~ → **S128 已兑**（见 §四 P0-A 与 §八）
 5. ~~P1-A~~ / ~~P1-B~~ / ~~P1 拆分（lsp）~~ → **S129 已兑**；**gpu 拆分 + C1b
    剩余（cache 记账交织 walk 如实不并）→ 下一轮第一优先**
-6. ~~P2-A~~ → **S130 已兑**；P2-B / C2 / P3 待做（P2-B=bug_scan 八规则扩容，Rust 侧；C2=breaker 组归位；P3=attack 巡航）
+6. ~~P2-A~~ → **S130 已兑**；~~P2-B~~（八规则 + KB 联动）/ ~~C2~~（breaker 归位）→ **S131 已兑**；**P3（attack 巡航）待做**；另开 H1/H3/M4（设计评审高优先项：授权分级立文 / 组合透传检查器 / 家族选型表）→ 见 spec/DESIGN-REVIEW.md
 
 每步通用门禁：测试先行或同步迁移、注册名与工具面不破坏（A 级项需 deprecation
 说明）、计数门 69 不变、selftest 对账、pytest+cargo 双绿才准合入（pre-commit 强制）。
@@ -273,6 +273,20 @@ definite 131(+1) / cross_flows 7 / ambiguous 80——净新增 0 如实入档。
   恰好上限不标）；cache.py 记账交织 walk **如实不并**（预算/哈希与遍历交织，参数化
   会失真）；行为锁进 test_s127（含 venv 跳过/排序/截断三断言）。
 - **gpu 拆分延后**（理由见 §三 P1 gpu 段）：下一轮第一优先。
+
+**S131 实施记录（P2-B + C2 + 设计评审，第五实施轮）**：
+- **P2-B 八规则**（bug.rs，AST+行级）：py_shell_true（keyword 节点行定位，跨行亦可判）
+  / pickle_loads / yaml_unsafe_load（Loader= 即不报）/ weak_hash_password（仅口令语境）
+  / sql_concat（BinOp/JoinedStr）/ mktemp_race / zip_extractall / except_pass（有类型
+  except+pass，与 bare_except 互补）；rust 测试 +2 例（命中与不报双侧）；KB 联动：
+  新增 kb-deserialization/kb-weak-hash/kb-mktemp/kb-zip-slip 四条 + 扩三条例目规则号，
+  kb-sql-inject 摘「未覆盖」标；test_s110 KNOWN_RULES 同步。
+- **C2 组归位**：breaker_status/reset meta→guard（挂门语义与 guard 同族）；
+  skills meta.md→guard.md 迁移、README/PANORAMA/skills-README 计数随动。
+- **设计评审**：spec/DESIGN-REVIEW.md（70 工具 / 12 组 / 36 模块 / 18 挂门实测）
+  ——高优先 H1 授权分级立文（S130 事故根因）/ H2 root-vs-path 词汇分裂（15:28）/
+  H3 组合透传检查器；中优先 M1 中文输出键 3 件 / M2 metrics 组轴错位 / M3 kind·engine
+  一词多义 / M4 选型表文档债；低优先 L1 子进程沙盒边界等记录在案。
 
 **S130 实施记录（gpu 拆分收尾 + P2-A，第四实施轮）**：
 - **gpu 拆分**（§三 P1，上轮延后项）：gpu.py 658 → 运行时约 400 行；kernel 三簇

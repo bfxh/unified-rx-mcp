@@ -6,23 +6,21 @@
 > 设计哲学：**少而准**（70 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.47.0（S130）**：70 工具 / 12 域；**gpu 拆分收尾 + 诊断面挂门修正 + linter 探测**——
-①`tools/gpu.py`（658 行，上轮如实延后的最大件）拆分：该文件收敛为**运行时**
-（OpenCL 加载/上下文/编译缓存/CROSSOVER/pick_mode），kernel 就近迁域
-（literal/hist(+entropy)/xor→`filescan.py`，ngram/bottom_k/jaccard→`neardupes.py`，
-CPU oracle 与内核同行，公开名不变）；②**实锤修复**：`ide_diagnostics` 的 clippy
-透镜在生产路径上被授权门拒绝、又被 `except` 静默吞成空信号（`engine=none, total=0`
-实测）——升**执行类挂门**（`__authorized`）+ 内层调用显式传授权，信号缺席/拒绝/
-超时/失败**一律进 `skipped` 列表可见**（S55 类"静默吞"的授权门变体，回归门锁死）；
-③P2-A：Python 外部 linter 探测薄壳进统一诊断面——`ruff`（优先，`--no-cache`）→
-无则 `pyflakes`，`mypy` 独立（类型面，缓存钉 TEMP），同形状聚合、装了就用、没装
-如实报（零 pip 依赖：外调不内嵌）。历史链：S129 风险榜/调用面/lsp 三分；S128
-跨文件污点链（REPLAY 3/3、131 ≤ 755/2）；S125 `ide_callgraph`
-（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首次完整跑绿（`SECRETS-GATE OK` /
-`CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 797 passed + 4 skipped、
-3.11 = 799 passed + 2 skipped（skip 为外部资产环境性）；cargo 188 绿 + clippy 零告警；
-selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与
-IDE 升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
+**当前 v2.48.0（S131）**：70 工具 / 12 域；**bug_scan 八规则扩容 + 组归位 + 设计评审**——
+①`bug_scan` 注入/反序列化/竞态八条新规则（`py_shell_true`/`pickle_loads`/
+`yaml_unsafe_load`/`weak_hash_password`/`sql_concat`/`mktemp_race`/`zip_extractall`/
+`except_pass`），每条配 vuln_knowledge 条目（新增四条 + 扩三条），命中与不报双侧入测；
+②`breaker_status/reset` 组归位 meta→guard（熔断属防护面）；③**工具面设计评审**：
+[spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)（70 工具/12 组/36 模块/18 挂门实测）——
+高优先三项（授权分级立文 / `root` vs `path` 词汇分裂 15:28 / 组合工具授权透传检查器）、
+中优先四项（中文输出键 3 件、metrics 组轴错位、kind·engine 一词多义、家族选型表文档债）。
+历史链：S130 gpu 拆分 + ide_diagnostics 挂门实锤修复（clippy 透镜复活）+ ruff/mypy 探测；
+S129 风险榜/调用面/lsp 三分；S128 跨文件污点链（REPLAY 3/3、131 ≤ 755/2）；
+S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首次完整跑绿
+（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 797 passed
++ 4 skipped、3.11 = 799 passed + 2 skipped（skip 为外部资产环境性）；cargo 190 绿 +
+clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。
+整合除重与 IDE 升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
 加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 
@@ -45,14 +43,14 @@ IDE 升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐�
 | 🐛 scan (15) | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` `ast_scan` `code_review` `dep_graph` `module_stability` `code_coverage` `vuln_knowledge` `ast_grep` `file_scan` `near_dupes` `secrets_hunt`（S123：凭据泄漏扫描，掩码输出） — 正则 + AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
 | 🛠️ ide (23) | `ide_outline` `ide_read_symbol` `locate_edit` `code_context` `ide_edit_multi` `ide_batch_edit` `ide_rename` `ide_lsp` `ide_impact` `ide_diagnostics` `ide_build` `ide_test` `ide_debug` `ide_break` `ide_doctor` `ide_multi_check` `ide_vscode` `ide_auto_report` `ide_health_trend` `scip_refs` `ide_dead_code`（S123：死符号可达性）`ide_callgraph`（S125：真调用图）`ide_risk_rank`（S129：风险榜——高扇入×无测试排序） |
 | 🔍 search (3) | `code_search`（BM25，`hybrid=true` 时与语义路 RRF 融合）`code_semantic`（tf-idf 定义级）`repo_map`（个人化 PageRank 符号地图） |
-| 🛡️ guard (2) | `hallucination_guard` `capability_manifest` — 声明核查；读取过沙盒（S97） |
+| 🛡️ guard (4) | `hallucination_guard` `capability_manifest` — 声明核查（读取过沙盒，S97）；`breaker_status` `breaker_reset` — **工具熔断**（同一工具+参数窗口内 >10 次即断，S122；S131 自 meta 域归位） |
 | 🧠 learn (1) | `lesson` — 教训记忆（关键词检索，非向量） |
 | ⚙️ ops (5) | `backup` `scan_log` `usage_stats` `project_health` `lesson_stats` |
 | 🎮 game (2) | `game_check` `blender_verify` |
 | 🚀 engine (2) | `engine_status` `engine_query` |
 | 🕵️ attack (5) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` — 自攻面常驻 |
 | 🧬 appaudit (3) | `app_audit` `app_clone` `app_clean` |
-| 🧰 meta (5) | `local_run` `process` `gpu_status` `breaker_status` `breaker_reset` — 授权门控 / GPU 遥测 / **工具熔断**（同一工具+参数窗口内 >10 次即断，S122） |
+| 🧰 meta (3) | `local_run` `process` `gpu_status` — 授权门控 / GPU 遥测 |
 
 已于 S15 移除的废物面（证据驱动）：kb_query / chatlog_search / cmd_cheatsheet /
 code_complete / ide_references / cost_report / trend_analysis / pipeline / parallel / pure_*。

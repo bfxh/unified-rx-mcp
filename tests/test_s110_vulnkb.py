@@ -20,6 +20,9 @@ KNOWN_RULES = {
     "eval_call", "new_function", "child_process", "open_external",
     "auto_updater", "protocol_register",
     "private_key_block", "api_key_sk", "github_pat", "aws_access_key", "secret_by_key",
+    # S131（P2-B）八条新规则
+    "py_shell_true", "pickle_loads", "yaml_unsafe_load", "weak_hash_password",
+    "sql_concat", "mktemp_race", "zip_extractall", "except_pass",
 }
 
 REQUIRED_FIELDS = ("id", "rules", "langs", "title", "cause", "fix", "precedent", "tags")

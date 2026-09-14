@@ -198,7 +198,7 @@ def snapshot():
 
 
 @tool("breaker_status", "工具熔断状态：窗口内重复调用计数 / 已熔断的 key / 阈值与旁路开关"
-      "（同一工具+参数窗口内 >limit 次即断）", "meta",
+      "（同一工具+参数窗口内 >limit 次即断）", "guard",
       {"type": "object", "properties": {}, "required": []})
 def breaker_status():
     st = snapshot()
@@ -209,7 +209,7 @@ def breaker_status():
     return st
 
 
-@tool("breaker_reset", "复位工具熔断：清空计数与熔断态（给 tool 只复位该工具）", "meta",
+@tool("breaker_reset", "复位工具熔断：清空计数与熔断态（给 tool 只复位该工具）", "guard",
       {"type": "object",
        "properties": {"tool": {"type": "string", "description": "只复位该工具（缺省=全清）"}},
        "required": []})

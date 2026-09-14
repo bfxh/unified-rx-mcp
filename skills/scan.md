@@ -26,6 +26,26 @@
   在 bug.rs）。已知语义怪癖（与旧 Python 契约逐字节一致）：match 捕获变量
   （case [1,2,rest] 的 rest）是字符串字段非 Name 节点，其"使用"会报
   undefined_name——与旧 ast 版同款，非回归
+- **S131 bug_scan 八规则扩容（P2-B）**：注入/反序列化/竞态面八条，全部配
+  vuln_knowledge 条目（`knowledge=true` 即附成因/修法），严重度口径=definite
+  为模式本身即危险构造、clue 为需上下文确认：
+  - `py_shell_true`（high/definite）：subprocess.run/call/check_call/check_output/
+    Popen 的 keyword `shell` 值为 True——以 keyword 节点行定位，跨行调用也判
+  - `pickle_loads`（high/clue）：pickle.loads/load 裸用法（EXEC_SINKS 污点面互证）
+  - `yaml_unsafe_load`（high/clue）：yaml.load 无 Loader / yaml.unsafe_load；
+    `Loader=` 关键词存在即不报
+  - `weak_hash_password`（med/clue）：hashlib.md5/sha1 **且同行含口令词**
+    （password/passwd/pwd/pw/密码/口令）——非口令用途（校验和）不报
+  - `sql_concat`（med/clue）：.execute() 实参含 BinOp/JoinedStr（拼接/f-string）；
+    纯字面量不报
+  - `mktemp_race`（med/clue）：tempfile.mktemp（名字-创建分离，TOCTOU）
+  - `zip_extractall`（low/clue）：.extractall()（成员路径未校验即 zip-slip 面）
+  - `except_pass`（low/clue）：**有类型** except 且体为 pass——与 bare_except
+    互补不重复（裸 except 归 bare_except）
+  KB 条目：kb-deserialization / kb-weak-hash / kb-mktemp / kb-zip-slip 四条新增，
+  kb-shell-inject / kb-sql-inject（摘"未覆盖"标）/ kb-bare-except 三条扩规则号。
+  边界：均为行/节点级模式，不判数据流（如 md5 的口令语境靠同行词提示，
+  跨行变量传播判不了——那属 rust_taint_scan 面）
 - **S84 ast_scan 全量原生化**：rx-scan astscan 子命令（rust/src/astscan.rs 规则层，
   复用 pyast.rs——本轮为其补 col 列号、字符串值解码 CVal、f-string 区域位置三型）。
   astscan.py 524→103 行薄壳，scan 域五工具全薄壳。迁移坑（oracle 实锤）：

@@ -241,3 +241,85 @@ fn path_not_exist_error_envelope() {
         other => panic!("应为错误包络，实得 {:?}", other),
     }
 }
+
+// ---------- S131（P2-B）：八条新规则 ----------
+
+const S131_SRC: &str = r#"import hashlib
+import pickle
+import subprocess
+import tempfile
+import yaml
+
+
+def handle(cmd, blob, cur, pw, tarball):
+    pickle.loads(blob)
+    yaml.load(blob)
+    yaml.load(blob, Loader=yaml.SafeLoader)
+    yaml.unsafe_load(blob)
+    subprocess.run(cmd, shell=True)
+    subprocess.run([cmd])
+    hashlib.md5(pw)
+    hashlib.md5(b"chunk")
+    cur.execute("SELECT * FROM t WHERE x = %s" % pw)
+    cur.execute("SELECT 1")
+    cur.execute(f"SELECT * FROM t WHERE x = {pw}")
+    tmp = tempfile.mktemp()
+    tarball.extractall("/tmp/out")
+"#;
+
+const S131_EXCEPT: &str = r#"def f(x):
+    try:
+        return x
+    except ValueError:
+        pass
+    except KeyError:
+        raise
+    except:
+        pass
+"#;
+
+#[test]
+fn s131_new_rules_hit_and_stay_quiet() {
+    let d = TempDir::new("s131");
+    write_rel(d.path(), "m.py", S131_SRC);
+    let res = bug::bug_scan(d.path().to_str().unwrap(), 100);
+    assert!(res.get("error").is_none(), "{:?}", res);
+
+    assert_eq!(issues_of(&res, "pickle_loads").len(), 1);
+    assert_eq!(issues_of(&res, "yaml_unsafe_load").len(), 2,
+               "load 无 Loader + unsafe_load 各一条；Loader=SafeLoader 不报: {:?}",
+               issues_of(&res, "yaml_unsafe_load"));
+    assert_eq!(issues_of(&res, "py_shell_true").len(), 1);
+    assert_eq!(issues_of(&res, "weak_hash_password").len(), 1,
+               "无口令语境的 md5 不报");
+    assert_eq!(issues_of(&res, "sql_concat").len(), 2,
+               "% 拼接 + f-string 各一条；纯字面量不报");
+    assert_eq!(issues_of(&res, "mktemp_race").len(), 1);
+    assert_eq!(issues_of(&res, "zip_extractall").len(), 1);
+
+    let shell = &issues_of(&res, "py_shell_true")[0];
+    assert_eq!(get_str(shell, "severity"), "high");
+    assert_eq!(get_str(shell, "kind"), "definite");
+    let pickle = &issues_of(&res, "pickle_loads")[0];
+    assert_eq!(get_str(pickle, "kind"), "clue");
+    let zip = &issues_of(&res, "zip_extractall")[0];
+    assert_eq!(get_str(zip, "severity"), "low");
+}
+
+#[test]
+fn s131_except_pass_complements_bare_except() {
+    let d = TempDir::new("s131ex");
+    write_rel(d.path(), "m.py", S131_EXCEPT);
+    let res = bug::bug_scan(d.path().to_str().unwrap(), 100);
+    // 有类型 except + pass → except_pass（1 条）；裸 except 归 bare_except（1 条）
+    assert_eq!(issues_of(&res, "except_pass").len(), 1,
+               "{:?}", issues_of(&res, "except_pass"));
+    assert_eq!(issues_of(&res, "bare_except").len(), 1,
+               "二者互补不重复计数");
+    // except KeyError: raise 不报（第 7 行）
+    let all = get_arr(&res, "issues");
+    assert!(all.iter().all(|i| {
+        let r = get_str(i, "rule");
+        r != "except_pass" || get_i128(i, "line") != 7
+    }), "raise 体不得报 except_pass: {:?}", all);
+}

@@ -648,3 +648,36 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 文档/门：README 头部（S130 三件事 + 数字）；CONSOLIDATION §三（gpu 已兑）§四（P2-A 已兑）§五（余 P2-B/C2/P3）§八 S130 记录；skills/ide.md（ide_diagnostics 契约重写：执行类挂门 + linter 探测 + skipped 语义）；spec/GPU.md（实现落点图更新：运行时在 gpu.py、内核在域文件）；test_s113 尺寸门注释实测值同步（最大件 lsp.py 507）。
 - 验证：3.14 全量 **797 passed + 4 skipped**；3.11 全量 **799 passed + 2 skipped**；cargo **188 绿** + clippy **零告警**；selftest 五线全绿（GROUPS 12 组 70 工具 / FS_STAT ok / SCHEMA_BAD 0 / VERSION_TAG NEXT=tag 前正确态 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0）；版本锁步 **2.47.0 ×5**。
 - 提交：本次
+
+## S131 · 实施轮五：bug_scan 八规则（P2-B）+ breaker 组归位（C2）+ 工具面设计评审
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.47.0 → **2.48.0**（tag v2.48.0）
+- **P2-B 八规则**（rust/src/bug.rs，AST + 行级混合）：`py_shell_true`（subprocess.* 的
+  keyword `shell` 值为 True——以 **keyword 节点行**定位值，跨行调用亦可判；high/definite）、
+  `pickle_loads`（high/clue）、`yaml_unsafe_load`（load 无 Loader / unsafe_load；
+  `Loader=` 关键词存在即不报）、`weak_hash_password`（hashlib.md5/sha1 **且同行含口令词**
+  pw 系——非口令用途不报；首轮词表漏 pw 被测试当场抓出补）、`sql_concat`（.execute 实参含
+  BinOp/JoinedStr）、`mktemp_race`、`zip_extractall`、`except_pass`（**有类型** except+pass，
+  与 bare_except 互补不重复——aux>0 口径）。rust 测试 +2 例（命中与不报**双侧**断言，
+  含 Loader=SafeLoader/纯字面量/无口令语境/raise 体四类阴性面）。
+- **KB 联动（S110 惯例）**：新增 kb-deserialization / kb-weak-hash / kb-mktemp / kb-zip-slip
+  四条（成因/修法/先例全套，precedent 引用本仓既有实践）；扩 kb-shell-inject /
+  kb-bare-except 规则号，kb-sql-inject 摘「未覆盖」标（静态拼接模式层已覆盖）；test_s110
+  KNOWN_RULES 同步。过程项：生成器把 dict 的 fix/precedent 断成两行写出（语法坏）——
+  当场 ast.parse 发现修正；该类"文本生成器写源码"的坑与 heredoc 转义同族。
+- **C2 组归位**：breaker_status/reset meta→guard（熔断=防护面，与 capability_manifest/
+  hallucination_guard 同族）；skills/meta.md→guard.md 内容迁移（速查表随迁）、
+  README/PANORAMA/skills-README 计数随动（meta 5→3、guard 2→4）。
+- **工具面设计评审**（用户点单：spec/DESIGN-REVIEW.md，70 工具/12 组/36 模块/18 挂门
+  实测口径）：高优先 **H1 授权分级规则未成文**（S130 clippy 透镜假死是它的学费——
+  立三档：纯读 / 自有只读扫描 / 执行·写必挂门）；**H2 参数词汇分裂** `path`×28 vs
+  `root`×15 同义两词（建议不改存量面，立词汇表 + 新工具三分法）；**H3 组合工具授权
+  透传是约定不是契约**（两次历史病灶本源；建议给 auth_gate_sweep 加静态检查器，~半小时）；
+  中优先 M1 中文输出键 3 件（attack.py:210 / game 两件）、M2 metrics 三件组轴错位
+  + project_health 在 ops、M3 kind/engine 一词多义、M4 家族选型表文档债；低优先 L1
+  子进程沙盒边界明示 / L2 无 deprecation 机制 / L3 规模复核（无新噪音）/ L4 命名约定良好。
+  结论：高优先三项共同根因=**规则只活在实现里、没活在文档与检查器里**；实施顺序
+  H1→H3→M4→H2/M3，均下轮可做（本轮只交付评审，不动面）。
+- 验证：3.14 全量 **797 passed + 4 skipped**；3.11 全量 **799 passed + 2 skipped**（本轮
+  无新增 pytest 用例；rust +2 → cargo **190 绿**）；clippy **零告警**；selftest 五线全绿
+  （GROUPS 组计数随 C2 变为 guard(4)/meta(3) 仍 70 工具）；版本锁步 **2.48.0 ×5**。
+- 提交：本次
