@@ -1,0 +1,41 @@
+{
+ "policy": "产品面 definite 基线：新增即红（scripts/taint_gate.py）；bench/ 为开发夹具面不在册；为何字段=人工确认理由（占位未填由 test_s139 拦截）",
+ "entries": [
+  {
+   "file": "conftest.py",
+   "sink": ".replace",
+   "count": 1,
+   "why": "构建期测试配置：os.pathsep→';' 字符串替换（env 派生，非用户输入；S139 人工确认）"
+  },
+  {
+   "file": "scripts/audit_copy.py",
+   "sink": "os.makedirs",
+   "count": 2,
+   "why": "开发脚本（S138 复审仪式件）：dest 由开发者显式给出且硬拒仓库内；非 MCP 工具面（S139 人工确认）"
+  },
+  {
+   "file": "scripts/audit_copy.py",
+   "sink": "shutil.copy2",
+   "count": 1,
+   "why": "同上游：副本生成是脚本本职；源=仓库工作树、目标=显式外置路径（S139 人工确认）"
+  },
+  {
+   "file": "scripts/audit_copy.py",
+   "sink": "shutil.rmtree",
+   "count": 1,
+   "why": "同上游：重建副本目录前清理；仅作用于显式 dest（S139 人工确认）"
+  },
+  {
+   "file": "scripts/audit_diff.py",
+   "sink": "open",
+   "count": 1,
+   "why": "开发脚本：只读两份 Mimosa report.md（argv 指向审计产物，非任意写；S139 人工确认）"
+  },
+  {
+   "file": "server.py",
+   "sink": "subprocess.run",
+   "count": 1,
+   "why": "协议层内部子进程（argv 列表 + env，无 shell；非用户可控命令拼接；S139 人工确认）"
+  }
+ ]
+}

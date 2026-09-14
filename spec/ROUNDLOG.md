@@ -891,3 +891,27 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：3.14 全量 **808 passed + 4 skipped**（+3）；3.11 全量 **810 passed + 2 skipped**；
   cargo **200 绿** + clippy 零告警；selftest 五线全绿；版本锁步 **2.55.0 ×5**。
 - 提交：本次
+
+## S139 · 实施轮十三：数据流门进 CI（审核加强）+ 首个外部选型体检（RUST WL）
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.55.0 → **2.56.0**（tag v2.56.0）
+- 用户指令：「CI 还是需要加强，审核等等东西都太弱了」+ 选单「LIBRARY-POLICY §六
+  做选型体检」。
+- **① 数据流门**（第三道 dogfood 硬门）：`scripts/taint_gate.py`——跑
+  `rust_taint_scan`，产品面（除 bench/）definite 对照 `spec/taint-baseline.json`
+  基线（(file,sink) 计数比对，行号漂移不误伤）；新增即红，入册需人工填 why
+  （占位未填由 test_s139 的元锁拦截——"账必须人工确认过才准进"）。首建基线 6 条目
+  /7 计数：conftest 沙盒拼接、S138 两个审计脚本（开发脚本面，硬拒仓内已在其内）、
+  server 协议层 argv 子进程——全部 why 已写实。**core.yml 增硬 step**；
+  **scan.yml 周扫扩成审计三连**（secrets+attack+taint，附 rust 构建步骤）；
+  形状锁 +2 needle；测试 +2（门真跑绿 / 基线形状与 why 无占位）。
+- **② 首个外部选型体检**（LIBRARY-POLICY §六 对外首用）：对 `D:\开发\RUST WL`
+  （vxl-phys 物理引擎 workspace，16 crates）出具 `docs/LIBRARY-AUDIT.md`——只读审计：
+  三问逐件评估 + 按类清单 + 顺手反查 Cargo.lock 全量归属（loom 传递树实锤，无
+  陈旧/孤儿条目）+ 5 条收敛项（F1 edition 2021→2024 与 resolver 3 / F2 缺 MSRV /
+  F3 splat 路径写法 / F4 workspace.deps 覆盖面注释 / F5 基准与属性测试可选前沿件
+  divan·proptest）。结论：该仓依赖姿态已达"极小面+纪律齐"（16 crates 仅 1 运行期
+  第三方 xxhash-rust + cfg(loom) 门控 loom），无高危；初评疑点"deny 声称 CI 阻断"
+  当场消解（ci.yml:112 真在跑）。**§六 格式首次跨项目落地，成为后续体检模板。**
+- 验证：3.14 全量 **810 passed + 4 skipped**（+2）；3.11 全量 **812 passed + 2 skipped**；
+  cargo **200 绿** + clippy 零告警；selftest 五线全绿；版本锁步 **2.56.0 ×5**。
+- 提交：本次

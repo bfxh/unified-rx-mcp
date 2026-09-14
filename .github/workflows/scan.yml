@@ -2,11 +2,11 @@ name: scan
 
 on:
   schedule:
-    - cron: '23 3 * * 1'   # 每周一 03:23 UTC：明文周扫
+    - cron: '23 3 * * 1'   # 每周一 03:23 UTC：审计周扫（明文 + 自攻 + 数据流）
   workflow_dispatch:
 
 jobs:
-  secrets-sweep:
+  audit-sweep:
     runs-on: windows-latest
     env:
       PYTHONUTF8: '1'
@@ -15,6 +15,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      # S139：自攻/数据流门都要 exe——target-dir 覆盖只限本步（同 core.yml 纪律）
+      - name: Build Rust acceleration (exe 落在 %TEMP%\rx-rs-target)
+        shell: pwsh
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
+          cargo build --release --manifest-path rust/Cargo.toml
+
       # 历史提交不在此扫（push protection 在推送侧兜底新推送；改史治理见 spec/HARDENING.md）
       - name: secrets_hunt 全仓周扫（critical/high 出测试区即红）
         run: python -X utf8 scripts/ci_secrets_gate.py
+
+      - name: Self-attack gate（周扫同款：attack_cruise 判定必须 clean）
+        run: python -X utf8 scripts/attack_gate.py
+
+      - name: Data-flow gate（周扫同款：taint 产品面 definite 不得超基线）
+        run: python -X utf8 scripts/taint_gate.py

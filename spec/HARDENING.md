@@ -47,9 +47,15 @@
      ——SCHEMA_BAD 0 / EXE_TAG drift=0 missing=0（SKIP 也算失败）/
      VERSION_TAG OK|NEXT / SKILLS_DOCS stale=0 dead=0；checkout `fetch-depth: 0`
      保真对账；
-  5. 全量 pytest + bench dry-run 门禁（既有项保留）；
-  6. **rust job**：cargo test + clippy -D warnings（双绿纪律的 Rust 侧进 CI）；
-  7. **机器局部配置的 CI 覆盖**（S125 补，首跑 CI 实锤）：仓库根
+  5. **self-attack gate**（S138，`scripts/attack_gate.py`）：dogfood
+     `attack_cruise`（四靶模糊×12 用例 + 大输入 + 授权门自审含组合透传 + 路径探针）
+     verdict 必须 clean；**data-flow gate**（S139，`scripts/taint_gate.py`）：
+     dogfood `rust_taint_scan`——产品面（除 bench/）definite 不得超
+     `spec/taint-baseline.json` 基线，新增即红（基线 why 字段=人工确认理由，
+     占位未填由 test_s139 拦截）；
+  6. 全量 pytest + bench dry-run 门禁（既有项保留）；
+  7. **rust job**：cargo test + clippy -D warnings（双绿纪律的 Rust 侧进 CI）；
+  8. **机器局部配置的 CI 覆盖**（S125 补，首跑 CI 实锤）：仓库根
      `.cargo/config.toml` 的 target-dir 是本机绝对路径（S78 中文路径 workaround）——
      CI 用 `CARGO_TARGET_DIR=%TEMP%\rx-rs-target` 环境变量覆盖（env 优先于 config，
      且只放 build 单步——全局导出会污染 fixture crate 的 cargo），
@@ -61,7 +67,7 @@
   ②**路径比较必须两侧同函数解析**——CI 的 TEMP 是 junction/symlink 形态，
   canonical 与原始字符串不同形：`strictly_under` 只解析 target 是产品级缺陷
   （违反"沙盒语义两侧等价"），测试里的原始路径断言同理（本地真 junction 回归已入册）。
-- **scan.yml**（每周一 03:23 UTC + 手动）：secrets_hunt 全仓周扫。
+- **scan.yml**（每周一 03:23 UTC + 手动）：**审计三连周扫**（S139 扩）——secrets_hunt 全仓 + self-attack gate + data-flow gate（含 rust toolchain 与 exe 构建步骤，同 core.yml 纪律）。
 - 边界（诚实声明）：CI 只扫工作树；**历史提交不在 CI 扫**（新推送由 GitHub
   push protection 兜底；改史治理走第 4 条泄漏响应顺序）。
 

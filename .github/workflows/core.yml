@@ -44,6 +44,9 @@ jobs:
       - name: Self-attack gate（S138：attack_cruise 判定必须 clean）
         run: python -X utf8 scripts/attack_gate.py
 
+      - name: Data-flow gate（S139：taint 产品面 definite 不得超基线）
+        run: python -X utf8 scripts/taint_gate.py
+
       - name: Selftest hard gate（对账行从"提示"升为"退出码"）
         env:
           UNIFIED_RX_SANDBOX: ${{ github.workspace }}   # selftest 内部 fs 自检在沙盒内跑

@@ -8,19 +8,21 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.55.0（S138）**：71 工具 / 13 域；**审计复审机制化**——
-①**CI 自攻门**（core.yml 新硬 step，`scripts/attack_gate.py`）：每次推送 dogfood
-`attack_cruise`（四靶模糊 + 大输入 + 授权门自审含组合透传 + 路径探针）verdict
-必须 clean——攻击面从"想起来才跑"变"不过不让过"；
-②**Mimosa 复审仪式脚本化**：`scripts/audit_copy.py`（副本硬拒仓内 + 记账行）+
-`scripts/audit_diff.py`（两报告差量，**新增非空即红**），三步仪式入 HARDENING
-§四·补；在 S137 真实报告回放 `old=59 new=57 gone=2 added=0`（gone=修复项，可复跑）。
-历史链：S137 按库分类清单 + copy-based 全量审计（实锤修复 local_run shell=True→argv）；
-S135 库选型理念 + ide_dead_code 原生化；S125 `ide_callgraph` + CI 首绿
-（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 808 passed
-+ 4 skipped、3.11 = 810 passed + 2 skipped；cargo **200 绿** + clippy 零告警；
-selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与
-升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
+**当前 v2.56.0（S139）**：71 工具 / 13 域；**数据流门进 CI + 首个外部选型体检**——
+①**CI 第三道 dogfood 硬门**：`data-flow gate`（`scripts/taint_gate.py`）——产品面
+definite 对照 `spec/taint-baseline.json` 基线，新增即红（入册须人工填 why，占位未填
+被元锁拦截）；`scan.yml` 周扫扩成**审计三连**（secrets + attack + taint）；与
+Secrets/Self-attack 并列为三道硬门。
+②**LIBRARY-POLICY §六 首次跨项目落地**：对 `D:\开发\RUST WL`（vxl-phys 物理引擎）
+出具只读选型体检（`docs/LIBRARY-AUDIT.md`）——三问逐件评估 + lock 全量归属反查 +
+5 条收敛项（edition 2024 / MSRV / 依赖写法等），结论"极小面+纪律齐、无高危"；
+格式即后续外部体检模板。历史链：S138 审计复审机制化（Self-attack gate + Mimosa
+复审仪式脚本）；S137 按库分类清单 + copy-based 全量审计（实锤修复 local_run
+shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `CI-GATE OK` /
+`EXE_TAG ok=9`）。本地 pytest 3.14 = 810 passed + 4 skipped、3.11 = 812 passed
++ 2 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
+（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与升级路线见
+[spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
 加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 
