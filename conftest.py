@@ -22,8 +22,30 @@ os.environ["UNIFIED_RX_SANDBOX"] = os.environ["UNIFIED_RX_SANDBOX"].replace(os.p
 # 熔断器默认旁路；熔断自身行为由 tests/test_s122_breaker.py 显式开启验证。
 os.environ["UNIFIED_RX_BREAKER"] = "off"
 
+# S140：全局护栏在套件里默认高阈值/关闭（与 UNIFIED_RX_BREAKER=off 同理），
+# 全局 QPM/日告警行为由 tests/test_s122_breaker.py 显式开启验证。
+os.environ.setdefault("UNIFIED_RX_GLOBAL_QPM", "1000000")
+os.environ.setdefault("UNIFIED_RX_DAILY_ALERT", "0")
+
 tempfile.tempdir = _TMP_BASE
 
 
 def pytest_configure(config):
     config.option.basetemp = _TMP_BASE
+
+
+import pytest
+
+# S140：测试打点落点——放 basetemp 下的独立目录，而不是 tmp_path：
+# 一批测试直接把 tmp_path 当语料根做全量对账，塞进 stats.jsonl 会多出 1 个条目。
+_STATS_TMP = os.path.join(_TMP_BASE, "_stats")
+os.makedirs(_STATS_TMP, exist_ok=True)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_stats(monkeypatch):
+    """S140：测试打点一律落 tmp 隔离区——套件/bench 的 registry.call 不再写进
+    真实 ~/.unified-rx/stats.jsonl（9/8 统计污染的教训之一）。"""
+    import registry
+    target = os.path.join(_STATS_TMP, "stats.jsonl")
+    monkeypatch.setattr(registry, "_stats_path", lambda: target)

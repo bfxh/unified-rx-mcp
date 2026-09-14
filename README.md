@@ -8,7 +8,7 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.56.0（S139）**：71 工具 / 13 域；**数据流门进 CI + 首个外部选型体检**——
+**当前 v2.57.0（S140）**：71 工具 / 13 域；**数据流门进 CI + 首个外部选型体检**——
 ①**CI 第三道 dogfood 硬门**：`data-flow gate`（`scripts/taint_gate.py`）——产品面
 definite 对照 `spec/taint-baseline.json` 基线，新增即红（入册须人工填 why，占位未填
 被元锁拦截）；`scan.yml` 周扫扩成**审计三连**（secrets + attack + taint）；与

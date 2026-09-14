@@ -49,18 +49,27 @@ _TOOLS = {}
 _REQ_LOCAL = threading.local()
 
 
-def set_request_context(msg_id):
-    """server 分发层在调用 registry.call 前绑定请求 id（线程本地）。"""
+def set_request_context(msg_id, source="mcp"):
+    """server 分发层在调用 registry.call 前绑定请求 id（线程本地）。
+
+    S140：同时绑定来源标签——`mcp`=客户端经协议分发发起，`embedded`=脚本/测试/
+    引擎内部直调 registry.call。打点（_record_stats）据此分开统计，脚本级洪峰
+    不再与真实 MCP 调用混在一个口径里。"""
     import sys
     _REQ_LOCAL.msg_id = msg_id
+    _REQ_LOCAL.source = source
     if os.environ.get("URX_CTX_DEBUG"):
-        print(f"[ctx] SET {msg_id} tid={threading.get_ident()} rl={id(_REQ_LOCAL)}",
+        print(f"[ctx] SET {msg_id} src={source} tid={threading.get_ident()} rl={id(_REQ_LOCAL)}",
               file=sys.stderr, flush=True)
 
 
 def clear_request_context():
     try:
         del _REQ_LOCAL.msg_id
+    except AttributeError:
+        pass
+    try:
+        del _REQ_LOCAL.source
     except AttributeError:
         pass
     try:
@@ -236,15 +245,26 @@ def groups():
     return g
 
 
+def _stats_path():
+    """stats.jsonl 落点（测试经 monkeypatch 重定向到 tmp——套件打点不再污染真实统计）。"""
+    return os.path.join(os.path.expanduser("~"), ".unified-rx", "stats.jsonl")
+
+
 def _record_stats(tool_name, duration_ms):
-    """工具调用打点（usage_stats 的数据源）。"""
+    """工具调用打点（usage_stats 的数据源）。
+
+    S140：附 src 来源——mcp=客户端协议流量，embedded=脚本/测试/引擎内部直调。
+    旧记录无 src 字段（usage_stats 归为 unmarked），脚本洪峰从此不再污染 MCP 口径。"""
     try:
-        home = os.path.join(os.path.expanduser("~"), ".unified-rx")
-        os.makedirs(home, exist_ok=True)
-        with open(os.path.join(home, "stats.jsonl"), "a", encoding="utf-8") as f:
+        src = getattr(_REQ_LOCAL, "source", None)
+        if src is None:
+            src = "mcp" if getattr(_REQ_LOCAL, "msg_id", None) else "embedded"
+        path = _stats_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps({
                 "tool": tool_name, "duration_ms": int(duration_ms),
-                "ts": int(time.time()),
+                "ts": int(time.time()), "src": src,
             }, ensure_ascii=False) + "\n")
     except OSError:
         pass
@@ -468,8 +488,9 @@ def tool_count():
 
 def call_with_context(name, args, request_id):
     """S10：显式绑定请求上下文后调用——测试与嵌入式宿主用，
-    与 server 协议分发线程的行为等价（取消轮询可用）。"""
-    set_request_context(request_id)
+    与 server 协议分发线程的行为等价（取消轮询可用）。
+    S140：来源标记为 embedded——它是程序直调入口，不是客户端协议流量。"""
+    set_request_context(request_id, source="embedded")
     try:
         return call(name, args)
     finally:

@@ -177,7 +177,7 @@ def scan_log(action="log", root=None, limit=20, record=None):
     return {"total": len(recs), "logs": recs[:limit]}
 
 
-@tool("usage_stats", "工具使用统计（频率/耗时 TopN/时段分布）", "ops",
+@tool("usage_stats", "工具使用统计（频率/耗时 TopN/时段分布；S140 起按 mcp/embedded 来源拆分）", "ops",
       {"type": "object",
        "properties": {
            "top": {"type": "integer", "description": "TopN（默认 10）"},
@@ -185,7 +185,11 @@ def scan_log(action="log", root=None, limit=20, record=None):
        },
        "required": []})
 def usage_stats(top=10, days=0):
-    """T4：基于 stats.jsonl 的工具使用统计。"""
+    """T4：基于 stats.jsonl 的工具使用统计。
+
+    S140：records 附 src（mcp=客户端协议流量 / embedded=脚本与引擎内部直调 /
+    unmarked=改造前的旧记录）。freq_top 仍是全量口径保持兼容；freq_top_mcp 是
+    只算客户端流量的口径——评估"模型真实调用量"看它，评估引擎总负载看 total_calls。"""
     recs = _load_jsonl(_STATS_FILE)
     if days > 0:
         cutoff = int(time.time()) - days * 86400
@@ -195,19 +199,26 @@ def usage_stats(top=10, days=0):
     by_tool = collections.Counter()
     by_ms = collections.Counter()
     by_hour = collections.Counter()
+    by_src = collections.Counter()
+    mcp_tool = collections.Counter()
     for r in recs:
         t = r.get("tool", "?")
         by_tool[t] += 1
         by_ms[t] += r.get("duration_ms", 0)
+        by_src[r.get("src", "unmarked")] += 1
         ts = _norm_ts(r.get("ts"))
         if ts is not None:
             by_hour[datetime.datetime.fromtimestamp(ts).hour] += 1
+        if r.get("src") == "mcp":
+            mcp_tool[t] += 1
     freq = [{"tool": t, "calls": c} for t, c in by_tool.most_common(top)]
     slow = [{"tool": t, "total_ms": m, "avg_ms": m // by_tool[t]} for t, m in by_ms.most_common(top)]
     hours = [{"hour": h, "calls": c} for h, c in sorted(by_hour.items())]
     return {
         "total_calls": len(recs),
+        "by_source": dict(by_src),
         "freq_top": freq,
+        "freq_top_mcp": [{"tool": t, "calls": c} for t, c in mcp_tool.most_common(top)],
         "slowest_top": slow,
         "hourly_distribution": hours,
         "days": days or "全部",

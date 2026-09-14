@@ -36,6 +36,12 @@
    "sink": "subprocess.run",
    "count": 1,
    "why": "协议层内部子进程（argv 列表 + env，无 shell；非用户可控命令拼接；S139 人工确认）"
+  },
+  {
+   "file": "conftest.py",
+   "sink": "os.makedirs",
+   "count": 1,
+   "why": "测试基建（S140 打点隔离）：创建 pytest 专用 tmp 目录 %TEMP%/unified-rx-pytest/_stats，路径为进程内常量，无外部输入（S140 人工确认）"
   }
  ]
 }
