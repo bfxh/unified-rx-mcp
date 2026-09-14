@@ -1,7 +1,8 @@
 # CONSOLIDATION.md —— S126 整合除重 + 上帝对象拆分 + IDE 升级路线（文档先行轮）
 
 > 立场：用户指令「工具整合和除重，先写文档；拆分上帝对象；IDE 整体升级、更能挖漏洞找问题」。
-> 本轮**只写文档不动代码**（版本保持 2.43.0，纯文档轮）；实施轮按 §六 顺序逐项过门禁。
+> 本轮**只写文档不动代码**（版本保持 2.43.0，纯文档轮）；实施轮按 §五 顺序逐项过门禁
+> （S127 起进入实施，§八 记录）。
 > 所有数字来自 2026-09-14 对本仓的 dogfood 实测（用自家工具盘自家家底，同时实战检验
 > S125 交付物），复跑方法随条目给出。
 
@@ -41,15 +42,22 @@ tools/ 内部（40 文件）：
 - **环检出**：4 个全部良性（fs_list.walk / lsp.walk 自递归、ide_build watch 循环、
   metrics._find_cycles.dfs）；模块级 import 依赖另由 dep_graph 证实无环
 
-### 1.4 ide_dead_code 实测（dogfood 当场抓到产品缺陷）
-dead 7 + suspect_dynamic 7。人工核验：
-- **真死（4）**：`aci.strip_hint`、`cache.reset_stats`、`cache.cacheable`、
-  `gpu.literal_scan_cpu`（连同 `literal_scan_gpu` 在 tools/ 内零调用，filescan 走 exe 路径）
-- **测试锁定死件（1）**：`appaudit._rx_appops_exe`——仅 tests/test_appaudit.py:250
-  kept 名单锁它存在，产品内零调用 → 决策项：接回 or 删+测试同步改
-- **误报实锤（缺陷 D1）**：`cache.cache_key` 在 registry.py:407
-  `_cache.cache_key(...)` 被属性调用，仍报死——ide_deadcode 引用模型**不数 Attribute
-  引用**（`mod.func()` 形态漏采）→ 实施轮修复 + 误报回归测试
+### 1.4 ide_dead_code 实测（**含 S127 误诊更正**）
+首次 dogfood 只扫了 `tools/`（40 文件）→ dead 7 + suspect 7，当时据此下了"缺陷 D1"
+结论。**S127 复扫全仓（183 文件，path=仓库根）后更正：D1 系扫描范围误诊**——
+`cache.cache_key` 的引用者在仓库根 `registry.py:407`、`cacheable/reset_stats` 在
+tests/、`literal_scan_*` 在 bench/tests，全部**不在 tools/ 内**；工具引用模型本就
+同时数 Name 与 Attribute（`_shorthand_refs` 的 attrs 集合，S123 设计如此）。
+教训（已入 ROUNDLOG）：**判死范围必须 = 全仓**，子目录扫描结果不得下"全库零引用"
+结论。全仓真实结论：
+- **真死（1，产品代码）**：`aci.strip_hint`（S105 时期标注"测试辅助"，引用者早已
+  退役）——S127 已删并加不回潮测试；`tools/` 侧原报的其余三件全部为误报；
+- **冻结资产（6，不动）**：bench/manual_snaps 下 VoxelForge 历史快照的
+  `exposed_faces/align_offset_to_grid/mount_points_to_ron`——快照按定义冻结，
+  零引用≠可删除；
+- **suspect_dynamic（3）**：`_rx_appops_exe`（仅测试 kept 名单锁存在，保留决策待定）、
+  `_strictly_under`（Rust 侧镜像同名，Python 侧零引用但为文档锚点，保留）、
+  `bevy_rules`（S83 规则档案，注释即引用，保留）。
 
 ### 1.5 module_stability watch 榜（git 频率 × 测试 × 覆盖）
 `tools/scan.py` 545行/30 commits —— **头号上帝对象实锤**；`server.py` 305/103（版本锁步
@@ -86,10 +94,15 @@ dead 7 + suspect_dynamic 7。人工核验：
 匹配引擎共享（实现层除重已完成）；语义不同（跨文件 vs 单文件多段+occ），工具面都留，
 文档写明差异。
 
-### C1 walker 除重（实现内，实施轮做）
-`scan._iter_files` / `ide_common._iter_files` / `fs_list.walk` / `lsp.walk` /
-`ide_deadcode.walk` 五份遍历并存。统一到共享 walker（ide_common 或新 files.py），
-语义差异表先行（skip 目录集 / 语言过滤 / 深度），测试锁行为后合并。
+### C1 walker 除重（**S127 已做**，含范围修正）
+复查实际形态：模块级**文件遍历器是 3 份**（`scan._iter_files` /
+`ide_common._iter_files` / `ide_deadcode._walk_py`）——收敛为
+`tools/filewalk.iter_files` **唯一 os.walk 实现**，各域保留参数化 profile
+（语言表 / skip 集 / 单文件支持），语义逐字不变 + 防回流锁测试。
+文档原列的 `fs_list.walk` / `lsp.walk` 实为**树递归闭包**（目录树/JSON 树），
+非同族不并；**C1b 候选**：cache/filescan/neardupes 的内联 os.walk 与
+5 份 `_SKIP_DIRS` 副本（语义各异需逐一对齐，另含 code_review 的 md5→sha256
+候选——md5 用途为内容分组非完整性，平移轮遵守零改动纪律未顺手改）。
 
 ### C2 组归位（A 级低优先）
 `breaker_status/reset` 在 meta（更应 guard）；其余归位检查通过
@@ -168,11 +181,11 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
 
 ## 五、实施顺序与门禁（实施轮按此走）
 
-1. D1 ide_deadcode Attribute 盲区修复（量尺先准）
-2. P0 scan.py 拆分 + C1 walker 统一
-3. 死代码清理（§1.4 真死 4 件，删前测试同步）
-4. P0-A taint×callgraph
-5. P1-A / P1-B / P1 拆分（lsp/gpu）
+1. ~~D1 ide_deadcode 修复~~ → **S127 更正：D1 系误诊（见 §1.4），量尺无需修**
+2. ~~P0 scan.py 拆分 + C1 walker 统一~~ → **S127 已兑**（见 §八）
+3. ~~死代码清理~~ → **S127 已兑**（真死收敛为 1 件 strip_hint，已删加锁）
+4. P0-A taint×callgraph ← **下轮开工点**
+5. P1-A / P1-B / P1 拆分（lsp/gpu）；C1b（内联 walk 族）
 6. P2-A / P2-B / C2 / P3
 
 每步通用门禁：测试先行或同步迁移、注册名与工具面不破坏（A 级项需 deprecation
@@ -185,5 +198,31 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
 
 ## 七、与 HARDENING 缺口清单映射
 真调用图（S125 已兑）→ 本文接棒：ide_impact 调用面（P1-B）、ide_dead_code 辅助证据
-（P0-B 反向：量尺先修）、类型检查集成（P2-A）、覆盖率趋势（P1-A）。
+（S127 更正：量尺本就数 Attribute，见 §1.4）、类型检查集成（P2-A）、覆盖率趋势（P1-A）。
 本文档本身 = HARDENING §六"下轮候选"的展开与排序。
+
+## 八、S127 实施记录（第一实施轮：拆分 + 除重 + 量尺更正）
+
+**已兑：**
+1. **误诊更正**（§1.4）：全仓复扫证明"D1 缺陷"不存在——是 dogfood 扫描范围错误。
+   工具零改动，教训入档（判死范围 = 全仓）。
+2. **P0 拆分**：`tools/scan.py` 650 行双域 → `scan.py`（壳域 ~210 行）+ 新建
+   `tools/code_review.py`（评审域，含 code_review + 11 透镜助手 + 3 常量组）。
+   注册名/透镜语义/输出形状全部不变；`_iter_files` 调用改走 filewalk；
+   两侧同批清理两个零引用死常量（`_PLACEHOLDER_WORDS`/`_RE_FUNC_START`，S83 遗留）。
+3. **C1 除重**：新建 `tools/filewalk.py`（唯一 `os.walk` 实现）——三份遍历器
+   （scan / ide_common / ide_deadcode）全部委托到参数化 profile，语义逐字保留
+   （含"单文件无条件产出"兼容语义）；锁定测试：filewalk 恰 1 处 `os.walk(`，
+   另两家 0 处。
+4. **死代码清理**：`aci.strip_hint` 删除（全仓零引用核实后）+ 不回潮测试。
+5. **测试**：`tests/test_s127_split.py` 13 例（三 profile 行为等价 / 防回流锁 /
+   注册面契约 / code_review 烟测 lens 过滤）；`test_s61`/`test_s70` 的 import
+   随平移更新（`_func_spans`/`_symbol_spans` → tools.code_review）。
+6. **记录**：ROUNDLOG S126 条目附更正 + S127 实现条目；HARDENING §六指针同步。
+
+**教训归档**（本轮第二条通用课）：
+- "全库零引用"级别的结论，扫描范围必须 = 全仓；子目录 dogfood 只给子目录事实。
+- 平移拆分的纪律：先 grep 全部外部引用面（tests/bench 的 import 与属性访问），
+  再动文件；死常量清理前先验证零引用（`_RE_FUNC_START` 定义并存两轮未被发现）。
+- Mimosa hook 两次拦截均为**测试夹具的扫描器诱饵**（凭据字样）与 md5 建议——
+  前者改用既有 s44 模式（os.system 分支）、后者挂 C1b 记录不顺手改（平移零改动）。

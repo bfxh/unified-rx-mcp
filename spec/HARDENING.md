@@ -91,10 +91,13 @@
 
 ## 六、缺口盘点（S125 时点，按优先级）
 
-> **S126 文档先行轮**：整合除重 / 上帝对象拆分 / IDE 升级的分项方案与实施排序
-> 已展开为 [spec/CONSOLIDATION.md](CONSOLIDATION.md)——基于 dogfood 实测证据
-> （调用图 fan-in/out 榜、死代码核验、模块稳定性榜），并实锤一项量尺缺陷
-> （ide_deadcode 不数 Attribute 引用）。实施按其 §五 顺序逐项过门禁。
+> **S126 文档先行轮 → S127 实施轮一**：整合除重 / 上帝对象拆分 / IDE 升级的分项方案
+> 与实施排序见 [spec/CONSOLIDATION.md](CONSOLIDATION.md)（基于 dogfood 实测证据：
+> 调用图 fan-in/out 榜、死代码核验、模块稳定性榜；§1.4 含"S126 量尺缺陷"误诊更正——
+> 全仓复扫证明 ide_deadcode 引用模型本就数 Attribute，假阳性系扫描范围错误）。
+> S127 已兑：P0 scan.py 拆分（→ scan + tools/code_review.py）+ C1 遍历除重
+> （tools/filewalk.py 唯一 os.walk）+ 死代码清理 + 三处既有门连锁修复；余项按其
+> §五 顺序逐项过门禁。
 
 **Rust 侧**：
 - secrets_hunt 原生化（候选序第一，需先测原生基线再动）；

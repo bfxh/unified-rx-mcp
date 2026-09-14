@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """S92 ide_read 双件 Rust 化契约测试：薄壳（tools/ide_read.py）→ rx-ide.exe。
 
-S92 起旧 Python 实现的职责移入 Rust（语义对齐 tools/scan.py::_symbol_spans，
-tests at rust/tests/ide_test.rs 打同一语义）；本文件守住 Python 侧注册面契约：
+S92 起旧 Python 实现的职责移入 Rust（语义对齐 tools/code_review.py::_symbol_spans
+（S127 前在 scan.py，评审域拆分时平移），tests at rust/tests/ide_test.rs 打同一语义）；
+本文件守住 Python 侧注册面契约：
 - 沙盒拒绝 = ValueError 包络（registry ok:false），工具级错误 = result.error 字段；
 - 符号语义怪癖原样保留（一行 fn 含 struct 翻 type / js class 落 fn /
   impl fmt::Display 捕获名为 fmt / params 计数 outline 只认 fn、read_symbol 只认括号）；

@@ -10,6 +10,7 @@ import shutil
 import math
 
 from tools.fs import _resolve as _fs_resolve
+from tools.filewalk import iter_files
 
 MAX_CTX = 5000
 """tools/ide.py —— IDE 增强域（8 工具）
@@ -52,21 +53,15 @@ def _lang_of(path):
             "gd": "gdscript", "cs": "csharp", "dart": "dart"}.get(ext.lstrip("."), "text")
 
 def _iter_files(root, max_files, skip_dirs=None):
-    """遍历代码文件：max_files 只计有语言的代码文件（I4 修复）。"""
+    """遍历代码文件：max_files 只计有语言的代码文件（I4 修复）。
+
+    S127：walk 逻辑收敛到 tools/filewalk.iter_files（全仓唯一实现）；
+    本函数只保留 ide 域 profile（_lang_of 表 + _SKIP_DIRS + 调用方 extra skip）。
+    """
     skip = set(_SKIP_DIRS)
     if skip_dirs:
         skip |= set(skip_dirs)
-    count = 0
-    for r, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in skip]
-        for fn in files:
-            fp = os.path.join(r, fn)
-            if _lang_of(fp) == "text":
-                continue
-            if count >= max_files:
-                return
-            count += 1
-            yield fp
+    return iter_files(root, max_files, lambda fp: _lang_of(fp) != "text", skip)
 
 def _detect_eol(src):
     """检测行尾：CRLF / LF。"""

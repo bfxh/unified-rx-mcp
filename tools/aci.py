@@ -90,11 +90,3 @@ def trunc_hint(kind):
     """截断提示文本。kind ∈ {list, str, nested}。"""
     return {"list": _TRUNC_HINT_LIST, "str": _TRUNC_HINT_STR,
             "nested": _TRUNC_HINT_NESTED}.get(kind, "")
-
-
-def strip_hint(text):
-    """（测试辅助）去掉"（建议：…）"尾注（建议文本可能含嵌套括号）。"""
-    idx = (text or "").rfind("（建议：")
-    if idx != -1 and text.rstrip().endswith("）"):
-        return text[:idx]
-    return text

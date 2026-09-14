@@ -6,16 +6,19 @@
 > 设计哲学：**少而准**（69 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.43.0（S125）**：69 工具 / 12 域；新增 `ide_callgraph`（真调用图：符号级
-调用边 + callers/callees 遍历 + 环检出，Rust nameres 同一作用域引擎，
-见 [spec/CALLGRAPH.md](spec/CALLGRAPH.md)）。本地 pytest 3.14 = 768 passed + 4 skipped、
-3.11 = 770 passed + 2 skipped（skip 为外部资产环境性：VoxelForge .codegraph 索引暂缺）；
-**CI 首次完整跑绿**（core.yml 三 job：pytest 双解释器 764 绿 + 10 跳[无 GPU/外部件，环境性如实跳]
-+ rust job；`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`，战记见 ROUNDLOG S125 附）；
-cargo test 184 绿（S125 callgraph 契约 16 测 + junction 回归）；selftest 机器对账三行全绿
-（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，
-逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，加固红线与 CI 门禁见
-[spec/HARDENING.md](spec/HARDENING.md)。
+**当前 v2.44.0（S127）**：69 工具 / 12 域；上帝对象拆分第一刀落地——`tools/scan.py`
+650 行双域拆为 scan（Rust 壳域）+ 新建 `tools/code_review.py`（评审域整体平移），
+遍历逻辑收敛到 `tools/filewalk.py`（全仓唯一 os.walk 实现，三域参数化 profile 语义
+逐字不变）；死代码清理 + S126"量尺缺陷"误诊更正（全仓复扫证明工具引用模型本就数
+Attribute，假阳性系扫描范围错误，见 ROUNDLOG S127）。历史证据链：S125 的
+`ide_callgraph`（真调用图，见 [spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首次完整
+跑绿（core.yml 三 job；`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。
+本地 pytest 3.14 = 782 passed + 4 skipped、3.11 = 784 passed + 2 skipped（skip 为
+外部资产环境性：VoxelForge .codegraph 索引暂缺）；cargo test 184 绿 + clippy 零告警；
+selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与
+IDE 升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
+[spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
+加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 
 ## 与旧版 unified-rx-mcp 的关系
 

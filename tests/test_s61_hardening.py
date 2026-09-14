@@ -16,8 +16,9 @@ AUTH = {"__authorized": True}
 
 
 def test_func_spans_recognizes_pub_crate():
-    """S63 验收抓出：rust 正则不认 pub(crate) fn → 跨度归给上一个函数。"""
-    from tools.scan import _func_spans
+    """S63 验收抓出：rust 正则不认 pub(crate) fn → 跨度归给上一个函数。
+    S127：_func_spans 随评审域平移至 tools/code_review.py。"""
+    from tools.code_review import _func_spans
     src = ("fn tiny() {\n"
            "    let x = 1;\n"
            "}\n"

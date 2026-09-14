@@ -10,6 +10,7 @@ if _PROJECT_ROOT not in sys.path:
 
 from . import fs        # noqa: F401,E402
 from . import scan      # noqa: F401,E402
+from . import code_review  # noqa: F401,E402  S127：评审域自 scan.py 拆出（上帝对象 P0）
 from . import ide       # noqa: F401,E402
 from . import guard     # noqa: F401,E402
 from . import learn     # noqa: F401,E402
@@ -40,7 +41,7 @@ from . import ide_deadcode  # noqa: F401,E402  S123：死符号可达性（ast �
 from . import secrets    # noqa: F401,E402  S123：凭据/密钥泄漏扫描（模式+高熵，掩码输出）
 from . import ide_callgraph  # noqa: F401,E402  S125：真调用图（同 nameres 作用域引擎 + stitch）
 
-__all__ = ["fs", "scan", "ide", "guard", "learn", "ops",
+__all__ = ["fs", "scan", "code_review", "ide", "guard", "learn", "ops",
            "search", "game", "meta", "engine", "bevy", "attack",
            "appaudit", "astscan", "metrics", "lsp", "ide_test", "ide_doctor",
            "ide_read", "ide_vscode", "ide_autopilot", "vulnkb", "astgrep", "scip",

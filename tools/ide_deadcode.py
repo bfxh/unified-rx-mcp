@@ -44,19 +44,15 @@ def _is_pytest_entry(name, kind, basename):
 
 
 def _walk_py(root, max_files):
-    """遍历 .py 文件（跳过 _SKIP_DIRS 与 venv 常见目录），超过 max_files 停。"""
+    """遍历 .py 文件（跳过 _SKIP_DIRS 与 venv 常见目录），超过 max_files 停。
+
+    S127：walk 逻辑收敛到 tools/filewalk.iter_files（全仓唯一实现）；
+    本函数只保留"仅 .py + venv 扩展跳过"profile。
+    """
+    from tools.filewalk import iter_files
     skip = set(_SKIP_DIRS) | {"venv", ".venv", "site-packages", ".tox",
                               ".mypy_cache", ".pytest_cache", ".ruff_cache"}
-    count = 0
-    for r, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in skip]
-        for fn in files:
-            if not fn.endswith(".py"):
-                continue
-            if count >= max_files:
-                return
-            count += 1
-            yield os.path.join(r, fn)
+    return iter_files(root, max_files, lambda fp: fp.endswith(".py"), skip)
 
 
 def _collect_defs(tree):

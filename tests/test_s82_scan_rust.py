@@ -158,10 +158,17 @@ def test_old_python_internals_retired():
                  "_RE_RULES", "_SCAN_CACHE", "_cached_scan", "_file_fingerprint",
                  "scan_cache_clear"):
         assert not hasattr(tscan, name), name
-    # 薄壳与共享遍历助手必须保留（ide 域也用 _iter_files/_lang_of）
-    for name in ("_iter_files", "_lang_of", "_rx_scan_exe", "_rx_scan_call",
+    # 薄壳必须保留（S127：遍历共享助手移至 tools/filewalk——scan 域只保壳）
+    for name in ("_rx_scan_exe", "_rx_scan_call",
                  "bug_scan", "std_check", "ui_check", "bug_locate", "project_scan"):
         assert hasattr(tscan, name), name
+    # S127：_iter_files/_lang_of 归属变更——唯一 walk 实现在 filewalk，
+    # scan 不得回流自建（ide 域走 ide_common 委托层）
+    import tools.filewalk as tfw
+    assert hasattr(tfw, "iter_files") and hasattr(tfw, "iter_code_files")
+    assert not hasattr(tscan, "_iter_files") and not hasattr(tscan, "_lang_of")
+    import tools.ide_common as tic
+    assert hasattr(tic, "_iter_files") and hasattr(tic, "_lang_of")
     import tools.bevy as tbevy
     for name in ("BEVY_UI_PATTERNS", "BEVY_CODE_PATTERNS", "find_dead_buttons"):
         assert not hasattr(tbevy, name), name
