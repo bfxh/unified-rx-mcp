@@ -1022,4 +1022,7 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - **验证**：全量 pytest 3.14 **845 passed + 3 skipped**（+8：B3 五 + B2 三）；
   cargo **200 绿**；工具面门 `TOOLFACE-GATE OK`（37,259 ≤ 45,000）；selftest 五线
   全绿（版本 bump 后 release exe 已重建）；版本锁步 **2.60.0 ×4**。
+- **④ Mimosa 副本审计·复审三**（S144 改动面）：副本 @6e1a837（782 文件）→ 深扫
+  57 条 seal **sha256:dc2b9a97…** → 差量 **added=0 / gone=0（零漂移）**；运行状态
+  仍 inconclusive——**不宣称安全**，台账入 HARDENING §四·补（第 5 行）。
 - 提交：本次
