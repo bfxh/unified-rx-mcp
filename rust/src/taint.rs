@@ -1,7 +1,9 @@
-//! taint —— Rust 污点引擎（S78，VULN-HUNTING P1-a）。
+//! taint —— Rust 污点引擎（S78，VULN-HUNTING P1-a；S128 跨文件链）。
 //!
 //! 从"模式匹配"升级到"来源→汇点"浅数据流：Python 子集词法器（三引号/f-string/
 //! 续行/缩进）+ 函数域污点传播 + 同文件一跳跨函数（实参→形参、污染返回值→调用点）。
+//! S128 追加跨文件链：全扫描集唯一名连边 + nameres 调用图解析结果增强（别名
+//! from x import y as z / 模块属性调用不再靠文本名），链证据 origin 随跳保留。
 //!
 //! 模型假设（对 MCP 工具箱尤其成立）：函数参数 = 攻击者可控来源（宿主传参）；
 //! 另认 sys.argv / input() / os.getenv / os.environ / sys.stdin / request.* / .recv(。
@@ -18,6 +20,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::json;
+use crate::nameres;
 
 // ---------------------------------------------------------------- 发现
 
@@ -29,9 +32,10 @@ pub struct Finding {
     pub var: String,
     pub source_line: usize,
     pub source_kind: String,
-    pub flow: String,     // direct / interproc
+    pub flow: String,     // direct / interproc / cross（S128：跨文件链）
     pub severity: String, // high / med
     pub kind: String,     // definite / clue / naive
+    pub origin: Option<String>, // S128：跨文件链证据（flow=cross 时必有）
 }
 
 #[derive(Default)]
@@ -39,21 +43,27 @@ pub struct ScanResult {
     pub files_scanned: usize,
     pub findings: Vec<Finding>,
     pub errors: Vec<String>,
+    /// S128：因全局同名多义而放弃连边的函数名数（如实计数，0 = 全部可解析）
+    pub cross_skipped_ambiguous: usize,
 }
 
 impl Finding {
     fn to_value(&self) -> json::Value {
-        obj([
-            ("file", json::Value::Str(self.file.clone())),
-            ("line", json::Value::Int(self.line as i128)),
-            ("sink", json::Value::Str(self.sink.clone())),
-            ("var", json::Value::Str(self.var.clone())),
-            ("source_line", json::Value::Int(self.source_line as i128)),
-            ("source_kind", json::Value::Str(self.source_kind.clone())),
-            ("flow", json::Value::Str(self.flow.clone())),
-            ("severity", json::Value::Str(self.severity.clone())),
-            ("kind", json::Value::Str(self.kind.clone())),
-        ])
+        let mut pairs: Vec<(String, json::Value)> = vec![
+            ("file".into(), json::Value::Str(self.file.clone())),
+            ("line".into(), json::Value::Int(self.line as i128)),
+            ("sink".into(), json::Value::Str(self.sink.clone())),
+            ("var".into(), json::Value::Str(self.var.clone())),
+            ("source_line".into(), json::Value::Int(self.source_line as i128)),
+            ("source_kind".into(), json::Value::Str(self.source_kind.clone())),
+            ("flow".into(), json::Value::Str(self.flow.clone())),
+            ("severity".into(), json::Value::Str(self.severity.clone())),
+            ("kind".into(), json::Value::Str(self.kind.clone())),
+        ];
+        if let Some(o) = &self.origin {
+            pairs.push(("origin".into(), json::Value::Str(o.clone())));
+        }
+        json::Value::Obj(pairs)
     }
 }
 
@@ -366,6 +376,7 @@ struct TSrc {
     kind: String,
     interproc: bool,
     definite: bool, // 入口可达（@tool 入口形参 / 宿主数据源）= 实锤；内部形参流 = clue
+    origin: Option<String>, // S128：跨文件链证据（"a.py:12 sys.argv → b.py:read_it.path"）
 }
 
 #[derive(Clone, Debug)]
@@ -375,6 +386,7 @@ struct Hit {
     kind: String,
     interproc: bool,
     definite: bool,
+    origin: Option<String>, // S128：跨文件链证据（有则 flow=cross）
 }
 
 struct Scope {
@@ -476,6 +488,7 @@ impl Analyzer {
                             taint.insert(p.clone(), TSrc {
                                 line: dline, kind: "param".into(),
                                 interproc: false, definite: entry,
+                                origin: None,
                             });
                         }
                         self.scopes.push(Scope {
@@ -657,6 +670,7 @@ impl Analyzer {
                         self.scopes[scope].taint.insert(t.clone(), TSrc {
                             line: hit.line, kind: hit.kind.clone(),
                             interproc: hit.interproc, definite: hit.definite,
+                            origin: hit.origin.clone(), // S128：跨文件链随赋值传播
                         });
                     }
                 }
@@ -677,6 +691,7 @@ impl Analyzer {
                         self.scopes[scope].taint.insert(t.clone(), TSrc {
                             line: hit.line, kind: hit.kind.clone(),
                             interproc: hit.interproc, definite: hit.definite,
+                            origin: hit.origin.clone(), // S128：跨文件链随赋值传播
                         });
                     }
                 }
@@ -691,6 +706,7 @@ impl Analyzer {
                         self.scopes[scope].taint.insert(t.clone(), TSrc {
                             line: hit.line, kind: hit.kind.clone(),
                             interproc: hit.interproc, definite: hit.definite,
+                            origin: hit.origin.clone(), // S128：跨文件链随赋值传播
                         });
                     }
                 }
@@ -1021,6 +1037,7 @@ impl Analyzer {
                                     kind: kind.to_string(),
                                     interproc: false,
                                     definite: true,
+                                    origin: None,
                                 });
                             }
                         // 链尾 .name/.stem：属性访问取出的就是净化值，整条链不算污点
@@ -1040,6 +1057,7 @@ impl Analyzer {
                                         kind: t.kind,
                                         interproc: t.interproc,
                                         definite: t.definite,
+                                        origin: t.origin.clone(),
                                     });
                                 }
                         k = next;
@@ -1056,6 +1074,7 @@ impl Analyzer {
                             kind: "input".into(),
                             interproc: false,
                             definite: true,
+                            origin: None,
                         });
                     }
                     // 网络来源 .recv(
@@ -1068,6 +1087,7 @@ impl Analyzer {
                             kind: "net".into(),
                             interproc: false,
                             definite: true,
+                            origin: None,
                         });
                     }
                     // 裸 argv（from sys import argv）
@@ -1078,6 +1098,7 @@ impl Analyzer {
                             kind: "argv".into(),
                             interproc: false,
                             definite: true,
+                            origin: None,
                         });
                     }
                     // 污点变量
@@ -1089,6 +1110,7 @@ impl Analyzer {
                                 kind: t.kind,
                                 interproc: t.interproc,
                                 definite: t.definite,
+                                origin: t.origin.clone(),
                             });
                         }
                     k += 1;
@@ -1141,6 +1163,7 @@ impl Analyzer {
                                 seeds.push((fid, p, TSrc {
                                     line: hit.line, kind: hit.kind, interproc: true,
                                     definite: hit.definite,
+                                    origin: hit.origin.clone(), // S128：跨文件来源随跳保留
                                 }));
                             }
                         }
@@ -1151,6 +1174,7 @@ impl Analyzer {
                             seeds.push((call.scope, t.clone(), TSrc {
                                 line: call.line, kind: "ret".into(), interproc: true,
                                 definite: self.scopes[fid].entry,
+                                origin: None,
                             }));
                         }
                     }
@@ -1215,6 +1239,7 @@ impl Analyzer {
                     kind: "naive".into(),
                     interproc: false,
                     definite: false,
+                    origin: None,
                 })
             } else {
                 let mut h = None;
@@ -1242,7 +1267,14 @@ impl Analyzer {
             if let Some(hit) = hit {
                 let key = (self.file.clone(), call.line, call.callee.clone(), hit.var.clone());
                 if seen.insert(key) {
-                    let flow = if hit.interproc { "interproc" } else { "direct" };
+                    // S128：链证据优先——跨文件链 > 文件内跨函数 > 直接流
+                    let flow = if hit.origin.is_some() {
+                        "cross"
+                    } else if hit.interproc {
+                        "interproc"
+                    } else {
+                        "direct"
+                    };
                     // 判级：入口可达 = 实锤 definite；内部形参流 = clue（待人工确认）
                     let kind = if self.naive {
                         "naive"
@@ -1265,6 +1297,7 @@ impl Analyzer {
                         flow: flow.into(),
                         severity: sev.into(),
                         kind: kind.into(),
+                        origin: hit.origin,
                     });
                 }
             }
@@ -1274,6 +1307,208 @@ impl Analyzer {
 }
 
 // ---------------------------------------------------------------- 入口
+
+/// S128：跨文件链证据行——head 已含前序链时继续追加一跳。
+/// 字符级截断（路径可含中文，禁止字节切片），保持单链 ≤ ~200 字符可读。
+fn chain_head(file: &str, hit: &Hit) -> String {
+    match &hit.origin {
+        Some(o) => o.clone(),
+        None => format!("{}:{} {}({})", file, hit.line, hit.var, hit.kind),
+    }
+}
+
+fn chain_push(head: &str, dst_file: &str, func: &str, param: &str) -> String {
+    let mut h = head.to_string();
+    if h.chars().count() > 140 {
+        h = h.chars().take(140).collect::<String>() + "…";
+    }
+    format!("{} → {}:{}.{}", h, dst_file, func, param)
+}
+
+/// S128：调用图（nameres）解析结果 → { (file, line) → [被调函数基础名] }。
+///
+/// 只取"调用点 → 被调定义"这一层，实参/数据流仍由污点引擎自己管——两个引擎
+/// 各司其职（S125 纪律：同名解析不另起第二份实现，复用 nameres 的作用域引擎）。
+/// 同一行多个调用解析出多个目标时如实保留列表，消费侧"不等一即不猜"。
+fn callgraph_targets(root: &Path) -> HashMap<(String, usize), Vec<String>> {
+    let mut map: HashMap<(String, usize), Vec<String>> = HashMap::new();
+    if !root.is_dir() {
+        return map; // 单文件扫描无目录上下文，退回文本名匹配
+    }
+    let v = nameres::callgraph_dir(root, 2000);
+    let json::Value::Obj(pairs) = v else { return map };
+    let Some((_, json::Value::Arr(edges))) =
+        pairs.iter().find(|(k, _)| k == "edges") else { return map };
+    for e in edges {
+        let json::Value::Obj(ep) = e else { continue };
+        let get_str = |k: &str| {
+            ep.iter().find(|(kk, _)| kk == k).and_then(|(_, vv)| match vv {
+                json::Value::Str(s) => Some(s.clone()),
+                _ => None,
+            })
+        };
+        let line = ep.iter().find(|(kk, _)| kk == "line").and_then(|(_, vv)| match vv {
+            json::Value::Int(i) => Some(*i as usize),
+            _ => None,
+        });
+        if let (Some(file), Some(line), Some(callee)) =
+            (get_str("file"), line, get_str("callee"))
+        {
+            let base = callee.rsplit('.').next().unwrap_or("").to_string();
+            if !base.is_empty() {
+                let slot = map.entry((file, line)).or_default();
+                if !slot.contains(&base) {
+                    slot.push(base);
+                }
+            }
+        }
+    }
+    map
+}
+
+/// S128：跨文件污点传播（不动点 ≤4 轮）。
+///
+/// 规则（与 pass2 同纪律，"只升级不降级"）：
+/// - 连边条件：被调函数名**全扫描集唯一**才连（多义如实跳过并计数，不猜）；
+///   同文件调用由 pass2 处理，此处只跨文件；
+/// - 实参→形参：实参在调用者上下文污点命中时，把被调函数形参标污
+///   （按位置 / 关键字名），来源信息与链证据随跳保留；
+/// - 污染返回值→调用点赋值目标：被调函数 ret_tainted 时污染 caller 的 lhs，
+///   来源取被调函数第一条污染 return 的真实 Hit（kind/行号更真）；
+/// - 升级规则：实锤升级非实锤照旧；**同级别只补链证据**（cur 无 origin 而
+///   seed 有 → 替换一次，补完即止，不会往复振荡）；
+/// - 净化跨界：实参表达式被 SANITIZERS 包裹时 expr_taint 返回 None（净化区），
+///   seed 自然不产生——callee 内部再净化同理挡在 pass3；
+/// - 环安全：轮次上限 + 只升级语义，互递归/自递归天然收敛。
+fn cross_file_propagate(
+    units: &mut [Analyzer],
+    targets: &HashMap<(String, usize), Vec<String>>,
+) -> usize {
+    let mut index: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
+    for (ui, a) in units.iter().enumerate() {
+        for (sid, sc) in a.scopes.iter().enumerate() {
+            if sid == 0 {
+                continue;
+            }
+            index.entry(sc.name.clone()).or_default().push((ui, sid));
+        }
+    }
+    let mut skipped_ambiguous = 0usize;
+    for cands in index.values() {
+        if cands.len() > 1 {
+            skipped_ambiguous += 1;
+        }
+    }
+    for _round in 0..4 {
+        let mut seeds: Vec<(usize, usize, String, TSrc)> = Vec::new();
+        for ui in 0..units.len() {
+            let mut local: Vec<(usize, usize, String, TSrc)> = Vec::new();
+            {
+                let a = &units[ui];
+                for call in &a.calls {
+                    let textual = call.callee.rsplit('.').next().unwrap_or("").to_string();
+                    if textual.is_empty() || SANITIZERS.contains(&textual.as_str()) {
+                        continue;
+                    }
+                    // S128：调用图解析结果优先（含别名/相对导入/模块属性调用），
+                    // 无解析则回退文本名——同名多义由消费侧唯一性纪律兜底
+                    let base = match targets.get(&(a.file.clone(), call.line)) {
+                        Some(v) if v.len() == 1 => v[0].clone(),
+                        Some(_) => continue, // 同一行多调用多目标：不猜
+                        None => textual,
+                    };
+                    if SANITIZERS.contains(&base.as_str()) {
+                        continue;
+                    }
+                    let Some(cands) = index.get(&base) else { continue };
+                    if cands.len() != 1 {
+                        continue; // 多义：如实不猜
+                    }
+                    let (tu, tsid) = cands[0];
+                    if tu == ui {
+                        continue; // 同文件已由 pass2 处理
+                    }
+                    let tparams = units[tu].scopes[tsid].params.clone();
+                    let tname = units[tu].scopes[tsid].name.clone();
+                    let tfile = units[tu].file.clone();
+                    let ret_t = units[tu].scopes[tsid].ret_tainted;
+                    let t_entry = units[tu].scopes[tsid].entry;
+                    for (ai, arg) in call.args.iter().enumerate() {
+                        if let Some(hit) = a.expr_taint(call.scope, arg.start, arg.end) {
+                            let pname = match &arg.kw {
+                                Some(kw) => Some(kw.clone()),
+                                None => tparams.get(ai).cloned(),
+                            };
+                            if let Some(p) = pname {
+                                let head = chain_head(&a.file, &hit);
+                                let origin = chain_push(&head, &tfile, &tname, &p);
+                                local.push((tu, tsid, p, TSrc {
+                                    line: hit.line, kind: hit.kind, interproc: true,
+                                    definite: hit.definite, origin: Some(origin),
+                                }));
+                            }
+                        }
+                    }
+                    if ret_t {
+                        // 污染返回值跨界：调用点 lhs 标污。来源优先取被调函数
+                        // 第一条污染 return 的真实 Hit（kind=env/argv… 比"ret"更真）
+                        let rsrc: Option<Hit> = units[tu].scopes[tsid].rets.iter()
+                            .find_map(|(s, e, _)| units[tu].expr_taint(tsid, *s, *e));
+                        for t in &call.lhs {
+                            let (kind, line, def, origin) = match &rsrc {
+                                Some(h) => {
+                                    let head = chain_head(&tfile, h);
+                                    let o = chain_push(&head, &tfile, &tname, "<ret>");
+                                    (h.kind.clone(), h.line, h.definite || t_entry, Some(o))
+                                }
+                                None => {
+                                    let head = chain_head(&a.file, &Hit {
+                                        var: t.clone(), line: call.line, kind: "ret".into(),
+                                        interproc: true, definite: t_entry, origin: None,
+                                    });
+                                    let o = chain_push(&head, &tfile, &tname, "<ret>");
+                                    ("ret".into(), call.line, t_entry, Some(o))
+                                }
+                            };
+                            local.push((ui, call.scope, t.clone(), TSrc {
+                                line, kind, interproc: true, definite: def, origin,
+                            }));
+                        }
+                    }
+                }
+            }
+            seeds.extend(local);
+        }
+        if seeds.is_empty() {
+            break;
+        }
+        let mut touched: Vec<usize> = Vec::new();
+        for (u, scope, var, src) in seeds {
+            let upgrade = match units[u].scopes[scope].taint.get(&var) {
+                Some(cur) => {
+                    (src.definite && !cur.definite)
+                        // 同级别只补链证据（无 origin → 有 origin，补完即止）
+                        || (cur.origin.is_none() && src.origin.is_some()
+                            && src.definite == cur.definite)
+                }
+                None => true,
+            };
+            if upgrade {
+                units[u].scopes[scope].taint.insert(var, src);
+                if !touched.contains(&u) {
+                    touched.push(u);
+                }
+            }
+        }
+        if touched.is_empty() {
+            break;
+        }
+        for u in touched {
+            units[u].pass2_interproc(); // 接收侧文件内继续扩散 + 重算 ret_tainted
+        }
+    }
+    skipped_ambiguous
+}
 
 fn walk_py(root: &Path, out: &mut Vec<PathBuf>) {
     let mut stack = vec![root.to_path_buf()];
@@ -1298,8 +1533,13 @@ fn walk_py(root: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// 扫描目录/单文件。root 必须已过沙盒（CLI 层负责）。
+/// 扫描目录/单文件（S128 起跨文件链默认开启）。root 必须已过沙盒（CLI 层负责）。
 pub fn scan_path(root: &Path, naive: bool) -> ScanResult {
+    scan_path_opts(root, naive, true)
+}
+
+/// S128：cross=false 关闭跨文件传播（逐字节回到 S78 语义，供 A/B 回归对照）。
+pub fn scan_path_opts(root: &Path, naive: bool, cross: bool) -> ScanResult {
     let mut files: Vec<PathBuf> = Vec::new();
     if root.is_file() {
         files.push(root.to_path_buf());
@@ -1311,6 +1551,9 @@ pub fn scan_path(root: &Path, naive: bool) -> ScanResult {
         files_scanned: files.len(),
         ..Default::default()
     };
+    // S128：先全量分析（保留各文件 Analyzer 供跨文件传播改污点表），
+    // 传播完再统一产出 findings——单文件时代的"分析完即弃"不再够用。
+    let mut units: Vec<Analyzer> = Vec::new();
     for f in &files {
         let bytes = match std::fs::read(f) {
             Ok(b) => b,
@@ -1330,6 +1573,13 @@ pub fn scan_path(root: &Path, naive: bool) -> ScanResult {
         let mut a = Analyzer::new(&display, &src, naive);
         a.pass1();
         a.pass2_interproc();
+        units.push(a);
+    }
+    if cross && !naive {
+        let targets = callgraph_targets(root);
+        res.cross_skipped_ambiguous = cross_file_propagate(&mut units, &targets);
+    }
+    for a in &units {
         res.findings.extend(a.pass3_findings());
     }
     res
@@ -1337,6 +1587,7 @@ pub fn scan_path(root: &Path, naive: bool) -> ScanResult {
 
 /// 结果 → json::Value（零依赖序列化出口）。
 pub fn result_to_json(r: &ScanResult) -> json::Value {
+    let cross_n = r.findings.iter().filter(|f| f.flow == "cross").count();
     obj([
         ("files_scanned", json::Value::Int(r.files_scanned as i128)),
         (
@@ -1346,6 +1597,12 @@ pub fn result_to_json(r: &ScanResult) -> json::Value {
         (
             "errors",
             json::Value::Arr(r.errors.iter().map(|e| json::Value::Str(e.clone())).collect()),
+        ),
+        // S128：跨文件链计数 + 多义放弃计数（如实可复核）
+        ("cross_file_findings", json::Value::Int(cross_n as i128)),
+        (
+            "cross_skipped_ambiguous",
+            json::Value::Int(r.cross_skipped_ambiguous as i128),
         ),
     ])
 }

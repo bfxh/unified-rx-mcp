@@ -36,13 +36,13 @@ REALS = [
 ]
 
 
-def _run_rx_taint(root, naive):
+def _run_rx_taint(root, naive, extra=()):
     exe = _rx_taint_exe()
     assert exe, "rx-taint.exe 不存在——先 cargo build"
     env = dict(os.environ)
     env["UNIFIED_RX_SANDBOX"] = "*"
     env["PYTHONIOENCODING"] = "utf-8"
-    argv = [exe, root] + (["--naive"] if naive else [])
+    argv = [exe, root] + (["--naive"] if naive else []) + list(extra)
     cp = subprocess.run(argv, capture_output=True, text=True,
                         encoding="utf-8", errors="replace", timeout=600, env=env)
     assert cp.returncode == 0, cp.stderr[-500:]
@@ -91,3 +91,33 @@ def test_s73_replay(snapshot_dir):
           "naive=%d reals=%d/%d"
           % (SNAPSHOT, taint["files_scanned"], nt, t_all, nn,
              len(REALS) - len(missing), len(REALS)))
+
+
+def test_s128_cross_file_is_strict_superset(snapshot_dir):
+    """S128 不变量：跨文件传播只加不减。
+
+    - 发现集（file,line,sink,var）必须为 --no-cross 的超集（不吞旧发现）；
+    - definite（实锤）数不得低于 --no-cross（跨文件只应升级或持平）；
+    - 打印 A/B 增量供 ROUNDLOG 记账（新增的 cross 流条数）。
+    """
+    cross = _run_rx_taint(str(snapshot_dir), naive=False)
+    base = _run_rx_taint(str(snapshot_dir), naive=False, extra=["--no-cross"])
+
+    def key(f):
+        return (f["file"], f["line"], f["sink"], f["var"])
+
+    kc = {key(f) for f in cross["findings"]}
+    kb = {key(f) for f in base["findings"]}
+    assert kb <= kc, "跨文件不得吞发现；缺失: %r" % sorted(kb - kc)[:10]
+
+    def nd(res):
+        return sum(1 for f in res["findings"] if f["kind"] == "definite")
+
+    n_cross = cross.get("cross_file_findings", 0)
+    origin_ok = all("origin" in f for f in cross["findings"] if f["flow"] == "cross")
+    assert origin_ok, "flow=cross 的发现必须带 origin 链证据"
+    assert nd(cross) >= nd(base), (nd(cross), nd(base))
+    print("\nS128 A/B snapshot=%s all=%d(+%d) definite=%d(+%d) cross_flows=%d "
+          "ambiguous_skipped=%d"
+          % (SNAPSHOT, len(kc), len(kc) - len(kb), nd(cross), nd(cross) - nd(base),
+             n_cross, cross.get("cross_skipped_ambiguous", 0)))

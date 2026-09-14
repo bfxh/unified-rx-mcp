@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """S78：rust_taint_scan 工具接入测试（python 薄壳 → rx-taint.exe）。
 
-覆盖：正常扫描透传 / 沙盒拒绝 / naive 基线模式 / exe 缺失干净报错。
+覆盖：正常扫描透传 / 沙盒拒绝 / naive 基线模式 / exe 缺失干净报错 /
+S128 跨文件链（cross 开关 + origin 证据）。
 exe 不存在的环境（未 cargo build）只跑不依赖 exe 的用例。
 """
 import os
@@ -29,12 +30,35 @@ def main():
     os.remove(name)
 '''
 
+# S128 跨文件夹具：别名导入（as ri）——文本名连不上，靠调用图解析建立链
+CROSS_MAIN = '''import sys
+from helpers import read_it as ri
+
+
+def entry():
+    name = sys.argv[1]
+    return ri(name)
+'''
+
+CROSS_HELPERS = '''def read_it(path):
+    return open(path).read()
+'''
+
 
 @pytest.fixture()
 def vuln_dir(tmp_path):
     d = tmp_path / "vulnroot"
     d.mkdir()
     (d / "mini_vuln.py").write_text(MINI_VULN, encoding="utf-8")
+    return d
+
+
+@pytest.fixture()
+def cross_dir(tmp_path):
+    d = tmp_path / "crossroot"
+    d.mkdir()
+    (d / "main.py").write_text(CROSS_MAIN, encoding="utf-8")
+    (d / "helpers.py").write_text(CROSS_HELPERS, encoding="utf-8")
     return d
 
 
@@ -89,3 +113,20 @@ def test_missing_exe_clean_error(vuln_dir, monkeypatch):
     r = rust_taint_scan(str(vuln_dir))
     assert "error" in r
     assert "cargo build" in r["error"]
+
+
+def test_cross_file_chain_and_off_switch(cross_dir):
+    """S128：跨文件链默认开启——别名调用经调用图连上，发现带 origin 证据；
+    cross=false 逐字节回到 S78（文件内）语义，同一夹具零 cross 流。"""
+    r = rust_taint_scan(str(cross_dir))
+    assert "error" not in r, r
+    assert r["cross"] is True
+    assert r.get("cross_file_findings", 0) >= 1, r
+    cross = [f for f in r["findings"] if f["flow"] == "cross"]
+    assert cross, r
+    assert all("origin" in f for f in cross), cross
+    assert any("main.py" in f["origin"] for f in cross), cross
+    r2 = rust_taint_scan(str(cross_dir), cross=False)
+    assert "error" not in r2, r2
+    assert r2["cross"] is False
+    assert not [f for f in r2["findings"] if f["flow"] == "cross"], r2

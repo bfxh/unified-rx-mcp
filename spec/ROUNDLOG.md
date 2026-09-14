@@ -615,3 +615,15 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 过程项：Mimosa hook 两次拦截均为**测试夹具诱饵**——凭据字样（改用既有 s44 的 os.system 分支模式）+ md5 建议（照录 C1b 不顺手改）；commit/push 前 hook 照旧提示无完整扫描结论（enobufs 欠账未还，不宣称安全）。
 - 验证：3.14 全量 **782 passed + 4 skipped**；3.11 全量 **784 passed + 2 skipped**（skip 全为外部资产环境性）；cargo **184 绿** + clippy 零告警（套件内 S121 门）；selftest 五线全绿（GROUPS 12 组 69 工具 / FS_STAT ok / SCHEMA_BAD 0 / VERSION_TAG NEXT=tag 前正确态 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0）；版本锁步 **2.44.0 ×5**（server.py / Cargo.toml / Cargo.lock / README / PANORAMA）。
 - 提交：本次
+
+## S128 · 实施轮二：taint × callgraph 贯通（跨文件污点链）+ 版本 2.45.0
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.44.0 → **2.45.0**（tag v2.45.0）
+- 决策：按 CONSOLIDATION §五 顺序第 4 项（**P0-A**，用户"更能挖漏洞找问题"主菜）——S78 污点引擎（文件内浅数据流）接 S125 调用图，升级为跨文件链。
+- 架构决策：**不另起名解析**——S125 纪律延续：名解析消费 `nameres::callgraph_dir` 的解析结果（(file,line) → callee 基础名，含 from-import 别名/模块属性调用），无解析回退文本名；全扫描集**唯一名**才连边，同名多义跳过并计数（如实不猜）。数据流仍由污点引擎自己管——两个引擎各司其职（S125 教训的正面应用）。
+- 引擎改造（rust/src/taint.rs）：①TSrc/Hit/Finding 加 `origin` 链字段（"某文件:行 来源(种类) → 目标文件:函数.形参"，字符级截断防中文路径字节切片）；三处赋值传播（= / for / with）与 expr_taint 六处构造全线程；②scan_path 拆两段：先全量分析（保留各文件 Analyzer——单文件时代"分析完即弃"不再够用），再 cross_file_propagate 不动点 ≤4 轮，最后统一 pass3 产出；③传播规则：实参→形参（位置/关键字名）、污染返回值→lhs（来源取被调函数第一条污染 return 的真实 Hit——kind=env/argv 比"ret"更真）；**升级规则**=实锤升级非实锤照旧 + 同级别只补链证据（cur 无 origin 而 seed 有 → 替换一次，补完即止不振荡——互递归夹具在"只升级不降级"下链证据丢失的坑就是这里修的）；④环安全：轮次上限 + 只升级（互递归收敛，夹具实证）；⑤净化跨界不变：实参被 SANITIZERS 包裹（净化区）seed 自然不产生、callee 内净化照挡 pass3（夹具实证）；⑥naive 模式完全不受影响；⑦`--no-cross` CLI + 工具 `cross=false`（逐字节回到 S78 语义，A/B 用）。
+- 测试：rust taint_test 3→**7** 例（新增：跨文件链+净化不失效+调用点净化四断言 / 多义计数+零 cross / 互递归终止 / **别名经调用图**连边 + --no-cross A/B 对照）；Python 工具测试 +1（别名链 origin 证据 + 开关）；REPLAY 新增 `test_s128_cross_file_is_strict_superset`（不变量：跨文件发现集为 --no-cross 严格超集 + definite 只升不降 + flow=cross 必带 origin + A/B 记账行）。
+- REPLAY A/B 实测（修复前快照 395e4cd，119 文件）：3 条真问题 **3/3** 以 definite 命中；实锤 **131 ≤ 基线 755/2=377** 精度线守住；**all 627(+0) / definite 131(+1) / cross_flows 7 / 多义跳过 80**——净新增汇点 0（该快照跨文件面被别名净化器与字面量实参稀释），链证据 +7、实锤升级 +1，**如实记账不美化**；增量机制正确性由别名夹具实锤（文本名连不上、调用图连得上，--no-cross 对照零 cross 流）。
+- 过程项与门禁连锁（全为门在正常工作）：①clippy 抓新代码两处（doc 列表缩进 / map 值迭代）当场修；②版本锁步门抓 README 未同步；③exe 版本漂移门（Cargo.toml bump 后重建 9 exe → 2.45.0，rx-taint --version 实测 2.45.0）；④Mimosa hook 拦 bash 直写夹具源码（改 Write 工具写 TEMP——hook 纪律生效）。
+- 验证：3.14 全量 **784 passed + 4 skipped**；3.11 全量 **786 passed + 2 skipped**；cargo **188 绿**（+4 新测试）+ clippy **零告警**；selftest 五线全绿（GROUPS 12 组 69 工具 / FS_STAT ok / SCHEMA_BAD 0 / VERSION_TAG NEXT=tag 前正确态 / SKILLS_DOCS stale=0 dead=0 / EXE_TAG ok=9 drift=0 missing=0）；版本锁步 **2.45.0 ×5**。
+- 文档：VULN-HUNTING P1-a 落地注记（S128 全规则与边界）+ 附录 B Python 行"真污点"格 ⚠️→✅（跨函数/跨文件，含浅数据流边界）+ 行外注更新；CONSOLIDATION §四 P0-A 标已兑 + §八 S128 记录；skills/attack.md 契约；README 头。
+- 提交：本次

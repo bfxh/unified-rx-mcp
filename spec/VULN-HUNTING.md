@@ -98,9 +98,21 @@
   55 条误报坐标上，当前 main 的命中数 ≤ 修复前快照命中数的一半。
   落地注记（S78，已过）：精度机制定为**入口点污点模型**——`@tool` 装饰即 MCP 宿主
   可达边界，入口形参=definite 来源，内部 helper 形参=clue 级线索（pass2 实参回溯
-  只升不降，宿主来源 argv/env/input/net 恒 definite）；S73 人工"暴露面"triage 从此
+  只升不降，宿主来源 argv/env/input/net 恒 definite）；S73 人工"暴露面" triage 从此
   机器化。重放实测 definite=130 ≤ ½ naive(755)=377，3 真全 definite；clue 行仍全量
   报告只分级不隐藏。
+  落地注记（S128，已过）：**跨文件链**——S125 调用图（nameres 同一作用域引擎）接入
+  污点引擎：①实参→形参、污染返回值→lhs 的跨界不动点（≤4 轮，只升级不降级，同级别
+  只补链证据）；②名解析**消费调用图边**（from-import 别名/模块属性调用不再是文本名
+  碰运气），无解析回退文本名；③全扫描集**唯一名**才连边，同名多义跳过并计数
+  `cross_skipped_ambiguous`（如实不猜）；④链证据 `origin` 随发现返回（flow=cross），
+  起点=真实来源（argv/env/…），中间每跳 "文件:函数.形参"；⑤`cross=false` 逐字节回到
+  S78 文件内语义（A/B 对照）；⑥naive 模式不受影响。REPLAY A/B（快照 395e4cd，119 文件）：
+  3 真 3/3、实锤 131 ≤ 755/2、发现集为 --no-cross 严格超集（不变量入测）、跨文件新增链
+  证据 7 条 + 1 条实锤升级、多义跳过 80 名——本仓该版本跨文件面被"别名净化器
+  （_fs_resolve 系）与字面量实参"稀释，净新增汇点 0，**如实记账不美化**。
+  边界：赋值级浅数据流（非字段/路径敏感）；净化器跨界=实参被净化 or callee 内净化
+  都截断链；函数体内局部互递归同 pass2 边界。
 - **P1-b 规则覆盖矩阵**：语言（Python/Rust/GDScript/C#/JS）× 类别（注入/路径/并发/
   资源/逻辑/物理引擎陷阱）一张表，逐格标"有规则/原理上查不了/空白"，空白格按踩坑
   概率排优先级。验收：矩阵进本文件附录，"查不了"的格子写明原因（数据流/跨文件/
@@ -410,7 +422,7 @@ appaudit.rs，S98 逐一核账）。
 
 | 语言 | 注入 | 路径 | 并发 | 资源 | 逻辑 | 物理引擎陷阱 | 秘密/凭据 |
 |---|---|---|---|---|---|---|---|
-| Python | ✅ `eval_exec`（裸 Call eval/exec/compile；ast_scan 调用面）；⚠️ 真污点（source→sink 跨函数/跨文件）、getattr/importlib 动态面 | ⚠️ 需数据流（输入→join→open）；本仓以运行时沙盒钳制为防线 | ⚠️ 运行时状态（GIL 掩盖、asyncio 竞态） | ⚠️ 未关句柄/无界增长需数据流 | ✅ `bare_except` `undefined_name` `redefined_import`（含导入遮蔽内建）`syntax_error`；generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number`；code_review complexity/TODO | —（不承载） | ⬜ 低 |
+| Python | ✅ `eval_exec`（裸 Call eval/exec/compile；ast_scan 调用面）；✅ 真污点 source→sink **跨函数/跨文件**（S128：全扫描集唯一名连边 + nameres 调用图名解析[别名/模块属性]，链证据 origin；同名多义跳过计数——浅数据流非字段敏感，见行外注）；⚠️ getattr/importlib 动态面 | ⚠️ 需数据流（输入→join→open）；本仓以运行时沙盒钳制为防线 | ⚠️ 运行时状态（GIL 掩盖、asyncio 竞态） | ⚠️ 未关句柄/无界增长需数据流 | ✅ `bare_except` `undefined_name` `redefined_import`（含导入遮蔽内建）`syntax_error`；generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number`；code_review complexity/TODO | —（不承载） | ⬜ 低 |
 | Rust | ⚠️ 无动态执行面；命令拼接（process::Command）需数据流 | ⚠️ 同左 | ⚠️ Send/Sync 编译器管；数据竞争需 miri/loom 等运行时 | ⬜ 低（无泄漏检测；unsafe 面 ast_scan 有信号） | ✅ `unwrap` `expect` `panic` `unreachable` `todo_unimplemented` `as_cast` `indexing`（indexing 含 `[x as usize]` 形态；clue 全量上报是设计）；ast_scan rust 结构信号 + rust_reach（prod/test_only/unreferenced 分级） | ✅ `bevy_phys_manual_support_force` `bevy_phys_static_with_velocity` `bevy_phys_locked_axes_bits`（+5 条 bevy API 规则：old_system/old_startup/event_iter/text_old/query_single） | ⬜ 低 |
 | GDScript | ⬜ 中（`Expression.parse`/`load()` 动态面） | ⚠️ 需数据流 | ⚠️ 运行时状态 | ⬜ 低 | ✅ std_check `placeholder`/`magic_number`（magic 语言门含 gdscript）；ui_check godot 死按钮（`ui_pattern`） | ⬜ 低（未踩坑） | ⬜ 低 |
 | C# | ⬜ 中（`Process.Start`/`Activator`） | ⚠️ 需数据流 | ⚠️ 运行时状态（async 竞态） | ⬜ 低 | ✅ std_check `placeholder`（**magic_number 语言门不含 csharp**）；ui_check unity 死按钮（`ui_pattern`） | ⬜ 低 | ⬜ 低 |
@@ -422,7 +434,9 @@ appaudit.rs，S98 逐一核账）。
   `open_external` `auto_updater` `protocol_register`——面向 Electron 快照审计。
 - `rust_taint_scan` 的 definite/clue 是**可达性分级**（入口形参=definite、helper
   形参=clue，宿主来源 argv/env/input/net 恒 definite），**不是数据流追踪**——
-  不得读成"污点已证实"。
+  不得读成"污点已证实"。S128 跨文件链同理：origin 是**调用跳链证据**（"谁以什么
+  来源调到哪个形参"），模型仍为赋值级浅数据流（非字段/路径敏感）；净化器跨界
+  规则=实参被净化或 callee 内净化都截断链；同名多义如实跳过（计数可查）。
 - code_review 的 security 透镜是模式匹配非污点分析（自带边界声明）；复杂度是
   行数/缩进近似非圈复杂度。
 - 空白优先级（按踩坑概率）：C#/GDScript 注入面（`Process.Start`/`load()`）>

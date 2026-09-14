@@ -154,3 +154,152 @@ def go():
     assert_eq!(f[0].severity, "high");
     fs::remove_dir_all(&d).ok();
 }
+
+// ---------------------------------------------------------------- S128 跨文件链
+
+const CF_MAIN: &str = r#"import os
+import sys
+from helpers import read_it, clean, read_cfg, only_safe
+
+def boot():
+    name = sys.argv[1]
+    return read_it(name)
+
+def safe_boot():
+    name = sys.argv[1]
+    return clean(name)
+
+def callsafe():
+    return only_safe(os.path.basename(sys.argv[1]))
+
+def run():
+    cmd = read_cfg()
+    os.system(cmd)
+"#;
+
+const CF_HELPERS: &str = r#"import os
+
+def read_it(path):
+    return open(path).read()
+
+def clean(p2):
+    return open(os.path.basename(p2)).read()
+
+def only_safe(p3):
+    return open(p3).read()
+
+def read_cfg():
+    return os.environ.get("CFG")
+"#;
+
+#[test]
+fn cross_file_chains_and_sanitization() {
+    let d = make_dir("xfile");
+    fs::write(d.join("main.py"), CF_MAIN).unwrap();
+    fs::write(d.join("helpers.py"), CF_HELPERS).unwrap();
+    let res = rxrs::taint::scan_path(&d, false);
+    assert_eq!(res.files_scanned, 2, "{:?}", res.errors);
+
+    // ① 实参跨文件 → callee 内汇点：main.boot 的 argv → helpers.read_it.path → open
+    let open_read_it = res.findings.iter().find(|f| {
+        f.file == "helpers.py" && f.sink == "open" && f.var == "path"
+    }).expect("read_it 的 open 应命中");
+    assert_eq!(open_read_it.flow, "cross", "{:?}", open_read_it);
+    assert_eq!(open_read_it.kind, "definite", "argv 实锤应跨文件升级形参");
+    assert_eq!(open_read_it.source_kind, "argv");
+    let origin = open_read_it.origin.clone().expect("跨文件必有链证据");
+    assert!(origin.contains("main.py") && origin.contains("read_it"),
+            "链证据应含来源文件与目标函数: {origin}");
+
+    // ② 污染返回值跨文件 → caller 汇点：helpers.read_cfg 的 env → main.run 的 os.system
+    let exec_main = res.findings.iter().find(|f| {
+        f.file == "main.py" && f.sink == "os.system"
+    }).expect("run 的 os.system 应命中");
+    assert_eq!(exec_main.flow, "cross", "{:?}", exec_main);
+    assert_eq!(exec_main.source_kind, "env");
+    assert!(exec_main.origin.as_deref().unwrap_or("").contains("helpers.py"),
+            "链证据应指向 helpers.py: {:?}", exec_main.origin);
+
+    // ③ 净化不因跨界失效：clean 内部 basename 挡住汇点——p2 即便被实锤注入也无发现
+    assert!(!res.findings.iter().any(|f| f.var == "p2"),
+            "callee 内部净化必须继续挡住: {:?}", res.findings);
+
+    // ④ 调用点净化：only_safe 只被净化实参调用 → 无跨文件链（保持 clue/direct）
+    let only_safe = res.findings.iter().find(|f| {
+        f.file == "helpers.py" && f.sink == "open" && f.var == "p3"
+    }).expect("only_safe 的 open 应以 clue 命中（形参即来源）");
+    assert!(only_safe.origin.is_none() && only_safe.flow != "cross",
+            "净化实参不得产生跨文件链: {:?}", only_safe);
+
+    // ⑤ A/B：cross=false 逐字节回到 S78 语义——零 cross 流
+    let no_cross = rxrs::taint::scan_path_opts(&d, false, false);
+    assert!(!no_cross.findings.iter().any(|f| f.flow == "cross"),
+            "{:?}", no_cross.findings);
+    fs::remove_dir_all(&d).ok();
+}
+
+#[test]
+fn cross_file_ambiguous_name_is_skipped_honestly() {
+    let d = make_dir("xambig");
+    // 两个文件定义同名函数：全局多义 → 放弃连边并计数（不猜）
+    fs::write(d.join("dup_a.py"), "def dup_target(p):\n    return open(p).read()\n").unwrap();
+    fs::write(d.join("dup_b.py"), "def dup_target(p):\n    return open(p).read()\n").unwrap();
+    fs::write(
+        d.join("dup_c.py"),
+        "import sys\ndef caller():\n    return dup_target(sys.argv[1])\n",
+    )
+    .unwrap();
+    let res = rxrs::taint::scan_path(&d, false);
+    assert!(res.cross_skipped_ambiguous >= 1,
+            "同名多义应如实计数: {}", res.cross_skipped_ambiguous);
+    // dup_a/dup_b 各自的 clue 级发现照常（形参即来源），但不得出现跨文件链
+    assert!(!res.findings.iter().any(|f| f.flow == "cross"), "{:?}", res.findings);
+    fs::remove_dir_all(&d).ok();
+}
+
+#[test]
+fn cross_file_alias_resolved_via_callgraph() {
+    // 别名导入（as ri）在文本名层面连不上；S128 消费 nameres 调用图的解析结果
+    // （callee=b.helper）才可能连边——本测试即该通路的实锤。
+    let d = make_dir("xalias");
+    fs::write(
+        d.join("main.py"),
+        "import sys\nfrom helpers import read_it as ri\n\ndef entry():\n    name = sys.argv[1]\n    return ri(name)\n",
+    )
+    .unwrap();
+    fs::write(d.join("helpers.py"), "def read_it(path):\n    return open(path).read()\n").unwrap();
+    let res = rxrs::taint::scan_path(&d, false);
+    let f = res.findings.iter().find(|f| {
+        f.file == "helpers.py" && f.sink == "open" && f.var == "path"
+    }).expect("别名调用应经调用图连边后命中");
+    assert_eq!(f.flow, "cross", "{:?}", f);
+    assert!(f.origin.as_deref().unwrap_or("").contains("main.py"),
+            "链证据应指向调用方: {:?}", f.origin);
+    // A/B：关掉跨文件（--no-cross 通路）后同一夹具无 cross 流——证明增量来自本机制
+    let base = rxrs::taint::scan_path_opts(&d, false, false);
+    assert!(!base.findings.iter().any(|f| f.flow == "cross"), "{:?}", base.findings);
+    fs::remove_dir_all(&d).ok();
+}
+
+#[test]
+fn cross_file_mutual_recursion_terminates() {
+    let d = make_dir("xcycle");
+    fs::write(
+        d.join("cyc_a.py"),
+        "from cyc_b import pong\n\ndef ping(p):\n    return pong(p)\n",
+    )
+    .unwrap();
+    fs::write(
+        d.join("cyc_b.py"),
+        "from cyc_a import ping\n\ndef pong(q):\n    if q:\n        return ping(q)\n    return open(q).read()\n",
+    )
+    .unwrap();
+    // 不挂起、可确定产出：互递归跨文件传播靠轮次上限 + 只升级语义收敛
+    let res = rxrs::taint::scan_path(&d, false);
+    assert_eq!(res.files_scanned, 2, "{:?}", res.errors);
+    let open_pong = res.findings.iter().find(|f| {
+        f.file == "cyc_b.py" && f.sink == "open" && f.var == "q"
+    }).expect("pong 的 open 应命中");
+    assert_eq!(open_pong.flow, "cross", "互递归种子应带链: {:?}", open_pong);
+    fs::remove_dir_all(&d).ok();
+}

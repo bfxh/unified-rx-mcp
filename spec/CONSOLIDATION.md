@@ -144,12 +144,12 @@ pyast.rs 2986（parser/scope/extract 分 mod）→ astscan.rs 1776 → nameres.r
 
 ## 四、IDE 升级路线（挖漏洞 / 找问题）
 
-### P0-A taint × callgraph 贯通（本轮最高价值）
-现状：rust/src/taint.rs（S78）= 过程内浅数据流；nameres（S125）已给调用边。
-**升级 = 跨函数污点链**：①污染源在 callee 形参 → 经调用边追到 caller 的汇点；
-②caller 传污染实参 → callee 内汇点。设计要点：净化器跨界规则如实（callee 内净化
-不返传视为未净化）；输出带 edge 级证据链（污点从哪进来、经哪几跳、到哪个汇点）；
-验收 = 跨文件污点夹具红转绿 + 现有过程内用例不回归。
+### P0-A taint × callgraph 贯通（**S128 已兑**）
+交付：跨文件污点链——实参→形参、污染返回值→lhs 的跨界不动点 + 名解析消费 nameres
+调用图（别名/模块属性调用可连）+ 唯一名连边（多义跳过计数）+ origin 链证据
+（flow=cross）+ cross=false A/B 开关。REPLAY A/B 与边界见 VULN-HUNTING P1-a 落地
+注记（S128）；实现与测试清单见 ROUNDLOG S128。**未竟**：字段/路径敏感、getattr
+动态面（附录 B 仍标 ⚠️）。
 
 ### P0-B ide_dead_code Attribute 盲区修复（D1，dogfood 实锤）
 引用模型补 Attribute 引用采集 + `cache_key` 误报回归测试。这是"找问题"工具自己
@@ -184,7 +184,7 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
 1. ~~D1 ide_deadcode 修复~~ → **S127 更正：D1 系误诊（见 §1.4），量尺无需修**
 2. ~~P0 scan.py 拆分 + C1 walker 统一~~ → **S127 已兑**（见 §八）
 3. ~~死代码清理~~ → **S127 已兑**（真死收敛为 1 件 strip_hint，已删加锁）
-4. P0-A taint×callgraph ← **下轮开工点**
+4. ~~P0-A taint×callgraph~~ → **S128 已兑**（见 §四 P0-A 与 §八）
 5. P1-A / P1-B / P1 拆分（lsp/gpu）；C1b（内联 walk 族）
 6. P2-A / P2-B / C2 / P3
 
@@ -226,3 +226,15 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
   再动文件；死常量清理前先验证零引用（`_RE_FUNC_START` 定义并存两轮未被发现）。
 - Mimosa hook 两次拦截均为**测试夹具的扫描器诱饵**（凭据字样）与 md5 建议——
   前者改用既有 s44 模式（os.system 分支）、后者挂 C1b 记录不顺手改（平移零改动）。
+
+**S128 实施记录（P0-A，第二实施轮）**：`rust/src/taint.rs` 跨文件化——TSrc/Hit/
+Finding 加 `origin` 链字段（三处赋值传播 + expr_taint 六处构造全线程）；scan_path
+拆两段（先全量分析保留 Analyzer，再跨文件传播，最后统一产出）；`cross_file_propagate`
+不动点 ≤4 轮（只升级不降级 + 同级别只补链证据防振荡 + 环安全）；`callgraph_targets`
+消费 nameres::callgraph_dir 的边（(file,line) → callee 基础名，同行多目标不猜），
+无解析回退文本名；`--no-cross` CLI + 工具 `cross` 参数（默认 true）。测试：rust
+taint_test 3→7 例（链/净化不失效/调用点净化/多义计数/互递归终止/别名经调用图）；
+Python 工具测试 +1（别名链 + 开关）；REPLAY 新增 `test_s128_cross_file_is_strict_superset`
+（超集不变量 + origin 必带 + A/B 记账行）。A/B（快照 395e4cd）：all 627(+0) /
+definite 131(+1) / cross_flows 7 / ambiguous 80——净新增 0 如实入档。已知未竟：
+字段/路径敏感、getattr 动态面（附录 B 维持 ⚠️）。

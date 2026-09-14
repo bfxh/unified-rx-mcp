@@ -237,17 +237,21 @@ def _rx_taint_exe():
     return None
 
 
-@tool("rust_taint_scan", "Rust 污点引擎（S78）：来源→汇点浅数据流扫 Python 代码；"
+@tool("rust_taint_scan", "Rust 污点引擎（S78；S128 跨文件链）：来源→汇点浅数据流扫 Python 代码；"
                          "形参即来源（MCP 威胁模型），净化器 basename/secure_filename/"
-                         "int/float/_fs_resolve/.name/.stem 识别；naive=true 跑模式匹配基线对照",
+                         "int/float/_fs_resolve/.name/.stem 识别；跨文件传播靠 nameres 调用图"
+                         "解析（含 from-import 别名），链证据 origin 随发现返回（flow=cross）；"
+                         "naive=true 跑模式匹配基线对照；cross=false 关闭跨文件（A/B 用）",
       "attack",
       {"type": "object",
        "properties": {
            "root": {"type": "string", "description": "扫描根目录或单个 .py 文件（沙盒内）"},
            "naive": {"type": "boolean", "description": "基线模式：任何含变量实参的汇点调用都报（对照用）"},
+           "cross": {"type": "boolean",
+                     "description": "跨文件污点链（默认 true；false=逐字节回到 S78 文件内语义）"},
        },
        "required": ["root"]})
-def rust_taint_scan(root, naive=False):
+def rust_taint_scan(root, naive=False, cross=True):
     try:
         resolved = fs_tools._resolve(root)   # 与 fs 域同一沙盒钳制，越界即拒
     except ValueError as e:
@@ -257,7 +261,8 @@ def rust_taint_scan(root, naive=False):
         return {"error": "rx-taint.exe 不存在——先在 rust/ 下 cargo build --release "
                          "（或设 UNIFIED_RX_RS_EXE 指向现有 exe）"}
     import subprocess
-    argv = [exe, resolved] + (["--naive"] if naive else [])
+    argv = [exe, resolved] + (["--naive"] if naive else []) \
+        + ([] if cross or naive else ["--no-cross"])
     try:
         cp = subprocess.run(argv, capture_output=True, text=True,
                             encoding="utf-8", errors="replace", timeout=600)
@@ -272,4 +277,5 @@ def rust_taint_scan(root, naive=False):
         return {"error": "rx-taint 输出不是合法 JSON", "stdout_head": cp.stdout[:300]}
     out["root"] = resolved
     out["naive"] = bool(naive)
+    out["cross"] = bool(cross and not naive)
     return out
