@@ -681,3 +681,32 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   无新增 pytest 用例；rust +2 → cargo **190 绿**）；clippy **零告警**；selftest 五线全绿
   （GROUPS 组计数随 C2 变为 guard(4)/meta(3) 仍 70 工具）；版本锁步 **2.48.0 ×5**。
 - 提交：本次
+
+## S132 · 实施轮六：设计评审整改第一波（H1 授权三档 + H3 组合透传检查器 + M4 选型表 + H2/M3 词汇表）
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.48.0 → **2.49.0**（tag v2.49.0）
+- 决策：按 DESIGN-REVIEW 推荐顺序（H1→H3→M4→H2/M3，全"半小时级"）落地；P3 巡航留待下轮。
+- **H1 授权三档立文**（HARDENING 新增 §七）：①纯读（不挂门，过沙盒）②自有只读扫描
+  （跑本仓 exe 扫代码/文件，不改状态；不挂门；exe 缺失清晰报错）③执行·写（跑构建/
+  测试/调试/用户代码、起进程/窗口、写盘——**必挂门** + 写盘再自查 + 组合内层**字面量**
+  透传）；附边界明示：沙盒只管本进程，③档子进程越界由授权门（人的确认）兜底，
+  非沙盒遗漏；新工具按表自证。
+- **H3 组合透传检查器**：`auth_gate_sweep` 增「组合透传」项——纯函数
+  `_scan_compose_passthrough(sources, gated)`（正则抓 `registry.call|call|reg("字面量名"`，
+  平衡括号取参区含嵌套 dict，片段内找 `__authorized`）+ 真机入口扫 tools/+bench/；
+  变量名调用=动态面如实不判。**首跑即抓出两处真缺口**：`agent_selfcheck.py:25→app_clone`、
+  `swe_repair.py:404→ide_break`——两者都本意真跑却会被门拒绝、再静默退化成 None/[]
+  （S130 clippy 透镜同病灶第三次形态）；已补字面量透传修复。`ide_doctor` 的 reg()
+  包装器隐式注入改为调用点字面量随行（检查器按字面量判，隐式不算数——包装器保留，
+  同键同值无害）。测试 +3：scanner 红/绿双侧（含括号嵌套与变量名不判）+ 真机零违规
+  + sweep 键。
+- **M4 选型表**：skills/search.md（检索四件套 + locate_edit/impact 边界一表）；
+  skills/scan.md（全家桶入口四件套 + 成本序一表）。
+- **H2+M3 词汇表**：README 新增「词汇表（跨工具约定）」节——`root`/`path`/`file` 三分
+  （存量 15:28 不追溯改名，破坏面结论入表）+ `kind`/`engine`/`flow` 一词多义对照 +
+  `skipped`/`__authorized` 语义。
+- 门/文档随动：skills/attack.md auth_gate_sweep 条目补组合透传；CONSOLIDATION §五
+  §八 S132 记录；README 头部。
+- 验证：3.14 全量 **800 passed + 4 skipped**（+3）；3.11 全量 **802 passed + 2 skipped**；
+  cargo **190 绿** + clippy **零告警**；selftest 五线全绿（VERSION_TAG NEXT=tag 前
+  正确态 / 组合透传已入 sweep 但 selftest 不涉）；版本锁步 **2.49.0 ×5**。
+- 提交：本次

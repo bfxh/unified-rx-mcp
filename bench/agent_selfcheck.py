@@ -22,7 +22,8 @@ import tools      # noqa: F401,E402  注册全部域
 
 
 def _run_one(tag, source, clean):
-    cr = registry.call("app_clone", {"source_dir": source})
+    cr = registry.call("app_clone", {"source_dir": source,
+                                     "__authorized": True})  # S132：透传（原缺→被门拒后静默退化）
     if not cr.get("ok"):
         print(f"[{tag}] CLONE FAIL: {cr.get('error')}")
         return None

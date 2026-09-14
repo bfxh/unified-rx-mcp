@@ -55,3 +55,35 @@ def test_sweep_manifest_high_privilege_matches():
     sweep = registry.call("auth_gate_sweep", {})["result"]
     manifest = registry.call("capability_manifest", {})["result"]
     assert set(sweep["挂门清单"]) == set(manifest["高权限"]["工具"])
+
+
+# ---------- S132（DESIGN-REVIEW H3）：组合透传静态自审 ----------
+
+def test_passthrough_scanner_red_and_green():
+    """纯函数双侧：缺 __authorized → 报；带（含括号嵌套/多行 dict）→ 不报。"""
+    from tools.attack import _scan_compose_passthrough
+    gated = {"gated_x", "gated_y"}
+    src = (
+        'registry.call("gated_x", {"p": 1})\n'                    # 缺 → 报
+        'call("open_tool", {"p": 1})\n'                           # 非挂门 → 不报
+        'registry.call("gated_y", {\n'
+        '    "p": f({"k": 1}),\n'
+        '    "__authorized": True,\n'                             # 带 → 不报
+        '})\n'
+        'x_name = "gated_x"\n'
+        'registry.call(x_name, {})\n'                             # 变量名=动态面不判
+    )
+    hits = _scan_compose_passthrough([("t.py", src)], gated)
+    assert hits == ["t.py:1 → gated_x"], hits
+
+
+def test_passthrough_real_repo_is_clean():
+    """真机自审：本仓 tools/ + bench/ 无漏透传（S130/swe_repair 病灶至此有常驻检查器）。"""
+    from tools.attack import _compose_passthrough_scan
+    assert _compose_passthrough_scan() == []
+
+
+def test_sweep_reports_passthrough_key():
+    r = registry.call("auth_gate_sweep", {})
+    assert r["ok"] is True, r
+    assert r["result"]["组合透传"] == "pass", r["result"]

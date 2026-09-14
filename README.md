@@ -6,23 +6,23 @@
 > 设计哲学：**少而准**（70 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.48.0（S131）**：70 工具 / 12 域；**bug_scan 八规则扩容 + 组归位 + 设计评审**——
-①`bug_scan` 注入/反序列化/竞态八条新规则（`py_shell_true`/`pickle_loads`/
-`yaml_unsafe_load`/`weak_hash_password`/`sql_concat`/`mktemp_race`/`zip_extractall`/
-`except_pass`），每条配 vuln_knowledge 条目（新增四条 + 扩三条），命中与不报双侧入测；
-②`breaker_status/reset` 组归位 meta→guard（熔断属防护面）；③**工具面设计评审**：
-[spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)（70 工具/12 组/36 模块/18 挂门实测）——
-高优先三项（授权分级立文 / `root` vs `path` 词汇分裂 15:28 / 组合工具授权透传检查器）、
-中优先四项（中文输出键 3 件、metrics 组轴错位、kind·engine 一词多义、家族选型表文档债）。
-历史链：S130 gpu 拆分 + ide_diagnostics 挂门实锤修复（clippy 透镜复活）+ ruff/mypy 探测；
-S129 风险榜/调用面/lsp 三分；S128 跨文件污点链（REPLAY 3/3、131 ≤ 755/2）；
-S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首次完整跑绿
-（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 797 passed
-+ 4 skipped、3.11 = 799 passed + 2 skipped（skip 为外部资产环境性）；cargo 190 绿 +
-clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。
-整合除重与 IDE 升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
-[spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
-加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
+**当前 v2.49.0（S132）**：70 工具 / 12 域；**设计评审整改第一波（H1/H3/M4/H2+M3）**——
+①**授权三档立文**（HARDENING §七）：纯读 / 自有只读扫描 / 执行·写必挂门，组合透传
+字面量纪律 + 边界明示；②`auth_gate_sweep` 增**「组合透传」静态检查器**（H3）——
+首跑即抓出两处真缺口（`agent_selfcheck→app_clone`、`swe_repair→ide_break`，均被门拒
+后静默退化，S130 同病灶型），已修并回归；③家族选型表进 skills（检索四件套 /
+全家桶入口四件套）；④README 新增**词汇表**节（`root`/`path`/`file` 三分 +
+`kind`/`engine`/`flow` + `skipped`/`__authorized`）。历史链：S131 bug_scan 八规则
+（配 KB 联动）+ breaker 组归位 + [spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)；
+S130 gpu 拆分 + ide_diagnostics 挂门实锤修复 + ruff/mypy 探测；S128 跨文件污点链
+（REPLAY 3/3、131 ≤ 755/2）；S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）
++ CI 首次完整跑绿（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest
+3.14 = 800 passed + 4 skipped、3.11 = 802 passed + 2 skipped（skip 为外部资产环境性）；
+cargo 190 绿 + clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS /
+EXE_TAG）。整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，
+现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见
+[spec/ROUNDLOG.md](spec/ROUNDLOG.md)，加固红线与 CI 门禁见
+[spec/HARDENING.md](spec/HARDENING.md)。
 
 ## 与旧版 unified-rx-mcp 的关系
 
@@ -54,6 +54,22 @@ clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS
 
 已于 S15 移除的废物面（证据驱动）：kb_query / chatlog_search / cmd_cheatsheet /
 code_complete / ide_references / cost_report / trend_analysis / pipeline / parallel / pure_*。
+
+## 词汇表（跨工具约定，S132/H2+M3）
+
+| 约定 | 含义 | 例 |
+|---|---|---|
+| `root` | **项目根**（调用图/检索/风险榜等全仓语义工具的入口） | `ide_callgraph(root=…)` |
+| `path` | **文件或目录**（扫描类工具入口，两种都收） | `bug_scan(path=…)` |
+| `file` | **单文件**（定位/影响面类，必是文件） | `ide_impact(file=…)` |
+| `kind` | **级别/类别**：bug_scan=实锤级别（definite/clue）；taint=可达性级别（+naive）；appaudit=类别 | `"kind": "definite"` |
+| `engine` | **执行后端**：impact=结果来源档（lsp/resolved/text/callgraph）；filescan=计算引擎（rust/gpu/cpu） | `"engine": "resolved"` |
+| `flow` | **污点链形态**：direct / interproc（文件内跨函数）/ cross（跨文件） | `"flow": "cross"` |
+| `skipped` | **能力缺席如实上报**（不静默）：未装工具/超时/被拒 | 诊断面 linter 缺席 |
+| `__authorized` | 执行·写类工具的**授权确认**（授权三档见 HARDENING §七） | `ide_build(__authorized=True)` |
+
+约定：新工具按本表取词；存量两词汇（`root` 15 件 / `path` 28 件）不追溯改名——
+破坏面大于收益（DESIGN-REVIEW H2 结论）。
 
 ## 运行
 

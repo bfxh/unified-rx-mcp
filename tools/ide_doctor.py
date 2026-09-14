@@ -180,10 +180,14 @@ def ide_doctor(path, max_files=300, run_tests=True, diff=False,
             _run_check("code_review", lambda: reg(
                 "code_review", {"path": path, "max_files": max_files})),
         ]
-    checks.append(_run_check("build", lambda: reg("ide_build", {"path": path,
-                                                      "action": "check"})))
+    # S132（DESIGN-REVIEW H3）：挂门子调用**字面量**携带 __authorized——
+    # reg() 包装器仍会再合并一次（同键同值无害），但静态检查器
+    # （auth_gate_sweep「组合透传」项）按字面量判，隐式注入不算数。
+    checks.append(_run_check("build", lambda: reg("ide_build", {
+        "path": path, "action": "check", "__authorized": __authorized})))
     if run_tests:
-        checks.append(_run_check("test", lambda: reg("ide_test", {"path": path})))
+        checks.append(_run_check("test", lambda: reg("ide_test", {
+            "path": path, "__authorized": __authorized})))
     if diff:
         # diff 模式：dep_graph/stability 是全仓语义，跳过（note 如实）
         pass

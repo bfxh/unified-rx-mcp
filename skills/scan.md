@@ -1,4 +1,15 @@
 # scan 域（bug_scan/ast_scan/std_check/ui_check/bug_locate/project_scan）
+
+- **选型表（S132/M4）**——全家桶入口四件套 + 组合：
+  | 场景 | 用 | 代价 |
+  |---|---|---|
+  | 快速三路扫（bug/std/ui） | `project_scan` | 最便宜 |
+  | 只要一个分数 | `project_health`（bug/std/ui → 0-100） | 同左 |
+  | 评审改动/补丁（含安全/复杂度/卫生透镜） | `code_review`（`mode=diff` 只报改动行） | 中 |
+  | 任意仓库一条命令出基线（含构建/测试/依赖环/稳定性） | `ide_doctor`（执行类需授权；`diff=true` 修复轮增量） | 最重 |
+  | 多项目联动体检 + 非 clean 交 VS Code | `ide_multi_check` | 重（含 doctor 全量×N） |
+  边界：四件套实现层共享 runner（doctor 纯聚合不造新检测）——差异只在
+  "扫什么/给多细/要不要跑构建测试"，不是四份独立能力。
 - 机制：手写匹配器 + AST-lite（S83 起 bug_scan、S84 起 ast_scan 走自研迷你
   解析器 pyast.rs）——**非编译器语义**
 - 规则分 definite（panic/unreachable/bare_except 等）与 clue（unwrap/expect/

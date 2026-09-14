@@ -1,4 +1,16 @@
 # search 域（code_search / code_semantic / repo_map）
+
+- **选型表（S132/M4）**——什么时候用哪个：
+  | 想知道 | 用 | 形态 |
+  |---|---|---|
+  | 某段逻辑/标识符在哪个文件哪行 | `code_search`（BM25 词面，可 `hybrid=true` 融合语义） | 文件:行 + 片段 |
+  | "谁实现了这个功能"（自然语言→定义） | `code_semantic` | 定义级（文件:行 符号） |
+  | 先看看这个仓库长什么样 / 改前该读哪些定义 | `repo_map`（focus 相关度 + token 预算） | 骨架清单 |
+  | 接外部语义引擎（codegraph）做统一查询 | `engine_query`（优先 codegraph，降级 BM25） | 融合后的命中 |
+  | 改代码前定位到具体位置 | `locate_edit`（ide 域，目标=编辑引导） | file:line + snippet |
+  | 谁**调用**了它（调用面≠引用面） | `ide_impact` 的 `calls` 段 / `ide_callgraph` | 调用点清单 |
+  边界：code_search 是词面检索（不是语义嵌入）；code_semantic 是 tf-idf 余弦
+  （不是 embedding）；两者 hybrid 融合见 S101。
 - code_search：**BM25 词面**，文件级；符号原文加权重排（S13）。S80 起引擎
   Rust 原生化（rx-search.exe，`rust/src/search.rs`），Python 侧薄壳转调，
   exe 缺失报清晰错误不静默降级。语料遍历 = 每层先本目录文件再下钻（os.walk

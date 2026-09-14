@@ -116,3 +116,24 @@
 - **覆盖率趋势**：code_coverage 有单点，缺跨轮趋势存档与回归对比；
 - **审计欠账**：Mimosa scanner_enobufs 未收敛，copy-based 全审计待还——
   在还清之前任何文档/输出都不得宣称"项目安全"。
+
+## 七、授权三档（S132 立文；兑现 DESIGN-REVIEW H1）
+
+工具注册按**动作性质**自证分档——`auth_gate_sweep` 端到端复核（含组合透传项）：
+
+| 档 | 判据 | 门 | 代表工具（非穷举） |
+|---|---|---|---|
+| ① 纯读 | 只读文件/目录，路径过沙盒（`_fs_resolve` fail-closed） | 不挂门 | fs_read/fs_stat/fs_list、locate_edit、ide_outline、检索三件、bug_scan/std_check/ui_check、code_review |
+| ② 自有只读扫描 | 跑**本仓自带 exe** 扫描代码/文件，不改任何状态 | 不挂门；exe 缺失清晰报错不静默降级 | scan 域五件、ast_scan、filescan、near_dupes、secrets_hunt、ide_callgraph、ide_risk_rank、rust_taint_scan、module_stability（只读 git log） |
+| ③ 执行·写 | 跑构建/测试/调试/用户代码、起进程/起窗口、写盘、改状态 | **必挂 `requires_auth`**；写盘动作再在 handler 内自查 `__authorized`；组合工具内层**字面量**透传 | ide_build/ide_test/ide_debug/ide_break/ide_diagnostics（S130 归位）/ide_doctor/ide_multi_check/ide_edit_multi/ide_batch_edit/ide_vscode、local_run/process/backup、fs_write、app_clone/app_clean、code_coverage、blender_verify |
+
+**组合透传纪律**（S132/H3 起有常驻检查器）：组合工具内层
+`registry.call("<挂门工具>", …)` 的参数须**字面量**携带 `__authorized`——外层门已
+确认授权，内层是透传不是绕过；靠包装器隐式注入不算数（静态看不见）。检查器=
+`auth_gate_sweep`「组合透传」项，扫包内 tools/ 与 bench/，首跑即抓出
+`agent_selfcheck.py → app_clone`、`swe_repair.py → ide_break` 两处真缺口
+（被门拒后静默退化，同 S130 病灶型）——已修并回归。
+
+**边界（明示）**：沙盒钳制**只管本进程的文件访问**；③档的子进程（cargo/go/dlv/
+用户脚本）天然可越沙盒触盘——这是"执行用户代码"的固有面，由授权门（人的确认）
+兜底，不是沙盒遗漏。新工具注册时按上表自证，③档缺字面量透传即被检查器拦。

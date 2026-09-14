@@ -179,6 +179,70 @@ def _gate_report(entries):
     return gated, declared_missing, forced_missing, manual
 
 
+# ---------- S132（DESIGN-REVIEW H3）：组合透传静态自审 ----------
+# 组合工具（doctor/multi_check/diagnostics…）内层调挂门工具必须显式透传
+# __authorized——S130（ide_diagnostics clippy 透镜假死）与更早 swe_repair 两度
+# 实锤同一病灶；本检查器专治第三次。判据=**字面量**（包装器隐式注入不算数，
+# 静态看不见；见 ide_doctor 的 S132 注记）。
+import re as _re  # noqa: E402
+
+_CALL_HEAD = _re.compile(
+    r"(?:registry\.call|(?<![\w.])call|(?<![\w.])reg)\(\s*[\"']([a-z_0-9]+)[\"']")
+
+
+def _balanced_parens(src, open_idx, cap=4000):
+    depth = 0
+    for i in range(open_idx, min(len(src), open_idx + cap)):
+        c = src[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return src[open_idx:i + 1]
+    return src[open_idx:open_idx + cap]
+
+
+def _scan_compose_passthrough(sources, gated):
+    """纯函数：sources=[(显示名, 源码)] → 违规清单 ["文件:行 → 工具"]。
+
+    只看字面量工具名（变量名调用是动态面，如实不判）；参数区取平衡括号片段
+    （含嵌套 dict/多行），片段内含 __authorized 即通过。
+    """
+    out = []
+    for fname, src in sources:
+        for m in _CALL_HEAD.finditer(src):
+            name = m.group(1)
+            if name not in gated:
+                continue
+            open_idx = src.find("(", m.start())
+            seg = _balanced_parens(src, open_idx)
+            if "__authorized" not in seg:
+                line = src.count("\n", 0, m.start()) + 1
+                out.append(f"{fname}:{line} → {name}")
+    return out
+
+
+def _compose_passthrough_scan():
+    """真机自审入口：扫本包 tools/ 与同级 bench/（存在时）。"""
+    from registry import _TOOLS
+    gated = {n for n, v in _TOOLS.items() if v.get("requires_auth")}
+    here = os.path.dirname(os.path.abspath(__file__))
+    srcs = []
+    for d in (here, os.path.join(os.path.dirname(here), "bench")):
+        if not os.path.isdir(d):
+            continue
+        for fn in sorted(os.listdir(d)):
+            if not fn.endswith(".py"):
+                continue
+            try:
+                with open(os.path.join(d, fn), encoding="utf-8", errors="replace") as f:
+                    srcs.append((fn, f.read()))
+            except OSError:
+                continue
+    return _scan_compose_passthrough(srcs, gated)
+
+
 @tool("auth_gate_sweep", "授权门自审：全部已注册工具双向查门（必拒未授权/schema 必声明/manifest 一致）", "attack",
       {"type": "object", "properties": {}, "required": []})
 def auth_gate_sweep():
@@ -206,11 +270,15 @@ def auth_gate_sweep():
     mr = rx_call("capability_manifest", {})
     manifest_gated = set(((((mr.get("result") or {}).get("高权限")) or {}).get("工具")) or [])
     diff = sorted(manifest_gated ^ set(gated))
-    ok = not (deny_missing or declared_missing or forced_missing) and not diff
+    # S132/H3：组合透传静态自审（字面量纪律；见 _compose_passthrough_scan）
+    passthrough = _compose_passthrough_scan()
+    ok = (not (deny_missing or declared_missing or forced_missing)
+          and not diff and not passthrough)
     return {"总工具数": len(_TOOLS), "挂门数": len(gated), "挂门清单": gated,
             "漏拒绝": deny_missing, "漏声明": declared_missing,
             "门参数未强制": forced_missing, "手动门": manual,
             "manifest一致性": "pass" if not diff else f"fail: {diff}",
+            "组合透传": "pass" if not passthrough else passthrough,
             "ok": ok}
 
 

@@ -198,7 +198,7 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
 4. ~~P0-A taint×callgraph~~ → **S128 已兑**（见 §四 P0-A 与 §八）
 5. ~~P1-A~~ / ~~P1-B~~ / ~~P1 拆分（lsp）~~ → **S129 已兑**；**gpu 拆分 + C1b
    剩余（cache 记账交织 walk 如实不并）→ 下一轮第一优先**
-6. ~~P2-A~~ → **S130 已兑**；~~P2-B~~（八规则 + KB 联动）/ ~~C2~~（breaker 归位）→ **S131 已兑**；**P3（attack 巡航）待做**；另开 H1/H3/M4（设计评审高优先项：授权分级立文 / 组合透传检查器 / 家族选型表）→ 见 spec/DESIGN-REVIEW.md
+6. ~~P2-A~~（S130）/ ~~P2-B~~ ~~C2~~（S131）/ ~~H1 授权三档~~ ~~H3 组合透传检查器~~ ~~M4 选型表~~ ~~H2+M3 词汇表~~（**S132 已兑**）——**剩 P3（attack 巡航）+ M1/M2（下次动刀顺手批次）**；评审全文 spec/DESIGN-REVIEW.md
 
 每步通用门禁：测试先行或同步迁移、注册名与工具面不破坏（A 级项需 deprecation
 说明）、计数门 69 不变、selftest 对账、pytest+cargo 双绿才准合入（pre-commit 强制）。
@@ -287,6 +287,32 @@ definite 131(+1) / cross_flows 7 / ambiguous 80——净新增 0 如实入档。
   ——高优先 H1 授权分级立文（S130 事故根因）/ H2 root-vs-path 词汇分裂（15:28）/
   H3 组合透传检查器；中优先 M1 中文输出键 3 件 / M2 metrics 组轴错位 / M3 kind·engine
   一词多义 / M4 选型表文档债；低优先 L1 子进程沙盒边界等记录在案。
+
+**S132 实施记录（设计评审整改第一波，第六实施轮）**：
+
+- **H1 授权三档立文**：HARDENING §七——①纯读（不挂门过沙盒）/②自有只读扫描
+
+  （跑本仓 exe，不挂门，exe 缺失清晰报错）/③执行·写（必挂门；写盘再自查；
+
+  组合内层字面量透传）+ 边界明示（沙盒只管本进程；子进程越界由授权门兜底）。
+
+- **H3 组合透传检查器**：auth_gate_sweep 增「组合透传」项（纯函数可单测；
+
+  平衡括号取参区；变量名调用=动态面不判）——**首跑即抓出两处真缺口**：
+
+  agent_selfcheck→app_clone、swe_repair→ide_break（均被门拒后静默退化，
+
+  S130 同病灶型），已修并回归；ide_doctor 的包装器注入改为字面量随行
+
+  （检查器按字面量判）；测试 +3（红/绿双侧 + 真机零违规 + sweep 键）。
+
+- **M4 选型表**：skills/search.md（检索四件套 + locate_edit/impact 边界）、
+
+  skills/scan.md（全家桶入口四件套 + 成本序）。
+
+- **H2+M3 词汇表**：README「词汇表」节（root/path/file 三分 + kind/engine/flow
+
+  + skipped/__authorized），存量词汇不追溯改名（破坏面结论入表）。
 
 **S130 实施记录（gpu 拆分收尾 + P2-A，第四实施轮）**：
 - **gpu 拆分**（§三 P1，上轮延后项）：gpu.py 658 → 运行时约 400 行；kernel 三簇

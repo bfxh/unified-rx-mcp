@@ -5,7 +5,11 @@
   （端到端 registry.call 空参验证，授权检查先于 handler 零副作用）/ schema 必声明
   __authorized（S72b 契约）/ manifest 高权限段一致；单工具混合读写用
   `manual_gate=True` 显式声明（ide_lsp 范例），"收 __authorized 无任何声明"即假门
-  → ok:False。S75 人眼盘点法固化成工具，新工具一注册就自动被查
+  → ok:False。S75 人眼盘点法固化成工具，新工具一注册就自动被查。**S132/H3：
+  增「组合透传」静态自审**——扫 tools/+bench/ 里 `registry.call("<挂门工具>", …)`
+  是否**字面量**携带 `__authorized`（包装器隐式注入不算数）；首跑即抓出
+  agent_selfcheck→app_clone、swe_repair→ide_break 两处真缺口（被门拒后静默
+  退化，同 S130 病灶型）——授权三档立文见 HARDENING §七
 - rust_taint_scan（S78，VULN-HUNTING P1-a；**S128 跨文件链**）：Rust 污点引擎 rx-taint 的
   Python 壳——root 过 _fs_resolve 沙盒后交给 exe 扫描，返回来源→汇点发现（kind=definite/
   clue/naive 三级；definite=宿主入口可达）。**跨文件传播默认开启**：全扫描集唯一名才连边

@@ -405,7 +405,8 @@ def _break_hits(root, py, changed, test_ids, max_hits=12):
                                         "cmd": [py, "-m", "pytest",
                                                 *test_ids],
                                         "breakpoints": bps[:8],
-                                        "max_hits": max_hits})
+                                        "max_hits": max_hits,
+                                        "__authorized": True})  # S132：透传（原缺）
         res = r.get("result") or {}
         return res.get("hits") or []
     except Exception:
