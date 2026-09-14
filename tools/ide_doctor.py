@@ -51,9 +51,7 @@ def _scan_changed(reg, files):
             "clue": sum(1 for i in issues if i.get("kind") != "definite")}}
 
 
-@tool("ide_multi_check", "多项目联动体检：逐项目 ide_doctor 全量（不含测试，可开）→ "
-      "汇总排序（issues/error 优先）；vscode=true 把非 clean 项目交给 VS Code（最后后手）。"
-      "注意：用全量而非 diff——联动体检要的是每项目『现在』的问题，基线已坏不静默", "ide",
+@tool("ide_multi_check", "多项目联动体检：逐项目 ide_doctor 全量 → 汇总排序（issues 优先）；vscode=true 打开非 clean 项目；用全量而非 diff", "ide",
       {"type": "object",
        "properties": {
            "paths": {"type": "array", "items": {"type": "string"},
@@ -99,9 +97,7 @@ def ide_multi_check(paths, run_tests=False, vscode=False, __authorized=False):
             "note": "diff 快速体检；单项深挖用 ide_doctor 全量，最后后手 = VS Code"}
 
 
-@tool("ide_doctor", "一键项目体检：bug_scan + code_review + 构建 + 测试 + 依赖环 + "
-      "模块稳定性 → 统一报告与 top 问题清单（任何仓库一条命令出基线）；"
-      "diff=true 只看 git 改动文件（修复轮快速迭代）", "ide",
+@tool("ide_doctor", "一键项目体检：bug_scan + code_review + 构建 + 测试 + 依赖环 + 稳定性 → 报告与 top 问题（一条命令出基线）；diff=true 只看改动文件", "ide",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目目录（沙盒内）"},

@@ -184,10 +184,7 @@ def _call_impact(real, sym, def_line):
                                          "同名函数的调用边可能合并"))}
 
 
-@tool("ide_impact", "影响面分析：符号 → 引用按文件聚合 + 测试覆盖标注（改前先看"
-      "会碰哪些裸奔文件）。三级降级：LSP references（语义级）→ 名字解析"
-      "（精确到 import/引用行，S109）→ 文本全文计数（含噪声）——engine 字段如实标注；"
-      "S129 另附独立 `calls` 段=调用面（Rust 调用图调用边，与引用面分层不混）",
+@tool("ide_impact", "影响面分析：符号 → 引用按文件聚合 + 测试覆盖标注（改前先看裸奔文件）；engine 三级如实标注（LSP→名字解析→文本）；另附 calls 调用面段",
       "ide",
       {"type": "object",
        "properties": {

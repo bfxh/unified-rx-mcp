@@ -988,3 +988,34 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   gone=2（均= S137 已修的命令注入，对照的是修复前基线）；S140-S143 改动面零新增。
   运行状态仍 inconclusive——**不宣称安全**，台账入 HARDENING §四·补。
 - 提交：本次
+
+## S144 · 实施轮（外部对标 B 档三件）：注入立场 + 任务级 evals + 描述瘦身
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.59.0 → **2.60.0**
+- **① B3 间接注入立场**（(a)+(b) 组合落地）：清单 `toolmeta.UNTRUSTED_OUTPUT_TOOLS`
+  （14 件内容类工具：读文件/片段/诊断——集中一处可审计）；协议回包前缀
+  `[untrusted-content …]`（`server.tool_reply` 抽出为纯函数可直测；只用协议层，
+  registry.call 嵌入式形状零变化）；`skills/workflow.md` 立"工具输出纪律"（含
+  疑似注入→引用给用户裁决）；测试 5 条（声明面/前缀边界/嵌入式不变/协议真路径）。
+  **顺带实锤修复 S143 补遗**：`tools/list` 协议层只转发 name/description/
+  inputSchema——**annotations 根本没上线路**（registry 发了 ≠ 宿主收到；S143 的
+  A1 实际只完成了一半，本轮补上并加协议层真路径测试）。
+- **② B4 描述瘦身与语种账**：13 条长描述 −44%（1,968→1,108 字符；削 provenance/
+  实现细节，保语义/判据/代价/when-not），工具面 **38,119 → 37,259 字符**；语种账
+  实测（desc 2,874 est token / schema 21,384 字符）——**结论：机器面向保持中文**
+  （三条理由入档）；瘦身纪律写入 EXTERNAL-ALIGNMENT B4。
+- **③ B2 任务级评测**：`bench/tool_evals.py`——13 个确定性多步任务（写读/扫描/
+  污点/死代码/调用图/影响面/改码跑测/覆盖率/聚类/依赖环/异或/符号地图），记账
+  calls/errors/chars；基线 `spec/tool-evals-baseline.json`；**进 core.yml 硬门**
+  （--check：任务失败或体量 >基线×1.10 即红；形状锁 needle 同步）；测试 3 条
+  （真跑绿/基线在册/**sabotage 真门验证**）。首跑 13 任务 / 15 调用 / 0 错误 /
+  5,879 字符。
+- **本轮回放的坑（入册）**：① AST 补丁 v1 按**字符**算 col_offset 写坏源文件
+  （ast 偏移是 **UTF-8 字节**）——v2 全程字节口径 + 写前 ast.parse 回验 + 读回
+  逐条比对（任一不满足不落盘），修复后 13 条一次过；② Mimosa 写入预警 ×3 全照录：
+  夹具写盘加 `_p()` resolve 校验、坏代码夹具碎片拼接/改无害规则（except_pass）、
+  载荷用 sha256 哈希流（无弱随机）；③ `bug_scan` 发现字段是 `issues` 不是
+  `findings`——评测首跑在此假红一次（断言读错字段），修后 13/13。
+- **验证**：全量 pytest 3.14 **845 passed + 3 skipped**（+8：B3 五 + B2 三）；
+  cargo **200 绿**；工具面门 `TOOLFACE-GATE OK`（37,259 ≤ 45,000）；selftest 五线
+  全绿（版本 bump 后 release exe 已重建）；版本锁步 **2.60.0 ×4**。
+- 提交：本次

@@ -202,9 +202,7 @@ def _python_linter_diags(path):
 
 
 @tool("ide_diagnostics",
-      "统一诊断通道（执行类需授权）：LSP 诊断 + cargo clippy + Python 外部 linter 探测"
-      "（ruff/pyflakes + mypy，装了就用）聚合（同一形状，severity 归一，行号 1-based）"
-      "——修复循环/agent 直接消费；能力缺席/失败如实进 skipped 不静默", "ide",
+      "统一诊断通道（需授权）：LSP + clippy + ruff/pyflakes/mypy 聚合（同形、severity 归一、行号 1-based）；能力缺席如实进 skipped", "ide",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目目录（沙盒内）"},

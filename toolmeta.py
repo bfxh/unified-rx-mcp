@@ -103,3 +103,30 @@ TOOL_TITLES = {
 def title_for(name):
     """工具标题；未知名回退工具名本身（双向覆盖由测试拦截，回退只为防崩）。"""
     return TOOL_TITLES.get(name, name)
+
+
+# —— 间接注入立场（S144，兑现 EXTERNAL-ALIGNMENT B3）——
+# 判据：**结果里会带文件内容/文件派生的文本**的工具（读文件、代码片段、诊断文本）。
+# 这些输出可能携带敌意指令（OWASP MCP 间接注入）直入宿主上下文——协议层会给
+# 其回包加"非指令·数据"前缀（server.tool_reply），skills/workflow.md 有宿主纪律。
+# 集中一处声明 = 可审计的一份清单；测试锁"声明名必须都在册"与代表性成员。
+UNTRUSTED_OUTPUT_TOOLS = frozenset({
+    "fs_read",          # 文件正文
+    "code_context",     # 光标上下文 = 文件片段
+    "ide_read_symbol",  # 符号定义体 = 文件片段
+    "locate_edit",      # 命中行 + 片段
+    "ast_grep",         # 结构搜索命中片段
+    "code_search",      # BM25 命中片段
+    "bug_scan",         # 缺陷行 + 代码片段
+    "code_review",      # 评审摘录
+    "project_scan",     # 三路扫描汇总（含片段）
+    "std_check",        # 标准检查行摘录
+    "ui_check",         # UI 检查行摘录
+    "secrets_hunt",     # 命中上下文（掩码后仍含周边文本）
+    "near_dupes",       # 样本片段
+    "ide_diagnostics",  # linter/clippy 诊断文本（含代码/消息）
+})
+
+
+def is_untrusted(name):
+    return name in UNTRUSTED_OUTPUT_TOOLS

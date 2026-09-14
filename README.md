@@ -8,13 +8,21 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.59.0（S143）**：72 工具 / 13 域；**外部对标落地·A 档两件**——
-①**工具注解补齐**：`annotations.title` + 行为提示（`readOnlyHint`/`destructiveHint`，
-规范 2025-03-26 起即有字段、此前漏发）与授权三档同口径（读档 readOnly+idempotent、
-写/执行档 destructive），宿主权限模型可直接消费；②**工具面体量仪表进 CI**：
-`scripts/toolface_budget.py`——tools/list 体量成为门槛数字（S143 摸底 72 工具
-38,119 字符 ≈ 12.7K token，软帽 45,000，超帽即红、抬帽须记账）。对标全文与其余
-待办见 [spec/EXTERNAL-ALIGNMENT.md](spec/EXTERNAL-ALIGNMENT.md)。历史链：S141 烧量三件套：`burnwatch` 会话哨兵（model-io 体积越阈分级告警，破除"事后看
+**当前 v2.60.0（S144）**：72 工具 / 13 域；**外部对标 B 档三件落地**——
+①**间接注入立场（B3）**：内容类工具（`toolmeta.UNTRUSTED_OUTPUT_TOOLS` 14 件：
+fs_read/片段/诊断）的协议回包带 `[untrusted-content …]` 前缀（数据非指令），
+`skills/workflow.md` 立"工具输出纪律"；**顺带实锤修复 S143 补遗**——`tools/list`
+协议层此前只转发三字段、annotations 根本没上线路（registry 发了 ≠ 宿主收到）；
+②**任务级 evals（B2）**：`bench/tool_evals.py` 进 CI 硬门——13 个确定性多步任务
+（写读/扫描/污点/死代码/调用图/影响面/改码跑测/覆盖率/聚类/依赖环/异或/符号地图）
+逐题记账 calls/errors/chars，对照 `spec/tool-evals-baseline.json`（任务失败或
+体量 >基线×1.10 即红）；③**描述瘦身与语种账（B4）**：13 条长描述 −44%
+（内部实现细节让位 skills，语义/判据/代价零丢失），工具面 38,119 → 37,259 字符；
+**语种账结论：机器面向保持中文**（等价信息英文约省 ~2K token，但用户与 skills
+全中文、描述若随 B1 的 defer_loading 落地将不再常驻——先瘦身不动语种）。
+对标全文见 [spec/EXTERNAL-ALIGNMENT.md](spec/EXTERNAL-ALIGNMENT.md)。历史链：S143
+工具注解补齐 + 工具面体量仪表（`scripts/toolface_budget.py`，软帽 45,000）；
+S141 烧量三件套：`burnwatch` 会话哨兵（model-io 体积越阈分级告警，破除"事后看
 账单"）+ `session_burn` 工具（会话体积即查）+ 日计数跨重启持久化（`daily_state.jsonl`，
 一日多启不再清零）；QPM 默认按实测标定 600→**3000**/60s（正常重度工作日峰值 ~1600
 次/分钟不误伤，~10000 次/分钟的失控洪峰照拦）、日量告警 5 万→**10 万**；启动巡检可
@@ -29,7 +37,7 @@ Secrets/Self-attack 并列为三道硬门。
 格式即后续外部体检模板。历史链：S138 审计复审机制化（Self-attack gate + Mimosa
 复审仪式脚本）；S137 按库分类清单 + copy-based 全量审计（实锤修复 local_run
 shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `CI-GATE OK` /
-`EXE_TAG ok=9`）。本地 pytest 3.14 = 837 passed + 3 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
+`EXE_TAG ok=9`）。本地 pytest 3.14 = 845 passed + 3 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
 （VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与升级路线见
 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，

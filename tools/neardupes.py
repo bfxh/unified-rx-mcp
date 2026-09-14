@@ -188,9 +188,7 @@ def _fingerprints(files, ng, k, engine, skipped):
     return vecs, names, engines, ("；".join(notes) or None)
 
 
-@tool("near_dupes", "近似重复/同族文件聚类：bottom-k MinHash 指纹 + Jaccard 聚类"
-      "（Rust 批量 5.4ms@16MB / GPU 两遍选择 / CPU 参考，三档如实上报；"
-      "两两比较走精确候选剪枝，不丢真对）——重复代码分堆、样本同族归并", "scan",
+@tool("near_dupes", "近似重复/同族聚类：MinHash 指纹 + Jaccard（rust/GPU/CPU 三档如实上报，精确候选剪枝不丢真对）——重复代码分堆、样本归并", "scan",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "目录（沙盒内）"},

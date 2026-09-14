@@ -124,9 +124,7 @@ def _rank_rows(root, max_files, top, include_tests):
 
 
 @tool("ide_risk_rank",
-      "风险榜（S129）：高扇入 × 无测试文件 → 拆分/补测优先级自动排序"
-      "（SCAN-POLICY『拆分大于测试』的机器化）。扇入=调用图可解析调用边；"
-      "无测试=静态约定代理（非实测行覆盖）；record 存 JSONL，mode=history 出趋势",
+      "风险榜：高扇入 × 无测试文件 → 拆分/补测优先级排序；扇入=调用边，无测试=静态代理（非实测覆盖）；record 存 JSONL，mode=history 出趋势",
       "ide",
       {"type": "object",
        "properties": {

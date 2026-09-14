@@ -43,10 +43,7 @@ _NOTE = ("口径：ast.Name/Attribute 零引用 + 字符串引用降级为嫌疑
 
 
 @tool("ide_dead_code",
-      "Python 死符号可达性（S135 原生化：rust/src/deadcode.rs，rx-ide deadcode）："
-      "全库扫描报零引用的顶层函数/类/私有方法（上帝对象拆分候选的客观下界）。"
-      "带装饰器的定义默认豁免（框架注册点）；名字出现在字符串字面量 → 列入 "
-      "suspect_dynamic 不判死。零引用≠可安全删除，删前人工确认", "ide",
+      "死符号可达性（全库）：报零引用的顶层函数/类/私有方法（拆分候选下界）；带装饰器默认豁免，名字出现在字符串 → suspect_dynamic 不判死；删前人工确认", "ide",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目根目录（默认当前目录）"},

@@ -15,7 +15,7 @@ from registry import tool
 from tools import lsp as _lsp
 
 
-@tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/symbols/diagnostics/rename_plan/rename_apply——apply 落盘需授权", "ide",
+@tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/symbols/diagnostics/rename_plan；apply 落盘需授权", "ide",
       {"type": "object",
        "properties": {
            "action": {"type": "string",

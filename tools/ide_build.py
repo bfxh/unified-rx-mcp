@@ -129,8 +129,7 @@ def _cc_build(path, timeout, cxx=False):
             "errors": [d for d in diags if d["level"] == "error"],
             "warnings": [d for d in diags if d["level"] == "warning"][:50]}
 
-@tool("ide_build", "编译/静态检查/lint：Rust=cargo check/test/clippy、Java=javac（无 mvn/gradle 如实降级）、"
-      "C/C++=gcc/g++ -fsyntax-only、Go=go build、Python=compileall → 结构化诊断", "ide",
+@tool("ide_build", "编译/静态检查/lint（Rust/Java/C-C++/Go/Python）→ 结构化诊断；工具链缺失如实降级", "ide",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "项目目录（含 Cargo.toml/go.mod/pom.xml/或源文件）"},

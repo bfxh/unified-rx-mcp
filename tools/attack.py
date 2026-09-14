@@ -307,11 +307,7 @@ def _rx_taint_exe():
     return None
 
 
-@tool("rust_taint_scan", "Rust 污点引擎（S78；S128 跨文件链）：来源→汇点浅数据流扫 Python 代码；"
-                         "形参即来源（MCP 威胁模型），净化器 basename/secure_filename/"
-                         "int/float/_fs_resolve/.name/.stem 识别；跨文件传播靠 nameres 调用图"
-                         "解析（含 from-import 别名），链证据 origin 随发现返回（flow=cross）；"
-                         "naive=true 跑模式匹配基线对照；cross=false 关闭跨文件（A/B 用）",
+@tool("rust_taint_scan", "污点扫描（Rust 引擎，Python 代码）：形参即来源 → 汇点浅数据流，识别常用净化器；跨文件链（origin/flow=cross）；naive=true 模式匹配基线，cross=false 关跨文件",
       "attack",
       {"type": "object",
        "properties": {
@@ -367,9 +363,7 @@ _CRUISE_BATTERY = (
 
 
 @tool("attack_cruise",
-      "攻击面巡航（S133）：一键编排——授权门自审（auth_gate_sweep）+ 被动探针"
-      "（path_probe）+ 主动模糊（input_fuzz×big_input，默认四靶电池可 targets 增补）"
-      "→ 统一报告与 verdict（clean/issues）；纯自审不挂门，失败项全量列出不吞",
+      "攻击面巡航：一键编排授权门自审 + 路径探针 + 输入模糊 → 统一报告与 verdict（clean/issues）；纯自审不挂门，失败项全列出",
       "attack",
       {"type": "object",
        "properties": {

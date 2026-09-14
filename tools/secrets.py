@@ -46,11 +46,7 @@ _NOTE = ("掩码展示；完整值人工打开文件复核。静态启发：漏�
 
 
 @tool("secrets_hunt",
-      "凭据/密钥泄漏扫描（S134 原生化：rust/src/secrets.rs，rx-scan secrets）："
-      "AWS/GitHub/Slack/Google/Stripe/PEM 私钥/JWT 模式匹配 + 高熵 token 嫌疑"
-      "（Shannon ≥4.5）。输出一律掩码（前4后2+长度），完整值人工打开文件复核；"
-      "结果不外发。静态启发非保证——自定义格式漏报、测试夹具误报，所有 hit "
-      "人工确认", "scan",
+      "凭据泄漏扫描：AWS/GitHub/Slack/Google/Stripe/PEM/JWT 模式 + 高熵 token（Shannon ≥4.5）；输出掩码（前4后2+长度），结果不外发；静态启发非保证，hit 一律人工确认", "scan",
       {"type": "object",
        "properties": {
            "path": {"type": "string", "description": "扫描根目录（默认当前目录）"},

@@ -58,9 +58,7 @@ def _detect(path):
     return None, path
 
 
-@tool("ide_test", "统一测试入口：pytest / cargo test / go test 一条命令 → "
-      "per-test 结构化结果 + 失败帧；收集到 0 个测试时显式报出（没写测试也是事实）。"
-      "tia=true 时做测试影响分析（仅 pytest）：只跑受文件变更影响的测试",
+@tool("ide_test", "统一测试入口（pytest/cargo/go）→ per-test 结构化结果 + 失败帧；0 收集显式报出；tia=true 仅跑受影响测试（仅 pytest）",
       "ide",
       {"type": "object",
        "properties": {

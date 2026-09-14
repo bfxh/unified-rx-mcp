@@ -1,0 +1,70 @@
+{
+ "note": "S144 任务级 evals 基线（--update-baseline 生成；check 判红=任务失败或 chars>基线×1.10）",
+ "tasks": {
+  "fs_roundtrip": {
+   "ok": true,
+   "calls": 2,
+   "chars": 284
+  },
+  "bug_scan_except_pass": {
+   "ok": true,
+   "calls": 1,
+   "chars": 310
+  },
+  "secrets_aws": {
+   "ok": true,
+   "calls": 1,
+   "chars": 548
+  },
+  "taint_open": {
+   "ok": true,
+   "calls": 1,
+   "chars": 390
+  },
+  "dead_code": {
+   "ok": true,
+   "calls": 1,
+   "chars": 496
+  },
+  "callgraph": {
+   "ok": true,
+   "calls": 1,
+   "chars": 467
+  },
+  "impact": {
+   "ok": true,
+   "calls": 1,
+   "chars": 695
+  },
+  "edit_and_test": {
+   "ok": true,
+   "calls": 2,
+   "chars": 327
+  },
+  "coverage": {
+   "ok": true,
+   "calls": 1,
+   "chars": 319
+  },
+  "near_dupes": {
+   "ok": true,
+   "calls": 1,
+   "chars": 803
+  },
+  "dep_cycle": {
+   "ok": true,
+   "calls": 1,
+   "chars": 172
+  },
+  "xor_file": {
+   "ok": true,
+   "calls": 1,
+   "chars": 806
+  },
+  "repo_map": {
+   "ok": true,
+   "calls": 1,
+   "chars": 262
+  }
+ }
+}

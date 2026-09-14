@@ -172,8 +172,13 @@ S140-S143 的改动（breaker/burnwatch/annotations/仪表）未引入新发现�
 - ~~**工具面定义摊派**~~（**S143 已兑**：`scripts/toolface_budget.py` 进 CI 硬门
   + 真门测试；摸底 **38,119 字符 ≈ 12.7K token**（注解自身 +5,972），软帽
   45,000 超帽即红——瘦身位（B4 语种账 / 头部单件）继续挂 B 档）；
-- **间接注入无立场**（fs_read/bug_scan/lsp 输出=外部内容直入宿主上下文）——B3 评估；
-- **任务级工具评测（evals）缺**——B2 挂账。
+- ~~**间接注入无立场**~~（**S144 已兑**：14 件内容类工具声明
+  `toolmeta.UNTRUSTED_OUTPUT_TOOLS` + 协议回包 `[untrusted-content]` 前缀 +
+  skills"工具输出纪律"；顺带修复 tools/list 不转发 annotations 的 S143 补遗）；
+- ~~**任务级工具评测（evals）缺**~~（**S144 已兑**：`bench/tool_evals.py` 13 任务
+  × calls/errors/chars，基线对照进 CI；sabotage 真门验证）；
+- ~~**描述瘦身与语种账**~~（**S144 已兑**：13 条 −44%，机器面向保持中文的结论
+  与瘦身纪律入 EXTERNAL-ALIGNMENT B4）。
 
 ## 七、授权三档（S132 立文；兑现 DESIGN-REVIEW H1）
 
