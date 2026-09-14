@@ -8,22 +8,19 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.54.0（S137）**：71 工具 / 13 域；**按库分类清单 + copy-based 全量审计**——
-①[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md) 新增 **§六 外部组件清单（按库分类，
-对外口径）**：九类·每件"怎么接→探测降级→版本姿势→关联工具"；
-②**挂账最久的审计欠账清收**：Mimosa 深扫只跑副本（纪律）——首轮 59 条
-（seal 7890b599…，工具标记 inconclusive 如实记录）→ 逐条分类（产品面 1 实锤 /
-1 设计内 / 2 FP / 3 组沙盒门已核实；bench 面=开发夹具面）→ **实锤修复：`local_run`
-的 `shell=True` 与"argv 直传"契约自相矛盾 → 改 argv 执行** → 复审 57 条
-（seal 3159dfad…）：**唯一差量=修掉的两条、零新增**；两次均 inconclusive →
-欠账**部分收敛、继续挂账，不宣称安全**（台账见 HARDENING §四·补）；
-③债务扫尾：`_rx_appops_exe` 死件删除、ROADMAP 冻结注记指向现行三文档。
-历史链：S135 库选型理念 + ide_dead_code 原生化（Rust 候选清零）；S134 secrets
-原生化 3.5×；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `CI-GATE OK` /
-`EXE_TAG ok=9`）。本地 pytest 3.14 = 805 passed + 4 skipped、3.11 = 807 passed
-+ 2 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
-（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与升级路线见
-[spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
+**当前 v2.55.0（S138）**：71 工具 / 13 域；**审计复审机制化**——
+①**CI 自攻门**（core.yml 新硬 step，`scripts/attack_gate.py`）：每次推送 dogfood
+`attack_cruise`（四靶模糊 + 大输入 + 授权门自审含组合透传 + 路径探针）verdict
+必须 clean——攻击面从"想起来才跑"变"不过不让过"；
+②**Mimosa 复审仪式脚本化**：`scripts/audit_copy.py`（副本硬拒仓内 + 记账行）+
+`scripts/audit_diff.py`（两报告差量，**新增非空即红**），三步仪式入 HARDENING
+§四·补；在 S137 真实报告回放 `old=59 new=57 gone=2 added=0`（gone=修复项，可复跑）。
+历史链：S137 按库分类清单 + copy-based 全量审计（实锤修复 local_run shell=True→argv）；
+S135 库选型理念 + ide_dead_code 原生化；S125 `ide_callgraph` + CI 首绿
+（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 808 passed
++ 4 skipped、3.11 = 810 passed + 2 skipped；cargo **200 绿** + clippy 零告警；
+selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与
+升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
 加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 

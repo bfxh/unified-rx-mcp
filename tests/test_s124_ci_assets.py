@@ -26,6 +26,7 @@ def test_core_workflow_keeps_hard_gates():
                    "clippy",                        # 零告警红线
                    "scripts/ci_secrets_gate.py",    # 明文红线机器化
                    "scripts/ci_gate.py",            # selftest 硬门禁
+                   "scripts/attack_gate.py",        # S138：自攻门（巡航 clean 硬判）
                    "fetch-depth: 0",                # VERSION_TAG 真对账
                    # S125：本机 config.toml 的 target-dir 是绝对路径，CI 必须 env 覆盖，
                    # 否则 exe 落错位置 → EXE_TAG 硬门禁失败（S124 首跑 CI 实锤）

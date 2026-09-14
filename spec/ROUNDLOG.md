@@ -871,3 +871,23 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：3.14 全量 **805 passed + 4 skipped**；3.11 全量 **807 passed + 2 skipped**；
   cargo **200 绿** + clippy **零告警**；selftest 五线全绿；版本锁步 **2.54.0 ×5**。
 - 提交：本次
+
+## S138 · 实施轮十二：审计复审机制化（Self-attack gate 进 CI + 复审仪式脚本化）
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.54.0 → **2.55.0**（tag v2.55.0）
+- 决策：S137 的复审是手工两步（我拷副本、我读两份 report 做集合 diff）——
+  本轮把它制度化，避免"下次忘了怎么做"：
+  ①**CI 自攻门**（新硬 step，`scripts/attack_gate.py`）：dogfood `attack_cruise`
+  ——verdict 必须 clean，覆盖四靶模糊×12 用例+大输入+授权门自审（含 S132 组合透传
+  静态检查）+路径探针 8 形态；沙盒自给自足（同 secrets gate 纪律）；本机实测
+  1.8s 级、绿；core.yml 形状锁同步（test_s124_ci_assets 增 "scripts/attack_gate.py"
+  needle——门禁只许加强不许退役）。
+  ②**复审仪式脚本化**（Mimosa 侧无法进 CI——本地 MCP 插件；脚本化到"一条命令
+  一步"）：`scripts/audit_copy.py`（副本落仓库外硬拒店内 + files/head 记账行）+
+  `scripts/audit_diff.py`（两份 report.md 标题集差量；**新增非空即红**，
+  --allow-added 降级）——仪式三步写进 HARDENING §四·补；两脚本在 S137 真实报告上
+  回放：`old=59 new=57 gone=2 added=0`，gone 恰为修复项（铁证可复跑）。
+- 测试：tests/test_s138_gates.py +3（attack_gate 真跑 clean / copy 拒仓内 /
+  copy+diff 往返+新增即红&降级开关）；test_s124_ci_assets 形状锁随动。
+- 验证：3.14 全量 **808 passed + 4 skipped**（+3）；3.11 全量 **810 passed + 2 skipped**；
+  cargo **200 绿** + clippy 零告警；selftest 五线全绿；版本锁步 **2.55.0 ×5**。
+- 提交：本次

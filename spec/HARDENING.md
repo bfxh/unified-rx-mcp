@@ -69,6 +69,14 @@
 
 **纪律**：Mimosa 深扫只跑**副本**（git 工作树拷贝/TEMP），绝不自扫宿主。
 
+**复审仪式（S138 起脚本化，tag 前执行）**：
+1. `python scripts/audit_copy.py <副本路径>`（副本+记账行：files/head；硬拒仓内）；
+2. Mimosa 深扫该副本（MCP：security_scan_start depth=deep），拿 seal 与新版 report.md；
+3. `python scripts/audit_diff.py <旧 report.md> <新 report.md>`——**新增非空即红**
+   （回归需人工过目；`--allow-added` 降级只报告）；差量与双 seal 记入上表。
+CI 侧对应的自动化门 = **Self-attack gate**（`scripts/attack_gate.py`：attack_cruise
+判定必须 clean——覆盖四靶模糊+大输入+授权门自审含组合透传+路径探针；core.yml 硬 step）。
+
 | 轮次 | 副本 | 封印 | 条数 | 运行状态 | 差量 |
 |---|---|---|---|---|---|
 | 首轮 | TEMP/s137_audit_copy | sha256:7890b599… | 59 | **inconclusive**（工具侧覆盖缺口） | — |
