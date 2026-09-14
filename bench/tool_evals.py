@@ -36,6 +36,11 @@ sys.path.insert(0, str(ROOT))
 
 W = Path(tempfile.mkdtemp(prefix="urx-tool-evals-")).resolve()
 os.environ["UNIFIED_RX_SANDBOX"] = str(W)     # 自给自足（先声明再 import）
+# 确定性（CI 首跑实锤）：CI 装了 pylsp → ide_impact 会走 LSP 档（冷启动 ~19s、
+# 结果随环境变），本地没装则走名字解析档。评测要跨机可比 → 命令指向不存在程序，
+# 令 LSP 档确定性不可用（工具语义：能力缺席如实降级，这条正是被评测的行为）。
+os.environ["UNIFIED_RX_LSP_CMD_PYTHON"] = "urx-nonexistent-lsp"
+os.environ["UNIFIED_RX_LSP_CMD_RUST"] = "urx-nonexistent-lsp"
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
