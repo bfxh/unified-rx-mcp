@@ -20,7 +20,7 @@
 | guard | [guard.md](guard.md) | 4 | 路径真值校验，非语义理解；读取过沙盒（S97） |
 | meta | [meta.md](meta.md) | 3 |
 | metrics | [metrics.md](metrics.md) | 3 | S136 组轴归位（模块 metrics.py 与组对齐）：覆盖率/依赖图/稳定性 | local_run 需 __authorized；S122 熔断状态/复位 |
-| ops | [ops.md](ops.md) | 4 | stats.jsonl 打点 |
+| ops | [ops.md](ops.md) | 5 | stats.jsonl 打点 + S141 会话烧量 |
 | attack | [attack.md](attack.md) | 6 | 自写对抗，非 hypothesis |
 | appaudit | [appaudit.md](appaudit.md) | 3 | Electron asar 解包审计 |
 | engine | [engine.md](engine.md) | 2 | 引擎桥接 |

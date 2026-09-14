@@ -254,7 +254,9 @@ def _record_stats(tool_name, duration_ms):
     """工具调用打点（usage_stats 的数据源）。
 
     S140：附 src 来源——mcp=客户端协议流量，embedded=脚本/测试/引擎内部直调。
-    旧记录无 src 字段（usage_stats 归为 unmarked），脚本洪峰从此不再污染 MCP 口径。"""
+    旧记录无 src 字段（usage_stats 归为 unmarked），脚本洪峰从此不再污染 MCP 口径。
+    S141：附带会话烧量哨兵（burnwatch，内部 60s 节流）——model-io 越过阈值写告警，
+    让马拉松会话的 token 消耗在几分钟内可见。"""
     try:
         src = getattr(_REQ_LOCAL, "source", None)
         if src is None:
@@ -268,6 +270,11 @@ def _record_stats(tool_name, duration_ms):
             }, ensure_ascii=False) + "\n")
     except OSError:
         pass
+    try:
+        from tools import burnwatch as _bw
+        _bw.maybe_check()
+    except Exception:                                              # noqa: BLE001
+        pass                   # 哨兵绝不拖垮打点
 
 
 def _clamp_str(v):

@@ -8,7 +8,12 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.57.0（S140）**：71 工具 / 13 域；**数据流门进 CI + 首个外部选型体检**——
+**当前 v2.58.0（S141）**：72 工具 / 13 域；**消耗洪峰护栏标定 + 会话烧量哨兵**——
+S141 烧量三件套：`burnwatch` 会话哨兵（model-io 体积越阈分级告警，破除"事后看
+账单"）+ `session_burn` 工具（会话体积即查）+ 日计数跨重启持久化（`daily_state.jsonl`，
+一日多启不再清零）；QPM 默认按实测标定 600→**3000**/60s（正常重度工作日峰值 ~1600
+次/分钟不误伤，~10000 次/分钟的失控洪峰照拦）、日量告警 5 万→**10 万**；启动巡检可
+用 `UNIFIED_RX_AUTOPILOT=0` 整体关闭。S140 全景：**数据流门进 CI + 首个外部选型体检**——
 ①**CI 第三道 dogfood 硬门**：`data-flow gate`（`scripts/taint_gate.py`）——产品面
 definite 对照 `spec/taint-baseline.json` 基线，新增即红（入册须人工填 why，占位未填
 被元锁拦截）；`scan.yml` 周扫扩成**审计三连**（secrets + attack + taint）；与
@@ -30,14 +35,14 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **71 个组合工具 / 13 域** |
+| 工具面 | 183（注入面 200+） | **72 个组合工具 / 13 域** |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（13 域 · 71 工具）
+## 工具面（13 域 · 72 工具）
 
 | 域 | 工具 |
 |---|---|
@@ -48,7 +53,7 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 | 🔍 search (3) | `code_search`（BM25，`hybrid=true` 时与语义路 RRF 融合）`code_semantic`（tf-idf 定义级）`repo_map`（个人化 PageRank 符号地图） |
 | 🛡️ guard (4) | `hallucination_guard` `capability_manifest` — 声明核查（读取过沙盒，S97）；`breaker_status` `breaker_reset` — **工具熔断**（同一工具+参数窗口内 >10 次即断，S122；S131 自 meta 域归位） |
 | 🧠 learn (1) | `lesson` — 教训记忆（关键词检索，非向量） |
-| ⚙️ ops (4) | `backup` `scan_log` `usage_stats` `lesson_stats` |
+| ⚙️ ops (5) | `backup` `scan_log` `usage_stats` `session_burn`（S141：会话烧量监测）`lesson_stats` |
 | 🎮 game (2) | `game_check` `blender_verify` |
 | 🚀 engine (2) | `engine_status` `engine_query` |
 | 🕵️ attack (6) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航） — 自攻面常驻 |

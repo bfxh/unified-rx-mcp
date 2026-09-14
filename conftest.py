@@ -26,6 +26,8 @@ os.environ["UNIFIED_RX_BREAKER"] = "off"
 # 全局 QPM/日告警行为由 tests/test_s122_breaker.py 显式开启验证。
 os.environ.setdefault("UNIFIED_RX_GLOBAL_QPM", "1000000")
 os.environ.setdefault("UNIFIED_RX_DAILY_ALERT", "0")
+# S141：会话烧量哨兵默认关（专项测试显式开——否则跑套件期间会读真实 rollout 目录）
+os.environ.setdefault("UNIFIED_RX_BURN_MB", "0")
 
 tempfile.tempdir = _TMP_BASE
 
@@ -45,7 +47,14 @@ os.makedirs(_STATS_TMP, exist_ok=True)
 @pytest.fixture(autouse=True)
 def _isolate_stats(monkeypatch):
     """S140：测试打点一律落 tmp 隔离区——套件/bench 的 registry.call 不再写进
-    真实 ~/.unified-rx/stats.jsonl（9/8 统计污染的教训之一）。"""
+    真实 ~/.unified-rx/stats.jsonl（9/8 统计污染的教训之一）。
+    S141：日计数落点同样隔离（熔断开启的测试不碰真实 daily_state.jsonl）。"""
     import registry
     target = os.path.join(_STATS_TMP, "stats.jsonl")
     monkeypatch.setattr(registry, "_stats_path", lambda: target)
+    try:
+        from tools import breaker as _breaker
+        monkeypatch.setattr(_breaker, "_daily_path",
+                            lambda: os.path.join(_STATS_TMP, "daily_state.jsonl"))
+    except Exception:                                              # noqa: BLE001
+        pass

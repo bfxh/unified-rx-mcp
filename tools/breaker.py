@@ -18,11 +18,17 @@
 S140 全局护栏（与 per-key 熔断互补）：per-key 只拦"重复"，拦不住"变着参数穷举"
 和"脚本级洪峰"（脚本/测试直调 registry.call 每次参数都不同）。因此加两道总量闸：
 - 全局 QPM：60s 滑动窗口内**全部工具**合计调用超过 `UNIFIED_RX_GLOBAL_QPM`
-  （默认 600，0=off）次 → 全局熔断，冷却 `UNIFIED_RX_GLOBAL_COOLDOWN_S`
+  （默认 3000，0=off）次 → 全局熔断，冷却 `UNIFIED_RX_GLOBAL_COOLDOWN_S`
   （默认 60s）内除豁免工具（breaker_status/reset）外一律拒绝；
-- 每日总量告警：本地日历日调用数达到 `UNIFIED_RX_DAILY_ALERT`（默认 50000，
+- 每日总量告警：本地日历日调用数达到 `UNIFIED_RX_DAILY_ALERT`（默认 100000，
   0=off）→ 写一条 alarms.jsonl 告警（只告警不阻断，跨天自动归零，reset 不清——
   防止救火复位后被再次拉爆）。
+
+S141 标定与持久化（9/14 复盘）：
+- QPM 默认从 600 上调到 3000——实测正常重度工作日峰值 ~1600 次/分钟（并行批量
+  扫描），600 会误伤正常工作；而失控洪峰是 ~10000 次/分钟量级，3000 仍能拦。
+- 日计数落盘 `~/.unified-rx/daily_state.json`（节流写，原子替换）：server 一天
+  重启多次，纯内存计数会被反复清零、日告警形同虚设。
 
 诚实边界：这是**循环刹车，不是安全边界**——只拦"重复"与"总量洪峰"，拦不住
 "低于阈值的持续慢漏"；参数规范化是 JSON 排序序列化，语义等价但写法不同的参数可能
@@ -86,7 +92,7 @@ def _env_int0(name, default):
 
 
 def _global_qpm():
-    return _env_int0("UNIFIED_RX_GLOBAL_QPM", 600)
+    return _env_int0("UNIFIED_RX_GLOBAL_QPM", 3000)
 
 
 def _global_cooldown():
@@ -94,7 +100,7 @@ def _global_cooldown():
 
 
 def _daily_alert_at():
-    return _env_int0("UNIFIED_RX_DAILY_ALERT", 50000)
+    return _env_int0("UNIFIED_RX_DAILY_ALERT", 100000)
 
 
 def _alarm_file():
@@ -111,8 +117,51 @@ def _alarm(rule, msg, level="WARN"):
         pass
 
 
+def _daily_path():
+    """S141 日计数落点：~/.unified-rx/daily_state.jsonl（追加式，与 alarms/stats 同 idiom）。
+    目录=固定常量段；文件名=常量字面量，整条路径无外部输入。"""
+    home_dir = os.path.join(os.path.expanduser("~"), ".unified-rx")
+    return os.path.join(home_dir, "daily_state.jsonl")
+
+
+def _daily_load():
+    """S141：读末行有效记录恢复当日计数；隔日旧档归零；坏档当空账。绝不抛。"""
+    try:
+        last = None
+        with open(_daily_path(), encoding="utf-8") as f:
+            for ln in f:
+                ln = ln.strip()
+                if ln:
+                    last = ln
+        if not last:
+            return {"day": None, "count": 0, "alerted": False}
+        d = json.loads(last)
+        day = str(d.get("day") or "")
+        if day == time.strftime("%Y-%m-%d"):
+            return {"day": day, "count": max(0, int(d.get("count") or 0)),
+                    "alerted": bool(d.get("alerted"))}
+        return {"day": day or None, "count": 0, "alerted": False}
+    except (OSError, ValueError, TypeError):
+        return {"day": None, "count": 0, "alerted": False}
+
+
+def _daily_save():
+    """S141：日计数追加落盘（节流由调用方控制；失败绝不抛）。须持 _LOCK 调用。"""
+    try:
+        rec = {"day": _DAILY["day"], "count": _DAILY["count"],
+               "alerted": _DAILY["alerted"], "ts": int(_now())}
+        with open(_daily_path(), "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+_DAILY.update(_daily_load())   # S141：跨 server 重启续账（一日多启，内存计数会被清零）
+
+
 def _daily_bump(now_ts):
-    """S140：当日总量 +1，达到阈值写一次告警（当天不重复）。须持 _LOCK 调用。"""
+    """S140/S141：当日总量 +1；达标写一次告警（当天不重复）；节流持久化。
+    须持 _LOCK 调用。"""
     day = time.strftime("%Y-%m-%d", time.localtime(now_ts))
     if _DAILY["day"] != day:
         _DAILY["day"] = day
@@ -123,6 +172,10 @@ def _daily_bump(now_ts):
     if at > 0 and not _DAILY["alerted"] and _DAILY["count"] >= at:
         _DAILY["alerted"] = True
         _alarm("daily_calls", f"当日工具调用 {_DAILY['count']} 次达到告警阈值 {at}")
+        _daily_save()
+        return
+    if _DAILY["count"] == 1 or _DAILY["count"] % 100 == 0:
+        _daily_save()
 
 
 def _global_trip_msg(left_s):

@@ -225,6 +225,26 @@ def usage_stats(top=10, days=0):
     }
 
 
+@tool("session_burn", "会话烧量：model-io 体积监测（马拉松会话 = 每轮重发全上下文的烧钱模式）",
+      "ops",
+      {"type": "object", "properties": {}, "required": []})
+def session_burn():
+    """S141：列出 ZCode 会话的 model-io 体积（≈累计 prompt 请求量）。
+    体积只增不减，是"每轮重发全上下文"烧 token 的直接证据；越过
+    UNIFIED_RX_BURN_MB（默认 15）会在 alarms.jsonl 留下 session_burn 告警。"""
+    from . import burnwatch as _bw
+    ses = _bw.sessions()
+    for s in ses:
+        s["est_tokens"] = int(s["mb"] * 280_000)
+    return {
+        "threshold_mb": _bw._threshold_mb(),
+        "sessions": ses[:10],
+        "note": ("体积≈累计 prompt 字节，MB×~28万≈token 量级（混合中英粗估）；"
+                 "会话越长每轮重发越多（二次增长）。告警写 ~/.unified-rx/alarms.jsonl；"
+                 "UNIFIED_RX_BURN_MB=0 关闭监测"),
+    }
+
+
 @tool("project_health", "项目健康度评分（bug/std/ui 综合 0-100）", "scan",
       {"type": "object",
        "properties": {

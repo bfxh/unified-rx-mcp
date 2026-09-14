@@ -27,7 +27,7 @@ import tools  # noqa: F401
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.57.0"
+SERVER_VERSION = "2.58.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -378,14 +378,19 @@ if __name__ == "__main__":
     # S69：开发目录自动驾驶——server 启动即后台自动体检全部项目 + 顺带打开
     # VS Code（去重窗口防多客户端弹窗风暴；UNIFIED_RX_AUTOPILOT_VSCODE=0 关闭）。
     # 只在 stdio 服务模式跑：测试直接 import server 不会触发。
-    try:
-        from tools.ide_autopilot import autopilot_run
+    # S141：UNIFIED_RX_AUTOPILOT=0 整体关闭启动巡检——实测单轮全项目体检（含
+    # 构建/测试超时窗口）可达数小时、数万次调用；频繁重启的开发期按需关闭。
+    if os.environ.get("UNIFIED_RX_AUTOPILOT", "on").strip().lower() in ("off", "0", "false", "no"):
+        pass
+    else:
+        try:
+            from tools.ide_autopilot import autopilot_run
 
-        def _autopilot_boot():
-            time.sleep(3.0)
-            autopilot_run()
+            def _autopilot_boot():
+                time.sleep(3.0)
+                autopilot_run()
 
-        threading.Thread(target=_autopilot_boot, daemon=True).start()
-    except Exception:                                        # noqa: BLE001
-        pass                                                  # 预热失败不影响服务
+            threading.Thread(target=_autopilot_boot, daemon=True).start()
+        except Exception:                                        # noqa: BLE001
+            pass                                                  # 预热失败不影响服务
     main()
