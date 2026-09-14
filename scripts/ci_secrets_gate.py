@@ -14,10 +14,16 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import registry
-import tools  # noqa: F401
-
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# S134：secrets_hunt 原生化后读路径过沙盒（S88 纪律）——本门禁**自给自足**声明
+# 扫描根的授权（不依赖 workflow 注入 env；CI 首跑即被沙盒门 fail-closed 实锤，
+# 与 Selftest 步骤的 env 先例同因）。
+os.environ["UNIFIED_RX_SANDBOX"] = root
+
+import registry  # noqa: E402
+import tools  # noqa: E402,F401
+
 r = registry.call("secrets_hunt", {"path": root, "max_files": 8000,
                                    "max_results": 1000})
 if not r.get("ok"):

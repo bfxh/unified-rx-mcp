@@ -776,8 +776,18 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 过程项：clippy 抓首版 9 处（collapsible_if×8 + sort_by_key）走 --fix 机器修 +
   2 处手工，零告警回绿；Mimosa hook 拦组合命令（selftest+heredoc）拆单发即过
   （与 S131 同款纪律）。
-- 验证：3.14 全量 **804 passed + 4 skipped**；3.11 全量 **806 passed + 2 skipped**；
-  cargo **197 绿** + clippy **零告警**；selftest 五线全绿（GROUPS 71 工具 /
-  VERSION_TAG NEXT=tag 前正确态 / EXE_TAG ok=9（rx-scan 重建至 2.51.0））；
-  PARITY（clippy-fix 后）OK。
+- **CI 首跑红（本轮第三次"看似不关联"实锤）**：双 pytest job 在 **Secrets gate
+  步骤**失败——`secrets_hunt 调用失败: 路径越界（沙盒外`。根因链：S134 给该工具
+  新加了**读路径沙盒门**（S88 纪律补全，本地/测试全绿）→ CI 该步骤没设
+  `UNIFIED_RX_SANDBOX`（相邻 Selftest 步骤有、它没有）→ fail-closed 拒绝 → 门禁红。
+  **给存量工具加门 = 行为变更，必须追踪全部调用方（CI 步骤也是调用方）**。
+  修复：①门禁脚本**自给自足**声明扫描根授权（注释写明 why）；②加锁
+  `test_secrets_gate_runs_without_sandbox_env`（剥 env 跑脚本必须 OK——把这次
+  CI 失败形态钉成回归门）；③门禁随之又抓出**我 Rust 单测里的连续 AKIA 字面量**
+  （S123 碎片纪律违规），当场改碎片拼接——**自家秘密门一天内连抓两次，两次都是
+  真问题**。
+- 验证：3.14 全量 **805 passed + 4 skipped**（+1 门回归）；3.11 全量 **807 passed
+  + 2 skipped**；cargo **197 绿** + clippy **零告警**；selftest 五线全绿（GROUPS
+  71 工具 / VERSION_TAG NEXT=tag 前正确态 / EXE_TAG ok=9（rx-scan 重建至 2.51.0））；
+  PARITY（clippy-fix 后）OK；SECRETS-GATE（剥 env）OK。
 - 提交：本次

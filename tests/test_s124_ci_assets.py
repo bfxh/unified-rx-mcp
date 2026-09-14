@@ -63,3 +63,19 @@ def test_runner_context_only_at_step_level():
                 if indent < 8:
                     bad.append(f"L{i}: {stripped[:60]}")
         assert not bad, f"{os.path.basename(p)} runner 上下文出现在 job 级（workflow 整体非法）: {bad}"
+
+
+def test_secrets_gate_runs_without_sandbox_env():
+    """S134：secrets_hunt 原生化后读路径过沙盒——门禁脚本必须**自给自足**
+    （CI 首跑被 fail-closed 实锤：Secrets gate 步骤无 env → 越界拒绝）。
+    本门锁死场景：剥掉 UNIFIED_RX_SANDBOX 跑脚本，必须 SECRETS-GATE OK。"""
+    import subprocess
+    import sys
+    env = {k: v for k, v in os.environ.items() if k != "UNIFIED_RX_SANDBOX"}
+    cp = subprocess.run(
+        [sys.executable, "-X", "utf8",
+         os.path.join(ROOT, "scripts", "ci_secrets_gate.py")],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=300, env=env)
+    assert cp.returncode == 0, f"门禁脚本无 env 失败:\n{cp.stdout[-500:]}\n{cp.stderr[-500:]}"
+    assert "SECRETS-GATE OK" in (cp.stdout or ""), cp.stdout[-500:]

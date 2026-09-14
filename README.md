@@ -18,7 +18,7 @@ Shannon 累加、贪婪回溯语义逐一对齐），Python 侧收敛为薄壳�
 S131 bug_scan 八规则 + [spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)；S130 gpu
 拆分 + ide_diagnostics 挂门修复；S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）
 + CI 首次完整跑绿（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest
-3.14 = 804 passed + 4 skipped、3.11 = 806 passed + 2 skipped；cargo **197 绿** +
+3.14 = 805 passed + 4 skipped、3.11 = 807 passed + 2 skipped；cargo **197 绿** +
 clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。
 整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
