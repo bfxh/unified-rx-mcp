@@ -11,16 +11,22 @@ import tools  # noqa: F401
 
 
 def test_blender_no_placeholder():
-    """P1: blender 命令不再有未填充占位符（内置默认路径）。"""
+    """P1: blender 命令不再有未填充占位符（内置默认路径）。
+    S137：argv 直传后缺程序 → 工具级清晰报错（旧 shell 语义会兜成 exit≠0）——
+    本机有 Blender 断言跑通，无 Blender（CI）断言报错字面量。"""
     r = registry.call("local_run", {"domain": "blender", "name": "headless",
                                     "args": {"script": "test.py", "args": ""},
                                     "timeout": 30, "__authorized": True})
-    # 应能通过校验执行（不再被"不安全字符"拒绝）
-    err = r["result"].get("error", "")
-    assert "不安全字符" not in err, f"不应误报不安全字符: {err}"
-    assert "占位符" not in err, f"不应有未填充占位符: {err}"
-    # blender 能启动（无头模式），即使脚本不存在也 exit 0
-    assert r["result"].get("ok") is True or "cmd" in r["result"], f"应执行成功: {r}"
+    blob = str(r)
+    assert "不安全字符" not in blob, f"不应误报不安全字符: {blob}"
+    assert "占位符" not in blob, f"不应有未填充占位符: {blob}"
+    from tools.meta import _BLENDER
+    if os.path.exists(_BLENDER):
+        assert (r.get("result") or {}).get("ok") is True or "cmd" in (r.get("result") or {}), \
+            f"应执行成功: {r}"
+    else:
+        err = (r.get("error") or "") + str((r.get("result") or {}).get("error", ""))
+        assert ("cannot find" in err or "WinError 2" in err), f"缺程序应清晰报错: {r}"
 
 
 def test_blender_default_path():
