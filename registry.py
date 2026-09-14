@@ -217,7 +217,15 @@ def list_tools():
     S72b：requires_auth 工具统一注入 __authorized 声明——部分工具（fs_write）
     手工 schema 已带，local_run/ide_edit_multi 等只写在 description 里，MCP
     宿主看不到参数就永远不会传 → 写/执行类工具在协议模式下被永久拒绝。
+
+    S143：annotations（规范 2025-03-26 起即有的字段，此前漏发）——title 取自
+    toolmeta.py（与注册表双向一致由测试锁），行为提示直接映射授权三档
+    （HARDENING §七）：① ② 档（不挂门）→ readOnlyHint + idempotentHint；
+    ③ 档（requires_auth）→ readOnlyHint=false + destructiveHint=true——
+    显式写出而非依赖规范默认值（destructiveHint 缺省为 true 的前提是宿主
+    正确实现默认语义，安全姿态不押注宿主的解释）。
     """
+    import toolmeta
     out = []
     for n, v in _TOOLS.items():
         schema = v["schema"]
@@ -232,8 +240,16 @@ def list_tools():
             if "__authorized" not in req:
                 req.append("__authorized")
             schema = {**schema, "properties": props, "required": req}
+        ann = {"title": toolmeta.title_for(n)}
+        if v.get("requires_auth"):
+            ann["readOnlyHint"] = False
+            ann["destructiveHint"] = True
+        else:
+            ann["readOnlyHint"] = True
+            ann["idempotentHint"] = True
         out.append({"name": n, "description": v["description"],
-                    "inputSchema": schema, "_group": v["group"]})
+                    "inputSchema": schema, "annotations": ann,
+                    "_group": v["group"]})
     return out
 
 

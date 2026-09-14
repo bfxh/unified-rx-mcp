@@ -958,3 +958,29 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   实施轮一条落地。
 - 验证：全量 pytest + cargo test 双绿（无代码变更，防文档误撞计数门）。
 - 提交：本次
+
+## S143 · 实施轮（外部对标 A 档）：工具注解补齐 + 工具面体量仪表进 CI
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.58.0 → **2.59.0**
+- **① A1 工具注解**（规范 2025-03-26 起即有字段，此前漏发）：新建 `toolmeta.py`
+  （72 件中文标题，与注册表**双向一致**由测试锁）；`registry.list_tools` 增发
+  `annotations`——行为提示直接映射授权三档（HARDENING §七）：① ② 档
+  `readOnlyHint`+`idempotentHint`；③ 档 `readOnlyHint=false`+`destructiveHint=true`
+  显式写出（不押注宿主实现规范默认值）。零行为变化、零调用面变化（"注解是给
+  宿主的，不是给校验的"）。
+- **② A2 工具面体量仪表**：`scripts/toolface_budget.py`——tools/list 体量即测即
+  记账（字符/CJK/ASCII/估算 token/top5 大户），**软帽 45,000 字符**（实测 38,119
+  +18% 余量）超帽即红、抬帽须记账；进 **core.yml 第四道 dogfood 硬门**（形状锁
+  needle 同步）；env `UNIFIED_RX_TOOLFACE_CAP` 可覆盖（负测试用）。
+- **摸底数字（入册）**：72 工具 **38,119 字符 ≈ 12.7K token**（CJK 4,575 /
+  ASCII 32,666）；注解自身 +5,972 字符（CJK 标题 359 + 提示键脚手架 ~5.6K）；
+  top5：file_scan 1080 / ide_build 892 / ide_risk_rank 857 / near_dupes 842 /
+  secrets_hunt 836。外部基线 58 工具 ≈ 55K——水位仍明显低，瘦身位（B4 语种账 /
+  头部单件）继续挂账。
+- **测试**：`tests/test_s143_toolface.py` 四锁——标题全覆盖 + 双向一致 + 唯一性；
+  注解↔三档映射；仪表真跑绿（剥沙盒 env 自给自足）；**真门验证**（压帽到 1
+  必须红）。core.yml 形状锁 +1 needle。
+- **验证**：全量 pytest 3.14 **837 passed + 3 skipped**（+5：新 4 + README 锁
+  修复后 1）；cargo **200 绿** + clippy 零告警；selftest 五线全绿
+  （SCHEMA_BAD 0 / VERSION_TAG NEXT / SKILLS_DOCS 0 / **EXE_TAG ok=9**——版本
+  bump 后已重建 release exe）；版本锁步 **2.59.0 ×4**。
+- 提交：本次

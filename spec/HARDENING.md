@@ -159,10 +159,12 @@ CI 侧对应的自动化门 = **Self-attack gate**（`scripts/attack_gate.py`：
 - **协议线落后四代**（我们钉 2025-03-26；最新 2026-07-28 无状态化大改：删 initialize
   握手、server/discover、resultType 必带、MRTR、JSON Schema 2020-12）——升级有宿主
   决策点，先探 ZCode/Yan Agent 支持线（B1 挂账）；
-- **annotations/title 未发**（规范 2025-06-18 起）——readOnlyHint/destructiveHint 可
-  直接映射现有三档授权语义；A1 立即可做（低成本一致性，下一轮一条落地）；
-- **工具面定义摊派**实测 32,147 字符 ≈ 11–13K token/请求（72 工具；外部基线
-  58 工具≈55K——我们水位明显低，但仍有瘦身位）——A2 仪表 + 软上限挂账；
+- ~~**annotations/title 未发**~~（**S143 已兑**：核对规范原文后更正——字段自
+  2025-03-26（我们钉的版本）即有，纯属漏发；`toolmeta.py` 72 件中文标题 +
+  `registry.list_tools` 发 `annotations`，行为提示与三档授权同口径）；
+- ~~**工具面定义摊派**~~（**S143 已兑**：`scripts/toolface_budget.py` 进 CI 硬门
+  + 真门测试；摸底 **38,119 字符 ≈ 12.7K token**（注解自身 +5,972），软帽
+  45,000 超帽即红——瘦身位（B4 语种账 / 头部单件）继续挂 B 档）；
 - **间接注入无立场**（fs_read/bug_scan/lsp 输出=外部内容直入宿主上下文）——B3 评估；
 - **任务级工具评测（evals）缺**——B2 挂账。
 

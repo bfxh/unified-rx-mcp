@@ -68,22 +68,28 @@
 
 1. **HARDENING §六 新缺口组「外部对标」**：指向本文档；每次 tag 前 10 分钟复核
    规范线（对齐 §一.1 的四代差）；
-2. **selftest 增"工具面体量"度量行**（S143 待办 A2）：把 32,147 字符/≈11–13K token
-   变成可对账数字——token 经济要有仪表，不是口号；
+2. ~~**selftest 增"工具面体量"度量行**~~（**S143 已兑，落点更正为 CI 硬门**——
+   门槛不散两处：`scripts/toolface_budget.py` + core.yml 步骤 + 真门测试）：
+   **38,119 字符 / ≈12.7K token** 已是可对账数字（含注解自身的 +5,972）；
 3. **skills/README 增"机器面向描述纪律"**：schema 描述=给模型看的 onboarding
    （何时不用/代价/单位），人读的长文档继续住 skills/*.md；
 4. **本文档来源与日期固定**；规范线滚动复核，文档顶部记下一次复核点。
 
 ## 三、精选待办（**三档，不堆**）
 
-### A 档 · 立刻可做（低成本、纯一致性；下一轮一条 PR 内落地）
-- **A1 工具注解与标题**（spec 2025-06-18 起）：`list_tools` 输出增 `annotations`
-  （映射现有三档授权语义：①纯读→`readOnlyHint: true`；③执行·写→
-  `destructiveHint: true`；幂等件→`idempotentHint`）与 `title`（人类可读名）。
-  零工具面变化、零行为变化，宿主可据此做门禁/展示。**≈30 行 + 形状锁。**
-- **A2 工具面体量仪表**：selftest/CI 打印并在 ROUNDLOG 记账（字符数/CJK 比/估算
-  token）；设**软上限**（如 40K 字符）防无声膨胀。
-- **A3 本文档 + HARDENING 指针 + ROUNDLOG 条目**（本轮已做）。
+### A 档 · 立刻可做（低成本、纯一致性）——**S143 已全部兑现**
+- ~~**A1 工具注解与标题**~~（**S143 已兑**）：核对规范原文后更正——annotations
+  实为 **2025-03-26**（我们钉的版本）即有字段，此前纯属漏发。现 `list_tools`
+  发 `title`（`toolmeta.py` 全 72 件中文标题，与注册表双向一致由测试锁）+
+  行为提示与授权三档同口径：读档 `readOnlyHint`+`idempotentHint`，写/执行档
+  `readOnlyHint=false`+`destructiveHint=true`（显式写出，不押注宿主实现规范
+  默认值）。
+- ~~**A2 工具面体量仪表**~~（**S143 已兑**）：`scripts/toolface_budget.py` 进
+  core.yml 硬门（形状锁同步）；摸底 **38,119 字符 ≈ 12.7K token**（其中注解
+  脚手架 +5,972 字符——CJK 标题 359、提示键 ~5.6K），软帽 **45,000**（实测
+  +18%），超帽即红、抬帽须记账；`tests/test_s143_toolface.py` 四锁（含"压帽
+  到 1 必须红"的真门验证）。
+- A3 本文档 + HARDENING 指针 + ROUNDLOG 条目（S142 已做）。
 
 ### B 档 · 评估后做（有决策点，不抢跑）
 - **B1 协议线升级**：先探两个宿主（ZCode / Yan Agent）各自支持的规范线 →

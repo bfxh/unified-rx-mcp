@@ -47,6 +47,9 @@ jobs:
       - name: Data-flow gate（S139：taint 产品面 definite 不得超基线）
         run: python -X utf8 scripts/taint_gate.py
 
+      - name: Tool-face budget gate（S143：tools/list 体量软帽，防无声膨胀）
+        run: python -X utf8 scripts/toolface_budget.py
+
       - name: Selftest hard gate（对账行从"提示"升为"退出码"）
         env:
           UNIFIED_RX_SANDBOX: ${{ github.workspace }}   # selftest 内部 fs 自检在沙盒内跑
