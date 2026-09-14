@@ -43,7 +43,10 @@ def test_audit_copy_refuses_inside_repo(tmp_path):
 
 def test_audit_copy_and_diff_roundtrip(tmp_path):
     dest = tmp_path / "copy_out"
-    cp = _run([os.path.join(ROOT, "scripts", "audit_copy.py"), str(dest)])
+    # S145：本测试只验副本/差量机制——脏树护栏另有专测（test_s145_gates），
+    # 这里显式 --allow-dirty，让本用例在"开发中（脏树）"与"CI（净树）"行为一致。
+    cp = _run([os.path.join(ROOT, "scripts", "audit_copy.py"), str(dest),
+               "--allow-dirty"])
     assert cp.returncode == 0, cp.stderr[-300:]
     m = re.search(r"AUDIT-COPY OK dest=(.+?) files=(\d+) head=(\S+)", cp.stdout)
     assert m and int(m.group(2)) > 100, cp.stdout      # 仓库级文件数

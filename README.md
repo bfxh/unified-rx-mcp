@@ -8,18 +8,23 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.60.0（S144）**：72 工具 / 13 域；**外部对标 B 档三件落地**——
-①**间接注入立场（B3）**：内容类工具（`toolmeta.UNTRUSTED_OUTPUT_TOOLS` 14 件：
-fs_read/片段/诊断）的协议回包带 `[untrusted-content …]` 前缀（数据非指令），
-`skills/workflow.md` 立"工具输出纪律"；**顺带实锤修复 S143 补遗**——`tools/list`
-协议层此前只转发三字段、annotations 根本没上线路（registry 发了 ≠ 宿主收到）；
-②**任务级 evals（B2）**：`bench/tool_evals.py` 进 CI 硬门——13 个确定性多步任务
-（写读/扫描/污点/死代码/调用图/影响面/改码跑测/覆盖率/聚类/依赖环/异或/符号地图）
-逐题记账 calls/errors/chars，对照 `spec/tool-evals-baseline.json`（任务失败或
-体量 >基线×1.10 即红）；③**描述瘦身与语种账（B4）**：13 条长描述 −44%
-（内部实现细节让位 skills，语义/判据/代价零丢失），工具面 38,119 → 37,259 字符；
-**语种账结论：机器面向保持中文**（等价信息英文约省 ~2K token，但用户与 skills
-全中文、描述若随 B1 的 defer_loading 落地将不再常驻——先瘦身不动语种）。
+**当前 v2.61.0（S145）**：72 工具 / 13 域；**审核本地化 + 协议握手审计**——
+①**本地审核门**（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
+一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
+data-flow / toolface / tool-evals / selftest，**4 秒级**）与全门 9 步（+pytest 全量 +
+cargo test + clippy）；`.githooks/` 版本化钩子（pre-commit 快门、pre-push 全门）经
+`git config core.hooksPath .githooks` 一次安装——**审核在本机即可完整跑完，CI 降格为
+镜像/备份**；本地门与 CI 不漂移（core.yml 出现的门脚本必须都在 local_gate 步骤里）
+由测试锁死，`UNIFIED_RX_GATE_FORCE_FAIL` 注入必红做真门验证；②**协议协商 + 握手
+留痕（B1 部分兑现）**：initialize 按规范协商版本（命中白名单回显、否则回我方最高
+支持），并落 `~/.unified-rx/clients.jsonl`（客户端名/版本/请求版本/协商结果）——
+**下个 ZCode 会话重启即取得宿主实际请求版本**（证据驱动，不猜）；③**审核流程两处
+实锤修复**：`taint_gate.py --update-baseline` 曾把既有 why 全清成占位（改为按
+(file,sink) 继承旧 why，只新条目落占位）、`audit_copy.py` 增加脏树护栏（副本必须
+对应已提交状态，--allow-dirty 才放行）。历史链：S144 外部对标 B 档三件（B3 注入立场
+14 件内容类工具 `[untrusted-content]` 前缀 + B2 任务级 evals 13 任务进 CI + B4 描述
+−44%；**顺带实锤修复** `tools/list` 协议层不转发 annotations 的 S143 补遗）；
+**S144 语种账结论：机器面向保持中文**。
 对标全文见 [spec/EXTERNAL-ALIGNMENT.md](spec/EXTERNAL-ALIGNMENT.md)。历史链：S143
 工具注解补齐 + 工具面体量仪表（`scripts/toolface_budget.py`，软帽 45,000）；
 S141 烧量三件套：`burnwatch` 会话哨兵（model-io 体积越阈分级告警，破除"事后看
@@ -37,7 +42,7 @@ Secrets/Self-attack 并列为三道硬门。
 格式即后续外部体检模板。历史链：S138 审计复审机制化（Self-attack gate + Mimosa
 复审仪式脚本）；S137 按库分类清单 + copy-based 全量审计（实锤修复 local_run
 shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `CI-GATE OK` /
-`EXE_TAG ok=9`）。本地 pytest 3.14 = 845 passed + 3 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
+`EXE_TAG ok=9`）。本地 pytest 3.14 = 853 passed + 3 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
 （VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与升级路线见
 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，

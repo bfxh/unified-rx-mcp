@@ -56,11 +56,26 @@ def load_baseline():
 
 
 def save_baseline(counts):
+    # S145 修复（实锤）：旧版重写基线会把**所有既有 why 清成占位符**——"更新基线"
+    # 是记账动作，不是销毁人工结论的动作。现在按 (file, sink) 继承旧 why，
+    # 只有全新条目才落占位（仍由 test_s139 元锁拦截"占位未填"）。
+    old_why = {}
+    try:
+        for e in load_baseline().get("entries", []):
+            old_why[(e.get("file"), e.get("sink"))] = e.get("why")
+    except Exception:
+        pass
     entries = []
+    inherited, fresh = 0, 0
     for key in sorted(counts):
         fp, sink = key.split("\t")
-        entries.append({"file": fp, "sink": sink, "count": counts[key],
-                        "why": "<请填写：为何属良性/设计内>"})
+        why = old_why.get((fp, sink))
+        if why and not str(why).startswith("<请填写"):
+            inherited += 1
+        else:
+            why = "<请填写：为何属良性/设计内>"
+            fresh += 1
+        entries.append({"file": fp, "sink": sink, "count": counts[key], "why": why})
     doc = {
         "policy": ("产品面 definite 基线：新增即红（scripts/taint_gate.py）；"
                    "bench/ 为开发夹具面不在册；为何字段=人工确认理由"),
@@ -68,7 +83,8 @@ def save_baseline(counts):
     }
     BASELINE.write_text(json.dumps(doc, ensure_ascii=False, indent=1),
                         encoding="utf-8", newline="")
-    print(f"TAINT-BASELINE updated: {len(entries)} entries -> {BASELINE}")
+    print(f"TAINT-BASELINE updated: {len(entries)} entries "
+          f"(why 继承 {inherited} / 新占位 {fresh}) -> {BASELINE}")
 
 
 def main(argv):

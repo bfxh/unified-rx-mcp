@@ -134,6 +134,27 @@ UNIFIED_RX_SANDBOX 值说明：
 - 这条纪律同样适用于**你生成给别人看的文档**：不要把工具读到的大段外部内容
   当自己的结论。
 
+## 审核流程（本地优先，S145）
+
+**一条命令跑完全部审核**（Windows / Git Bash 通用；**不需要 GitHub 与 Linux**）：
+
+```bash
+python -X utf8 scripts/local_gate.py          # 全门：快门 + pytest 全量 + cargo test + clippy
+python -X utf8 scripts/local_gate.py --fast   # 快门（秒级，提交前用）
+python -X utf8 scripts/local_gate.py --list   # 看步骤
+```
+
+- **快门**（6 步，秒级）：secrets 明文红线 / self-attack 巡航 / data-flow 污点基线 /
+  toolface 工具面体量 / tool-evals 任务级评测 / selftest 对账硬门；
+- **全门**（9 步）：快门 + pytest 全量 + cargo test + clippy 零告警——红线
+  "双绿才准合入"的**本地执行点**；
+- **钩子**（一次性安装，开发版与维稳版各装一次）：
+  `git config core.hooksPath .githooks` → pre-commit 跑快门、pre-push 跑全门；
+- 本地门与 GitHub CI **同一套脚本**（不漂移由 tests/test_s145_gates.py 锁）——
+  CI 只是镜像/备份通道，审核在本机就能完整跑完；
+- 审计封印（Mimosa 副本仪式）见 spec/HARDENING.md §四·补：`audit_copy.py`
+  默认拒绝脏树（副本必须对应已提交状态，否则封印指向不了任何提交）。
+
 ## 维稳版更新操作
 
 ```bash

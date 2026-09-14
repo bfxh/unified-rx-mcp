@@ -1,0 +1,5 @@
+#!/bin/sh
+# 本地快门（S145）：明文红线 + 自攻 + 数据流 + 工具面 + 任务级评测 + 对账硬门。
+# 秒级，提交前跑；全门（含 pytest/cargo/clippy）在 pre-push。
+# 一次性安装：git config core.hooksPath .githooks
+python -X utf8 scripts/local_gate.py --fast

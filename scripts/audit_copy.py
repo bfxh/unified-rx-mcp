@@ -16,9 +16,22 @@ SKIP = {".git", "target", "__pycache__", "node_modules", ".pytest_cache"}
 
 
 def main(argv):
-    if len(argv) != 1:
-        sys.exit("用法: python scripts/audit_copy.py <dest>")
-    dest = os.path.abspath(argv[0])
+    args = [a for a in argv if not a.startswith("--")]
+    allow_dirty = "--allow-dirty" in argv
+    if len(args) != 1:
+        sys.exit("用法: python scripts/audit_copy.py <dest> [--allow-dirty]")
+    # S145 护栏：副本必须对应**已提交状态**——脏树副本的封印指向不了任何提交，
+    # 差量复审会拿"半成品"当基线（审计是证据，证据不能来自未定稿）。
+    try:
+        st = subprocess.run(["git", "-C", ROOT, "status", "--porcelain"],
+                            capture_output=True, text=True, timeout=30)
+        dirty = bool((st.stdout or "").strip())
+    except Exception:
+        dirty = False
+    if dirty and not allow_dirty:
+        sys.exit("拒绝：工作树有未提交改动（副本对不上任何提交）——先提交，"
+                 "或显式 --allow-dirty（自担基线不实）")
+    dest = os.path.abspath(args[0])
     if dest == ROOT or dest.startswith(ROOT + os.sep):
         sys.exit(f"拒绝：dest 在仓库内（{dest}）——副本必须落在仓库外")
     if os.path.isdir(dest):

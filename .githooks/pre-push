@@ -1,0 +1,5 @@
+#!/bin/sh
+# 本地全门（S145）：快门 + pytest 全量 + cargo test + clippy 零告警——
+# 仓库红线"pytest + cargo 双绿才准合入"的本地执行点（不依赖 GitHub/Linux）。
+# 一次性安装：git config core.hooksPath .githooks
+python -X utf8 scripts/local_gate.py

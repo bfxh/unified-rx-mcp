@@ -1026,3 +1026,42 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   57 条 seal **sha256:dc2b9a97…** → 差量 **added=0 / gone=0（零漂移）**；运行状态
   仍 inconclusive——**不宣称安全**，台账入 HARDENING §四·补（第 5 行）。
 - 提交：本次
+
+## S145 · 实施轮：审核本地化（不依赖 GitHub/Linux）+ 协议握手审计
+- 项目：unified-rx-mcp｜时间：2026-09-15｜版本 2.60.0 → **2.61.0**
+- 用户指令：「你ZCODE搞就可以了……我觉得把审核这个东西搞强点，**不需要用 GitHub
+  和 Linux 就直接搞这个流程**」。
+- **① 本地审核门** `scripts/local_gate.py`：一条命令跑完与 CI **同一套脚本**的
+  全部门禁——快门 6 步（secrets / self-attack / data-flow / toolface / tool-evals /
+  selftest，**4.3s**）与全门 9 步（+pytest 全量 + cargo test + clippy）。实测
+  全绿 **133s**（pytest 123.7s 为大头，cargo/clippy 增量便宜——增量构建已缓存）。
+  `--list/--only/--fast/--no-cargo`（--no-cargo 显式跳过且明示"不算双绿"）；
+  cargo 缺失**默认 FAIL 不静默降级**；`UNIFIED_RX_GATE_FORCE_FAIL` 注入必红（真门）。
+- **② 版本化钩子** `.githooks/`（pre-commit 快门、pre-push 全门）+ 两个克隆各装
+  `git config core.hooksPath .githooks`；index 权限位 +x（跨平台 checkout 也能跑）。
+  **CI 降格为镜像/备份通道**——审核在本机（Windows + ZCode）完整闭环。
+- **③ B1 协议线（部分兑现）**：宿主实探=ZCode 直连 `D:\rj\MCP\server.py`（稳定
+  副本，双实例）；上线**版本协商**（命中 `_SUPPORTED_PROTOCOLS` 回显、否则回我方
+  最高支持）+ **握手留痕** `~/.unified-rx/clients.jsonl`（客户端名/版本/请求版本/
+  协商结果，每次 initialize 一行；留痕失败永不阻断握手）。**宿主实际请求版本 =
+  下次 ZCode 重启即入册**（证据驱动）。升级触发条件入 EXTERNAL-ALIGNMENT B1。
+- **④ 审核流程两处实锤修复**（本轮最契合指令的产出）：
+  ①`taint_gate.py --update-baseline` **把既有 why 全清成占位符**——本轮真踩：
+  更新基线后 7 条人工 why 全丢（test_s139 元锁会拦，但仍属"记账动作销毁结论"）；
+  已修为按 (file,sink) **继承旧 why**、只新条目落占位（本轮输出"why 继承 7 /
+  新占位 1"），并从 git 恢复原文 + 人工补新条目（local_gate 的 subprocess.run：
+  固定 argv 列表、shell=False、非拼接，与 server.py 条目同族）。
+  ②`audit_copy.py` 加**脏树护栏**：副本必须对应已提交状态（脏树副本的封印指向
+  不了任何提交），--allow-dirty 显式放行；S138 既有 roundtrip 测试随之补标志
+  （脏树/净树行为一致）。
+- **⑤ 本地门自身的两个实锤**：①初版给 pytest 也注入 `UNIFIED_RX_SANDBOX` →
+  与 conftest 测试沙盒打架（284 红）——改为**只给 selftest 步**注入；②初版
+  secrets 步 OK 但 data-flow 门正确抓出 local_gate 的 subprocess.run（参数即
+  来源的已知模式）→ 走既定流程入基线（人工 why）。
+- **测试 +8**：`tests/test_s145_gates.py`——CI↔本地门**不漂移锁**（core.yml 出现
+  的门脚本必须都在 local_gate 步骤里）/ 钩子分档（pre-commit 快门、pre-push 全门）/
+  注入真门 / 协商语义四例 / 留痕落盘字段 / 留痕失败不阻断 / 脏树护栏双态。
+- **验证**：本地全门 **9 步全绿 133s**（LOCAL-GATE OK）；pytest 3.14 **853 passed
+  + 3 skipped**（856 collected，+8）；cargo **200 绿** + clippy 零告警；工具面门
+  OK；版本锁步 **2.61.0 ×4**（exe 已重建）。
+- 提交：本次

@@ -25,9 +25,10 @@ import registry
 # 导入 tools 包触发注册（tools/__init__.py 汇总所有域）
 import tools  # noqa: F401
 
-PROTOCOL_VERSION = "2025-03-26"
+PROTOCOL_VERSION = "2025-03-26"          # 我方最高支持（规范线四代差见 EXTERNAL-ALIGNMENT）
+_SUPPORTED_PROTOCOLS = ("2025-03-26",)   # 协商白名单：客户端请求命中即回显其版本
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.60.0"
+SERVER_VERSION = "2.61.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -109,6 +110,40 @@ def tool_reply(msg_id, name, result):
     }
 
 
+def _clients_path():
+    """握手留痕落点（S145）：env 可覆盖（测试/多环境），缺省 ~/.unified-rx/clients.jsonl。"""
+    return os.environ.get("UNIFIED_RX_CLIENTS_LOG") or os.path.join(
+        os.path.expanduser("~"), ".unified-rx", "clients.jsonl")
+
+
+def _record_hello(params, negotiated):
+    """记录客户端握手（谁/什么版本/请求了什么/协商到什么）——审计用，永不阻断握手。
+
+    动机（S145，用户指令"把审核搞强点"）：宿主版本是升级决策的第一手证据
+    （EXTERNAL-ALIGNMENT B1），不能靠猜——每次 initialize 落一行，重启宿主即可查。
+    """
+    try:
+        info = params.get("clientInfo") or {}
+        rec = {"ts": int(time.time()), "requested": params.get("protocolVersion"),
+               "negotiated": negotiated, "client": info.get("name"),
+               "client_version": info.get("version")}
+        p = _clients_path()
+        d = os.path.dirname(p)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception as e:      # 留痕失败不许影响握手（审计是旁路，不是主路）
+        log_msg("warning", f"handshake record failed: {type(e).__name__}: {e}")
+
+
+def _negotiate_version(requested):
+    """版本协商（MCP 规范语义）：请求命中白名单 → 回显其版本；否则回我方最高支持。"""
+    if isinstance(requested, str) and requested in _SUPPORTED_PROTOCOLS:
+        return requested
+    return PROTOCOL_VERSION
+
+
 def _handle(msg):
     """处理单条消息，返回响应（或 None 表示无需响应）。"""
     # P3 修复：协议版本校验（非 2.0 拒绝，防协议混淆/畸形客户端）
@@ -123,11 +158,15 @@ def _handle(msg):
     params = raw_params if isinstance(raw_params, dict) else {}
 
     if method == "initialize":
+        # S145：版本协商 + 握手留痕（审计证据；规范要求"支持的版本回显、否则回
+        # 我方支持的版本"——四代差的完整决策面见 spec/EXTERNAL-ALIGNMENT.md B1）
+        negotiated = _negotiate_version(params.get("protocolVersion"))
+        _record_hello(params, negotiated)
         return {
             "jsonrpc": "2.0",
             "id": msg_id,
             "result": {
-                "protocolVersion": PROTOCOL_VERSION,
+                "protocolVersion": negotiated,
                 # S3: capabilities 声明 logging；tools.listChanged 供宿主订阅工具面变化
                 "capabilities": {"tools": {"listChanged": True}, "logging": {}},
                 "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},

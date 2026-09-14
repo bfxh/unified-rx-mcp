@@ -1,11 +1,17 @@
 {
- "policy": "产品面 definite 基线：新增即红（scripts/taint_gate.py）；bench/ 为开发夹具面不在册；为何字段=人工确认理由（占位未填由 test_s139 拦截）",
+ "policy": "产品面 definite 基线：新增即红（scripts/taint_gate.py）；bench/ 为开发夹具面不在册；为何字段=人工确认理由",
  "entries": [
   {
    "file": "conftest.py",
    "sink": ".replace",
    "count": 1,
    "why": "构建期测试配置：os.pathsep→';' 字符串替换（env 派生，非用户输入；S139 人工确认）"
+  },
+  {
+   "file": "conftest.py",
+   "sink": "os.makedirs",
+   "count": 1,
+   "why": "测试基建（S140 打点隔离）：创建 pytest 专用 tmp 目录 %TEMP%/unified-rx-pytest/_stats，路径为进程内常量，无外部输入（S140 人工确认）"
   },
   {
    "file": "scripts/audit_copy.py",
@@ -32,16 +38,16 @@
    "why": "开发脚本：只读两份 Mimosa report.md（argv 指向审计产物，非任意写；S139 人工确认）"
   },
   {
+   "file": "scripts/local_gate.py",
+   "sink": "subprocess.run",
+   "count": 1,
+   "why": "本地审核门（S145）：以**固定 argv 列表**运行本仓门脚本（shell=False、无字符串拼接）；argv 形参即来源是已知模式，与 server.py 条目同族（S145 人工确认）"
+  },
+  {
    "file": "server.py",
    "sink": "subprocess.run",
    "count": 1,
    "why": "协议层内部子进程（argv 列表 + env，无 shell；非用户可控命令拼接；S139 人工确认）"
-  },
-  {
-   "file": "conftest.py",
-   "sink": "os.makedirs",
-   "count": 1,
-   "why": "测试基建（S140 打点隔离）：创建 pytest 专用 tmp 目录 %TEMP%/unified-rx-pytest/_stats，路径为进程内常量，无外部输入（S140 人工确认）"
   }
  ]
 }
