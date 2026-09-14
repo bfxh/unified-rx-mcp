@@ -3,39 +3,39 @@
 **本地工具代替智能体体力活的平台** — 凡是 AI 要做的确定性体力活，全部下沉为本地工具；AI 只保留决策层。
 > 定位：**工具箱，不是智能体，不是内核**。MCP 只是通道，价值在"工具 + 工作流"的完整链路。
 > 七维"掌握"：**结构 / 语义 / 定位 / 探索 / 记忆 / 反馈 / 质量**
-> 设计哲学：**少而准**（70 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
+> 设计哲学：**少而准**（71 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）
 
-**当前 v2.49.0（S132）**：70 工具 / 12 域；**设计评审整改第一波（H1/H3/M4/H2+M3）**——
-①**授权三档立文**（HARDENING §七）：纯读 / 自有只读扫描 / 执行·写必挂门，组合透传
-字面量纪律 + 边界明示；②`auth_gate_sweep` 增**「组合透传」静态检查器**（H3）——
-首跑即抓出两处真缺口（`agent_selfcheck→app_clone`、`swe_repair→ide_break`，均被门拒
-后静默退化，S130 同病灶型），已修并回归；③家族选型表进 skills（检索四件套 /
-全家桶入口四件套）；④README 新增**词汇表**节（`root`/`path`/`file` 三分 +
-`kind`/`engine`/`flow` + `skipped`/`__authorized`）。历史链：S131 bug_scan 八规则
-（配 KB 联动）+ breaker 组归位 + [spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)；
-S130 gpu 拆分 + ide_diagnostics 挂门实锤修复 + ruff/mypy 探测；S128 跨文件污点链
-（REPLAY 3/3、131 ≤ 755/2）；S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）
-+ CI 首次完整跑绿（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest
-3.14 = 800 passed + 4 skipped、3.11 = 802 passed + 2 skipped（skip 为外部资产环境性）；
-cargo 190 绿 + clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS /
-EXE_TAG）。整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，
-现状坐标见 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见
-[spec/ROUNDLOG.md](spec/ROUNDLOG.md)，加固红线与 CI 门禁见
-[spec/HARDENING.md](spec/HARDENING.md)。
+**当前 v2.50.0（S133）**：71 工具 / 12 域；**attack 巡航收官 + 键语言统一**——
+①新工具 `attack_cruise`（attack 域第 6 件）：全攻击面一键巡航——薄聚合
+（同 ide_doctor 惯例）授权门自审 + 路径探针 + 主动模糊（input_fuzz×big_input），
+默认四靶电池=对本包回归式对抗，`targets` 可增补；输出 verdict（clean/issues）+
+failures/errors 全量列出不吞；首跑 clean（1.8s）——CONSOLIDATION §四 P3 收官。
+②**M1 键语言统一**：`auth_gate_sweep` 输出键英文化（评审复核修正：初评误报三件，
+实锤仅此一件；game 两件的中文在值里=合规）——至此 71 工具"中文进值不进键"零例外。
+历史链：S132 设计评审整改第一波（H1 授权三档/H3 组合透传检查器/M4 选型表/词汇表）；
+S131 bug_scan 八规则 + breaker 组归位 + [spec/DESIGN-REVIEW.md](spec/DESIGN-REVIEW.md)；
+S130 gpu 拆分 + ide_diagnostics 挂门实锤修复；S128 跨文件污点链（REPLAY 3/3）；
+S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+ CI 首次完整跑绿
+（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest 3.14 = 804 passed
++ 4 skipped、3.11 = 806 passed + 2 skipped（skip 为外部资产环境性）；cargo 190 绿 +
+clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。
+整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
+[spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
+加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 
 ## 与旧版 unified-rx-mcp 的关系
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **70 个组合工具 / 12 域** |
+| 工具面 | 183（注入面 200+） | **71 个组合工具 / 12 域** |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（12 域 · 70 工具）
+## 工具面（12 域 · 71 工具）
 
 | 域 | 工具 |
 |---|---|
@@ -48,7 +48,7 @@ EXE_TAG）。整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLI
 | ⚙️ ops (5) | `backup` `scan_log` `usage_stats` `project_health` `lesson_stats` |
 | 🎮 game (2) | `game_check` `blender_verify` |
 | 🚀 engine (2) | `engine_status` `engine_query` |
-| 🕵️ attack (5) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` — 自攻面常驻 |
+| 🕵️ attack (6) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航） — 自攻面常驻 |
 | 🧬 appaudit (3) | `app_audit` `app_clone` `app_clean` |
 | 🧰 meta (3) | `local_run` `process` `gpu_status` — 授权门控 / GPU 遥测 |
 

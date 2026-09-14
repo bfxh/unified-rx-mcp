@@ -710,3 +710,32 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   cargo **190 绿** + clippy **零告警**；selftest 五线全绿（VERSION_TAG NEXT=tag 前
   正确态 / 组合透传已入 sweep 但 selftest 不涉）；版本锁步 **2.49.0 ×5**。
 - 提交：本次
+
+## S133 · 实施轮七：attack 巡航收官（P3）+ 键语言统一（M1，含评审误报自纠）
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.49.0 → **2.50.0**（tag v2.50.0）
+- **P3 attack_cruise**（attack 域第 6 件，总数 70→**71**）：全攻击面一键巡航——薄聚合
+  （同 ide_doctor 惯例不造新检测）：auth_gate_sweep + path_probe + input_fuzz×big_input；
+  默认四靶电池（fs_read/locate_edit/code_search/bug_scan，`<pkg>` 占位替换包目录——对
+  本包自身做回归式对抗），`targets` 增补任意工具、`battery=false` 只跑增补、`big=false`
+  跳大输入；统一报告 gates/passive/fuzz/big + **failures/errors 全量列出不吞** + verdict
+  （clean/issues）。**首跑 clean、1.8s**（4 靶 × 12 模糊用例 + 3 大输入 + 门自审 + 路径
+  探针）。档位=纯自审不挂门（HARDENING §七）；挂门靶经 targets 增补时其模糊调用得
+  授权拒绝 = PASS-reject（合法判定，写进 note）。测试 +4（注册/schema、自清洁全断言、
+  增补靶生效 + 未知工具进 errors 且 verdict=issues 不吞、坏 targets 形状清晰错）。
+- **M1 键语言统一 + 评审误报自纠**：auth_gate_sweep 输出键英文化（total_tools/
+  gated_count/gated/deny_missing/declared_missing/forced_missing/manual_gate/
+  manifest_consistency/compose_passthrough），test_s77 七处断言同步——71 工具
+  「中文进值不进键」零例外。**自纠**：S131 评审静态粗筛报三件（attack+game 两件），
+  本轮复核实锤仅 auth_gate_sweep 一件——game 两件中文在**值**里（summary/note 文案）
+  属合规；DESIGN-REVIEW M1 已按修正重写并留误报记录（"粗筛证据要过人工复核"的又一样本）。
+- 过程项：test_s77 键替换脚本首版把长断言拆行写坏缩进（IndentationError 当场红）；
+  skills/attack.md 巡航契约用 rstrip 追加（与 S131 同类操作同法，避开 heredoc 转义坑
+  ——本轮改用 TEMP 脚本 + Write 工具落地全部补丁）。
+- 计数门随动：README ×5（71 个工具/工具面头/对比表/attack 行）、PANORAMA 71/attack(6)、
+  skills/README attack 6、test_v2 上限 71、test_s127 ==71。
+- 验证：3.14 全量 **804 passed + 4 skipped**（+4）；3.11 全量 **806 passed + 2 skipped**；
+  cargo **190 绿** + clippy **零告警**；selftest 五线全绿（VERSION_TAG NEXT=tag 前
+  正确态）；版本锁步 **2.50.0 ×5**。
+- **缺口清单清零**：CONSOLIDATION §五 全部项目已兑（P0-A/P0-B撤/P1-A/P1-B/P2-A/P2-B/
+  C1/C1b/C2/H1/H2/H3/M1/M4/P3），仅 M2（metrics 组轴错位）挂"下次动刀顺手"批次。
+- 提交：本次

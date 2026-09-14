@@ -17,17 +17,18 @@ def test_sweep_all_clean():
     assert r["ok"] is True, r
     res = r["result"]
     assert res["ok"] is True, f"门审计发现缺口: {res}"
-    assert res["漏拒绝"] == [] and res["漏声明"] == [] and res["门参数未强制"] == [], res
-    assert res["manifest一致性"] == "pass", res
-    assert res["总工具数"] == len(registry.list_tools())
-    assert res["挂门数"] >= 17, f"S73/S75 已挂门的工具不应凭空减少: {res['挂门数']}"
+    assert (res["deny_missing"] == [] and res["declared_missing"] == []
+            and res["forced_missing"] == []), res
+    assert res["manifest_consistency"] == "pass", res
+    assert res["total_tools"] == len(registry.list_tools())
+    assert res["gated_count"] >= 17, f"S73/S75 已挂门的工具不应凭空减少: {res['gated_count']}"
     # S77：ide_lsp 混合读写（读开放 + rename_apply handler 内自查）声明手动门
-    assert res["手动门"] == ["ide_lsp"], res["手动门"]
+    assert res["manual_gate"] == ["ide_lsp"], res["manual_gate"]
 
 
 def test_sweep_gated_list_contains_known():
     r = registry.call("auth_gate_sweep", {})
-    gated = set(r["result"]["挂门清单"])
+    gated = set(r["result"]["gated"])
     # S73/S75 逐个手工挂的门，自审必须全部看见
     for name in ("blender_verify", "process", "backup", "code_coverage",
                  "app_clone", "fs_write", "local_run", "ide_edit_multi"):
@@ -54,7 +55,7 @@ def test_sweep_manifest_high_privilege_matches():
     """manifest"高权限"段（S75）与自审挂门清单是同一事实的两个投影，必须一致。"""
     sweep = registry.call("auth_gate_sweep", {})["result"]
     manifest = registry.call("capability_manifest", {})["result"]
-    assert set(sweep["挂门清单"]) == set(manifest["高权限"]["工具"])
+    assert set(sweep["gated"]) == set(manifest["高权限"]["工具"])
 
 
 # ---------- S132（DESIGN-REVIEW H3）：组合透传静态自审 ----------
@@ -86,4 +87,4 @@ def test_passthrough_real_repo_is_clean():
 def test_sweep_reports_passthrough_key():
     r = registry.call("auth_gate_sweep", {})
     assert r["ok"] is True, r
-    assert r["result"]["组合透传"] == "pass", r["result"]
+    assert r["result"]["compose_passthrough"] == "pass", r["result"]

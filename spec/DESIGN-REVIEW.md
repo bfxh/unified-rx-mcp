@@ -53,13 +53,14 @@ swe_repair 两处）。**没有检查器**：下次谁再写一个组合工具�
 
 ## 二、中优先（一致性债，无即时事故但持续摩擦）
 
-### M1 输出键语言分裂：3 件中文键 vs 67 件英文键
-证据：`tools/attack.py:210-213`（`auth_gate_sweep` 的 `总工具数/挂门数/挂门清单/
-漏拒绝/漏声明/一致性`）；`game_check`、`blender_verify`（tools/game.py）同为
-中文顶层键。其余全部英文键。
-伤害：消费方（agent/脚本）不能假设键语言；`skipped`/`engine` 等英文约定的对偶
-缺席。建议：**新面一律英文键**（中文进值不进键）；存量三件在下次因其他原因
-动刀时顺手改并留一版兼容期（或在 skills 标注）。不专程改（收益 < 破坏面）。
+### M1 输出键语言分裂（**S133 已修 + 证据修正**）
+复核修正（S133）：初评时静态粗筛误报了三件——实锤**仅 `auth_gate_sweep` 一件**
+持中文**键**（`tools/attack.py` 原 总工具数/挂门数/…）；`game_check`/`blender_verify`
+的中文在**值**里（摘要/note 文案）= 合规（"中文进值不进键"）。
+修复：S133 随 attack_cruise 落刀时一次改名为英文键（total_tools/gated_count/
+gated/deny_missing/declared_missing/forced_missing/manual_gate/
+manifest_consistency/compose_passthrough），test_s77 与 skills 同步——至此
+全仓 71 工具键语言一致，"中文进值不进键"成为无例外惯例。
 
 ### M2 组/模块双轴错位：metrics 三件挂 scan 组；project_health 在 ops
 证据：`code_coverage`/`dep_graph`/`module_stability` 实现在 `tools/metrics.py`

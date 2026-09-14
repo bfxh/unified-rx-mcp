@@ -1,4 +1,4 @@
-# attack 域（input_fuzz/path_probe/big_input/auth_gate_sweep/rust_taint_scan）
+# attack 域（input_fuzz/path_probe/big_input/auth_gate_sweep/rust_taint_scan/attack_cruise）
 - 自写对抗用例生成器：路径逃逸/注入串/大输入三类
 - 里子：不是 hypothesis 属性测试；S29 的 5 洞是人工对抗测试抓的
 - auth_gate_sweep（S77，VULN-HUNTING P0-a）：全工具授权门自审——挂门必拒未授权
@@ -19,3 +19,11 @@
   不变（实参被净化 or callee 内净化都截断链）；cross=false 逐字节回到 S78 文件内
   语义（A/B 对照）。exe 自动发现 TEMP/rx-rs-target，缺失时清晰报错不静默降级；
   naive=true 走旧全参数模式供对照验收
+- **attack_cruise（S133，CONSOLIDATION §四 P3）**：全攻击面一键巡航——薄聚合
+  （同 ide_doctor 惯例，不造新检测）：授权门自审（auth_gate_sweep）+ 被动探针
+  （path_probe 8 形态）+ 主动模糊（input_fuzz × big_input）。默认四靶电池=对本包
+  自身回归式对抗（fs_read/locate_edit/code_search/bug_scan，`<pkg>` 占位替换为包目录）；
+  `targets` 增补任意工具（{tool_name, base_args, fuzz_field}）、`battery=false` 只跑增补、
+  `big=false` 跳大输入。输出统一报告：gates/passive/fuzz/big + **failures/errors
+  全量列出不吞** + verdict（clean/issues）。档位（HARDENING §七）：纯自审不挂门；
+  增补挂门靶时其模糊调用得「授权拒绝」= PASS-reject 属合法判定。

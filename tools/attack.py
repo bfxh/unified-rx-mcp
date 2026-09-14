@@ -268,17 +268,19 @@ def auth_gate_sweep():
         if r.get("ok") or "授权" not in str(r.get("error", "")):
             deny_missing.append(n)
     mr = rx_call("capability_manifest", {})
-    manifest_gated = set(((((mr.get("result") or {}).get("高权限")) or {}).get("工具")) or [])
+    manifest_gated = set((((mr.get("result") or {}).get("高权限")) or {}).get("工具") or [])
     diff = sorted(manifest_gated ^ set(gated))
     # S132/H3：组合透传静态自审（字面量纪律；见 _compose_passthrough_scan）
     passthrough = _compose_passthrough_scan()
     ok = (not (deny_missing or declared_missing or forced_missing)
           and not diff and not passthrough)
-    return {"总工具数": len(_TOOLS), "挂门数": len(gated), "挂门清单": gated,
-            "漏拒绝": deny_missing, "漏声明": declared_missing,
-            "门参数未强制": forced_missing, "手动门": manual,
-            "manifest一致性": "pass" if not diff else f"fail: {diff}",
-            "组合透传": "pass" if not passthrough else passthrough,
+    # S133/M1：输出键统一英文（值内中文照旧）——本工具是最后一件中文键持有者，
+    # 改名即全仓 71 工具键语言一致（DESIGN-REVIEW M1 修正：实锤仅此一件）。
+    return {"total_tools": len(_TOOLS), "gated_count": len(gated), "gated": gated,
+            "deny_missing": deny_missing, "declared_missing": declared_missing,
+            "forced_missing": forced_missing, "manual_gate": manual,
+            "manifest_consistency": "pass" if not diff else f"fail: {diff}",
+            "compose_passthrough": "pass" if not passthrough else passthrough,
             "ok": ok}
 
 
@@ -347,3 +349,101 @@ def rust_taint_scan(root, naive=False, cross=True):
     out["naive"] = bool(naive)
     out["cross"] = bool(cross and not naive)
     return out
+
+
+# ---- S133（CONSOLIDATION §四 P3）：attack 巡航——全攻击面一键自检 ----------------
+# 薄聚合（同 ide_doctor 惯例）：不造新检测，编排 gate 审计 + 被动探针 + 主动模糊，
+# 统一报告与 verdict。默认电池=对本包自身做回归式对抗（fs_read/locate_edit/
+# code_search/bug_scan 四靶 × input_fuzz + big_input）；targets 可增补任意工具。
+# 档位（HARDENING §七）：纯自审——不挂门；电池靶均非挂门工具，用户增补挂门靶时
+# 其模糊调用会得"授权拒绝"（PASS-reject，属合法判定）。
+
+_CRUISE_BATTERY = (
+    ("fs_read", {"path": "<pkg>"}, "path"),
+    ("locate_edit", {"path": "<pkg>", "query": "def"}, "query"),
+    ("code_search", {"root": "<pkg>", "query": "read"}, "query"),
+    ("bug_scan", {"path": "<pkg>"}, "path"),
+)
+
+
+@tool("attack_cruise",
+      "攻击面巡航（S133）：一键编排——授权门自审（auth_gate_sweep）+ 被动探针"
+      "（path_probe）+ 主动模糊（input_fuzz×big_input，默认四靶电池可 targets 增补）"
+      "→ 统一报告与 verdict（clean/issues）；纯自审不挂门，失败项全量列出不吞",
+      "attack",
+      {"type": "object",
+       "properties": {
+           "targets": {"type": "array",
+                       "description": "增补靶：数组项 {tool_name, base_args, fuzz_field}",
+                       "items": {"type": "object"}},
+           "battery": {"type": "boolean",
+                       "description": "是否跑默认四靶电池（默认 true；false 时只跑 targets）"},
+           "big": {"type": "boolean",
+                   "description": "是否含 big_input 大输入边界（默认 true）"},
+       },
+       "required": []})
+def attack_cruise(targets=None, battery=True, big=True):
+    from registry import call as rx_call
+    pkg = os.path.dirname(os.path.abspath(__file__))
+    plan = []
+    if battery:
+        plan.extend(_CRUISE_BATTERY)
+    for t in targets or []:
+        try:
+            plan.append((str(t["tool_name"]), dict(t["base_args"]),
+                         str(t["fuzz_field"])))
+        except (KeyError, TypeError, ValueError):
+            return {"error": "targets 项需为 {tool_name, base_args, fuzz_field}"}
+
+    failures = []
+    errors = []
+
+    gr = rx_call("auth_gate_sweep", {})
+    gates = gr.get("result") if gr.get("ok") else None
+
+    pr = rx_call("path_probe", {})
+    passive = pr.get("result") if pr.get("ok") else None
+
+    fuzz, bigs = [], []
+    for tool, base, field in plan:
+        args = {k: (pkg if v == "<pkg>" else v) for k, v in base.items()}
+        fr = rx_call("input_fuzz", {"tool_name": tool, "base_args": args,
+                                    "fuzz_field": field})
+        if fr.get("ok"):
+            res = fr["result"]
+            fuzz.append({"tool": tool, "field": field, "cases": res.get("cases"),
+                         "failures": res.get("failures")})
+            for c in res.get("results") or []:
+                if str(c.get("verdict", "")).startswith("FAIL"):
+                    failures.append(f"input_fuzz {tool}.{field}: "
+                                    f"{c.get('case')} → {c.get('verdict')}")
+        else:
+            errors.append(f"input_fuzz({tool}) 未能执行: {str(fr.get('error'))[:120]}")
+        if big:
+            br = rx_call("big_input", {"tool_name": tool, "base_args": args,
+                                       "fuzz_field": field})
+            if br.get("ok"):
+                res = br["result"]
+                bigs.append({"tool": tool, "all_pass": res.get("all_pass"),
+                             "cases": [c.get("case") for c in res.get("cases") or []]})
+                if not res.get("all_pass"):
+                    failures.append(f"big_input {tool}.{field} 未全过")
+            else:
+                errors.append(f"big_input({tool}) 未能执行: {str(br.get('error'))[:120]}")
+
+    if gates is None:
+        errors.append("auth_gate_sweep 未能执行")
+    elif gates.get("ok") is not True:
+        failures.append("授权门自审未过（见 gates 字段）")
+    if passive is None:
+        errors.append("path_probe 未能执行")
+    elif passive.get("all_safe") is not True:
+        failures.append("路径探针未全安全（见 passive 字段）")
+
+    verdict = "clean" if not failures and not errors else "issues"
+    return {"root": pkg, "verdict": verdict,
+            "gates": gates, "passive": passive, "fuzz": fuzz, "big": bigs,
+            "failures": failures, "errors": errors,
+            "note": "巡航=编排既有攻击面工具（薄聚合不造新检测）；input_fuzz 的 "
+                    "FAIL-noise=空查询返回非空结果类噪音；capacity 档位=纯自审"
+                    "（HARDENING §七），挂门靶经 targets 增补时拒绝即 PASS-reject"}

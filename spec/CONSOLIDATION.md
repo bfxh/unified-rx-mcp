@@ -198,7 +198,7 @@ cruise 模式跑全攻击面自检并出统一报告（attack 域内薄聚合，
 4. ~~P0-A taint×callgraph~~ → **S128 已兑**（见 §四 P0-A 与 §八）
 5. ~~P1-A~~ / ~~P1-B~~ / ~~P1 拆分（lsp）~~ → **S129 已兑**；**gpu 拆分 + C1b
    剩余（cache 记账交织 walk 如实不并）→ 下一轮第一优先**
-6. ~~P2-A~~（S130）/ ~~P2-B~~ ~~C2~~（S131）/ ~~H1 授权三档~~ ~~H3 组合透传检查器~~ ~~M4 选型表~~ ~~H2+M3 词汇表~~（**S132 已兑**）——**剩 P3（attack 巡航）+ M1/M2（下次动刀顺手批次）**；评审全文 spec/DESIGN-REVIEW.md
+6. ~~P2-A~~（S130）/ ~~P2-B~~ ~~C2~~（S131）/ ~~H1~~ ~~H3~~ ~~M4~~ ~~H2+M3~~（S132）/ ~~P3 attack 巡航~~ ~~M1 键语言~~（**S133 已兑**）——**清单清零**；仅 M2（metrics 组轴错位）挂「下次动刀顺手」批次；评审全文 spec/DESIGN-REVIEW.md
 
 每步通用门禁：测试先行或同步迁移、注册名与工具面不破坏（A 级项需 deprecation
 说明）、计数门 69 不变、selftest 对账、pytest+cargo 双绿才准合入（pre-commit 强制）。
@@ -313,6 +313,22 @@ definite 131(+1) / cross_flows 7 / ambiguous 80——净新增 0 如实入档。
 - **H2+M3 词汇表**：README「词汇表」节（root/path/file 三分 + kind/engine/flow
 
   + skipped/__authorized），存量词汇不追溯改名（破坏面结论入表）。
+**S133 实施记录（P3 巡航 + M1 键语言，第七实施轮）**：
+- **P3 attack_cruise**（attack 域第 6 件，总 71）：薄聚合（同 ide_doctor 惯例，不造
+  新检测）——授权门自审 + path_probe 8 形态 + input_fuzz×big_input；默认四靶电池
+  （fs_read/locate_edit/code_search/bug_scan，`<pkg>` 占位替换包目录，本包回归式
+  对抗）+ targets 增补 + battery/big 开关；输出 gates/passive/fuzz/big + failures/
+  errors 全量不吞 + verdict；档位=纯自审不挂门（HARDENING §七）。**首跑 clean
+  （1.8s，四靶 12 用例×4 + 大输入 3×4）**。测试 4 例（注册/schema、自清洁、
+  增补靶与未知工具进 errors 不吞、坏 targets 形状清晰错）。
+- **M1 键语言统一 + 评审证据修正**：auth_gate_sweep 输出键改英文（total_tools/
+  gated_count/gated/deny_missing/declared_missing/forced_missing/manual_gate/
+  manifest_consistency/compose_passthrough），test_s77 同步——至此 71 工具
+  「中文进值不进键」零例外。**修正**：初评（S131）粗筛误报三件，复核实锤仅
+  auth_gate_sweep 一件（game 两件中文在值里=合规）——DESIGN-REVIEW M1 已按修正
+  重写（误报自纠入档）。
+- 计数门全套随动：README ×5、PANORAMA attack(6)/71、skills/README attack 6、
+  test_v2 上限 71、test_s127 ==71；skills/attack.md 头 + 巡航契约。
 
 **S130 实施记录（gpu 拆分收尾 + P2-A，第四实施轮）**：
 - **gpu 拆分**（§三 P1，上轮延后项）：gpu.py 658 → 运行时约 400 行；kernel 三簇
