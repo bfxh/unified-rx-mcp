@@ -8,19 +8,22 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.53.0（S136）**：71 工具 / 13 域；**M2 组轴归位——设计评审清单全清**——
-①**新建 metrics 组**收 `code_coverage`/`dep_graph`/`module_stability`（与模块
-`tools/metrics.py` 两轴对齐；S52 自立度量域时组轴没跟上）+ `project_health` 自 ops
-归 scan（评分=三路扫描语义）；scan 15→13、ops 5→4，文档/计数门全套随动。
-②**里程碑**：DESIGN-REVIEW（S131 立）全部条目清账——H1 授权三档/H3 组合透传检查器/
-M4 选型表/H2+M3 词汇表（S132）、M1 键语言（S133）、M2 组轴（S136），L 系记录在案。
-历史链：S135 库选型理念立文（[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)，
-跨项目）+ ide_dead_code 原生化（HARDENING §六 Rust 候选清零）；S134 secrets_hunt
-原生化（3.5×）；S125 `ide_callgraph`（[spec/CALLGRAPH.md](spec/CALLGRAPH.md)）+
-CI 首次完整跑绿（`SECRETS-GATE OK` / `CI-GATE OK` / `EXE_TAG ok=9`）。本地 pytest
-3.14 = 805 passed + 4 skipped、3.11 = 807 passed + 2 skipped；cargo **200 绿** +
-clippy 零告警；selftest 机器对账三行全绿（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。
-整合除重与升级路线见 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
+**当前 v2.54.0（S137）**：71 工具 / 13 域；**按库分类清单 + copy-based 全量审计**——
+①[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md) 新增 **§六 外部组件清单（按库分类，
+对外口径）**：九类·每件"怎么接→探测降级→版本姿势→关联工具"；
+②**挂账最久的审计欠账清收**：Mimosa 深扫只跑副本（纪律）——首轮 59 条
+（seal 7890b599…，工具标记 inconclusive 如实记录）→ 逐条分类（产品面 1 实锤 /
+1 设计内 / 2 FP / 3 组沙盒门已核实；bench 面=开发夹具面）→ **实锤修复：`local_run`
+的 `shell=True` 与"argv 直传"契约自相矛盾 → 改 argv 执行** → 复审 57 条
+（seal 3159dfad…）：**唯一差量=修掉的两条、零新增**；两次均 inconclusive →
+欠账**部分收敛、继续挂账，不宣称安全**（台账见 HARDENING §四·补）；
+③债务扫尾：`_rx_appops_exe` 死件删除、ROADMAP 冻结注记指向现行三文档。
+历史链：S135 库选型理念 + ide_dead_code 原生化（Rust 候选清零）；S134 secrets
+原生化 3.5×；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `CI-GATE OK` /
+`EXE_TAG ok=9`）。本地 pytest 3.14 = 805 passed + 4 skipped、3.11 = 807 passed
++ 2 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
+（VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与升级路线见
+[spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
 加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 

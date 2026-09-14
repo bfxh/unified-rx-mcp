@@ -247,7 +247,8 @@ def test_s86_old_python_internals_retired():
     for gone in ("shutil.copyfileobj", "shutil.copystat", "shutil.rmtree",
                  "os.walk", "hashlib.sha256", "time.strftime"):
         assert gone not in src, f"旧实现残留在 Python 侧: {gone}"
-    for kept in ("_rx_appops_exe", "_rx_appops_call", "app_clone", "app_clean",
+    # S136 决策：_rx_appops_exe 系重复访问器（calls 全走 _rs_exe 直取）→ 删
+    for kept in ("_rx_appops_call", "app_clone", "app_clean",
                  "_strictly_under", "_sandbox_root", "_rs_exe"):
         assert hasattr(aa, kept), f"薄壳/沙盒锚必须保留: {kept}"
 

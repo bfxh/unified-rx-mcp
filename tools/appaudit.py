@@ -127,9 +127,6 @@ def _rx_appops_call(op, *args):
     return out
 
 
-def _rx_appops_exe():
-    return _rs_exe(_RX_APPOPS_EXE_NAME)
-
 
 @tool("app_audit", "审计隔离沙箱内的克隆（拒绝原件路径）：JS危险面/秘密掩码采集/URL清单/二进制盘点/asar提取后复扫", "appaudit",
       {"type": "object",

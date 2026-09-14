@@ -52,3 +52,77 @@ ast-grep、OpenCL 运行时、codegraph、ruff/mypy/pyflakes、cargo/go/javac/gc
 - 旧版本设计缺陷当"库不行"结论（先看最新版本再下结论）；
 - 为省 token 而自研（省了读库的 token，赔上写+测+维护三倍）；
 - 为用库而用库（理念不合硬接 = 长期 token 黑洞）。
+
+## 六、外部组件清单（**按库分类**，S137 立；对外口径）
+
+> 每类给出：组件 → 本仓怎么接 → 探测/降级 → 版本姿势（三问核查点）→ 关联工具。
+> 总纪律：**本仓零 pip/crate 依赖，全部外接走"能力探测薄壳"**（§二）；装了就
+> 用、没装如实报（skipped/清晰错误），任何组件缺席都不假装。
+
+### ① 语言服务（LSP）
+- **rust-analyzer** → `ide_lsp` 会话（stdio JSON-RPC，本仓手写协议层）→ 未装
+  status 如实报 detected=false；`ide_impact` 三级降级到解析级/文本级 →
+  版本姿势：用当前稳定线；本机曾遇"ra 冷启动首索 19s+"（测试侧有界重试已入档）。
+- **pylsp（python-lsp-server）+ jedi** → 同 `ide_lsp` → **版本姿势案例**：
+  jedi≥0.20 的 goto 返回空（设计变更）→ 环境钉 jedi<0.20（0.19.2）——"这个库
+  不行"实为版本问题，钉线即解（CLAUDE 纪律：钉版本要写明理由+升级路径）。
+
+### ② 静态分析与类型检查
+- **ruff**（优先）→ `ide_diagnostics` 探测薄壳：`check --output-format=json
+  --no-cache` → 未装回退 **pyflakes**（文本行解析）→ 都没有进 skipped →
+  版本姿势：ruff 是本类**前沿首选**（Rust 实现快 + JSON 稳定输出）。
+- **mypy**（类型面，独立）→ 同通道；缓存钉 TEMP；未装如实报。
+- **ast-grep**（结构搜索 `$VAR`）→ `ast_grep` 薄壳 → 未装清晰报错给安装提示 →
+  版本姿势：模式即代码的现代结构化搜索（优于纯正则的升级路径）。
+- **rust clippy**（随工具链）→ `ide_diagnostics`/`ide_build` lint → `cargo`
+  可缺即 skip 不假装。
+
+### ③ 构建/测试工具链
+- **cargo / rustc（edition 2024，最新 stable）** → `ide_build`/`ide_test` 薄壳 →
+  缺失清晰报错 → **版本姿势=前沿**：Rust 侧按最新语言特性写（let-chains、
+  `as_chunks` 等已用；S130 教训：老 clippy 不报的新规则 CI 会报——本地零告警≠CI）。
+- **go toolchain** → `ide_build`（go build）/`ide_test`（go test）→ 同上。
+- **JDK（javac）** → `ide_build`；**本地化消息坑**：强制 `-J-Duser.language=en`。
+- **gcc/g++** → `ide_build -fsyntax-only`；**LC_ALL=C** 同款本地化坑。
+- **pytest（+本仓 `urx_tia_plugin`）** → `ide_test`（TIA 测试影响分析）。
+
+### ④ 调试器（frozen 纪律：轻依赖优先）
+- **pdb/settrace（Python 内建）** → `ide_break` 零依赖记录器（locals+栈+条件断点，
+  条件求值=调试器语义内的 eval，授权门后设计内）；**jdb（JDK）** → java 断点；
+  **dlv（Go）** → go 断点；**gdb/lldb（Rust）缺**→ 如实报错不假装。
+
+### ⑤ 检索与索引引擎
+- **codegraph（@colbymchenry/codegraph，Node 运行时）** → `engine_query` 优先、
+  无命中降级 BM25；运行时由宿主（Yan Agent resources）注入 →
+  版本姿势：符号级+调用链+爆炸半径的**当代设计**，属"单点接开源最强"的头号件。
+- **codebase-memory** → `engine_status` 探测位（未接入即如实报）。
+- **SCIP 索引产物**（rust-analyzer scip / scip-python 等外部生成）→ `scip_refs`
+  只读消费（本仓手写 protobuf 解析）→ 不生成索引、新鲜度归生成方。
+- **本仓自研薄引擎**（BM25/tf-idf/PageRank/nameres 调用图）：结构分析自研、
+  语义引擎外接——这是本仓对"单点接开源最强"的**边界声明**（零依赖下自研
+  薄引擎 ≠ 重复造语义引擎）。
+
+### ⑥ 计算加速
+- **OpenCL 运行时（GPU 驱动自带）** → filescan/neardupes 内核；交叉点实测选路
+  （Rust/GPU/CPU 三档）→ 无 GPU 明确降级 → 版本姿势：跨厂商、零 pip，
+  优于 CUDA 私有的当前选择（nvcc 未装）。
+- **Rust 本体** → 逐域原生化（S78 起 18 件薄壳）；**语言新特性优先于 crate**
+  （零供应链面）：edition 2024、手写 JSON/解析器/匹配器。
+
+### ⑦ 宿主与协议
+- **MCP 协议** → 手写 stdio JSON-RPC（**刻意不接 mcp SDK**：协议面自持，
+  审计 100% 可控——理念取舍的实例）；**ZCode 宿主**（skills/plugins/hooks；
+  breaker 插件）；**Yan Agent**（消费方，稳定版接入点 `D:\rj\MCP`）。
+
+### ⑧ 系统与桌面工具
+- **git（只读：diff/archive/log）** → code_review/-diff 模式、module_stability、
+  CI 门禁；**Windows tasklist/taskkill** → `process`；**VS Code** → `ide_vscode`
+  最后后手（分离拉起）；**Blender（bpy --background）** → `blender_verify`
+  /game 域；**Umi-OCR（HTTP 127.0.0.1 + CLI 双通道）** → 同件读界面文字；
+  **duckdb** → bench 对拍（`importorskip`，非硬依赖）。
+
+### ⑨ 安全审计（外部消费者，非被接组件）
+- **Mimosa**（独立安全扫描；本仓按其纪律 **copy-based 全量审计**，S137 起
+  落账于 HARDENING §四）；**GitHub push protection**（推送侧兜底）；
+  **本仓 secrets gate**（自扫 CI 每周 + 每次推送）。
+

@@ -848,3 +848,26 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   cargo **200 绿** + clippy **零告警**；selftest 五线全绿（GROUPS 13 组 71 工具）；
   版本锁步 **2.53.0 ×5**。
 - 提交：本次
+
+## S137 · 实施轮十一：按库分类清单 + copy-based 全量审计（欠账清收）+ 债务扫尾
+- 项目：unified-rx-mcp｜时间：2026-09-14｜版本 2.53.0 → **2.54.0**（tag v2.54.0）
+- **按库分类清单**（用户指令"还是需要按库分类的，对外也是一样"）：
+  spec/LIBRARY-POLICY.md 新增 §六 外部组件清单——九类（语言服务/静态分析/构建
+  测试链/调试器/检索索引/计算加速/宿主协议/系统桌面/安全审计），每件给"怎么接
+  →探测降级→版本姿势（三问核查点）→关联工具"；对外口径（含 pylsp-jedi 钉版
+  案例、codegraph 当代设计、MCP 手写不接 SDK 的理念取舍、自研薄引擎的边界声明）。
+- **Mimosa copy-based 全量审计**（挂账最久的欠账，纪律=只扫副本）：
+  ①首轮深扫（git archive 副本，seal 7890b599…，59 条，**inconclusive**——工具侧
+  覆盖缺口如实记录）；②逐条分类：产品面 7 处（1 实锤 / 1 设计内 / 2 FP /
+  3 组沙盒门已核实）+ bench 面 ~45（开发夹具面）+ 冻结快照 6；③**实锤修复**：
+  `local_run` 的 `shell=True` 与"argv 直传不走 shell"契约自相矛盾——改切分+argv
+  执行（posix=True 吃 Windows 反斜杠的坑被测试当场抓出 → 非 posix+剥引号），
+  cancel/后台/心跳全链复测 28/28；④**复审**（工作树新副本，seal 3159dfad…，57 条）：
+  **唯一差量=修掉的两条，零新增**（铁证）；仍 inconclusive → 欠账部分收敛、
+  继续挂账不宣称安全（HARDENING §四·补台账 + §六状态更新）。
+- **债务扫尾**：`_rx_appops_exe` 死件删除（S126 挂账决策=删；kept 名单同步，
+  appaudit 16/16）；`ROADMAP.md` 加状态注记（早期路线图冻结，指向 PANORAMA/
+  VULN-HUNTING §五/LIBRARY-POLICY/HARDENING 三份现行文档）。
+- 验证：3.14 全量 **805 passed + 4 skipped**；3.11 全量 **807 passed + 2 skipped**；
+  cargo **200 绿** + clippy **零告警**；selftest 五线全绿；版本锁步 **2.54.0 ×5**。
+- 提交：本次

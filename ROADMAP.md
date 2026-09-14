@@ -1,5 +1,12 @@
 # unified-rx-v2 ROADMAP
 
+> **状态注记（S136）**：本文档为**早期路线图**（2026-08-24 批次，34 工具纪元）——
+> 历史保留、不再逐轮维护。现行路线看：[spec/PANORAMA.md](spec/PANORAMA.md)（现状坐标）、
+> [spec/VULN-HUNTING.md](spec/VULN-HUNTING.md) §五（Rust 路线图，候选已清零）、
+> [spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)（库选型理念与按类清单）、
+> [spec/HARDENING.md](spec/HARDENING.md)（加固红线与 CI 门禁）。
+
+
 > 定位：本地工具代替智能体体力活的平台。方向已由用户确认（2026-08-24）：
 > ①修环境 ②按"每类事 1~2 工具"收敛 ③单点接开源最强 ④保留独有（游戏扫描/防幻觉/Blender/全流程）。
 

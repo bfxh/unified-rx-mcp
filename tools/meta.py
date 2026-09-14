@@ -11,6 +11,7 @@ local_run：白名单命令执行（收敛自旧版 local_run + local_tools）�
 - P7: _ALLOWED 含反斜杠（Windows 路径必需）
 """
 import os
+import shlex
 import subprocess
 import threading
 import time
@@ -156,16 +157,30 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
     # 残留未填充占位符 → 明确报错（不误报"不安全字符"）
     if "{" in cmd or "}" in cmd:
         return {"error": f"命令含未填充占位符: {cmd}；请补全 args"}
-    # 参数安全校验（防 shell 注入）
+    # 参数安全校验（防 shell 注入；argv 化后仍保留为纵深防线）
     if any(c not in _ALLOWED for c in cmd):
         return {"error": f"命令含不安全字符，拒绝执行: {cmd}"}
+    # S137（Mimosa 副本全量审计实锤）：此前 Popen(shell=True) 与"argv 直传不走
+    # shell"的契约自相矛盾——改切分为 argv、shell=False 执行（模板全为 argv
+    # 形态无 shell 运算符）。**非 posix 切分 + 手剥引号**：posix=True 会把
+    # Windows 路径的 `\` 当转义符吃掉（`C:\Users` 打成 `C:Users`，测试当场
+    # 抓出）；非 posix 保留引号、不处理反斜杠，剥壳后等价 shell 语义。
+    try:
+        lx = shlex.shlex(cmd, posix=False)
+        lx.whitespace_split = True
+        argv = [tok[1:-1] if len(tok) >= 2 and tok[0] == tok[-1]
+                and tok[0] in "\"'" else tok for tok in lx]
+    except ValueError as e:
+        return {"error": f"命令切分失败（引号不配对）: {e}"}
+    if not argv:
+        return {"error": "空命令"}
     env = {**os.environ, "PYTHONUTF8": "1"}
     try:
         if background:
             # P3：后台运行，立即返回 PID（长驻命令专用）
             from registry import notify
             notify("info", f"local_run 后台启动: {cmd[:80]}")
-            p = subprocess.Popen(cmd, shell=True, cwd=workdir, env=env,
+            p = subprocess.Popen(argv, shell=False, cwd=workdir, env=env,
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             return {"ok": True, "background": True, "pid": p.pid,
@@ -173,7 +188,7 @@ def local_run(domain, name, args=None, workdir=None, timeout=60, background=Fals
         # 同步运行（S10 重写）：读者线程收流不丢输出；主循环节拍轮询【取消/超时】，
         # 命中即 taskkill 进程树。P1 修复的独立进程组保留。
         flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        proc = subprocess.Popen(cmd, shell=True, cwd=workdir,
+        proc = subprocess.Popen(argv, shell=False, cwd=workdir,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 env=env, creationflags=flags)
 
