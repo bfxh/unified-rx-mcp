@@ -70,9 +70,9 @@
 - **scan.yml**（每周一 03:23 UTC + 手动）：**审计三连周扫**（S139 扩）——secrets_hunt 全仓 + self-attack gate + data-flow gate（含 rust toolchain 与 exe 构建步骤，同 core.yml 纪律）。
 - 边界（诚实声明）：CI 只扫工作树；**历史提交不在 CI 扫**（新推送由 GitHub
   push protection 兜底；改史治理走第 4 条泄漏响应顺序）。
-- **本地优先（S145，用户指令「把审核搞强点，不需要用 GitHub 和 Linux」）**：
+- **本地优先（S145，用户指令「把审核搞强点，不需要用 GitHub 和 Linux」；S147 再上强度）**：
   以上全部门禁已收敛为**一条本地命令** `python -X utf8 scripts/local_gate.py`
-  （快门 6 步秒级 / 全门 9 步含双测与 clippy），与 CI **同一套脚本**——CI 降格为
+  （快门 9 步秒级 / 全门 12 步含双测与 clippy），与 CI **同一套脚本**——CI 降格为
   镜像/备份通道，审核在本机（Windows + ZCode）即可完整跑完。`.githooks/`
   版本化钩子（pre-commit 快门、pre-push 全门）经 `git config core.hooksPath
   .githooks` 一次安装；本地门与 CI 的**不漂移**由 tests/test_s145_gates.py 锁死
@@ -80,6 +80,14 @@
   （`UNIFIED_RX_GATE_FORCE_FAIL` 注入必红）入册。另：`taint_gate.py --update-baseline`
   曾把既有 why 全清成占位（实锤）——已修为按 (file,sink) 继承旧 why，只新条目落
   占位（记账动作不许销毁人工结论）。
+- **S147 三道上强度的新门**：①**历史明文门** `scripts/secrets_history.py`
+  （近 N 提交 diff 面扫红线——树扫与 push-protection 都覆盖不到的历史面；
+  tests/ 豁免同树扫口径；dump 落仓内经沙盒校验）；②**依赖红线机器化**
+  `scripts/deps_lock.py`（`[dependencies]` 恒空此前只有文档、没有门）；
+  ③**审计时效与账本对账** `scripts/audit_ledger.py` + `spec/audit-ledger.json`
+  （封印账本机器可读；表↔账本逐字对账；时效 ≤14 天且 ≤60 提交，超期即红，
+  `--allow-stale` 显式放行）。① ② 进 CI（自包含），③ 本地门（Mimosa 仪式为
+  agent 驱动，CI 无法自愈，避免卡死远端流水线）。
 
 ## 四·补、Mimosa copy-based 全量审计台账（S137 起）
 

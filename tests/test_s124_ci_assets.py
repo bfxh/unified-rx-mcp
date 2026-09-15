@@ -29,6 +29,8 @@ def test_core_workflow_keeps_hard_gates():
                    "scripts/attack_gate.py",        # S138：自攻门（巡航 clean 硬判）
                    "scripts/taint_gate.py",         # S139：数据流门（definite 基线）
                    "scripts/toolface_budget.py",    # S143：工具面体量软帽
+                   "scripts/secrets_history.py",    # S147：历史 diff 明文红线
+                   "scripts/deps_lock.py",          # S147：依赖红线机器化
                    "bench/tool_evals.py",           # S144：任务级评测门
                    "fetch-depth: 0",                # VERSION_TAG 真对账
                    # S125：本机 config.toml 的 target-dir 是绝对路径，CI 必须 env 覆盖，

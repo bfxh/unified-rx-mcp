@@ -144,10 +144,15 @@ python -X utf8 scripts/local_gate.py --fast   # 快门（秒级，提交前用�
 python -X utf8 scripts/local_gate.py --list   # 看步骤
 ```
 
-- **快门**（6 步，秒级）：secrets 明文红线 / self-attack 巡航 / data-flow 污点基线 /
+- **快门**（9 步，秒级）：secrets 明文红线 / self-attack 巡航 / data-flow 污点基线 /
+  **secrets-history 历史 diff 明文**（S147，近 50 提交）/**deps-lock 依赖红线**
+  （S147，Cargo 依赖段恒空）/**audit-freshness 审计时效与账本对账**（S147，
+  表↔账本一致 + ≤14 天/≤60 提交，过期即红、`--allow-stale` 显式放行）/
   toolface 工具面体量 / tool-evals 任务级评测 / selftest 对账硬门；
-- **全门**（9 步）：快门 + pytest 全量 + cargo test + clippy 零告警——红线
+- **全门**（12 步）：快门 + pytest 全量 + cargo test + clippy 零告警——红线
   "双绿才准合入"的**本地执行点**；
+- **审计封印账本** `spec/audit-ledger.json`（S147）：每轮副本审计的 seal/条数/head
+  机器记账，与人读表（HARDENING §四·补）逐字对账——表与账本各说各话即红；
 - **钩子**（一次性安装，开发版与维稳版各装一次）：
   `git config core.hooksPath .githooks` → pre-commit 跑快门、pre-push 跑全门；
 - 本地门与 GitHub CI **同一套脚本**（不漂移由 tests/test_s145_gates.py 锁）——

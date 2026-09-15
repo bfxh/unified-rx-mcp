@@ -50,6 +50,12 @@ jobs:
       - name: Tool-face budget gate（S143：tools/list 体量软帽，防无声膨胀）
         run: python -X utf8 scripts/toolface_budget.py
 
+      - name: Secrets-history gate（S147：近 50 提交 diff 面明文红线）
+        run: python -X utf8 scripts/secrets_history.py --n 50
+
+      - name: Deps-lock gate（S147：rust 依赖段恒空红线机器化）
+        run: python -X utf8 scripts/deps_lock.py
+
       - name: Selftest hard gate（对账行从"提示"升为"退出码"）
         env:
           UNIFIED_RX_SANDBOX: ${{ github.workspace }}   # selftest 内部 fs 自检在沙盒内跑

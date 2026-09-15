@@ -8,18 +8,19 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.62.0（S146）**：72 工具 / 13 域；**协议线定案（双支持）+ 握手账本加固**——
-①**协议双支持**：`PROTOCOL_VERSION="2025-06-18"`（最高支持）+ 白名单
-`("2025-06-18","2025-03-26")`（命中回显客户端版本）；合规矩阵逐条核对入
-EXTERNAL-ALIGNMENT B1（batching 移除我们没用过、结构化输出/elicitation/资源链接
-均未声明、OAuth/HTTP 面不涉及）；`tools/list` 补 2025-06-18 的**顶层 `title`**
-（与 annotations.title 同值双发）；②**握手账本加固**：留痕增
-`params_keys/pid/ppid/server` 归因字段；**测试上下文一律不写真实账本**
-（`PYTEST_CURRENT_TEST` 源头封堵——全量套件曾出现"子进程丢 env"的幽灵写入，
-ppid 实锤）；③**审核实锤**：上轮 4 条 null 留痕全为自家测试噪声（tests/test_v2
-直接 `_handle(initialize)` 未隔离）——conftest 全局隔离 + 账本清污（备份
-`clients.jsonl.polluted-s146.bak`）；宿主 ZCode 的真实握手待其重启入册。
-历史链：S145 审核本地化——（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
+**当前 v2.63.0（S147）**：72 工具 / 13 域；**审核再上强度 + 首个第三方仓审计**——
+①**三道具名新门**（快门 6→9 步、全门 9→12 步）：`secrets_history.py`（近 50 提交
+**diff 面**明文红线——树扫与 push-protection 都覆盖不到的历史面）、`deps_lock.py`
+（`[dependencies]` 恒空红线此前只有文档没有门）、`audit_ledger.py` +
+`spec/audit-ledger.json`（**审计封印账本机器对账**：表↔账本逐字一致 + 时效
+≤14 天/≤60 提交，超期即红）；前两门进 CI，时效门留本地（Mimosa 仪式为 agent
+驱动，CI 无法自愈）；②**外部审计首件**：对 `esengine/DeepSeek-Reasonix`
+（35.5k star，Go+TS）出具只读审计 `docs/AUDIT-DeepSeek-Reasonix.md` + 可移植
+审核套件 `docs/reasonix-audit-kit/`（零依赖 `local_audit.py` 9 步门 / pre-commit /
+Makefile 片段）——实测红线 6 条全为误报（脱敏器与测试夹具面，零真阳性）、
+上帝文件榜 7 件（app.go 11,982 行）、评估缺口 G1-G6（无静态明文扫描、本地门
+仅 vet+repolint 等）按收益排序给提案。历史链：S146 协议双支持（2025-06-18 +
+顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
 data-flow / toolface / tool-evals / selftest，**4 秒级**）与全门 9 步（+pytest 全量 +
 cargo test + clippy）；`.githooks/` 版本化钩子（pre-commit 快门、pre-push 全门）经

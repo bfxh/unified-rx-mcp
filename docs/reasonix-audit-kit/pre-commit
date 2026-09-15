@@ -1,0 +1,6 @@
+#!/bin/sh
+# 提交前快门（S147 提案）：秒级门——vet/repolint/lint/明文/依赖/大文件/时效。
+# 全门（含 go test ./...）在 pre-push（见 .githooks/pre-push 建议版）。
+# 安装：make hooks（把本目录纳入其 INSTALL 清单）
+set -e
+python3 scripts/local_audit.py --fast

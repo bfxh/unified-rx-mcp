@@ -1,0 +1,41 @@
+{
+ "policy": "Mimosa 副本审计封印账本（scripts/audit_ledger.py 对账；人读表见 HARDENING §四·补）——按时间顺序追加，最后一条=最新；seal 存显示前缀，与表逐字一致",
+ "entries": [
+  {
+   "round": "首轮",
+   "date": "2026-09-14",
+   "copy": "TEMP/s137_audit_copy",
+   "seal": "sha256:7890b599",
+   "findings": 59,
+   "verdict": "inconclusive",
+   "head": ""
+  },
+  {
+   "round": "复审",
+   "date": "2026-09-14",
+   "copy": "TEMP/s137_audit_copy2",
+   "seal": "sha256:3159dfad",
+   "findings": 57,
+   "verdict": "inconclusive",
+   "head": ""
+  },
+  {
+   "round": "复审二（S143 后）",
+   "date": "2026-09-14",
+   "copy": "TEMP/urx-audit-copy @4eae149",
+   "seal": "sha256:426d0a37",
+   "findings": 57,
+   "verdict": "inconclusive",
+   "head": "4eae149"
+  },
+  {
+   "round": "复审三（S144 后）",
+   "date": "2026-09-14",
+   "copy": "TEMP/urx-audit-copy-s144 @6e1a837",
+   "seal": "sha256:dc2b9a97",
+   "findings": 57,
+   "verdict": "inconclusive",
+   "head": "6e1a837"
+  }
+ ]
+}

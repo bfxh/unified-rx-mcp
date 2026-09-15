@@ -1,0 +1,15 @@
+# Reasonix Makefile 追加片段（S147 提案）——合并进现有 Makefile 即可
+# 用法：make audit（全门）/ make audit-fast（快门）/ make audit-deps（刷新依赖基线）
+
+audit: ## 全门：快门 + go test ./...（合入前跑）
+	python3 scripts/local_audit.py
+
+audit-fast: ## 快门：vet/lint/明文/历史明文/依赖/大文件/时效（提交前跑）
+	python3 scripts/local_audit.py --fast
+
+audit-deps: ## 依赖面显式记账（新增依赖后刷新基线，写进 commit message）
+	python3 scripts/local_audit.py --only deps --update-deps
+
+# 建议同时把 pre-commit 纳入 hooks 安装：
+#   hooks:  ...  install -m 0755 .githooks/pre-push .git/hooks/pre-push
+#                install -m 0755 .githooks/pre-commit .git/hooks/pre-commit
