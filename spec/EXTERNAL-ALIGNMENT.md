@@ -92,14 +92,28 @@
 - A3 本文档 + HARDENING 指针 + ROUNDLOG 条目（S142 已做）。
 
 ### B 档 · 评估后做（有决策点，不抢跑）
-- **B1 协议线升级**（**S145 部分兑现：宿主察明 + 协商/留痕上线**）：宿主只用
-  ZCode（用户定，不再等 Yan Agent）；实探=ZCode 直连 `D:\rj\MCP\server.py`
-  （稳定副本，双实例在跑）。已上线：**版本协商**（请求命中白名单即回显其版本，
-  否则回我方最高支持——规范语义）+ **握手留痕** `~/.unified-rx/clients.jsonl`
-  （时间/客户端名与版本/请求了什么/协商到什么；每次 initialize 一行，留痕失败
-  不阻断握手）。**宿主实际请求版本 = 下次连接重启后即入册**（证据驱动，不猜）。
-  升级触发条件：①留痕显示宿主已请求新版；②需要 outputSchema/structuredContent
-  等新特性时——届时再定 dual-stack 还是直拆子集。
+- **B1 协议线**（**S146 决策落定：双支持**）——逐条核对 2025-06-18 变更单的合规矩阵：
+
+  | 2025-06-18 变更 | 性质 | 我方状态 |
+  |---|---|---|
+  | 移除 JSON-RPC batching | 移除能力 | 从未使用 ✓ |
+  | 结构化工具输出（outputSchema/structuredContent） | 可选（声明才必返） | 未声明 outputSchema ✓（升级候选见下） |
+  | elicitation（服务端向用户追问） | 可选能力 | 未使用 ✓ |
+  | 资源链接（tool result 嵌资源） | 可选 | 未使用 ✓ |
+  | OAuth 资源服务器 / RFC 8707 | HTTP/OAuth 面 | 本地 stdio 不涉及 ✓ |
+  | `MCP-Protocol-Version` HTTP 头 | HTTP 传输 | 不涉及 ✓ |
+  | Lifecycle SHOULD→MUST | 纪律 | 只发 ping/logging 通知 ✓ |
+  | **`title` 顶层字段**（name 归程序标识符） | schema 加字段 | **S146 已补**：tools/list 顶层 `title`（与 annotations.title 同值双发）✓ |
+  | `_meta` 扩面 / CompletionRequest.context | 可选 | 不涉及 ✓ |
+
+  **决策**：`PROTOCOL_VERSION = "2025-06-18"`（最高支持，未知版本请求回包用它）；
+  白名单 `("2025-06-18", "2025-03-26")`（命中即回显客户端版本）。
+  **留痕证据（S145 上线，S146 增归因字段）**：首轮 4 条 null 条目实锤为**自家
+  测试噪声**（tests/test_v2 直接 `_handle(initialize)` 未隔离——已修 conftest +
+  留痕增 `params_keys/pid/server`）；**宿主 ZCode 的真实握手待其重启后入册**
+  （账本 `~/.unified-rx/clients.jsonl`）——入册若见 2025-11-25 / 2026-07-28，
+  再评估新子集（resultType/MRTR 等），升级触发条件不变。
+  升级候选（未做、有需求再动）：outputSchema 试点（让宿主直读结构化结果）。
 - ~~**B2 任务级评测（evals）**~~（**S144 已兑**）：`bench/tool_evals.py`——13 个
   确定性多步任务（写读/扫描/污点/死代码/调用图/影响面/改码跑测/覆盖率/聚类/
   依赖环/异或/符号地图），逐题记账 calls/errors/chars，基线

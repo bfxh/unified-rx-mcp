@@ -8,8 +8,18 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.61.0（S145）**：72 工具 / 13 域；**审核本地化 + 协议握手审计**——
-①**本地审核门**（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
+**当前 v2.62.0（S146）**：72 工具 / 13 域；**协议线定案（双支持）+ 握手账本加固**——
+①**协议双支持**：`PROTOCOL_VERSION="2025-06-18"`（最高支持）+ 白名单
+`("2025-06-18","2025-03-26")`（命中回显客户端版本）；合规矩阵逐条核对入
+EXTERNAL-ALIGNMENT B1（batching 移除我们没用过、结构化输出/elicitation/资源链接
+均未声明、OAuth/HTTP 面不涉及）；`tools/list` 补 2025-06-18 的**顶层 `title`**
+（与 annotations.title 同值双发）；②**握手账本加固**：留痕增
+`params_keys/pid/ppid/server` 归因字段；**测试上下文一律不写真实账本**
+（`PYTEST_CURRENT_TEST` 源头封堵——全量套件曾出现"子进程丢 env"的幽灵写入，
+ppid 实锤）；③**审核实锤**：上轮 4 条 null 留痕全为自家测试噪声（tests/test_v2
+直接 `_handle(initialize)` 未隔离）——conftest 全局隔离 + 账本清污（备份
+`clients.jsonl.polluted-s146.bak`）；宿主 ZCode 的真实握手待其重启入册。
+历史链：S145 审核本地化——（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
 data-flow / toolface / tool-evals / selftest，**4 秒级**）与全门 9 步（+pytest 全量 +
 cargo test + clippy）；`.githooks/` 版本化钩子（pre-commit 快门、pre-push 全门）经
@@ -42,7 +52,7 @@ Secrets/Self-attack 并列为三道硬门。
 格式即后续外部体检模板。历史链：S138 审计复审机制化（Self-attack gate + Mimosa
 复审仪式脚本）；S137 按库分类清单 + copy-based 全量审计（实锤修复 local_run
 shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `CI-GATE OK` /
-`EXE_TAG ok=9`）。本地 pytest 3.14 = 853 passed + 3 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
+`EXE_TAG ok=9`）。本地 pytest 3.14 = 857 passed + 3 skipped；cargo **200 绿** + clippy 零告警；selftest 机器对账三行全绿
 （VERSION_TAG / SKILLS_DOCS / EXE_TAG）。整合除重与升级路线见
 [spec/CONSOLIDATION.md](spec/CONSOLIDATION.md)，现状坐标见
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，

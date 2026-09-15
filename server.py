@@ -25,10 +25,14 @@ import registry
 # 导入 tools 包触发注册（tools/__init__.py 汇总所有域）
 import tools  # noqa: F401
 
-PROTOCOL_VERSION = "2025-03-26"          # 我方最高支持（规范线四代差见 EXTERNAL-ALIGNMENT）
-_SUPPORTED_PROTOCOLS = ("2025-03-26",)   # 协商白名单：客户端请求命中即回显其版本
+# S146 决策（EXTERNAL-ALIGNMENT B1）：双支持——2025-06-18（当前最高支持）+ 2025-03-26
+# 依据（逐条核对 2025-06-18 变更单，见 spec/EXTERNAL-ALIGNMENT.md §B1 合规矩阵）：
+# batching 移除（我们从未用）✓ / 结构化输出·elicitation·资源链接均**可选**（未声明）✓ /
+# OAuth 与 HTTP 头不涉及（本地 stdio）✓ / 顶层 title 已补发（tools/list）✓。
+PROTOCOL_VERSION = "2025-06-18"          # 我方最高支持：未知版本请求的回包
+_SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26")   # 白名单：命中即回显客户端版本
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.61.0"
+SERVER_VERSION = "2.62.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -111,9 +115,20 @@ def tool_reply(msg_id, name, result):
 
 
 def _clients_path():
-    """握手留痕落点（S145）：env 可覆盖（测试/多环境），缺省 ~/.unified-rx/clients.jsonl。"""
-    return os.environ.get("UNIFIED_RX_CLIENTS_LOG") or os.path.join(
-        os.path.expanduser("~"), ".unified-rx", "clients.jsonl")
+    """握手留痕落点：env 覆盖 > 测试上下文不写 > 缺省 ~/.unified-rx/clients.jsonl。
+
+    S146 加固：真实账本**只许装真实宿主握手**——测试期间（PYTEST_CURRENT_TEST）
+    且无显式 env 时返回 None（不写）。背景：全量套件里出现"隔离变量在子进程丢失"
+    的旁路写入（ppid=pytest、params 空/仅有 protocolVersion 的幽灵条目）——
+    在源头堵比追每一个 spawn 点可靠。显式 env（conftest 的 tmp 路径 / 专项测试）
+    仍优先，测试留痕逻辑本身照测不误。
+    """
+    explicit = os.environ.get("UNIFIED_RX_CLIENTS_LOG")
+    if explicit:
+        return explicit
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return None
+    return os.path.join(os.path.expanduser("~"), ".unified-rx", "clients.jsonl")
 
 
 def _record_hello(params, negotiated):
@@ -123,11 +138,18 @@ def _record_hello(params, negotiated):
     （EXTERNAL-ALIGNMENT B1），不能靠猜——每次 initialize 落一行，重启宿主即可查。
     """
     try:
+        p = _clients_path()
+        if p is None:           # S146：测试上下文不写真实账本（见 _clients_path）
+            return
         info = params.get("clientInfo") or {}
         rec = {"ts": int(time.time()), "requested": params.get("protocolVersion"),
                "negotiated": negotiated, "client": info.get("name"),
-               "client_version": info.get("version")}
-        p = _clients_path()
+               "client_version": info.get("version"),
+               # S146：归因字段——首轮留痕里出现 requested/client 全 null 的条目，
+               # 一度无法分辨是宿主还是自家测试（实锤是 tests/test_v2 未隔离）。
+               # params_keys/pid/server 让"谁在握手"一眼可辨。
+               "params_keys": sorted(params.keys()), "pid": os.getpid(),
+               "ppid": os.getppid(), "server": SERVER_VERSION}
         d = os.path.dirname(p)
         if d:
             os.makedirs(d, exist_ok=True)
@@ -194,6 +216,9 @@ def _handle(msg):
                      "inputSchema": t["inputSchema"]}
             if t.get("annotations"):
                 entry["annotations"] = t["annotations"]
+                # S146（2025-06-18 起）：title 升为顶层字段（name 归程序标识符用）——
+                # 与 annotations.title 同值双发：新客户端读顶层、旧客户端读注解。
+                entry["title"] = t["annotations"]["title"]
             tools_list.append(entry)
         return {"jsonrpc": "2.0", "id": msg_id, "result": {"tools": tools_list}}
     if method == "tools/call":

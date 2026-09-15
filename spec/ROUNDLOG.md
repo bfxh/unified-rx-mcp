@@ -1065,3 +1065,34 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   + 3 skipped**（856 collected，+8）；cargo **200 绿** + clippy 零告警；工具面门
   OK；版本锁步 **2.61.0 ×4**（exe 已重建）。
 - 提交：本次
+
+## S146 · 实施轮：协议线定案（双支持 2025-06-18）+ 留痕归因修复
+- 项目：unified-rx-mcp｜时间：2026-09-15｜版本 2.61.0 → **2.62.0**
+- 用户指令（选单）：「我才能定 dual-stack 还是直拆子集」——用证据把协议线定下来。
+- **① 证据归因（实锤）**：查 `~/.unified-rx/clients.jsonl` 首轮 4 条留痕
+  `requested/client` 全 null，一度无法分辨宿主还是自家测试——**实锤为测试噪声**
+  （`tests/test_v2.py:354` 直接 `_handle(initialize, params={})` 且未隔离，
+  时间戳与本地 pytest 轮次吻合）。**修复三件**：conftest 全局隔离
+  `UNIFIED_RX_CLIENTS_LOG`（账本只许装真实宿主握手）、留痕增
+  `params_keys/pid/server` 归因字段（下次 null 也能一眼定位）、真实账本清污
+  （备份 `clients.jsonl.polluted-s146.bak`）。**宿主 ZCode 真实握手仍待其重启入册**。
+- **② 合规矩阵 + 决策**（EXTERNAL-ALIGNMENT B1 落定）：逐条核对 2025-06-18
+  变更单——batching 移除（从未用）/结构化输出·elicitation·资源链接均**可选**
+  （未声明）/OAuth 与 HTTP 头不涉及（本地 stdio）/`title` 升为顶层字段（**已补**
+  tools/list 顶层 title，与 annotations.title 同值双发）。**决策=双支持**：
+  `PROTOCOL_VERSION="2025-06-18"`（最高支持，未知版本回包用它）、白名单
+  `("2025-06-18","2025-03-26")`（命中回显）。留痕若见新版（2025-11-25/2026-07-28）
+  再评估拆子集（resultType/MRTR）。
+- **③ 幽灵写入追查（本轮回放的坑）**：全量 pytest 会在真实账本落 2 条"幽灵"
+  条目（`params` 空 / 仅 protocolVersion）——逐步归因：单文件跑不复现、加
+  `ppid` 字段复跑实锤 **ppid=pytest、pid=其子进程**（"子进程丢隔离 env"的旁路）。
+  结论：**源头封堵**优于逐点排查——`_clients_path()` 在测试上下文
+  （`PYTEST_CURRENT_TEST` 且无显式 env）返回 None，一律不写；封堵后全量复跑
+  **账本零写入**（1063→1063）。真实账本清污（全部为测试噪声，备份
+  `clients.jsonl.polluted-s146.bak`）。
+- **测试 +4**：`tests/test_s146_protocol.py`——双版本回显/未知回最高/顶层 title
+  同值/留痕归因字段（含空 params 场景）/**测试上下文不落账本**（pid 精确断言，
+  对并发宿主写入免疫）。
+- **验证**：全量 pytest 3.14 **857 passed + 3 skipped**（860 collected，+4）；
+  本地全门 9 步绿（钩子把关）；版本锁步 **2.62.0 ×4**（exe 已重建）。
+- 提交：本次
