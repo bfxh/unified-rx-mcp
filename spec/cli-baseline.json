@@ -1,48 +1,49 @@
 {
+ "host": "白凤修鹤|C:\\Users\\lbx13\\AppData\\Local\\Temp",
  "commands": {
   "sys_topology": {
-   "median_ms": 17.46,
-   "min_ms": 16.49
+   "median_ms": 12.77,
+   "min_ms": 12.05
   },
   "sys_devices": {
-   "median_ms": 18.3,
-   "min_ms": 17.08
+   "median_ms": 13.15,
+   "min_ms": 12.96
   },
   "sys_procs": {
-   "median_ms": 29.68,
-   "min_ms": 27.24
+   "median_ms": 22.02,
+   "min_ms": 21.4
   },
   "fs_list": {
-   "median_ms": 14.92,
-   "min_ms": 13.17
+   "median_ms": 10.1,
+   "min_ms": 9.7
   },
   "scan_secrets": {
-   "median_ms": 17.89,
-   "min_ms": 16.4
+   "median_ms": 13.1,
+   "min_ms": 12.33
   },
   "scan_bug": {
-   "median_ms": 16.43,
-   "min_ms": 14.11
+   "median_ms": 11.66,
+   "min_ms": 11.41
   },
   "search_query": {
-   "median_ms": 14.68,
-   "min_ms": 12.78
+   "median_ms": 10.14,
+   "min_ms": 9.76
   },
   "semantic": {
-   "median_ms": 14.33,
-   "min_ms": 13.72
+   "median_ms": 10.01,
+   "min_ms": 9.66
   },
   "ide_outline": {
-   "median_ms": 15.76,
-   "min_ms": 13.45
+   "median_ms": 11.02,
+   "min_ms": 10.46
   },
   "taint_scan": {
-   "median_ms": 15.02,
-   "min_ms": 13.79
+   "median_ms": 10.66,
+   "min_ms": 10.39
   },
   "mcp_version": {
-   "median_ms": 14.05,
-   "min_ms": 13.05
+   "median_ms": 11.3,
+   "min_ms": 10.2
   }
  }
 }

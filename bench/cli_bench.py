@@ -20,6 +20,7 @@
 import hashlib
 import json
 import os
+import platform
 import shutil
 import statistics
 import subprocess
@@ -114,19 +115,29 @@ def timeit(prog, *extra, n=9):
             "min_ms": round(min(ts), 2)}
 
 
+def host_key():
+    """机器指纹：金标准/计时是**机器本地证据**（同机同 exe 版本对账）。
+    跨机器（CI runner）不可比——夹具绝对路径与硬件都不同，必须显式 SKIP
+    而不是假红（S150 实锤：CI 上 out_bytes 243 vs 249）。"""
+    return f"{platform.node()}|{Path(tempfile.gettempdir()).resolve()}"
+
+
 def main(argv):
     build_fixture()
     cmds = commands()
     want_all = "--all" in argv
+    force = "--force" in argv
     rc = 0
     if "--golden" in argv or want_all:
         doc = {k: fingerprint(*v) for k, v in cmds.items() if k not in _NONDET}
-        GOLDEN.write_text(json.dumps({"commands": doc}, ensure_ascii=False,
-                                     indent=1), encoding="utf-8")
+        GOLDEN.write_text(json.dumps({"host": host_key(), "commands": doc},
+                                     ensure_ascii=False, indent=1),
+                          encoding="utf-8")
         print(f"GOLDEN 已采集（{len(doc)} 条）->", GOLDEN.name)
     if "--bench" in argv or want_all:
         doc = {k: timeit(*v) for k, v in cmds.items()}
-        BASE.write_text(json.dumps({"commands": doc}, ensure_ascii=False,
+        BASE.write_text(json.dumps({"host": host_key(), "commands": doc},
+                                   ensure_ascii=False,
                                    indent=1), encoding="utf-8")
         tot = sum(v["median_ms"] for v in doc.values())
         print(f"BASELINE 已采集（{len(doc)} 条，合计中位 {tot:.0f}ms）->", BASE.name)
@@ -134,7 +145,12 @@ def main(argv):
         if not GOLDEN.is_file():
             print("GOLDEN 缺基线（先 --golden）")
             return 2
-        old = json.loads(GOLDEN.read_text(encoding="utf-8"))["commands"]
+        gdoc = json.loads(GOLDEN.read_text(encoding="utf-8"))
+        if gdoc.get("host") != host_key() and not force:
+            print(f"CLI-GOLDEN SKIP（异机基线：{gdoc.get('host')} ≠ 本机）"
+                  "——金标准为机器本地证据，重采用 --golden")
+            return 0
+        old = gdoc["commands"]
         bad = []
         for k, v in cmds.items():
             if k in _NONDET:
@@ -151,7 +167,11 @@ def main(argv):
         if not BASE.is_file():
             print("BASELINE 缺基线（先 --bench）")
             return 2
-        old = json.loads(BASE.read_text(encoding="utf-8"))["commands"]
+        bdoc = json.loads(BASE.read_text(encoding="utf-8"))
+        if bdoc.get("host") != host_key() and not force:
+            print(f"CLI-BENCH SKIP（异机基线：{bdoc.get('host')} ≠ 本机）")
+            return 0
+        old = bdoc["commands"]
         slow = []
         for k, v in cmds.items():
             now = timeit(*v)
