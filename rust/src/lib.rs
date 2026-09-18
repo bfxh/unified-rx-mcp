@@ -52,4 +52,5 @@ pub mod server;
 pub mod sha256;
 pub mod sketch;
 pub mod xorscan;
+pub mod sysinfo;
 pub mod taint;

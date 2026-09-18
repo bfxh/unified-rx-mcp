@@ -3,7 +3,7 @@
 版本锁步静态守卫 + bench 脚本纯函数抽测。
 
 背景（用户：「你不更新某一个东西当然出问题」——exe 旧的、代码新的，此前
-没有任何机器对账能发现）：S94 给 9 个 rust bin 加 --version
+没有任何机器对账能发现）：S94 给 rust bin 加 --version（S148 起 10 个）
 （CARGO_PKG_VERSION 编译期注入），selftest 增 EXE_TAG 行逐个比对
 SERVER_VERSION。本文件锁「对账机器本身」；预算复测数字机器相关、不进
 pytest——数字走 bench/s94_perf.py 留档 bench/results/s94_perf.json。
@@ -28,12 +28,12 @@ def _bin_paths():
                   if f.startswith("rx_") and f.endswith(".rs"))
 
 
-def test_exe_names_cover_all_nine_bins():
+def test_exe_names_cover_all_ten_bins():
     """_RX_EXE_NAMES ↔ rust/src/bin/rx_*.rs 一一对应：新增 bin 忘登记即红。"""
     stems = {os.path.splitext(os.path.basename(p))[0] for p in _bin_paths()}
     # bin 源文件用下划线（rx_mcp.rs），exe 用连字符（rx-mcp.exe）
     expect = {n[:-4].replace("-", "_") for n in server._RX_EXE_NAMES}
-    assert len(server._RX_EXE_NAMES) == 9
+    assert len(server._RX_EXE_NAMES) == 10
     assert stems == expect
 
 
@@ -60,7 +60,7 @@ def test_all_bins_have_version_gate():
 
 
 def test_exe_tag_skip_when_all_missing(tmp_path, monkeypatch):
-    """9 个全缺 → None（SKIP：纯 Python 环境未 cargo build，不算漂移）。"""
+    """10 个全缺 → None（SKIP：纯 Python 环境未 cargo build，不算漂移）。"""
     monkeypatch.setenv("TEMP", str(tmp_path))
     monkeypatch.delenv("UNIFIED_RX_RS_EXE", raising=False)
     assert server._selftest_exe_tag() is None
@@ -79,7 +79,7 @@ def test_exe_tag_drift_on_junk_exe(tmp_path, monkeypatch):
     assert ok == 0
     assert len(drift) == 1 and drift[0].startswith("rx-fs.exe(")
     assert server.SERVER_VERSION not in drift[0]
-    assert len(missing) == 8
+    assert len(missing) == 9
 
 
 def test_exe_tag_ok_with_real_exes():
@@ -88,11 +88,11 @@ def test_exe_tag_ok_with_real_exes():
                        "rx-fs.exe")
     if not os.path.isfile(rel):
         pytest.skip("本机未 cargo build（无 rx-rs-target 产物）")
-    assert server._selftest_exe_tag() == (9, [], [])
+    assert server._selftest_exe_tag() == (10, [], [])
 
 
 def test_selftest_prints_exe_tag(capsys):
-    """selftest 汇总面出现 EXE_TAG 行（真机 ok=9 / 裸环境 SKIP）。"""
+    """selftest 汇总面出现 EXE_TAG 行（真机 ok=10 / 裸环境 SKIP）。"""
     assert server.selftest() == 0
     out = capsys.readouterr().out
     assert "EXE_TAG ok=" in out or "EXE_TAG SKIP" in out

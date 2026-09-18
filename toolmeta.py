@@ -93,6 +93,11 @@ TOOL_TITLES = {
     "app_audit": "应用只读审计",
     "app_clone": "克隆应用到沙箱",
     "app_clean": "清理审计沙箱",
+    # sys 域（S148）
+    "sys_topology": "CPU 拓扑（P/E 核）",
+    "sys_threads": "线程调度视图",
+    "sys_steer": "线程调度引导",
+    "sys_devices": "显示适配器清单",
     # metrics 域
     "code_coverage": "行覆盖率测量",
     "dep_graph": "依赖关系图",

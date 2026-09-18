@@ -43,6 +43,8 @@ from . import ide_deadcode  # noqa: F401,E402  S123：死符号可达性（ast �
 from . import secrets    # noqa: F401,E402  S123：凭据/密钥泄漏扫描（模式+高熵，掩码输出）
 from . import ide_callgraph  # noqa: F401,E402  S125：真调用图（同 nameres 作用域引擎 + stitch）
 from . import ide_riskrank  # noqa: F401,E402  S129：风险榜（高扇入×无测试 → 拆分/补测排序）
+from . import sysinfo  # noqa: F401,E402  S148：混合架构调度（P/E 核拓扑/线程/steer/设备，rx-sys.exe）
+# 注：模块名不得叫 sys.py——与 stdlib sys 撞名时 `from . import sys` 会静默跳过（S148 实锤）
 
 __all__ = ["fs", "scan", "code_review", "ide", "guard", "learn", "ops",
            "search", "game", "meta", "engine", "bevy", "attack",

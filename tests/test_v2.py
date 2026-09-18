@@ -20,10 +20,10 @@ import tools  # noqa: F401
 
 
 def test_registry_tool_count():
-    """工具面收敛：上限随 S141（session_burn）放宽到 72
+    """工具面收敛：上限随 S148（sys 域）放宽到 76
     ——仍在"少而准"区间（对照旧版 183）；再涨就该审"是不是又在堆噪音"。"""
     n = registry.tool_count()
-    assert 20 <= n <= 72, f"工具数 {n} 超出收敛范围"
+    assert 20 <= n <= 76, f"工具数 {n} 超出收敛范围"
 
 
 def test_registry_groups():

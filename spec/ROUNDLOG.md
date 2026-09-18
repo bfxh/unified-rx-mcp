@@ -1132,3 +1132,45 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - **验证**：全量 pytest 3.14 **863 passed + 3 skipped**（+6）；本地全门 12 步绿
   （钩子把关）；版本锁步 **2.63.0 ×4**（exe 已重建）。
 - 提交：本次
+
+## S148 · 实施轮：新域 sys——混合架构（P/E 核）调度工具（Rust 零依赖）
+- 项目：unified-rx-mcp｜时间：2026-09-15｜版本 2.63.0 → **2.64.0**
+- 用户简报：混合架构下关键渲染线程被误调度到 E 核 → 帧率波动；要"识别 P/E 核 →
+  绑定关键线程 → 用 QoS/Thread Director 反馈引导 → 工具链与设备面也覆盖"，并
+  明确"**最好都是用 rust 写的**"、"有 rust 开源的（方案）就借鉴"、"审核 CI 要
+  加强"。宿主实机：Intel Core Ultra 7 270K（P=8 / E=16）。
+- **设计（厂商中立 + 零依赖 + 可验证）**：新引擎 `rx-sys.exe`（rust/src/sysinfo.rs，
+  手写 FFI；[dependencies] 恒空红线不破）四子命令；MCP 四工具（sys 域，72→**76**，
+  13→**14** 域）：
+  - `sys_topology`：`EfficiencyClass` **双 API 交叉**——GLPIEx(RelationProcessorCore)
+    与 GetSystemCpuSetInformation 各出一份 P/E 分级，两口径必须一致（本机实测：
+    两份都给出 P=逻辑核 [0,1,10,11,12,13,22,23]、E=16 核 ✓）；非混合平台如实
+    报 uniform，**不瞎标 P/E**；另出 SMT/L3/NUMA/CPU 集。
+  - `sys_threads`：TID/名字/优先级/理想核/CPU 集；诚实标注"EcoQoS 读不回来"。
+  - `sys_steer`（**requires_auth**，tier ③）：render=关键线程→P（松硬掩码→P 集→
+    理想核 P→AboveNormal→**关** EcoQoS）/ background=后台→E（反向，**开** EcoQoS
+    由调度器导向 E 核并选最省电频率）；`hard` 才上硬亲和（Intel 官方劝阻，
+    skills/sys.md 标代价）。
+  - `sys_devices`：显示适配器（NVIDIA/AMD/Intel 识别 + 同 GPU 多显示口去重）。
+- **四个实锤坑（全部已在代码修掉并写进 skills/sys.md 防回归）**：①`SYSTEM_CPU_SET_
+  INFORMATION` 字段偏移错读（EfficiencyClass 在载荷第 10 字节，错读会把 CPU 集 Id
+  当分级 → 首版输出 0..23"全不同"）；②`ThreadPowerThrottling` 类号 = **3**
+  （写成 2=DynamicCodePolicy → API 拒参数、EcoQoS 全败且静默）；③**约束栈顺序**：
+  硬亲和是硬约束、CPU 集/理想核是软定向——不先释放旧硬掩码，`SetThreadIdeal
+  ProcessorEx` 以 INVALID_PARAMETER 拒绝（render↔background 互切必现）；④**模块名
+  不得叫 `sys.py`**：与 stdlib `sys` 撞名时 `from . import sys` 静默跳过、工具不注册
+  （改名 sysinfo.py）。
+- **真机端到端**：自建靶进程 → steer background（ok=4/4：EcoQoS✓/BelowNormal✓/
+  E 集 16✓/理想核 E✓）→ render（P 集 8✓、AboveNormal✓）→ **四连互切全绿**；
+  sys 域测试 5 条（拓扑自洽性 + 双 API 一致性锁 + 线程形状 + 授权门 + 端到端实效）。
+- **审核/CI 加强（用户要求）**：exe 名单 9→10（`_RX_EXE_NAMES` + selftest 文案 +
+  s94 契约测试同步）；工具计数四连锁（README×3 / PANORAMA / skills/README /
+  toolmeta 双向锁 / test_s127 精确 76 / test_v2 上限 76 / test_s113 门模式 13→14 域
+  与 KNOWN_GROUPS+sys）——**全部由既有门自动抓出**（这轮没有一条是我手工发现的，
+  门在按设计工作）。
+- **边界如实入档**（skills/sys.md）：Thread Director 无直接 API（我们给更准输入）；
+  APO/iBOT 不可第三方编程；ITT/VTune 需厂商 SDK（本域只产结构化 JSON）；ETW
+  provider 名记录待后续；跨进程改线程受访问权限制（系统进程枚举为空即如实返回）。
+- 验证：全量 pytest 3.14 **868 passed + 3 skipped**（+5）；cargo **200+3 绿** →
+  实测 **203**（sysinfo 3 条）；clippy 零告警；taint 门 9=基线；版本锁步 **2.64.0 ×4**。
+- 提交：本次

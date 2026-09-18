@@ -32,7 +32,7 @@ import tools  # noqa: F401
 PROTOCOL_VERSION = "2025-06-18"          # 我方最高支持：未知版本请求的回包
 _SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26")   # 白名单：命中即回显客户端版本
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.63.0"
+SERVER_VERSION = "2.64.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -325,16 +325,17 @@ def _selftest_skills_docs(base_dir=None):
 
 _RX_EXE_NAMES = ("rx-mcp.exe", "rx-taint.exe", "rx-fs.exe", "rx-ide.exe",
                  "rx-search.exe", "rx-semantic.exe", "rx-scan.exe",
-                 "rx-audit.exe", "rx-appops.exe")
+                 "rx-audit.exe", "rx-appops.exe",
+                 "rx-sys.exe")
 
 
 def _selftest_exe_tag():
     """rust exe ↔ SERVER_VERSION 对账（S94：「你不更新某一个东西当然出问题」
     的机器防呆——代码进了新版本、exe 还是旧的，此前没有任何对账能发现）。
-    9 个 exe 逐个按工具层定位约定（UNIFIED_RX_RS_EXE 覆盖 →
+    10 个 exe 逐个按工具层定位约定（UNIFIED_RX_RS_EXE 覆盖 →
     %TEMP%\\rx-rs-target\\{release,debug}，basename 须恰等）找到后跑
     --version 比对 SERVER_VERSION。打印 EXE_TAG ok=N drift=N missing=N
-    （drift/missing 细节截断附后）；9 个全缺 → SKIP（纯 Python 环境未
+    （drift/missing 细节截断附后）；10 个全缺 → SKIP（纯 Python 环境未
     cargo build，不算漂移）。只提示不改退出码。"""
     import subprocess
     override = os.environ.get("UNIFIED_RX_RS_EXE")
@@ -394,7 +395,7 @@ def selftest():
     # S94 机器对账第三件：rust exe 版本漂移（同纪律：只提示，不改退出码）
     exe = _selftest_exe_tag()
     if exe is None:
-        print("EXE_TAG SKIP (9 个 exe 全缺——纯 Python 环境未 cargo build)")
+        print("EXE_TAG SKIP (10 个 exe 全缺——纯 Python 环境未 cargo build)")
     else:
         ok, drift, missing = exe
         extra = ""

@@ -8,18 +8,15 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.63.0（S147）**：72 工具 / 13 域；**审核再上强度 + 首个第三方仓审计**——
-①**三道具名新门**（快门 6→9 步、全门 9→12 步）：`secrets_history.py`（近 50 提交
-**diff 面**明文红线——树扫与 push-protection 都覆盖不到的历史面）、`deps_lock.py`
-（`[dependencies]` 恒空红线此前只有文档没有门）、`audit_ledger.py` +
-`spec/audit-ledger.json`（**审计封印账本机器对账**：表↔账本逐字一致 + 时效
-≤14 天/≤60 提交，超期即红）；前两门进 CI，时效门留本地（Mimosa 仪式为 agent
-驱动，CI 无法自愈）；②**外部审计首件**：对 `esengine/DeepSeek-Reasonix`
-（35.5k star，Go+TS）出具只读审计 `docs/AUDIT-DeepSeek-Reasonix.md` + 可移植
-审核套件 `docs/reasonix-audit-kit/`（零依赖 `local_audit.py` 9 步门 / pre-commit /
-Makefile 片段）——实测红线 6 条全为误报（脱敏器与测试夹具面，零真阳性）、
-上帝文件榜 7 件（app.go 11,982 行）、评估缺口 G1-G6（无静态明文扫描、本地门
-仅 vet+repolint 等）按收益排序给提案。历史链：S146 协议双支持（2025-06-18 +
+**当前 v2.64.0（S148）**：76 工具 / 14 域；**新域 sys：混合架构调度（P/E 核）**——
+引擎 `rx-sys.exe`（Rust，零依赖手写 FFI）四工具：`sys_topology`（P/E/LP-E 分级，
+Windows `EfficiencyClass` **双 API 交叉**为准——本机实测 Ultra 7 270K：P=8 逻辑核
+[0,1,10,11,12,13,22,23] 两口径一致；非混合平台如实报 uniform）、`sys_threads`
+（线程优先级/理想核/CPU 集）、`sys_steer`（**需授权**：render=关键线程→P 核 /
+background=后台→E 核；约束栈顺序=硬掩码→CPU 集→理想核→优先级→EcoQoS——顺序错会
+被 API 拒，两轮实锤）、`sys_devices`（显示适配器去重识别）。全部经 Rust 引擎，
+零第三方依赖；判定边界（Thread Director 无 API / APO·iBOT 不可编程 / ITT 需 SDK）
+在 skills/sys.md 如实记录。历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；历史链：S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
 data-flow / toolface / tool-evals / selftest，**4 秒级**）与全门 9 步（+pytest 全量 +
@@ -63,20 +60,21 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **72 个组合工具 / 13 域** |
+| 工具面 | 183（注入面 200+） | **76 个组合工具 / 14 域** |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（13 域 · 72 工具）
+## 工具面（14 域 · 76 工具）
 
 | 域 | 工具 |
 |---|---|
 | 📁 fs (4) | `fs_read` `fs_write` `fs_stat` `fs_list` — 沙盒 fail-closed；读面纯 Python（S95 回迁，golden oracle 锁等价），写面 rx-fs.exe |
 | 🐛 scan (13) | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` `project_health`（S136 自 ops 归位：评分=三路扫描语义）`ast_scan` `code_review` `vuln_knowledge` `ast_grep` `file_scan` `near_dupes` `secrets_hunt`（S123：凭据泄漏扫描，掩码输出） — 正则 + AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
 | 📐 metrics (3) | `code_coverage` `dep_graph` `module_stability` — 代码质量度量（S136 自 scan 域归位：模块 metrics.py 与组轴对齐；代码模式扫描仍属 scan） |
+| 🖥️ sys (4) | `sys_topology`（P/E 核分级：EfficiencyClass 双 API 交叉，非混合平台如实报 uniform）`sys_threads`（线程优先级/理想核/CPU 集）`sys_steer`（**需授权**：render=关键线程→P 核 / background=后台→E 核，CPU Set 软定向 + EcoQoS，`hard` 走硬亲和并标代价）`sys_devices`（显示适配器，同类显示口去重） |
 | 🛠️ ide (23) | `ide_outline` `ide_read_symbol` `locate_edit` `code_context` `ide_edit_multi` `ide_batch_edit` `ide_rename` `ide_lsp` `ide_impact` `ide_diagnostics` `ide_build` `ide_test` `ide_debug` `ide_break` `ide_doctor` `ide_multi_check` `ide_vscode` `ide_auto_report` `ide_health_trend` `scip_refs` `ide_dead_code`（S123：死符号可达性）`ide_callgraph`（S125：真调用图）`ide_risk_rank`（S129：风险榜——高扇入×无测试排序） |
 | 🔍 search (3) | `code_search`（BM25，`hybrid=true` 时与语义路 RRF 融合）`code_semantic`（tf-idf 定义级）`repo_map`（个人化 PageRank 符号地图） |
 | 🛡️ guard (4) | `hallucination_guard` `capability_manifest` — 声明核查（读取过沙盒，S97）；`breaker_status` `breaker_reset` — **工具熔断**（同一工具+参数窗口内 >10 次即断，S122；S131 自 meta 域归位） |

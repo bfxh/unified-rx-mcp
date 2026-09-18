@@ -26,6 +26,7 @@
 | engine | [engine.md](engine.md) | 2 | 引擎桥接 |
 | game | [game.md](game.md) | 2 | Blender/游戏资产校验 |
 | learn | [learn.md](learn.md) | 1 | lesson 关键词检索，非向量 |
+| sys | [sys.md](sys.md) | 4 | S148 混合架构：EfficiencyClass 双 API 交叉判 P/E（非混合如实报 uniform）；steer=CPU Set 软定向 + EcoQoS（`hard` 才是硬亲和，Intel 劝阻） |
 
 ## 语言级索引（ide 域）
 
