@@ -1,0 +1,48 @@
+{
+ "commands": {
+  "sys_topology": {
+   "median_ms": 17.46,
+   "min_ms": 16.49
+  },
+  "sys_devices": {
+   "median_ms": 18.3,
+   "min_ms": 17.08
+  },
+  "sys_procs": {
+   "median_ms": 29.68,
+   "min_ms": 27.24
+  },
+  "fs_list": {
+   "median_ms": 14.92,
+   "min_ms": 13.17
+  },
+  "scan_secrets": {
+   "median_ms": 17.89,
+   "min_ms": 16.4
+  },
+  "scan_bug": {
+   "median_ms": 16.43,
+   "min_ms": 14.11
+  },
+  "search_query": {
+   "median_ms": 14.68,
+   "min_ms": 12.78
+  },
+  "semantic": {
+   "median_ms": 14.33,
+   "min_ms": 13.72
+  },
+  "ide_outline": {
+   "median_ms": 15.76,
+   "min_ms": 13.45
+  },
+  "taint_scan": {
+   "median_ms": 15.02,
+   "min_ms": 13.79
+  },
+  "mcp_version": {
+   "median_ms": 14.05,
+   "min_ms": 13.05
+  }
+ }
+}

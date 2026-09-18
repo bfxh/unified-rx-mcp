@@ -40,6 +40,8 @@ STEPS = [
     ("audit-freshness", [PY, "-X", "utf8", "scripts/audit_ledger.py"], "fast", "审计时效/账本对账"),
     ("toolface",    [PY, "-X", "utf8", "scripts/toolface_budget.py"], "fast", "工具面体量软帽"),
     ("tool-evals",  [PY, "-X", "utf8", "bench/tool_evals.py", "--check"], "fast", "任务级评测基线"),
+    ("cli-bench",   [PY, "-X", "utf8", "bench/cli_bench.py", "--check-golden",
+                     "--check"], "fast", "命令行：输出金标准 + 计时（不变质量）"),
     ("selftest",    [PY, "-X", "utf8", "scripts/ci_gate.py"], "fast", "对账硬门（SCHEMA/EXE/VERSION）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),
     ("cargo-test",  [CARGO, "test", "--manifest-path", "rust/Cargo.toml"], "full", "Rust 测试"),

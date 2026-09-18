@@ -1,6 +1,6 @@
 [package]
 name = "unified-rx-rs"
-version = "2.65.0"
+version = "2.66.0"
 edition = "2024"
 description = "unified-rx Rust 化（S78 地基 + S79 起逐域原生实现）：零依赖 JSON + MCP stdio 协议层 + 污点引擎 + fs 四工具（S90 写面收官）+ 检索域 + scan 轻正则三工具"
 # 迁移红线（spec/VULN-HUNTING.md 五）：[dependencies] 恒空——与 Python 侧纯 stdlib 同纪律。
@@ -54,3 +54,11 @@ path = "src/bin/rx_sys.rs"
 
 [profile.release]
 opt-level = 2
+# S150 命令行加速（不变质量，实测证据见 ROUNDLOG S150 / bench/cli_bench.py）：
+# 交错 A/B 30 轮 —— 旧配置中位 24.41ms → 以下三项 17.21ms（−29%，每次调用省 ~7ms；
+# 纯启动成本，代码路径与输出逐字节不变，金标准 10 条全绿）。
+lto = "fat"              # 跨 crate 内联 + 去重，二进制 2.89MB → 364KB
+codegen-units = 1        # 单编译单元，最大化 LTO 收益（构建时间 +~20s，可接受）
+strip = "symbols"        # 去调试符号（纯体积/加载收益，无行为影响）
+# 注：panic="abort" 交错了 30 轮**无可测收益**（17.28 vs 17.21，噪声内）且会改
+# panic 失败语义（不unwind）——按"不变质量"红线**不采用**。

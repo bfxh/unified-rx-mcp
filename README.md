@@ -8,19 +8,16 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.65.0（S149）**：80 工具 / 14 域（**core 档 54 件**）；**渐进披露 + sys 通用化 + 提权路径**——
-①**渐进披露（域 profile）**：`list_tools` 按启用域裁剪，越域调用给开启指引；
-`profile_status`/`profile_enable` 恒在（后者**需授权**＝capability 变更批准，
-对齐 OWASP MCP），开启后发 `notifications/tools/list_changed` 宿主重拉即见；
-宿主侧 `UNIFIED_RX_PROFILE=core` 首屏 **54 件 ≈ 9.5K token**（全量 80 件 ≈ 13.6K），
-core 档设 ≤30,000 字符**软帽**（实测 28,882，膨胀即红）。
-②**sys 通用化（不只是游戏）**：`sys_steer` 目标支持 **pid 或可执行名子串**，档位＝
-预设（render→P 核 / background→E 核）+ **显式组合** `class_=p|e|any` /
-`priority=highest…idle` / `eco=on|off`——LLM 推理进程钉 E 核、浏览器主线程钉 P 核
-都是一条命令；新增 `sys_procs`（按名找目标）与 `sys_privilege`（**需授权**）。
-③**提权/访问权路径**：`OpenThread` 被拒（winerr=5）自动尝试 **SeDebugPrivilege**
-并重试一次，仍失败则逐线程带错误码与人类可读原因（"需管理员运行 / 受保护进程
-PPL"）；枚举不到线程**不再静默空转**而是明确报错（PID 4 实测）。
+**当前 v2.66.0（S150）**：80 工具 / 14 域（core 档 54 件）；**命令行加速（不变质量）**——
+用户指令：「命令行需要不变质量的情况下加速」。做法=**证据链而非手感**：
+①`bench/cli_bench.py` 立两把尺——**金标准**（11 条代表命令的 rc + stdout SHA256 +
+字节数，任何"优化"必须逐字节同输出）与**计时**（交错 A/B，抗机器负载漂移）；
+②按测量动刀：`[profile.release]` 加 `lto="fat"` + `codegen-units=1` +
+`strip="symbols"`——交错 30 轮实测 **启动中位 24.41ms → 17.21ms（−29%，每次调用
+省 ~7ms）**，二进制 2.89MB → 364KB；**金标准 10 条全绿**（输出零变化）；
+③按数据**拒绝**了 `panic="abort"`（交错了 30 轮无可测收益且会改 panic 失败语义）；
+④两条门进本地审核：`cli-bench`（金标准+计时，2 秒）与**性能配置锁**（改 LTO/单
+编译单元/去符号必须同时改测试并写明理由——"加速是承诺，不是一次性动作"）。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；历史链：S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
