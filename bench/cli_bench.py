@@ -147,22 +147,23 @@ def main(argv):
             return 2
         gdoc = json.loads(GOLDEN.read_text(encoding="utf-8"))
         if gdoc.get("host") != host_key() and not force:
+            # 异机 = 显式 SKIP；不 return（后面的计时段仍要跑/也要能各自 SKIP）
             print(f"CLI-GOLDEN SKIP（异机基线：{gdoc.get('host')} ≠ 本机）"
                   "——金标准为机器本地证据，重采用 --golden")
-            return 0
-        old = gdoc["commands"]
-        bad = []
-        for k, v in cmds.items():
-            if k in _NONDET:
-                continue
-            now = fingerprint(*v)
-            if old.get(k) != now:
-                bad.append(f"{k}: {old.get(k)} != {now}")
-        checked = len([k for k in cmds if k not in _NONDET])
-        print(f"CLI-GOLDEN {'OK' if not bad else 'FAIL'} 比对 {checked} 条（{len(_NONDET)} 条天然不确定已排除）")
-        for b in bad:
-            print("  ", b)
-        rc = 1 if bad else rc
+        else:
+            old = gdoc["commands"]
+            bad = []
+            for k, v in cmds.items():
+                if k in _NONDET:
+                    continue
+                now = fingerprint(*v)
+                if old.get(k) != now:
+                    bad.append(f"{k}: {old.get(k)} != {now}")
+            checked = len([k for k in cmds if k not in _NONDET])
+            print(f"CLI-GOLDEN {'OK' if not bad else 'FAIL'} 比对 {checked} 条（{len(_NONDET)} 条天然不确定已排除）")
+            for b in bad:
+                print("  ", b)
+            rc = 1 if bad else rc
     if "--check" in argv or want_all:
         if not BASE.is_file():
             print("BASELINE 缺基线（先 --bench）")
@@ -170,19 +171,19 @@ def main(argv):
         bdoc = json.loads(BASE.read_text(encoding="utf-8"))
         if bdoc.get("host") != host_key() and not force:
             print(f"CLI-BENCH SKIP（异机基线：{bdoc.get('host')} ≠ 本机）")
-            return 0
-        old = bdoc["commands"]
-        slow = []
-        for k, v in cmds.items():
-            now = timeit(*v)
-            o = old.get(k, {})
-            # 对照口径用 min_ms（机器负载下的中位数不稳，min=硬件极限更可复现）
-            if o.get("min_ms") and now["min_ms"] > o["min_ms"] * 1.25:
-                slow.append(f"{k}: min {o['min_ms']} → {now['min_ms']}ms")
-        print(f"CLI-BENCH {'OK' if not slow else 'FAIL'} 对照 {len(cmds)} 条（阈值 1.25×）")
-        for s in slow:
-            print("  ", s)
-        rc = 1 if slow else rc
+        else:
+            old = bdoc["commands"]
+            slow = []
+            for k, v in cmds.items():
+                now = timeit(*v)
+                o = old.get(k, {})
+                # 对照口径用 min_ms（机器负载下的中位数不稳，min=硬件极限更可复现）
+                if o.get("min_ms") and now["min_ms"] > o["min_ms"] * 1.25:
+                    slow.append(f"{k}: min {o['min_ms']} → {now['min_ms']}ms")
+            print(f"CLI-BENCH {'OK' if not slow else 'FAIL'} 对照 {len(cmds)} 条（阈值 1.25×）")
+            for s in slow:
+                print("  ", s)
+            rc = 1 if slow else rc
     if not any(a in argv for a in ("--golden", "--bench", "--check",
                                    "--check-golden", "--all")):
         print("用法: --golden | --check-golden | --bench | --check | --all")
