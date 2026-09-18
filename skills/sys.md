@@ -4,7 +4,7 @@
 FFI，`rust/src/sysinfo.rs`）。动机：传统引擎默认所有核心一致 → 关键渲染线程被
 调度到 E 核，帧率波动。
 
-## 四工具
+## 六工具
 
 - **sys_topology**（读）：CPU 厂商/型号（CPUID 品牌串）、**P/E/LP-E 分级**、
   SMT、L3、NUMA、CPU 集清单。判据 = Windows `EfficiencyClass`，**双 API 交叉**：
@@ -26,6 +26,27 @@ FFI，`rust/src/sysinfo.rs`）。动机：传统引擎默认所有核心一致 �
   - `tids` 缺省 = 该进程全部线程。
 - **sys_devices**（读）：显示适配器清单（NVIDIA/AMD/Intel 识别；同一 GPU 的多个
   显示口去重；虚拟显示适配器照实列出）。VRAM/DXGI 细节留待后续（见边界）。
+- **sys_procs**（读，S149）：进程清单（pid/可执行名/线程数），支持名称子串过滤——
+  给 `sys_steer` 找目标用（**任意应用/工具，不限游戏**）。
+- **sys_privilege**（**需授权**，S149）：尝试为本进程开启 `SeDebugPrivilege`——
+  跨进程改线程的前置能力。普通用户通常需要以管理员运行才生效，结果**如实回报**
+  （err=1300 即"未全部授予"）。
+
+### S149 通用化（"不只是游戏"）
+`sys_steer` 的目标可以是 **pid 或可执行名子串**（如 `chrome`）；档位除两个预设外，
+支持**显式组合**：`class_=p|e|any`（核定向）+ `priority=highest|above|normal|below|
+lowest|idle` + `eco=on|off`。典型用法：
+- 游戏/渲染：`preset=render`；
+- 后台/工具链（编码器、索引、备份、LLM 推理等）：`preset=background` 或
+  `class_=e, priority=below, eco=on`（省电且不抢 P 核）；
+- 只调优先级不碰核：`class_=any, priority=highest`。
+
+### 访问被拒时的行为（S149 实锤）
+`OpenThread` 返回 **5=拒绝访问** 时：自动尝试开启 `SeDebugPrivilege` 并**重试一次**；
+仍失败则在每条线程的步骤里带 `winerr` 与人类可读原因（"需管理员运行，或目标为
+受保护进程 PPL"）。目标线程**一条都枚举不到**时返回 `error`（不静默空转）——
+如系统进程（PID 4）、受保护进程，或需要管理员权限。输出里 `se_debug_priv` /
+`denied_count` 如实回报提权是否成功、被拒几条。
 
 ## 实测坑（都已在代码里修掉，防回归）
 

@@ -20,13 +20,13 @@
 | guard | [guard.md](guard.md) | 4 | 路径真值校验，非语义理解；读取过沙盒（S97） |
 | meta | [meta.md](meta.md) | 3 |
 | metrics | [metrics.md](metrics.md) | 3 | S136 组轴归位（模块 metrics.py 与组对齐）：覆盖率/依赖图/稳定性 | local_run 需 __authorized；S122 熔断状态/复位 |
-| ops | [ops.md](ops.md) | 5 | stats.jsonl 打点 + S141 会话烧量 |
+| ops | [ops.md](ops.md) | 7 | stats.jsonl 打点 + S141 会话烧量 + S149 渐进披露（profile_status/profile_enable） |
 | attack | [attack.md](attack.md) | 6 | 自写对抗，非 hypothesis |
 | appaudit | [appaudit.md](appaudit.md) | 3 | Electron asar 解包审计 |
 | engine | [engine.md](engine.md) | 2 | 引擎桥接 |
 | game | [game.md](game.md) | 2 | Blender/游戏资产校验 |
 | learn | [learn.md](learn.md) | 1 | lesson 关键词检索，非向量 |
-| sys | [sys.md](sys.md) | 4 | S148 混合架构：EfficiencyClass 双 API 交叉判 P/E（非混合如实报 uniform）；steer=CPU Set 软定向 + EcoQoS（`hard` 才是硬亲和，Intel 劝阻） |
+| sys | [sys.md](sys.md) | 6 | S148 混合架构：EfficiencyClass 双 API 交叉判 P/E（非混合如实报 uniform）；steer=CPU Set 软定向 + EcoQoS（`hard` 才是硬亲和，Intel 劝阻） |
 
 ## 语言级索引（ide 域）
 

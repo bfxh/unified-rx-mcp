@@ -8,15 +8,20 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.64.0（S148）**：76 工具 / 14 域；**新域 sys：混合架构调度（P/E 核）**——
-引擎 `rx-sys.exe`（Rust，零依赖手写 FFI）四工具：`sys_topology`（P/E/LP-E 分级，
-Windows `EfficiencyClass` **双 API 交叉**为准——本机实测 Ultra 7 270K：P=8 逻辑核
-[0,1,10,11,12,13,22,23] 两口径一致；非混合平台如实报 uniform）、`sys_threads`
-（线程优先级/理想核/CPU 集）、`sys_steer`（**需授权**：render=关键线程→P 核 /
-background=后台→E 核；约束栈顺序=硬掩码→CPU 集→理想核→优先级→EcoQoS——顺序错会
-被 API 拒，两轮实锤）、`sys_devices`（显示适配器去重识别）。全部经 Rust 引擎，
-零第三方依赖；判定边界（Thread Director 无 API / APO·iBOT 不可编程 / ITT 需 SDK）
-在 skills/sys.md 如实记录。历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；历史链：S146 协议双支持（2025-06-18 +
+**当前 v2.65.0（S149）**：80 工具 / 14 域（**core 档 54 件**）；**渐进披露 + sys 通用化 + 提权路径**——
+①**渐进披露（域 profile）**：`list_tools` 按启用域裁剪，越域调用给开启指引；
+`profile_status`/`profile_enable` 恒在（后者**需授权**＝capability 变更批准，
+对齐 OWASP MCP），开启后发 `notifications/tools/list_changed` 宿主重拉即见；
+宿主侧 `UNIFIED_RX_PROFILE=core` 首屏 **54 件 ≈ 9.5K token**（全量 80 件 ≈ 13.6K），
+core 档设 ≤30,000 字符**软帽**（实测 28,882，膨胀即红）。
+②**sys 通用化（不只是游戏）**：`sys_steer` 目标支持 **pid 或可执行名子串**，档位＝
+预设（render→P 核 / background→E 核）+ **显式组合** `class_=p|e|any` /
+`priority=highest…idle` / `eco=on|off`——LLM 推理进程钉 E 核、浏览器主线程钉 P 核
+都是一条命令；新增 `sys_procs`（按名找目标）与 `sys_privilege`（**需授权**）。
+③**提权/访问权路径**：`OpenThread` 被拒（winerr=5）自动尝试 **SeDebugPrivilege**
+并重试一次，仍失败则逐线程带错误码与人类可读原因（"需管理员运行 / 受保护进程
+PPL"）；枚举不到线程**不再静默空转**而是明确报错（PID 4 实测）。
+历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；历史链：S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
 data-flow / toolface / tool-evals / selftest，**4 秒级**）与全门 9 步（+pytest 全量 +
@@ -60,21 +65,21 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **76 个组合工具 / 14 域** |
+| 工具面 | 183（注入面 200+） | **80 个组合工具 / 14 域**（core 档 54 件） |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（14 域 · 76 工具）
+## 工具面（14 域 · 80 工具）
 
 | 域 | 工具 |
 |---|---|
 | 📁 fs (4) | `fs_read` `fs_write` `fs_stat` `fs_list` — 沙盒 fail-closed；读面纯 Python（S95 回迁，golden oracle 锁等价），写面 rx-fs.exe |
 | 🐛 scan (13) | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` `project_health`（S136 自 ops 归位：评分=三路扫描语义）`ast_scan` `code_review` `vuln_knowledge` `ast_grep` `file_scan` `near_dupes` `secrets_hunt`（S123：凭据泄漏扫描，掩码输出） — 正则 + AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
 | 📐 metrics (3) | `code_coverage` `dep_graph` `module_stability` — 代码质量度量（S136 自 scan 域归位：模块 metrics.py 与组轴对齐；代码模式扫描仍属 scan） |
-| 🖥️ sys (4) | `sys_topology`（P/E 核分级：EfficiencyClass 双 API 交叉，非混合平台如实报 uniform）`sys_threads`（线程优先级/理想核/CPU 集）`sys_steer`（**需授权**：render=关键线程→P 核 / background=后台→E 核，CPU Set 软定向 + EcoQoS，`hard` 走硬亲和并标代价）`sys_devices`（显示适配器，同类显示口去重） |
+| 🖥️ sys (6) | `sys_topology`（P/E 核分级：EfficiencyClass 双 API 交叉，非混合平台如实报 uniform）`sys_threads`（线程优先级/理想核/CPU 集）`sys_steer`（**需授权**：render=关键线程→P 核 / background=后台→E 核，CPU Set 软定向 + EcoQoS，`hard` 走硬亲和并标代价）`sys_devices`（显示适配器，同类显示口去重）`sys_procs`（进程清单，按名找目标）`sys_privilege`（**需授权**：开 SeDebugPrivilege，跨进程改线程前置） |
 | 🛠️ ide (23) | `ide_outline` `ide_read_symbol` `locate_edit` `code_context` `ide_edit_multi` `ide_batch_edit` `ide_rename` `ide_lsp` `ide_impact` `ide_diagnostics` `ide_build` `ide_test` `ide_debug` `ide_break` `ide_doctor` `ide_multi_check` `ide_vscode` `ide_auto_report` `ide_health_trend` `scip_refs` `ide_dead_code`（S123：死符号可达性）`ide_callgraph`（S125：真调用图）`ide_risk_rank`（S129：风险榜——高扇入×无测试排序） |
 | 🔍 search (3) | `code_search`（BM25，`hybrid=true` 时与语义路 RRF 融合）`code_semantic`（tf-idf 定义级）`repo_map`（个人化 PageRank 符号地图） |
 | 🛡️ guard (4) | `hallucination_guard` `capability_manifest` — 声明核查（读取过沙盒，S97）；`breaker_status` `breaker_reset` — **工具熔断**（同一工具+参数窗口内 >10 次即断，S122；S131 自 meta 域归位） |

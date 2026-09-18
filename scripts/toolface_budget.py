@@ -45,6 +45,20 @@ def measure():
             "ascii": ascii_, "est_tokens": est_tokens, "top": top}
 
 
+# S149：渐进披露的**可测承诺**——core 档（宿主首屏裁剪面）体量软帽。
+# 目的（用户指令）："不需要每次把全部工具展给智能体看"——core 档必须显著小于全量。
+_CORE_GROUPS = {"fs", "scan", "ide", "search", "ops", "guard"}
+_CORE_CAP = 30000
+
+
+def measure_profile(groups):
+    registry.set_enabled_groups(groups)
+    try:
+        return measure()
+    finally:
+        registry.set_enabled_groups(None)
+
+
 def main():
     cap = int(os.environ.get("UNIFIED_RX_TOOLFACE_CAP", _DEFAULT_CAP))
     m = measure()
@@ -57,6 +71,13 @@ def main():
         sys.exit(f"TOOLFACE-GATE FAIL: 超帽 {over} 字符（{m['total_chars']} > {cap}）"
                  f"——先瘦身描述或（记账后）在 scripts/toolface_budget.py 抬帽；"
                  f"top5=[{top_s}]")
+    cm = measure_profile(_CORE_GROUPS)
+    core_cap = int(os.environ.get("UNIFIED_RX_TOOLFACE_CORE_CAP", _CORE_CAP))
+    print(f"TOOLFACE-CORE tools={cm['tools']} total_chars={cm['total_chars']} "
+          f"cjk={cm['cjk']} est_tokens={cm['est_tokens']} cap={core_cap}")
+    if cm["total_chars"] > core_cap:
+        sys.exit(f"TOOLFACE-CORE FAIL: core 档超帽 {cm['total_chars']} > {core_cap}"
+                 f"（渐进披露的裁剪面不许膨胀；抬帽须记账）")
     print("TOOLFACE-GATE OK")
 
 

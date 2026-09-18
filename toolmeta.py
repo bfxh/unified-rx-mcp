@@ -67,6 +67,8 @@ TOOL_TITLES = {
     "scan_log": "扫描日志",
     "usage_stats": "使用统计",
     "session_burn": "会话烧量",
+    "profile_status": "渐进披露状态",
+    "profile_enable": "开启工具域",
     "lesson_stats": "教训库统计",
     # search 域
     "code_search": "词面检索",
@@ -98,6 +100,8 @@ TOOL_TITLES = {
     "sys_threads": "线程调度视图",
     "sys_steer": "线程调度引导",
     "sys_devices": "显示适配器清单",
+    "sys_procs": "进程清单（找引导目标）",
+    "sys_privilege": "开启调试特权",
     # metrics 域
     "code_coverage": "行覆盖率测量",
     "dep_graph": "依赖关系图",

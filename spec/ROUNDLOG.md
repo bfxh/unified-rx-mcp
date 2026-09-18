@@ -1174,3 +1174,42 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：全量 pytest 3.14 **868 passed + 3 skipped**（+5）；cargo **200+3 绿** →
   实测 **203**（sysinfo 3 条）；clippy 零告警；taint 门 9=基线；版本锁步 **2.64.0 ×4**。
 - 提交：本次
+
+## S149 · 实施轮：渐进披露（域 profile）+ sys 通用化与提权路径
+- 项目：unified-rx-mcp｜时间：2026-09-15｜版本 2.64.0 → **2.65.0**
+- 用户指令：「开搞——不过我这些不只是游戏软件，其他的东西都是要搞的（包括工具）；
+  **我不需要每次把全部工具展给智能体看，部分的东西逐渐发**」+ 选单
+  「沙盒类进程可能需要提权才能改线程」。
+- **① 渐进披露（域 profile，registry 级）**：`_ENABLED_GROUPS` 域级启用集——
+  `list_tools` 只发启用域；越域调用**清晰拒绝 + 开启指引**（不是"未知工具"）；
+  两把开关 `profile_status`（读）/`profile_enable`（**需授权**，对应 OWASP
+  "capability 变更需人工批准"）**恒在**（不参与裁剪，避免鸡生蛋）；开启后经钩子发
+  `notifications/tools/list_changed`（capabilities 自 S3 已声明），宿主重拉即见。
+  宿主侧入口 `UNIFIED_RX_PROFILE=all（缺省）/core/<逗号域列表>`；**core=fs/scan/
+  ide/search/ops/guard = 54 件 ≈ 9.5K token**（全量 80 件 ≈ 13.6K）。
+  `toolface_budget.py` 增 **core 档软帽 ≤30,000 字符**（实测 28,882）——把
+  "不需要每次展开全部"变成可判红的承诺。
+- **② sys 通用化（"不只是游戏"）**：`sys_steer` 目标支持 **pid 或可执行名子串**；
+  档位＝两预设 + **显式组合** `class_=p|e|any` / `priority=highest…idle` /
+  `eco=on|off`（例：LLM 推理进程钉 E 核省电、浏览器主线程钉 P 核）；空档位组合
+  显式报错（防静默空转）。新增 `sys_procs`（进程清单，按名找目标）与
+  `sys_privilege`（**需授权**：开 SeDebugPrivilege 并如实回报结果）。
+- **③ 提权/访问权路径（用户选单）**：`OpenThread` 被拒（winerr=5）时**自动尝试
+  SeDebugPrivilege 并重试一次**；仍失败则逐线程带 `winerr` + 人类可读原因
+  （"需管理员运行，或目标为受保护进程 PPL"）；**枚举不到线程不再静默空转**，
+  返回明确 error（如 PID 4/受保护进程）。实测：普通用户 `privilege` →
+  err=1300"未全部授予（需以管理员运行）"如实回报；pid=4 → 明确诊断；
+  正常目标四连互切仍全绿。
+- **实锤两个**：①**链接属性按 DLL 分组**——`OpenProcessToken`/`LookupPrivilege
+  ValueW`/`AdjustTokenPrivileges` 在 **advapi32**，漏 `#[link]` 时 lib 编过、
+  **rx-scan 链接期 undefined reference**（连坐整仓构建）；②聚合输出结构体
+  （`Value::Obj`）里插入 error 字段用 let-chain + `pairs.insert(1, …)` 保持
+  "error 在前、字段随后"的既有读法。
+- **计数/门连锁**：工具面 76→**80**（+sys_procs/sys_privilege/profile_status/
+  profile_enable）；README×3（含 sys(4→6)）/PANORAMA（80/14 + ops(5→7) + sys(6)）/
+  skills/README/精确门 80/上限 80/标题双向锁（4 新标题）；skills/sys.md 六工具 +
+  通用化 + 提权行为；skills/ops.md 渐进披露节。
+- **验证**：全量 pytest 3.14 **875 passed + 3 skipped**（+8：S149 八条）；clippy
+  零告警；taint 门持平；toolface 全量 40,945（≤45,000）+ core 28,882（≤30,000）；
+  版本锁步 **2.65.0 ×4**（exe 已重建）。
+- 提交：本次

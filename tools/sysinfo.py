@@ -5,7 +5,7 @@
 导致帧率波动。本域把"识别 P/E 核 → 定位线程 → 按档位引导"整条链路工具化，
 全部经 Rust 引擎 `rx-sys.exe`（零依赖手写 FFI；判定与实测见 skills/sys.md）。
 
-四工具：
+六工具：
 - sys_topology：CPU 厂商/型号、P/E/LP-E 分级（EfficiencyClass，双 API 交叉）、
   SMT、L3、NUMA、CPU 集清单；非混合平台如实报 uniform（不瞎标 P/E）。
 - sys_threads：某进程每线程的 TID/名字/优先级/理想核/CPU 集。
@@ -81,35 +81,79 @@ def sys_threads(pid):
 
 
 @tool("sys_steer",
-      "按档位引导线程调度（写操作，需授权）：render=关键线程→P 核（松硬掩码/限 P 集/理想核 P/AboveNormal/关 EcoQoS）；background=后台→E 核（E 集/BelowNormal/EcoQoS 开）；hard=true 追加硬亲和（Intel 劝阻，代价见 skills/sys.md）",
+      "引导进程线程调度（写操作，需授权）。目标=pid 或名称子串；档位=preset（render→P 核 / background→E 核）或显式 class_+priority+eco（任意应用/工具适用）；hard=true 走硬亲和（Intel 劝阻）。访问被拒会自动尝试 SeDebugPrivilege 并如实回报",
       "sys",
       {"type": "object",
        "properties": {
-           "pid": {"type": "integer", "description": "目标进程 PID"},
+           "target": {"type": "string",
+                      "description": "pid（数字）或可执行名子串（如 chrome.exe）"},
+           "pid": {"type": "integer", "description": "兼容旧参：等价于 target=pid"},
            "profile": {"type": "string", "enum": ["render", "background"],
-                       "description": "render=关键线程→P 核；background=后台→E 核"},
+                       "description": "兼容旧参：等价于 preset"},
+           "preset": {"type": "string", "enum": ["render", "background"],
+                      "description": "render=关键线程→P 核；background=后台→E 核"},
+           "class_": {"type": "string", "enum": ["p", "e", "any"],
+                      "description": "核定向：p=P 核 / e=E 核 / any=不碰核定向"},
+           "priority": {"type": "string",
+                        "enum": ["highest", "above", "normal", "below", "lowest", "idle"],
+                        "description": "线程优先级档位"},
+           "eco": {"type": "string", "enum": ["on", "off"],
+                   "description": "EcoQoS：on=调度器导向 E 核并选省电频率；off=关闭"},
            "tids": {"type": "array", "items": {"type": "integer"},
                     "description": "目标线程 TID 列表（缺省=该进程全部线程）"},
            "hard": {"type": "boolean",
                     "description": "追加硬亲和掩码（默认 false；Intel 明确劝阻）"},
        },
-       "required": ["pid", "profile"]},
+       "required": []},
       requires_auth=True)
-def sys_steer(pid, profile, tids=None, hard=False):
-    p = int(pid)
-    if p <= 0:
-        raise ValueError("pid 必须为正整数")
-    if profile not in ("render", "background"):
-        raise ValueError("profile 必须是 render 或 background")
-    tail = ["steer", str(p), profile]
+def sys_steer(target=None, pid=None, profile=None, preset=None, class_=None,
+              priority=None, eco=None, tids=None, hard=False):
+    tgt = target if target is not None else (str(int(pid)) if pid is not None else None)
+    if not tgt:
+        raise ValueError("需要 target（pid 或名称子串）——旧参 pid 亦可")
+    pres = preset or profile
+    if pres is not None and pres not in ("render", "background"):
+        raise ValueError("preset/profile 必须是 render 或 background")
+    tail = ["steer", str(tgt)]
+    if pres:
+        tail += ["--preset", pres]
+    if class_ is not None:
+        if class_ not in ("p", "e", "any"):
+            raise ValueError("class_ 必须是 p/e/any")
+        tail += ["--class", class_]
+    if priority is not None:
+        if priority not in ("highest", "above", "normal", "below", "lowest", "idle"):
+            raise ValueError("priority 档位不合法")
+        tail += ["--priority", priority]
+    if eco is not None:
+        if eco not in ("on", "off"):
+            raise ValueError("eco 必须是 on/off")
+        tail += ["--eco", eco]
     if hard:
         tail.append("--hard")
-    for t in (tids or []):
-        ti = int(t)
-        if ti <= 0:
-            raise ValueError(f"tid 必须为正整数: {t!r}")
-        tail.append(str(ti))
+    tids = [int(t) for t in (tids or [])]
+    if tids:
+        tail += ["--tids", ",".join(str(t) for t in tids)]
+    if pres is None and class_ is None and priority is None and eco is None:
+        raise ValueError("至少给一个档位：preset 或 class_/priority/eco")
     return _rx_sys_call(tail, timeout=120)
+
+
+@tool("sys_procs", "进程清单（pid/可执行名/线程数），支持名称子串过滤——用于给 sys_steer 找目标（任意应用/工具，不限游戏）",
+      "sys",
+      {"type": "object",
+       "properties": {"filter": {"type": "string",
+                                 "description": "名称子串（大小写不敏感；缺省=全部）"}},
+       "required": []})
+def sys_procs(filter=""):
+    return _rx_sys_call(["procs", str(filter or "")])
+
+
+@tool("sys_privilege",
+      "尝试为本进程开启 SeDebugPrivilege（跨进程改线程的前置能力）——能力变更需授权；结果如实回报（普通用户通常需以管理员运行才生效）",
+      "sys", {"type": "object", "properties": {}, "required": []}, requires_auth=True)
+def sys_privilege():
+    return _rx_sys_call(["privilege"])
 
 
 @tool("sys_devices", "显示适配器清单（NVIDIA/AMD/Intel 识别；同类显示口去重）", "sys",

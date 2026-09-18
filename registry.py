@@ -211,6 +211,63 @@ def tool(name, description="", group="misc", schema=None, requires_auth=False,
     return deco
 
 
+# ---------------- S149：渐进披露（域 profile） ----------------
+# 动机（用户指令）："不需要每次把全部工具展给智能体看，部分的东西逐渐发"。
+# 机制：注册表支持**域级启用集**——list_tools 只发启用的域；未启用域的工具
+# 调用被清晰拒绝并给开启指引。默认 all（不改变既有行为）；宿主可设
+# UNIFIED_RX_PROFILE=core|<用逗号分隔的域> 裁剪；agent 运行期用 profile_enable
+# 逐步开启（能力变更=需 __authorized，对应 OWASP"capability 变更需人工批准"）。
+_ENABLED_GROUPS: "set[str] | None" = None      # None = 全部
+_ALWAYS_ON = frozenset({"profile_status", "profile_enable"})   # 自身不许被裁掉
+_PROFILE_CHANGE_HOOK = None                    # server 注册：发 tools/list_changed
+
+
+def set_enabled_groups(groups):
+    """设置启用域（None=全部）。立即生效于 list_tools/call；返回新启用集。"""
+    global _ENABLED_GROUPS
+    _ENABLED_GROUPS = None if groups is None else set(groups)
+    return enabled_groups()
+
+
+def enabled_groups():
+    if _ENABLED_GROUPS is None:
+        return None
+    return set(_ENABLED_GROUPS)
+
+
+def tool_enabled(name):
+    if _ENABLED_GROUPS is None or name in _ALWAYS_ON:
+        return True
+    ent = _TOOLS.get(name)
+    return bool(ent and ent.get("group") in _ENABLED_GROUPS)
+
+
+def set_profile_change_hook(fn):
+    """server 注册：域开关变化后发 notifications/tools/list_changed。"""
+    global _PROFILE_CHANGE_HOOK
+    _PROFILE_CHANGE_HOOK = fn
+
+
+def notify_profile_changed():
+    if _PROFILE_CHANGE_HOOK:
+        try:
+            _PROFILE_CHANGE_HOOK()
+        except Exception:                      # 通知失败不影响开关本身
+            pass
+
+
+def profile_from_env():
+    """启动时读 env：all（缺省）/ core（常用开发面）/ 逗号分隔域列表。"""
+    raw = (os.environ.get("UNIFIED_RX_PROFILE") or "all").strip().lower()
+    if raw in ("", "all", "*"):
+        return None
+    if raw == "core":
+        return {"fs", "scan", "ide", "search", "ops", "guard"}
+    want = {x.strip() for x in raw.split(",") if x.strip()}
+    known = {v.get("group") for v in _TOOLS.values()}
+    return want & known
+
+
 def list_tools():
     """MCP tools/list 输出：按注册顺序。
 
@@ -228,6 +285,8 @@ def list_tools():
     import toolmeta
     out = []
     for n, v in _TOOLS.items():
+        if not tool_enabled(n):
+            continue
         schema = v["schema"]
         if v.get("requires_auth"):
             props = dict(schema.get("properties") or {})
@@ -405,6 +464,11 @@ def call(name, args):
     requires_auth 工具统一在此强制 __authorized is True（声明式授权）。"""
     if name not in _TOOLS:
         return {"ok": False, "error": f"未知工具: {name}"}
+    if not tool_enabled(name):
+        g = _TOOLS[name].get("group")
+        return {"ok": False, "error": (
+            f"该工具所属域「{g}」未启用（渐进披露）：先调 profile_enable "
+            f'开启（需 __authorized: true），或宿主设 UNIFIED_RX_PROFILE=all')}
     entry = _TOOLS[name]
     a = dict(args or {})
     if entry.get("requires_auth") and a.get("__authorized") is not True:

@@ -302,3 +302,54 @@ def lesson_stats(top=10):
         "top_keywords": [{"kw": k, "count": c} for k, c in kw.most_common(top)],
         "latest": lessons[-5:][::-1],
     }
+
+# ---------------- S149：渐进披露（域 profile）的两把开关 ----------------
+# 设计：默认 all 不变；宿主用 UNIFIED_RX_PROFILE=core|域列表 裁剪首屏；agent 运行期
+# 用 profile_enable **逐步开启**（能力变更=需 __authorized，对应 OWASP MCP 的
+# "capability 变更需人工批准"）；开启后发 notifications/tools/list_changed，
+# 宿主重拉工具面即可看到新工具。两工具恒在（不参与裁剪，避免鸡生蛋）。
+
+
+@tool("profile_status", "查看当前启用的域（渐进披露状态）：enabled/可选域/当前工具数", "ops",
+      {"type": "object", "properties": {}, "required": []})
+def profile_status():
+    import registry
+    all_groups = sorted({v.get("group") for v in registry._TOOLS.values()})
+    enabled = registry.enabled_groups()
+    return {
+        "profile": "all" if enabled is None else sorted(enabled),
+        "enabled_groups": all_groups if enabled is None else sorted(enabled),
+        "disabled_groups": [] if enabled is None else
+                           [g for g in all_groups if g not in enabled],
+        "tool_count_now": len(registry.list_tools()),
+        "tool_count_all": registry.tool_count(),
+        "env_hint": "宿主可设 UNIFIED_RX_PROFILE=core|<逗号分隔域> 裁剪首屏",
+    }
+
+
+@tool("profile_enable",
+      "渐进披露：开启一个或多个域（能力变更，需授权）——开启后发 list_changed 通知，宿主重拉工具面即可见；域名单可先 profile_status 查",
+      "ops",
+      {"type": "object",
+       "properties": {"domains": {"type": "array", "items": {"type": "string"},
+                                  "description": "要开启的域名列表（如 [sys, attack]）"}},
+       "required": ["domains"]},
+      requires_auth=True)
+def profile_enable(domains):
+    import registry
+    if isinstance(domains, str):
+        domains = [d.strip() for d in domains.split(",") if d.strip()]
+    if not isinstance(domains, list) or not domains:
+        raise ValueError("domains 必须是非空列表（或逗号分隔字符串）")
+    all_groups = {v.get("group") for v in registry._TOOLS.values()}
+    unknown = sorted(set(domains) - all_groups)
+    if unknown:
+        raise ValueError(f"未知域: {unknown}（可选: {sorted(all_groups)}）")
+    cur = registry.enabled_groups()
+    new = set(all_groups) if cur is None else (cur | set(domains))
+    registry.set_enabled_groups(new)
+    registry.notify_profile_changed()
+    return {"enabled_groups": sorted(new),
+            "added": sorted(set(domains)),
+            "tool_count_now": len(registry.list_tools()),
+            "note": "list_changed 已发（宿主重拉 tools/list 可见新工具）"}

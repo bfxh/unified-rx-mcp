@@ -29,10 +29,16 @@ import tools  # noqa: F401
 # 依据（逐条核对 2025-06-18 变更单，见 spec/EXTERNAL-ALIGNMENT.md §B1 合规矩阵）：
 # batching 移除（我们从未用）✓ / 结构化输出·elicitation·资源链接均**可选**（未声明）✓ /
 # OAuth 与 HTTP 头不涉及（本地 stdio）✓ / 顶层 title 已补发（tools/list）✓。
+# S149：渐进披露——启动时按 env 裁剪启用域；域开关变化时发 list_changed 通知
+# （capabilities.tools.listChanged 自 S3 起已声明，宿主会重新拉工具面）。
+registry.set_enabled_groups(registry.profile_from_env())
+registry.set_profile_change_hook(
+    lambda: _notify("notifications/tools/list_changed", {}))
+
 PROTOCOL_VERSION = "2025-06-18"          # 我方最高支持：未知版本请求的回包
 _SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26")   # 白名单：命中即回显客户端版本
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.64.0"
+SERVER_VERSION = "2.65.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
