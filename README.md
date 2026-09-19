@@ -12,12 +12,12 @@
 三条线之三（先测再砍、逐字节锁输出）：①**实测基线**（进程内，仓库为语料）：
 code_search 113ms / code_semantic 198ms / bug_scan 138ms / secrets_hunt 236ms /
 rust_taint_scan 385ms；②**证伪一个假设**——加进程内**内容缓存**
-（，键=路径+大小+mtime_ns，**只由常驻服务启用**、CLI 路径
+（`rust/src/rcache.rs`，键=路径+大小+mtime_ns，**只由常驻服务启用**、CLI 路径
 语义零变化）：冷/热仅 **1.0–1.3×** → **重活命令是 CPU 密集不是 I/O 密集**；
-③**secrets_hunt 并行化**（分块 + ，出口本就稳定排序 → 合并顺序
+③**secrets_hunt 并行化**（分块 + `thread::scope`，出口本就稳定排序 → 合并顺序
 无关）：**236ms → 74-75ms（≈3×）**，金标准与服务/CLI 逐字节锁全绿。
 下一轮：bug_scan / taint / search 用同一配方（抽单文件函数 → 分块并行 → 有序收集）。
-历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；历史链：S146 协议双支持（2025-06-18 +
+历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
 data-flow / toolface / tool-evals / selftest，**4 秒级**）与全门 9 步（+pytest 全量 +
