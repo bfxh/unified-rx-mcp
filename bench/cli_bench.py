@@ -74,7 +74,8 @@ def exe(name):
 # 不进金标准的命令（仍计时，但不做逐字节承诺）——两类"按设计会变"：
 #   sys_procs  = 活进程列表（环境相关，两次运行就可能不同）
 #   mcp_version= 版本回显（每次发版必变，S150 实锤：2.65.0→2.66.0 触发假红）
-_NONDET = {"sys_procs", "mcp_version"}
+#   sys_devices = 显示适配器清单（虚拟显示口随远控软件启停增减，S151 实锤 359 vs 447 字节）
+_NONDET = {"sys_procs", "mcp_version", "sys_devices"}
 
 
 def commands():

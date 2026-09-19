@@ -43,6 +43,10 @@ import pytest
 _STATS_TMP = os.path.join(_TMP_BASE, "_stats")
 os.makedirs(_STATS_TMP, exist_ok=True)
 
+# S151：常驻服务在套件里默认**关闭**——测试走 spawn 路径（与历史行为一致），
+# 服务本身由 tests/test_s151_svc.py 显式开启并逐字节对账。
+os.environ.setdefault("UNIFIED_RX_SVC", "off")
+
 # S146：握手留痕同样隔离——tests/test_v2 直接 _handle(initialize) 会把空 params
 # 裸写进真实 ~/.unified-rx/clients.jsonl（首轮留痕 4 条 null 全来自测试，实锤
 # 归因困难）。审计账本只许装真实宿主握手，测试一律写 tmp。

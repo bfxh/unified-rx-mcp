@@ -28,12 +28,12 @@ def _bin_paths():
                   if f.startswith("rx_") and f.endswith(".rs"))
 
 
-def test_exe_names_cover_all_ten_bins():
+def test_exe_names_cover_all_eleven_bins():
     """_RX_EXE_NAMES ↔ rust/src/bin/rx_*.rs 一一对应：新增 bin 忘登记即红。"""
     stems = {os.path.splitext(os.path.basename(p))[0] for p in _bin_paths()}
     # bin 源文件用下划线（rx_mcp.rs），exe 用连字符（rx-mcp.exe）
     expect = {n[:-4].replace("-", "_") for n in server._RX_EXE_NAMES}
-    assert len(server._RX_EXE_NAMES) == 10
+    assert len(server._RX_EXE_NAMES) == 11
     assert stems == expect
 
 
@@ -79,7 +79,7 @@ def test_exe_tag_drift_on_junk_exe(tmp_path, monkeypatch):
     assert ok == 0
     assert len(drift) == 1 and drift[0].startswith("rx-fs.exe(")
     assert server.SERVER_VERSION not in drift[0]
-    assert len(missing) == 9
+    assert len(missing) == 10
 
 
 def test_exe_tag_ok_with_real_exes():
@@ -88,11 +88,11 @@ def test_exe_tag_ok_with_real_exes():
                        "rx-fs.exe")
     if not os.path.isfile(rel):
         pytest.skip("本机未 cargo build（无 rx-rs-target 产物）")
-    assert server._selftest_exe_tag() == (10, [], [])
+    assert server._selftest_exe_tag() == (11, [], [])
 
 
 def test_selftest_prints_exe_tag(capsys):
-    """selftest 汇总面出现 EXE_TAG 行（真机 ok=10 / 裸环境 SKIP）。"""
+    """selftest 汇总面出现 EXE_TAG 行（真机 ok=11 / 裸环境 SKIP）。"""
     assert server.selftest() == 0
     out = capsys.readouterr().out
     assert "EXE_TAG ok=" in out or "EXE_TAG SKIP" in out

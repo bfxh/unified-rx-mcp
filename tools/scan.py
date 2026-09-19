@@ -61,6 +61,17 @@ def _rx_scan_call(argv, stdin_data=""):
 
     stdin 恒接管（空串即 EOF），子进程绝不继承宿主的协议管道。
     """
+    if not stdin_data:                     # 长查询（stdin 通道）不经服务
+        from tools import svc
+        got = svc.json_call("scan", list(argv))
+        if got is not None:
+            rc, data = got
+            if rc == 2:
+                raise ValueError(data.get("error") if isinstance(data, dict)
+                                 else str(data)[:200])
+            if rc != 0:
+                raise ValueError(f"rx-scan 执行失败（rc={rc}）")
+            return data
     exe = _rx_scan_exe()
     if not exe:
         raise ValueError("rx-scan.exe 不存在——先在 rust/ 下 cargo build --release "

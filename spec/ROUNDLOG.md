@@ -1243,3 +1243,47 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：全量 pytest 3.14 **879 passed + 3 skipped**（+4）；clippy 零告警；
   toolface 门持平；版本锁步 **2.66.0 ×4**（exe 已按新 profile 重建）。
 - 提交：本次
+
+## S151 · 实施轮：常驻服务（stdio）——命令行加速的运行层
+- 项目：unified-rx-mcp｜时间：2026-09-15｜版本 2.66.0 → **2.67.0**
+- 用户指令：「都一起搞」（三条加速线：构建层/重活算法/常驻进程）。
+- **① 构建层复验（负结果入档）**：`opt-level` 2 / 3 / s 交错 25 轮，启动
+  8.20 / 8.43 / 8.20ms——**无可测差异**（机器空载后绝对值降到 8ms）；保持
+  opt-level=2，避免无证据的改动。
+- **② 常驻服务 `rx-svc.exe serve`（本轮主菜）**：宿主 `Popen` 起一次，
+  请求/应答各一行 JSON 走 stdin/stdout。**无监听端口、无令牌、无端口文件**
+  ——只有父进程能写它的 stdin；宿主退出 → EOF → 自退（无孤儿）。
+  覆盖 sys / scan(bugscan·stdcheck·uicheck·secrets) / search / semantic / taint。
+  - **实测增益**：CLI `--version` 9.93ms vs 服务 0.09ms（110×）；**工具层
+    std_check 5.53ms → 0.25ms（22.5×）**；冷启首个调用含起服务进程 ≈0.2ms。
+  - **质量不变（硬约束）**：服务无缓存无状态，每请求重跑同一库函数；
+    新增 `tests/test_s151_svc.py` **逐字节比对服务回包 vs CLI stdout**（五域），
+    另有 registry 双路一致 / off 回退 / 杀后自愈 / stop 无孤儿 / **"不得比 CLI
+    慢 2×"** 六条锁。
+- **③ 首版 TCP 环回弃用（实锤）**：min 0.4ms 但**中位 15ms**（本机安全栈对
+  环回连接的间歇拦截；两客户端同形）——改 stdio 后中位 0.09ms。
+- **回放的坑（入册）**：①`call()` 里给 `_proc` 赋值却漏 `global _proc` →
+  UnboundLocalError 被 `except` 吞成"服务不可用"（静默回退掩盖真因）——
+  用"替换 except 打印 traceback"的调试法逼出；②服务端首版在 accept 循环里
+  sleep 150ms 轮询 → 每请求 +150ms（比 CLI 慢 15×）——改阻塞 accept + 看门狗
+  线程，并把"不得比 CLI 慢 2×"写成测试；③rx-svc 未加 `TCP_NODELAY` 前
+  另有一层延迟（与 ② 叠加），最终整体走 stdio 一并消掉。
+- **④ 门禁/清单**：exe 名单 10→**11**（rx-svc 纳入 EXE_TAG 对账，s94 契约同步）；
+  README/skills/ops 文档入册；conftest 默认 `UNIFIED_RX_SVC=off`（套件走历史路径，
+  服务由专项测试显式开）。
+- **⑤ 未做（下轮，用户三条里的中间那条）**：**重活命令的算法优化**——search 建
+  索引 ~140ms、near_dupes 2000 文件等；本轮已把安全网备好（cli_bench 金标准 +
+  计时基线），下轮按同一纪律"先测再砍、逐字节锁输出"。
+- **⑥ 门禁抓出的三处真问题（本轮最值钱的部分）**：①**taint 服务路漏字段**——
+  CLI 路在 Python 侧补 `root/naive/cross`，服务路早期直返漏掉，**被 tool-evals
+  体量基线抓出**；修法=两路共用后处理，并把"注册表级两路一致"比对从 1 个工具
+  扩到 **9 个用例（五域）**；②**elapsed_ms 等计时字段天然逐次不同**——比对须归一
+  （仪器纪律第三次复现）；③**sys_threads 是活列表**（GC 线程数会变）——不进
+  逐字节比对（同 sys_procs/sys_devices/mcp_version，四处已标注排除理由）。
+- 仪器两处固定化：`tool_evals` 夹具改**固定路径**（随机 mkdtemp 让结果里的路径
+  长度变 → 体量基线假红）；`cli_bench` 的 `sys_devices` 加入排除（虚拟显示口随
+  远控软件启停，实测 359↔447 字节）。
+- 验证：全量 pytest 3.14 **890 passed + 3 skipped**（+6 服务锁）；clippy 零告警；
+  tool-evals/selftest/cli-bench 全绿；版本锁步 **2.67.0 ×4**；exe 已重建
+  （11 个，EXE_TAG 对账）。
+- 提交：本次

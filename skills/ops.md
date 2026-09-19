@@ -22,3 +22,19 @@
   "capability 变更需人工批准"）。
 - **可测承诺**：`scripts/toolface_budget.py` 对 core 档设**软帽**（≤30,000 字符，
   实测 28,882）——裁剪面不许无声膨胀。
+
+## 常驻服务（S151，命令行加速）
+
+**问题**：每次工具调用起一个 exe ≈ 8-9ms 固定成本（Windows 进程创建）。
+**做法**：`rx-svc.exe serve` 由 Python 宿主 `Popen` 起一次，之后请求/应答各一行
+JSON 走它的 stdin/stdout——**没有监听端口、没有令牌**（只有父进程能写它的 stdin），
+宿主退出即 EOF 自退（无孤儿）。覆盖域：sys / scan（bugscan·stdcheck·uicheck·
+secrets）/ search / semantic / taint。**实测：std_check 5.53ms → 0.25ms（22.5×）**。
+
+**质量不变**（硬约束）：服务不做缓存/状态，每个请求重跑与 CLI 相同的库函数；
+`tests/test_s151_svc.py` 逐字节比对"服务回包 vs CLI stdout"（五域），并钉住
+"服务不得比 CLI 慢 2×"（首版 TCP 环回 151ms/次的回归教训）。
+
+**开关**：`UNIFIED_RX_SVC=off` 强制按次 spawn（测试默认 off，见 conftest）；
+服务不可用/管道断/超时 → 自动回退 spawn，**行为与报错语义不变**。
+首版走 TCP 环回被本机安全栈间歇拦截（min 0.4ms / 中位 15ms），已弃用改 stdio。

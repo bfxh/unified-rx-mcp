@@ -34,7 +34,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-W = Path(tempfile.mkdtemp(prefix="urx-tool-evals-")).resolve()
+# 固定夹具路径（S151 实锤：mkdtemp 每次换路径 → 结果里的路径长度变 → 体量基线假红）
+W = (Path(tempfile.gettempdir()) / "urx-tool-evals-fx").resolve()
+shutil.rmtree(W, ignore_errors=True)
+W.mkdir(parents=True, exist_ok=True)
 os.environ["UNIFIED_RX_SANDBOX"] = str(W)     # 自给自足（先声明再 import）
 # 确定性（CI 首跑实锤）：CI 装了 pylsp → ide_impact 会走 LSP 档（冷启动 ~19s、
 # 结果随环境变），本地没装则走名字解析档。评测要跨机可比 → 命令指向不存在程序，
@@ -319,5 +322,4 @@ if __name__ == "__main__":
     try:
         sys.exit(main(sys.argv[1:]))
     finally:
-        if "--keep" not in sys.argv and not SABOTAGE:
-            shutil.rmtree(W, ignore_errors=True)
+        pass   # 固定夹具保留（下次运行开始时重建），保证路径长度稳定

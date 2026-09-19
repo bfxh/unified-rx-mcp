@@ -38,6 +38,16 @@ def _rx_sys_call(argv_tail, timeout=60):
     退出码契约：0 = 工具级结果（含 {"error": ...} 包络，原样透传）；
     2 = 用法错误（转 ValueError）；其它 = 执行失败（带末行细节）。
     """
+    from tools import svc
+    got = svc.json_call("sys", list(argv_tail))
+    if got is not None:
+        rc, data = got
+        if rc == 2:
+            raise ValueError(f"rx-sys 用法错误: "
+                             f"{data.get('error') if isinstance(data, dict) else data}")
+        if rc != 0:
+            raise ValueError(f"rx-sys 执行失败（rc={rc}）")
+        return data
     exe = _rx_sys_exe()
     if not exe:
         raise ValueError("rx-sys.exe 不存在——先在 rust/ 下 cargo build --release "

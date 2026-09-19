@@ -322,6 +322,23 @@ def rust_taint_scan(root, naive=False, cross=True):
         resolved = fs_tools._resolve(root)   # 与 fs 域同一沙盒钳制，越界即拒
     except ValueError as e:
         return {"error": str(e)}
+    from tools import svc
+    t_argv = [resolved] + (["--naive"] if naive else [])         + ([] if cross or naive else ["--no-cross"])
+    got = svc.json_call("taint", t_argv)
+    if got is not None:
+        rc, data = got
+        if rc == 2:
+            return {"error": (data.get("error") if isinstance(data, dict) else str(data))}
+        if rc != 0:
+            return {"error": f"rx-taint 执行失败（rc={rc}）", "root": resolved}
+        # **两路共用后处理**（S151 实锤：服务路早期直返 data 漏了 root/naive/cross
+        # 三字段，被 tool-evals 的体量基线抓出——两路输出必须同形）
+        if not isinstance(data, dict):
+            return {"error": "rx-taint 回包非对象", "root": resolved}
+        data["root"] = resolved
+        data["naive"] = bool(naive)
+        data["cross"] = bool(cross and not naive)
+        return data
     exe = _rx_taint_exe()
     if not exe:
         return {"error": "rx-taint.exe 不存在——先在 rust/ 下 cargo build --release "

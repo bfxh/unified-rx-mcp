@@ -47,6 +47,17 @@ def _rx_search_call(root, query, k):
     超 _QUERY_ARGV_CAP 的大查询改走 stdin（argv 传 "-"），绕开 Windows 命令行
     上限；stdin 恒接管（空串即 EOF），子进程绝不继承宿主的协议管道。
     """
+    if len(query) <= _QUERY_ARGV_CAP:      # 大查询走 stdin，不经服务
+        from tools import svc
+        got = svc.json_call("search", [root, query, str(k)])
+        if got is not None:
+            rc, data = got
+            if rc == 2:
+                raise ValueError(data.get("error") if isinstance(data, dict)
+                                 else str(data)[:200])
+            if rc != 0:
+                raise ValueError(f"rx-search 执行失败（rc={rc}）")
+            return data
     exe = _rx_search_exe()
     if not exe:
         raise ValueError("rx-search.exe 不存在——先在 rust/ 下 cargo build --release "
@@ -193,6 +204,17 @@ def _rx_semantic_call(root, query, mode, k):
     超 _QUERY_ARGV_CAP 的大查询改走 stdin（argv 传 "-"），绕开 Windows 命令行
     上限；stdin 恒接管（空串即 EOF），子进程绝不继承宿主的协议管道。
     """
+    if len(query) <= _QUERY_ARGV_CAP:      # 大查询走 stdin，不经服务
+        from tools import svc
+        got = svc.json_call("semantic", [root, query, mode, str(k)])
+        if got is not None:
+            rc, data = got
+            if rc == 2:
+                raise ValueError(data.get("error") if isinstance(data, dict)
+                                 else str(data)[:200])
+            if rc != 0:
+                raise ValueError(f"rx-semantic 执行失败（rc={rc}）")
+            return data
     exe = _rx_semantic_exe()
     if not exe:
         raise ValueError("rx-semantic.exe 不存在——先在 rust/ 下 cargo build --release "

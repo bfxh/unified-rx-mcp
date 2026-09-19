@@ -4,27 +4,27 @@
   "fs_roundtrip": {
    "ok": true,
    "calls": 2,
-   "chars": 284
+   "chars": 272
   },
   "bug_scan_except_pass": {
    "ok": true,
    "calls": 1,
-   "chars": 310
+   "chars": 304
   },
   "secrets_aws": {
    "ok": true,
    "calls": 1,
-   "chars": 548
+   "chars": 541
   },
   "taint_open": {
    "ok": true,
    "calls": 1,
-   "chars": 390
+   "chars": 384
   },
   "dead_code": {
    "ok": true,
    "calls": 1,
-   "chars": 496
+   "chars": 489
   },
   "callgraph": {
    "ok": true,
@@ -34,22 +34,22 @@
   "impact": {
    "ok": true,
    "calls": 1,
-   "chars": 701
+   "chars": 899
   },
   "edit_and_test": {
    "ok": true,
    "calls": 2,
-   "chars": 327
+   "chars": 321
   },
   "coverage": {
    "ok": true,
    "calls": 1,
-   "chars": 319
+   "chars": 313
   },
   "near_dupes": {
    "ok": true,
    "calls": 1,
-   "chars": 803
+   "chars": 773
   },
   "dep_cycle": {
    "ok": true,
@@ -59,12 +59,12 @@
   "xor_file": {
    "ok": true,
    "calls": 1,
-   "chars": 806
+   "chars": 794
   },
   "repo_map": {
    "ok": true,
    "calls": 1,
-   "chars": 262
+   "chars": 256
   }
  }
 }
