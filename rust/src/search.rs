@@ -45,7 +45,7 @@ pub fn code_search(root: &Path, query: &str, k: usize) -> Value {
     let mut docs: Vec<PathBuf> = Vec::new();
     walk(root, &mut docs);
     // 等价 Python _index：读取失败 continue（上限名额照烧、文档不入库）
-    docs.retain(|p| std::fs::read(p).is_ok());
+    docs.retain(|p| crate::rcache::read(p).is_ok());
     let n = docs.len() as f64;
 
     // 倒排索引：token -> [(doc_id, tf)]；doc_len 与整词表同步记录
@@ -418,7 +418,7 @@ fn walk(root: &Path, out: &mut Vec<PathBuf>) {
 
 /// 读文本（utf-8 errors=replace 等价）。
 fn read_text(p: &Path) -> String {
-    match std::fs::read(p) {
+    match crate::rcache::read(p) {
         Ok(b) => String::from_utf8_lossy(&b).into_owned(),
         Err(_) => String::new(),
     }

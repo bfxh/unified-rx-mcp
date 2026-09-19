@@ -1157,7 +1157,7 @@ fn analyze_file(root: &Path, p: &Path) -> Option<FileRes> {
         Ok(r) => r.to_string_lossy().replace('\\', "/"),
         Err(_) => return None,
     };
-    let src = match std::fs::read(p) {
+    let src = match crate::rcache::read(p) {
         Ok(b) => String::from_utf8_lossy(&b).into_owned(),
         Err(_) => return None,
     };
@@ -1531,7 +1531,7 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
             Ok(r) => r.to_string_lossy().replace('\\', "/"),
             Err(_) => continue,
         };
-        let src = match std::fs::read(p) {
+        let src = match crate::rcache::read(p) {
             Ok(b) => String::from_utf8_lossy(&b).into_owned(),
             Err(_) => continue,
         };
@@ -1571,7 +1571,7 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
     let (mut n_calls, mut n_builtin_calls) = (0usize, 0usize);
     for f in pre.iter_mut() {
         let path = root.join(&f.rel);
-        let src = match std::fs::read(&path) {
+        let src = match crate::rcache::read(&path) {
             Ok(b) => String::from_utf8_lossy(&b).into_owned(),
             Err(_) => continue,
         };

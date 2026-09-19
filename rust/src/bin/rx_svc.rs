@@ -192,6 +192,8 @@ fn err(msg: &str) -> String {
 // ---------------- stdio 常驻主循环 ----------------
 
 fn serve_stdio() {
+    // S152：常驻进程内启用文件内容缓存（键含 size+mtime_ns；CLI 路径不启用）
+    rxrs::rcache::enable();
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut out = stdout.lock();

@@ -511,7 +511,7 @@ fn walk_sem(dir: &Path, st: &mut SemState) -> bool {
 
 /// universal newlines 归一后按 \n 切（行尾不带换行——匹配与分词都不依赖）
 fn read_to_lines(p: &Path) -> Result<Vec<String>, ()> {
-    let bytes = std::fs::read(p).map_err(|_| ())?;
+    let bytes = crate::rcache::read(p).map_err(|_| ())?;
     let text = String::from_utf8_lossy(&bytes).into_owned();
     let text = if text.contains('\r') {
         text.replace("\r\n", "\n").replace('\r', "\n")

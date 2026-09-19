@@ -565,101 +565,8 @@ pub fn secrets_scan(
     let mut files = walk_ext_files(root, &exts, max_files);
     files.sort(); // 结果与遍历序解耦（命中排序后等价；截断边界的取件集合见模块注记）
 
-    let mut hits: Vec<(u8, String, usize, String, String, String, String)> = vec![];
-    // 元组：(sev_rank, file, line, rule, severity, masked, snippet)
-    let mut files_scanned = 0usize;
-    let mut files_skipped = 0usize;
-
-    for fp in &files {
-        let base = fp.file_name().map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-        let bytes = match fs::read(fp) {
-            Ok(b) => b,
-            Err(_) => {
-                files_skipped += 1;
-                continue;
-            }
-        };
-        if bytes.len() > size_cap {
-            files_skipped += 1;
-            continue;
-        }
-        let head = &bytes[..bytes.len().min(8192)];
-        if head.contains(&0u8) {
-            files_skipped += 1;
-            continue;
-        }
-        files_scanned += 1;
-        let text = String::from_utf8_lossy(&bytes).to_string();
-        let rel = fp
-            .strip_prefix(root)
-            .unwrap_or(fp)
-            .to_string_lossy()
-            .replace('\\', "/");
-        let entropy_layer = !entropy_skip_name(&base);
-
-        for (lineno, line) in splitlines(&text).into_iter().enumerate() {
-            let ch = chars_of(line);
-            let trimmed: String = line.trim().to_string();
-
-            // 模式层：规则源序扁平收集（Python 版逐规则逐命中追加的等价序）
-            let mut found: Vec<(usize, usize, String)> = vec![];
-            {
-                let mut push_rule = |fname: &str, spans: Vec<(usize, usize)>| {
-                    for (s, e) in spans {
-                        found.push((s, e, fname.to_string()));
-                    }
-                };
-                push_rule("aws_access_key", find_aws(&ch));
-                push_rule("github_token", find_github(&ch));
-                push_rule("slack_token", find_slack(&ch));
-                push_rule("google_api_key", find_google(&ch));
-                push_rule("stripe_live_key", find_stripe(&ch));
-                push_rule("private_key_block", find_pem(&ch));
-                push_rule("jwt", find_jwt(&ch));
-                for (_s, vs, ve) in find_secret_assignment(&ch) {
-                    // 掩码/片段替换的是**值区间**（Python group(2) 语义），非整段
-                    found.push((vs, ve, "secret_assignment".to_string()));
-                }
-            }
-            for (s, e, rule) in found {
-                let severity = match rule.as_str() {
-                    "aws_access_key" | "github_token" | "slack_token"
-                    | "google_api_key" | "stripe_live_key" => "high",
-                    "private_key_block" => "critical",
-                    _ => "medium",
-                };
-                let value: Vec<char> = ch[s..e].to_vec();
-                if rule == "secret_assignment" && is_placeholder(&value) {
-                    continue;
-                }
-                let m = mask(&value);
-                let snippet = trimmed.replace(&value.iter().collect::<String>(), &m);
-                let snippet: String = snippet.chars().take(MAX_LINE_SNIPPET).collect();
-                let rank = match severity {
-                    "critical" => 0u8, "high" => 1, "medium" => 2, _ => 3,
-                };
-                hits.push((rank, rel.clone(), lineno + 1, rule, severity.to_string(),
-                           m, snippet));
-            }
-
-            // 熵层
-            if entropy_layer {
-                for (s, e) in entropy_tokens(&ch) {
-                    let tok = &ch[s..e];
-                    if char_classes(tok) >= 3 && shannon(tok) >= min_entropy {
-                        let value: String = tok.iter().collect();
-                        let m = mask(tok);
-                        let snippet = trimmed.replace(&value, &m);
-                        let snippet: String = snippet.chars().take(MAX_LINE_SNIPPET).collect();
-                        hits.push((3u8, rel.clone(), lineno + 1, "high_entropy".to_string(),
-                                   "suspect".to_string(), m, snippet));
-                    }
-                }
-            }
-        }
-    }
-
+    let (mut hits, files_scanned, files_skipped) =
+        scan_files(&files, root, size_cap, min_entropy);
     // 稳定排序 (severity_rank, file, line)
     hits.sort_by_key(|a| (a.0, a.1.clone(), a.2));
 
@@ -705,6 +612,144 @@ pub fn secrets_scan(
     ])
 }
 
+type Hit = (u8, String, usize, String, String, String, String);
+
+/// S152：**分块并行 + 有序收集**。出口按 (rank,file,line) 稳定排序（既有语义），
+/// 故合并顺序无关——并行不改变任何输出字节（金标准 + 服务/CLI 逐字节测试锁）。
+/// 线程数 = min(可用并行度, 8)；文件数 < 8 或单核 → 串行（与旧版逐字节同）。
+fn scan_files(files: &[PathBuf], root: &Path, size_cap: usize, min_entropy: f64)
+    -> (Vec<Hit>, usize, usize) {
+    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    if files.len() < 8 || n <= 1 {
+        let mut h = Vec::new();
+        let (mut sc, mut sk) = (0usize, 0usize);
+        for fp in files {
+            let (hh, a, b) = scan_file(fp, root, size_cap, min_entropy);
+            h.extend(hh);
+            sc += a;
+            sk += b;
+        }
+        return (h, sc, sk);
+    }
+    let chunk = files.len().div_ceil(n);
+    let mut out: Vec<Hit> = Vec::new();
+    let (mut sc, mut sk) = (0usize, 0usize);
+    std::thread::scope(|s| {
+        let handles: Vec<_> = files.chunks(chunk).map(|c| {
+            s.spawn(move || {
+                let mut h = Vec::new();
+                let (mut a, mut b) = (0usize, 0usize);
+                for fp in c {
+                    let (hh, x, y) = scan_file(fp, root, size_cap, min_entropy);
+                    h.extend(hh);
+                    a += x;
+                    b += y;
+                }
+                (h, a, b)
+            })
+        }).collect();
+        for hd in handles {
+            let (h, a, b) = hd.join().unwrap_or_default();
+            out.extend(h);
+            sc += a;
+            sk += b;
+        }
+    });
+    (out, sc, sk)
+}
+
+/// 单文件扫描（原循环体逐字搬入；返回 (命中, scanned 计数, skipped 计数)）。
+fn scan_file(fp: &Path, root: &Path, size_cap: usize, min_entropy: f64)
+    -> (Vec<Hit>, usize, usize) {
+    let mut hits: Vec<Hit> = Vec::new();
+    let (mut scanned, skipped) = (0usize, 0usize);
+        let base = fp.file_name().map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let bytes = match fs::read(fp) {
+            Ok(b) => b,
+            Err(_) => {
+                return (hits, 0, 1);
+            }
+        };
+        if bytes.len() > size_cap {
+            return (hits, 0, 1);
+        }
+        let head = &bytes[..bytes.len().min(8192)];
+        if head.contains(&0u8) {
+            return (hits, 0, 1);
+        }
+        scanned += 1;
+        let text = String::from_utf8_lossy(&bytes).to_string();
+        let rel = fp
+            .strip_prefix(root)
+            .unwrap_or(fp)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let entropy_layer = !entropy_skip_name(&base);
+
+        for (lineno, line) in splitlines(&text).into_iter().enumerate() {
+            let ch = chars_of(line);
+            let trimmed: String = line.trim().to_string();
+
+            // 模式层：规则源序扁平收集（Python 版逐规则逐命中追加的等价序）
+            let mut found: Vec<(usize, usize, String)> = vec![];
+            {
+                let mut push_rule = |fname: &str, spans: Vec<(usize, usize)>| {
+                    for (s, e) in spans {
+                        found.push((s, e, fname.to_string()));
+                    }
+                };
+                push_rule("aws_access_key", find_aws(&ch));
+                push_rule("github_token", find_github(&ch));
+                push_rule("slack_token", find_slack(&ch));
+                push_rule("google_api_key", find_google(&ch));
+                push_rule("stripe_live_key", find_stripe(&ch));
+                push_rule("private_key_block", find_pem(&ch));
+                push_rule("jwt", find_jwt(&ch));
+                for (_s, vs, ve) in find_secret_assignment(&ch) {
+                    // 掩码/片段替换的是**值区间**（Python group(2) 语义），非整段
+                    found.push((vs, ve, "secret_assignment".to_string()));
+                }
+            }
+            for (s, e, rule) in found {
+                let severity = match rule.as_str() {
+                    "aws_access_key" | "github_token" | "slack_token"
+                    | "google_api_key" | "stripe_live_key" => "high",
+                    "private_key_block" => "critical",
+                    _ => "medium",
+                };
+                let value: Vec<char> = ch[s..e].to_vec();
+                if rule == "secret_assignment" && is_placeholder(&value) {
+                    continue;          // 只跳过这一条命中（不是整文件）
+                }
+                let m = mask(&value);
+                let snippet = trimmed.replace(&value.iter().collect::<String>(), &m);
+                let snippet: String = snippet.chars().take(MAX_LINE_SNIPPET).collect();
+                let rank = match severity {
+                    "critical" => 0u8, "high" => 1, "medium" => 2, _ => 3,
+                };
+                hits.push((rank, rel.clone(), lineno + 1, rule, severity.to_string(),
+                           m, snippet));
+            }
+
+            // 熵层
+            if entropy_layer {
+                for (s, e) in entropy_tokens(&ch) {
+                    let tok = &ch[s..e];
+                    if char_classes(tok) >= 3 && shannon(tok) >= min_entropy {
+                        let value: String = tok.iter().collect();
+                        let m = mask(tok);
+                        let snippet = trimmed.replace(&value, &m);
+                        let snippet: String = snippet.chars().take(MAX_LINE_SNIPPET).collect();
+                        hits.push((3u8, rel.clone(), lineno + 1, "high_entropy".to_string(),
+                                   "suspect".to_string(), m, snippet));
+                    }
+                }
+            }
+        }
+    (hits, scanned, skipped)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -746,3 +791,4 @@ mod tests {
         assert!(!entropy_skip_name("creds.py"));
     }
 }
+

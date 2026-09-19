@@ -1555,7 +1555,7 @@ pub fn scan_path_opts(root: &Path, naive: bool, cross: bool) -> ScanResult {
     // 传播完再统一产出 findings——单文件时代的"分析完即弃"不再够用。
     let mut units: Vec<Analyzer> = Vec::new();
     for f in &files {
-        let bytes = match std::fs::read(f) {
+        let bytes = match crate::rcache::read(f) {
             Ok(b) => b,
             Err(e) => {
                 res.errors.push(format!("{}: {}", f.display(), e));

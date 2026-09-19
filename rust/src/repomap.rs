@@ -101,7 +101,7 @@ pub fn repo_map(
     for fp in &files {
         let p = Path::new(fp);
         let lang = ide_lang_of(fp);
-        let text = match std::fs::read(p) {
+        let text = match crate::rcache::read(p) {
             Ok(b) => String::from_utf8_lossy(&b).into_owned(),
             Err(_) => continue, // 读取失败跳过（与 ide 工具族同口径）
         };

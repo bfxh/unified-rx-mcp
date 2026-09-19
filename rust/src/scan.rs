@@ -158,7 +158,7 @@ pub(crate) fn iter_files(path: &str, max_files: usize) -> Vec<String> {
 
 /// utf-8 errors=replace 等价读全文。
 pub(crate) fn read_text(p: &Path) -> Option<String> {
-    let bytes = std::fs::read(p).ok()?;
+    let bytes = crate::rcache::read(p).ok()?;
     Some(String::from_utf8_lossy(&bytes).into_owned())
 }
 

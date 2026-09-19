@@ -160,7 +160,7 @@ pub fn dead_code_scan(
         {
             continue;
         }
-        let bytes = match fs::read(fp) {
+        let bytes = match crate::rcache::read(fp) {
             Ok(b) => b,
             Err(_) => continue,
         };
