@@ -1315,3 +1315,25 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：全量 pytest 3.14 **885 passed + 3 skipped**；cargo 41 单测绿；clippy 零告警；
   cli-bench 金标准（8 条）与 tool-evals 全绿；版本锁步 **2.68.0 ×4**（exe 已重建）。
 - 提交：本次
+
+## S153 · 实施轮：并行配方推广——bug_scan 3.3×、taint 拆分定位
+- 项目：unified-rx-mcp｜时间：2026-09-20｜版本 2.68.0 → **2.69.0**
+- 用户指令：「继续」（按 S152 定下的配方推广到另两条重活命令）。
+- **① bug_scan 并行化**：同配方（抽 scan_one → 分块 `thread::scope` → 有序收集；
+  出口本就稳定排序）。**实测 138ms → 41.2ms（3.3×）**；金标准 + 服务/CLI 逐字节
+  一致 ✓。
+- **② rust_taint_scan 并行化 + 拆分定位**：逐文件分析（Analyzer pass1/pass2）
+  分块并行、跨文件传播后置不变。**实测 385 → 306ms（1.26×）**——并**定位到剩余
+  瓶颈**：`--naive`（仅逐文件）**58ms** vs 默认（含跨文件链）**299ms** → **~240ms
+  全在 `callgraph_targets` + `cross_file_propagate`**（顺序结构，下轮单独优化）。
+- **③ 入库的两个坑**：① heredoc 里反斜杠/花括号转义两次翻车（`replace('\'…)`
+  与 `format!("{}")`）——最终用 **chr(92) 拼接**与**行号切片**绕开转义歧义；
+  ② 替换主循环后残留的旧声明行（`let mut issues`）触发 clippy unused_mut——
+  由 clippy 门抓出（第三次证明"门比人可靠"）。
+- 累计（S152+S153）：secrets_hunt 236→74ms、bug_scan 138→41ms、taint 385→306ms；
+  三者输出全部逐字节不变（金标准 + 双路比对锁）。
+- **④ 下轮（目标已实测定位）**：taint 的跨文件传播 ~240ms（并行化调用图构建 /
+  传播不动点的数据结构）；search/semantic 的建索引（113/198ms）。
+- 验证：全量 pytest 3.14 **885 passed + 3 skipped**；cargo 41 单测绿；clippy 零告警；
+  cli-bench 金标准 8 条 + tool-evals 全绿；版本锁步 **2.69.0 ×4**（exe 已重建）。
+- 提交：本次

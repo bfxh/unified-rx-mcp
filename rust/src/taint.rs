@@ -1553,28 +1553,10 @@ pub fn scan_path_opts(root: &Path, naive: bool, cross: bool) -> ScanResult {
     };
     // S128：先全量分析（保留各文件 Analyzer 供跨文件传播改污点表），
     // 传播完再统一产出 findings——单文件时代的"分析完即弃"不再够用。
-    let mut units: Vec<Analyzer> = Vec::new();
-    for f in &files {
-        let bytes = match crate::rcache::read(f) {
-            Ok(b) => b,
-            Err(e) => {
-                res.errors.push(format!("{}: {}", f.display(), e));
-                continue;
-            }
-        };
-        let src = String::from_utf8_lossy(&bytes).to_string();
-        let display = if root.is_file() {
-            root.file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| root.to_string_lossy().to_string())
-        } else {
-            f.strip_prefix(root).unwrap_or(f).to_string_lossy().replace('\\', "/")
-        };
-        let mut a = Analyzer::new(&display, &src, naive);
-        a.pass1();
-        a.pass2_interproc();
-        units.push(a);
-    }
+    // S153：逐文件分析**分块并行**（分析独立、传播后置）——分块为连续切片，
+    // 按块序拼回 = 文件序，errors 同序；输出与串行逐字节同（金标准锁死）。
+    let (mut units, mut errs) = analyze_files(&files, root, naive);
+    res.errors.append(&mut errs);
     if cross && !naive {
         let targets = callgraph_targets(root);
         res.cross_skipped_ambiguous = cross_file_propagate(&mut units, &targets);
@@ -1583,6 +1565,65 @@ pub fn scan_path_opts(root: &Path, naive: bool, cross: bool) -> ScanResult {
         res.findings.extend(a.pass3_findings());
     }
     res
+}
+
+/// S153：单文件分析（原循环体逐字搬入）。返回 (Analyzer 可选, 错误串可选)。
+fn analyze_one(f: &Path, root: &Path, naive: bool) -> (Option<Analyzer>, Option<String>) {
+    let bytes = match crate::rcache::read(f) {
+        Ok(b) => b,
+        Err(e) => return (None, Some(format!("{}: {}", f.display(), e))),
+    };
+    let src = String::from_utf8_lossy(&bytes).to_string();
+    let display = if root.is_file() {
+        root.file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| root.to_string_lossy().to_string())
+    } else {
+        f.strip_prefix(root).unwrap_or(f).to_string_lossy().replace('\\', "/")
+    };
+    let mut a = Analyzer::new(&display, &src, naive);
+    a.pass1();
+    a.pass2_interproc();
+    (Some(a), None)
+}
+
+/// S153：分块并行 + 有序收集（线程数 min(可用并行度, 8)；文件 < 4 走串行）。
+fn analyze_files(files: &[PathBuf], root: &Path, naive: bool)
+    -> (Vec<Analyzer>, Vec<String>) {
+    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    if files.len() < 4 || n <= 1 {
+        let mut us = Vec::new();
+        let mut es = Vec::new();
+        for f in files {
+            let (u, e) = analyze_one(f, root, naive);
+            if let Some(u) = u { us.push(u) }
+            if let Some(e) = e { es.push(e) }
+        }
+        return (us, es);
+    }
+    let chunk = files.len().div_ceil(n);
+    let mut us = Vec::new();
+    let mut es = Vec::new();
+    std::thread::scope(|s| {
+        let handles: Vec<_> = files.chunks(chunk).map(|c| {
+            s.spawn(move || {
+                let mut u2 = Vec::new();
+                let mut e2 = Vec::new();
+                for f in c {
+                    let (u, e) = analyze_one(f, root, naive);
+                    if let Some(u) = u { u2.push(u) }
+                    if let Some(e) = e { e2.push(e) }
+                }
+                (u2, e2)
+            })
+        }).collect();
+        for h in handles {
+            let (mut u2, mut e2) = h.join().unwrap_or_default();
+            us.append(&mut u2);
+            es.append(&mut e2);
+        }
+    });
+    (us, es)
 }
 
 /// 结果 → json::Value（零依赖序列化出口）。

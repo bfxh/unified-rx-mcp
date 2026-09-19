@@ -102,23 +102,8 @@ pub fn bug_scan(root: &str, max_files: usize) -> Value {
         return Value::Obj(vec![("error".to_string(), Value::Str(format!("路径不存在: {}", root)))]);
     }
     let files = iter_files(root, max_files);
-    let mut issues: Vec<Issue> = Vec::new();
-    let mut files_scanned = 0usize;
-    for fp in &files {
-        // 单文件直传可能非代码文件：Python 版不计数直接跳过
-        let lang = lang_of(fp);
-        if lang.is_empty() {
-            continue;
-        }
-        files_scanned += 1;
-        // OSError 仍占名额（与 Python 先计数后打开一致）
-        let Some(src) = read_text(Path::new(fp)) else { continue };
-        match lang {
-            "python" => issues.extend(scan_python(&src, fp)),
-            "rust" => issues.extend(scan_rust(&src, fp)),
-            _ => issues.extend(scan_generic(&src, fp)),
-        }
-    }
+    // S153：分块并行 + 有序收集（逐文件独立；出口稳定排序 → 合并顺序无关）
+    let (mut issues, files_scanned) = scan_files(&files);
     // 首现序计数（Python dict 插入序等价）
     let mut by_rule: Vec<(String, i128)> = Vec::new();
     let mut by_sev: Vec<(String, i128)> = Vec::new();
@@ -1095,4 +1080,58 @@ fn scan_generic(src: &str, path: &str) -> Vec<Issue> {
         cur = p + 1;
     }
     issues
+}
+
+/// S153：单文件扫描（原循环体逐字搬入）。返回 (issues, 是否计入 files_scanned)。
+fn scan_one(fp: &str) -> (Vec<Issue>, bool) {
+    let lang = lang_of(fp);
+    if lang.is_empty() {
+        return (Vec::new(), false);        // 非代码文件：不计数直接跳过（Python 版同）
+    }
+    // OSError 仍占名额（与 Python 先计数后打开一致）
+    let Some(src) = read_text(Path::new(fp)) else { return (Vec::new(), true) };
+    let issues = match lang {
+        "python" => scan_python(&src, fp),
+        "rust" => scan_rust(&src, fp),
+        _ => scan_generic(&src, fp),
+    };
+    (issues, true)
+}
+
+/// S153：分块并行（线程数 min(可用并行度, 8)；文件 < 8 走串行，与旧版逐字节同）。
+fn scan_files(files: &[String]) -> (Vec<Issue>, usize) {
+    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    if files.len() < 8 || n <= 1 {
+        let mut iss = Vec::new();
+        let mut cnt = 0usize;
+        for fp in files {
+            let (i2, c) = scan_one(fp);
+            iss.extend(i2);
+            if c { cnt += 1 }
+        }
+        return (iss, cnt);
+    }
+    let chunk = files.len().div_ceil(n);
+    let mut iss = Vec::new();
+    let mut cnt = 0usize;
+    std::thread::scope(|s| {
+        let handles: Vec<_> = files.chunks(chunk).map(|c| {
+            s.spawn(move || {
+                let mut i2 = Vec::new();
+                let mut c2 = 0usize;
+                for fp in c {
+                    let (x, cc) = scan_one(fp);
+                    i2.extend(x);
+                    if cc { c2 += 1 }
+                }
+                (i2, c2)
+            })
+        }).collect();
+        for h in handles {
+            let (mut i2, c2) = h.join().unwrap_or_default();
+            iss.append(&mut i2);
+            cnt += c2;
+        }
+    });
+    (iss, cnt)
 }

@@ -8,15 +8,13 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.68.0（S152）**：80 工具 / 14 域（core 档 54 件）；**重活命令提速**——
-三条线之三（先测再砍、逐字节锁输出）：①**实测基线**（进程内，仓库为语料）：
-code_search 113ms / code_semantic 198ms / bug_scan 138ms / secrets_hunt 236ms /
-rust_taint_scan 385ms；②**证伪一个假设**——加进程内**内容缓存**
-（`rust/src/rcache.rs`，键=路径+大小+mtime_ns，**只由常驻服务启用**、CLI 路径
-语义零变化）：冷/热仅 **1.0–1.3×** → **重活命令是 CPU 密集不是 I/O 密集**；
-③**secrets_hunt 并行化**（分块 + `thread::scope`，出口本就稳定排序 → 合并顺序
-无关）：**236ms → 74-75ms（≈3×）**，金标准与服务/CLI 逐字节锁全绿。
-下一轮：bug_scan / taint / search 用同一配方（抽单文件函数 → 分块并行 → 有序收集）。
+**当前 v2.69.0（S153）**：80 工具 / 14 域（core 档 54 件）；**重活命令并行化推广**——
+S152 定下的配方（抽单文件函数 → 分块 `thread::scope` → 有序收集）用到另两条：
+①**bug_scan 138ms → 41ms（3.3×）**；②**rust_taint_scan 385 → 306ms（1.26×）**，
+并把它拆开定位到剩余瓶颈——`--naive`（仅逐文件）**58ms** vs 默认（含跨文件链）
+**299ms** → **~240ms 全在跨文件传播/调用图**（顺序结构，下轮单独优化）。
+累计三件：secrets_hunt 236→74ms、bug_scan 138→41ms、taint 385→306ms，
+**输出全部逐字节不变**（cli-bench 金标准 + 服务/CLI 双路比对锁）。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
