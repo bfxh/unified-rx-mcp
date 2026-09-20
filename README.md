@@ -8,15 +8,13 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.71.0（S155）**：80 工具 / 14 域（core 档 54 件）；**taint 跨文件阶段深挖**——
-①**探针先入代码**（env 门控 `UNIFIED_RX_DEBUG_TIMING=1`）：`callgraph=259ms /
-propagate=17ms` → **瓶颈不是传播而是调用图构建**（S154 判断被自己的探针纠正）；
-callgraph 内部分段：解析 108ms / 后处理 50ms / stitch ~69ms；
-②**真凶=重复解析**：`callgraph_dir` 阶段 2 对每文件又读又解析一遍（阶段 1 已解析）
-→ `Pre` 携带解析结果复用，**callgraph 259→205ms**；
-③**增量传播**（反向索引 × 脏集合）语义正确、输出一致（收益小，因不动点收敛快）；
-④taint 累计（交错 A/B）**417.5 → 275.9ms（1.51×）**，三模式输出逐字节一致。
-下轮：nameres 阶段 1 并行 + 阶段 2 独立化（合计可再压 ~120ms）。
+**当前 v2.72.0（S156）**：80 工具 / 14 域（core 档 54 件）；**nameres 阶段 1 并行——taint 累计破 2×**——
+同配方推广到调用图构建：函数内 `struct Pre` 提升为模块级 `CgPre`、阶段 1 循环体抽成
+`prescan_one`、`prescan_parallel` 分块并行（收集按块序=文件序，后序消费顺序不变）。
+**实测（探针，env 门控 `UNIFIED_RX_DEBUG_TIMING=1`）**：phase1 **108→27ms（4×）**、
+callgraph **205→131ms**、**taint 累计 408.2→205.6ms（1.99×）**；三模式输出
+**逐字节一致**。剩余分段已量化：phase2 40ms + stitch ~64ms（下轮：Resolver
+按文件独立化 + deferred 分桶并行）。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /

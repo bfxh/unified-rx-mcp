@@ -1518,46 +1518,11 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
         None
     };
 
-    struct Pre {
-        rel: String,
-        modname: String,
-        ps: PreScan,
-        /// S155：阶段 1 的解析结果，阶段 2 直接复用（原先重读重解析，纯浪费）
-        tree: PyNode,
-    }
-
-    // 阶段 1：预扫描
+    // 阶段 1：预扫描（S156：**分块并行 + 有序收集**——逐文件独立：读+解析+预扫描；
+    // 收集按块序 = 文件序，阶段 2 消费顺序不变 → 输出逐字节同，金标准/审计测试锁）
     let _dbg = std::env::var("UNIFIED_RX_DEBUG_TIMING").is_ok();
     let _t0 = std::time::Instant::now();
-    let mut pre: Vec<Pre> = Vec::new();
-    for p in &py {
-        let rel = match p.strip_prefix(root) {
-            Ok(r) => r.to_string_lossy().replace('\\', "/"),
-            Err(_) => continue,
-        };
-        let src = match crate::rcache::read(p) {
-            Ok(b) => String::from_utf8_lossy(&b).into_owned(),
-            Err(_) => continue,
-        };
-        let tree = match parse_module(&src) {
-            Ok(t) => t,
-            Err(_) => continue, // 语法错误文件跳过（与 resolve_dir 一致）
-        };
-        let mut ps = PreScan {
-            module: HashMap::new(),
-            classes: HashMap::new(),
-            imports: Vec::new(),
-            star: false,
-        };
-        for c in &tree.children {
-            prenode(c, "module", &mut ps);
-        }
-        let mut m = rel_mod(&rel);
-        if let Some(base) = &prefix {
-            m = if m.is_empty() { base.clone() } else { format!("{}.{}", base, m) };
-        }
-        pre.push(Pre { rel, modname: m, ps, tree });
-    }
+    let mut pre: Vec<CgPre> = prescan_parallel(&py, root, prefix.as_deref());
 
     // 模块索引
     let mut index: HashMap<String, usize> = HashMap::new();
@@ -1702,4 +1667,73 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
                 .map(|(k, c)| (k, Value::Int(c as i128))).collect())),
         ])),
     ])
+}
+
+/// S156：callgraph 预扫描单元（原 `callgraph_dir` 函数内 `struct Pre` 提升到模块级，
+/// 以便被并行辅助函数复用；字段与语义一字不变）。
+struct CgPre {
+    rel: String,
+    modname: String,
+    ps: PreScan,
+    /// S155：阶段 1 的解析结果，阶段 2 直接复用（原先重读重解析，纯浪费）
+    tree: PyNode,
+}
+
+/// S156：阶段 1 单文件预扫描（原循环体逐字搬入；失败返回 None = 原 `continue`）。
+fn prescan_one(p: &std::path::Path, root: &Path, prefix: Option<&str>) -> Option<CgPre> {
+    let rel = match p.strip_prefix(root) {
+        Ok(r) => r.to_string_lossy().replace('\\', "/"),
+        Err(_) => return None,
+    };
+    let src = match crate::rcache::read(p) {
+        Ok(b) => String::from_utf8_lossy(&b).into_owned(),
+        Err(_) => return None,
+    };
+    let tree = match parse_module(&src) {
+        Ok(t) => t,
+        Err(_) => return None, // 语法错误文件跳过（与 resolve_dir 一致）
+    };
+    let mut ps = PreScan {
+        module: HashMap::new(),
+        classes: HashMap::new(),
+        imports: Vec::new(),
+        star: false,
+    };
+    for c in &tree.children {
+        prenode(c, "module", &mut ps);
+    }
+    let mut m = rel_mod(&rel);
+    if let Some(base) = prefix {
+        m = if m.is_empty() { base.to_string() } else { format!("{}.{}", base, m) };
+    }
+    Some(CgPre { rel, modname: m, ps, tree })
+}
+
+/// S156：分块并行（线程数 = min(可用并行度, 8)；文件 < 8 或单核走串行——与旧版同）。
+fn prescan_parallel(py: &[std::path::PathBuf], root: &Path, prefix: Option<&str>)
+    -> Vec<CgPre> {
+    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    if py.len() < 8 || n <= 1 {
+        return py.iter().filter_map(|p| prescan_one(p, root, prefix)).collect();
+    }
+    let chunk = py.len().div_ceil(n);
+    let mut out: Vec<CgPre> = Vec::new();
+    std::thread::scope(|s| {
+        let handles: Vec<_> = py.chunks(chunk).map(|c| {
+            s.spawn(move || {
+                let mut v: Vec<CgPre> = Vec::new();
+                for p in c {
+                    if let Some(x) = prescan_one(p, root, prefix) {
+                        v.push(x);
+                    }
+                }
+                v
+            })
+        }).collect();
+        for h in handles {
+            let mut v = h.join().unwrap_or_default();
+            out.append(&mut v);
+        }
+    });
+    out
 }

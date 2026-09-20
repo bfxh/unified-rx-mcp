@@ -1383,3 +1383,19 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：全量 pytest 3.14 **885 passed + 3 skipped**；cargo 41 单测绿；clippy 零告警；
   cli-bench 金标准 8 条绿；版本锁步 **2.71.0 ×4**（exe 已重建）。
 - 提交：本次
+
+## S156 · 实施轮：nameres 阶段 1 并行——taint 累计破 2×
+- 项目：unified-rx-mcp｜时间：2026-09-20｜版本 2.71.0 → **2.72.0**
+- 用户指令：「继续」（S155 交接的第一项：nameres prescan 并行化）。
+- **做法**（同配方 + Edit 工具规避转义坑）：函数内 `struct Pre` 提升为模块级
+  `CgPre`；阶段 1 循环体抽成 `prescan_one`；`prescan_parallel` 分块 `thread::scope`
+  并行（< 8 文件或单核走串行），收集按块序 = 文件序 → 阶段 2 消费顺序不变。
+- **实测（探针，env 门控）**：phase1 **108 → 27ms（4×）**；callgraph **205 → 131ms**；
+  **taint 累计（交错 A/B vs S150 备份）408.2 → 205.6ms = 1.99×**；三模式
+  （默认/--naive/--no-cross）输出**逐字节一致** ✓（金标准 + 双路锁同跑绿）。
+- **剩余分段（探针已量化）**：phase2（Resolver 主遍历）40ms + stitch 等 ~64ms；
+  下轮把 Resolver 按文件独立化（每个 Resolver 自包含，只共享只读 index）→ 预期
+  再省 ~30ms；stitch 是跨文件裁决，需按 deferred 的 target_mod 分桶后并行。
+- 验证：全量 pytest 3.14 **885 passed + 3 skipped**；cargo 41 单测绿；clippy 零告警；
+  cli-bench 金标准 8 条 + tool-evals 全绿；版本锁步 **2.72.0 ×4**（exe 已重建）。
+- 提交：本次
