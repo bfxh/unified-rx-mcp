@@ -1522,9 +1522,13 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
         rel: String,
         modname: String,
         ps: PreScan,
+        /// S155：阶段 1 的解析结果，阶段 2 直接复用（原先重读重解析，纯浪费）
+        tree: PyNode,
     }
 
     // 阶段 1：预扫描
+    let _dbg = std::env::var("UNIFIED_RX_DEBUG_TIMING").is_ok();
+    let _t0 = std::time::Instant::now();
     let mut pre: Vec<Pre> = Vec::new();
     for p in &py {
         let rel = match p.strip_prefix(root) {
@@ -1552,7 +1556,7 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
         if let Some(base) = &prefix {
             m = if m.is_empty() { base.clone() } else { format!("{}.{}", base, m) };
         }
-        pre.push(Pre { rel, modname: m, ps });
+        pre.push(Pre { rel, modname: m, ps, tree });
     }
 
     // 模块索引
@@ -1563,6 +1567,8 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
         }
     }
 
+    if _dbg { eprintln!("NM_TIMING phase1={}ms", _t0.elapsed().as_millis()); }
+    let _t1 = std::time::Instant::now();
     // 阶段 2：主遍历（种子 + 调用采集）
     let mut nodes: Vec<Value> = Vec::new();
     let mut edges: Vec<Value> = Vec::new();
@@ -1570,15 +1576,8 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
     let mut deferred: Vec<Value> = Vec::new();
     let (mut n_calls, mut n_builtin_calls) = (0usize, 0usize);
     for f in pre.iter_mut() {
-        let path = root.join(&f.rel);
-        let src = match crate::rcache::read(&path) {
-            Ok(b) => String::from_utf8_lossy(&b).into_owned(),
-            Err(_) => continue,
-        };
-        let tree = match parse_module(&src) {
-            Ok(t) => t,
-            Err(_) => continue,
-        };
+        // S155：复用阶段 1 的解析结果（原为再读一遍 + 再解析一遍——纯浪费）
+        let tree = &f.tree;
         let mut r = Resolver::new(&f.rel, &f.modname, true);
         r.scopes[0].bindings = std::mem::take(&mut f.ps.module);
         r.class_tables = std::mem::take(&mut f.ps.classes);
@@ -1597,6 +1596,7 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
         f.ps.module = std::mem::take(&mut r.scopes[0].bindings);
     }
 
+    if _dbg { eprintln!("NM_TIMING phase2={}ms", _t1.elapsed().as_millis()); }
     // stitch：跨文件待定调用裁决
     let mut n_stitched = 0usize;
     for d in &deferred {

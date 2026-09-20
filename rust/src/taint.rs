@@ -1399,9 +1399,16 @@ fn cross_file_propagate(
             skipped_ambiguous += 1;
         }
     }
-    for _round in 0..4 {
+    // S155：增量传播（反向索引 × 脏集合）替代"每轮全量重扫"。
+    // 不动点语义不变：只有"自身被改"或"其被调方被改"的单元，下一轮才可能产生
+    // 新种子；其余单元的种子与上轮逐字相同（已应用过），重扫纯属浪费。
+    let mut callers_of: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut active: Vec<usize> = (0..units.len()).collect();
+    let mut round = 0usize;
+    while round < 4 && !active.is_empty() {
+        round += 1;
         let mut seeds: Vec<(usize, usize, String, TSrc)> = Vec::new();
-        for ui in 0..units.len() {
+        for &ui in &active {
             let mut local: Vec<(usize, usize, String, TSrc)> = Vec::new();
             {
                 let a = &units[ui];
@@ -1428,6 +1435,11 @@ fn cross_file_propagate(
                     let (tu, tsid) = cands[0];
                     if tu == ui {
                         continue; // 同文件已由 pass2 处理
+                    }
+                    // S155：记录"被调方 → 调用方"边（下一轮候选集用）
+                    let e = callers_of.entry(tu).or_default();
+                    if !e.contains(&ui) {
+                        e.push(ui);
                     }
                     let tparams = units[tu].scopes[tsid].params.clone();
                     let tname = units[tu].scopes[tsid].name.clone();
@@ -1504,9 +1516,22 @@ fn cross_file_propagate(
         if touched.is_empty() {
             break;
         }
-        for u in touched {
+        for &u in &touched {
             units[u].pass2_interproc(); // 接收侧文件内继续扩散 + 重算 ret_tainted
         }
+        // 下一轮候选 = 被改单元 ∪ 它们的调用方（排序去重，确定性）
+        let mut next: Vec<usize> = touched.clone();
+        for u in &touched {
+            if let Some(cs) = callers_of.get(u) {
+                for c in cs {
+                    if !next.contains(c) {
+                        next.push(*c);
+                    }
+                }
+            }
+        }
+        next.sort_unstable();
+        active = next;
     }
     skipped_ambiguous
 }
@@ -1559,8 +1584,15 @@ pub fn scan_path_opts(root: &Path, naive: bool, cross: bool) -> ScanResult {
     let (mut units, mut errs) = analyze_files(&files, root, naive);
     res.errors.append(&mut errs);
     if cross && !naive {
+        let dbg = std::env::var("UNIFIED_RX_DEBUG_TIMING").is_ok();
+        let t0 = std::time::Instant::now();
         let targets = callgraph_targets(root);
+        let t1 = std::time::Instant::now();
         res.cross_skipped_ambiguous = cross_file_propagate(&mut units, &targets);
+        if dbg {
+            eprintln!("TIMING callgraph={}ms propagate={}ms",
+                      t0.elapsed().as_millis(), t1.elapsed().as_millis());
+        }
     }
     for a in &units {
         res.findings.extend(a.pass3_findings());
