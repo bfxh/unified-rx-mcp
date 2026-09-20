@@ -39,6 +39,12 @@
   },
   {
    "file": "scripts/local_gate.py",
+   "sink": ".write_text",
+   "count": 1,
+   "why": "本地门诊断落盘（S159）：把**失败步骤的完整输出**写到 %TEMP%/unrx-gate-fail-<step>.log；路径 = TEMP(env) 派生 → resolve 后校验必须落在 TEMP 根内才写（越界即跳过，不抛不静默）；非 MCP 工具面（开发脚本面，S159 人工确认）"
+  },
+  {
+   "file": "scripts/local_gate.py",
    "sink": "subprocess.run",
    "count": 1,
    "why": "本地审核门（S145）：以**固定 argv 列表**运行本仓门脚本（shell=False、无字符串拼接）；argv 形参即来源是已知模式，与 server.py 条目同族（S145 人工确认）"

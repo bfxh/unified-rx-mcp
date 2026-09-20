@@ -33,8 +33,24 @@ pub fn code_semantic(root: &Path, query: &str, mode: &str, k: usize) -> Value {
     if !root.is_dir() {
         return err_obj(&format!("不是目录: {}", root.display()));
     }
-    let mut st = SemState { count: 0, defs: Vec::new() };
-    walk_sem(root, &mut st);
+    // S159：**解耦三步**（配额语义与原 walk_sem 逐条对齐）：
+    // ① 按原遍历序枚举候选文件（不读盘；count 到 MAX_FILES 即停止枚举——
+    //    等价原"每文件开头检查、到顶 return true"）；
+    // ② 并行抽定义（逐文件独立）；
+    // ③ 按序消费定义配额（原检查在"每文件开头"，故切点落在文件边界：
+    //    某文件的定义整批进/整批不进）。
+    // 与原实现的唯一差异（输出等价）：原遍历会在定义配额到顶时**提前中止遍历**
+    // （后续文件连读都不读）；本版最多读满 MAX_FILES 个候选后按序丢弃多余额度
+    // ——输出相同，代价是极端语料下多一点 I/O（上限 200 文件，可接受，如实记录）。
+    let cands = collect_candidates(root);
+    let per_file = extract_defs_parallel(&cands);
+    let mut st = SemState { defs: Vec::new() };
+    for v in per_file {
+        if st.defs.len() >= SEM_MAX_DEFS {
+            break;
+        }
+        st.defs.extend(v);
+    }
     if st.defs.is_empty() {
         // 原实现：空语料返回 {"query","total":0,"hits":[]}——无 mode 键
         return Value::Obj(vec![
@@ -143,7 +159,6 @@ struct Def {
 }
 
 struct SemState {
-    count: usize,
     defs: Vec<Def>,
 }
 
@@ -436,77 +451,113 @@ fn round3(s: f64) -> f64 {
 
 /// 遍历结构同 code_search（先文件后目录 + upcase 序）；上限：200 文件（只计
 /// 扩展名命中）或 4000 定义，命中即全停（原实现 return defs）。
-fn walk_sem(dir: &Path, st: &mut SemState) -> bool {
-    let rd = match std::fs::read_dir(dir) {
-        Ok(r) => r,
-        Err(_) => return false,
-    };
-    let mut files: Vec<PathBuf> = Vec::new();
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    for e in rd.filter_map(|e| e.ok()) {
-        let Ok(ft) = e.file_type() else { continue };
-        if ft.is_symlink() {
-            continue;
-        }
-        if ft.is_dir() {
-            dirs.push(e.path());
-        } else {
-            files.push(e.path());
-        }
-    }
-    let by_upcase = |a: &PathBuf, b: &PathBuf| {
-        let an = a.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
-        let bn = b.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
-        an.to_uppercase().cmp(&bn.to_uppercase()).then_with(|| an.cmp(&bn))
-    };
-    files.sort_by(by_upcase);
-    dirs.sort_by(by_upcase);
-    for p in files {
-        if st.count >= MAX_FILES || st.defs.len() >= SEM_MAX_DEFS {
-            return true;
-        }
-        let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy().to_lowercase()));
-        let Some(ext) = ext else { continue };
-        if !INDEX_EXTS.contains(&ext.as_str()) {
-            continue;
-        }
-        st.count += 1;
-        let lang = &ext[1..];
-        let lines = match read_to_lines(&p) {
-            Ok(l) => l,
-            Err(_) => continue, // 读取失败：名额照烧、无定义（等价 OSError continue）
-        };
-        for (i, line) in lines.iter().enumerate() {
-            if let Some((kind, name)) = extract_def(lang, line) {
-                let mut start = i;
-                while start > 0 && is_comment_line(&lines[start - 1]) {
-                    start -= 1;
-                }
-                let body = lines[start..(i + SEM_BODY_CAP).min(lines.len())].join("\n");
-                st.defs.push(Def {
-                    file: p.clone(),
-                    line: i + 1,
-                    kind,
-                    name,
-                    body,
-                    vec: SemVec::default(),
-                });
+/// S159：按原遍历序枚举候选文件（**不读盘**）——与原 `walk_sem` 的枚举语义逐条对齐：
+/// 目录内文件先于子目录、各自 upcase 排序（`an.to_uppercase().cmp().then_with(an.cmp)`）；
+/// 跳过 symlink 与 `SKIP_DIRS`；只有命中 `INDEX_EXTS` 的文件**计数**；
+/// `count` 达到 `MAX_FILES` 即停止枚举（= 原"每文件/每目录开头检查、到顶 return true"）。
+fn collect_candidates(root: &Path) -> Vec<PathBuf> {
+    fn rec(dir: &Path, out: &mut Vec<PathBuf>, count: &mut usize) -> bool {
+        let Ok(rd) = std::fs::read_dir(dir) else { return false };
+        let mut files: Vec<PathBuf> = Vec::new();
+        let mut dirs: Vec<PathBuf> = Vec::new();
+        for e in rd.filter_map(|e| e.ok()) {
+            let Ok(ft) = e.file_type() else { continue };
+            if ft.is_symlink() {
+                continue;
+            }
+            if ft.is_dir() {
+                dirs.push(e.path());
+            } else {
+                files.push(e.path());
             }
         }
+        let by_upcase = |a: &PathBuf, b: &PathBuf| {
+            let an = a.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+            let bn = b.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+            an.to_uppercase().cmp(&bn.to_uppercase()).then_with(|| an.cmp(&bn))
+        };
+        files.sort_by(by_upcase);
+        dirs.sort_by(by_upcase);
+        for p in files {
+            if *count >= MAX_FILES {
+                return true;
+            }
+            let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy().to_lowercase()));
+            let Some(ext) = ext else { continue };
+            if !INDEX_EXTS.contains(&ext.as_str()) {
+                continue;
+            }
+            *count += 1;
+            out.push(p);
+        }
+        for p in dirs {
+            if *count >= MAX_FILES {
+                return true;
+            }
+            let name = p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+            if SKIP_DIRS.contains(&name.as_str()) {
+                continue;
+            }
+            if rec(&p, out, count) {
+                return true;
+            }
+        }
+        false
     }
-    for p in dirs {
-        if st.count >= MAX_FILES || st.defs.len() >= SEM_MAX_DEFS {
-            return true;
-        }
-        let name = p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
-        if SKIP_DIRS.contains(&name.as_str()) {
-            continue;
-        }
-        if walk_sem(&p, st) {
-            return true;
+    let mut out: Vec<PathBuf> = Vec::new();
+    let mut count = 0usize;
+    rec(root, &mut out, &mut count);
+    out
+}
+
+/// S159：单文件抽定义（原 `walk_sem` 内层循环逐字搬入：读行 + 逐行匹配 + 体组装）。
+/// 读取失败 → 空定义（外层"名额照烧"由候选枚举负责，与此处无关）。
+fn extract_file_defs(p: &Path) -> Vec<Def> {
+    let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy().to_lowercase()));
+    let Some(ext) = ext else { return Vec::new() };
+    let lang = &ext[1..];
+    let Ok(lines) = read_to_lines(p) else { return Vec::new() };
+    let mut out: Vec<Def> = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        if let Some((kind, name)) = extract_def(lang, line) {
+            let mut start = i;
+            while start > 0 && is_comment_line(&lines[start - 1]) {
+                start -= 1;
+            }
+            let body = lines[start..(i + SEM_BODY_CAP).min(lines.len())].join("
+");
+            out.push(Def {
+                file: p.to_path_buf(),
+                line: i + 1,
+                kind,
+                name,
+                body,
+                vec: SemVec::default(),
+            });
         }
     }
-    false
+    out
+}
+
+/// S159：分块并行抽定义（线程数 min(可用并行度, 8)；候选 < 8 或单核走串行）；
+/// 结果按候选序返回（外层按序消费定义配额）。
+fn extract_defs_parallel(cands: &[PathBuf]) -> Vec<Vec<Def>> {
+    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    if cands.len() < 8 || n <= 1 {
+        return cands.iter().map(|p| extract_file_defs(p)).collect();
+    }
+    let chunk = cands.len().div_ceil(n);
+    let mut out: Vec<Vec<Def>> = Vec::new();
+    std::thread::scope(|s| {
+        let handles: Vec<_> = cands.chunks(chunk).map(|c| {
+            s.spawn(move || c.iter().map(|p| extract_file_defs(p)).collect::<Vec<Vec<Def>>>())
+        }).collect();
+        for h in handles {
+            let mut v = h.join().unwrap_or_default();
+            out.append(&mut v);
+        }
+    });
+    out
 }
 
 /// universal newlines 归一后按 \n 切（行尾不带换行——匹配与分词都不依赖）

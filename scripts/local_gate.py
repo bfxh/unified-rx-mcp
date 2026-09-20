@@ -101,6 +101,17 @@ def main(argv):
         print(f"{'OK  ' if ok else 'FAIL'} {name:12s} {secs:6.1f}s {why}")
         if not ok:
             failed.append(name)
+            # S159：失败步骤**完整输出落盘**（尾部打印常被外层管道截断——本轮实测：
+            # 一次瞬时失败因 `| tail -3` 丢掉全部细节）。路径 resolve 后校验在根内。
+            try:
+                from pathlib import Path
+                base = Path(os.environ.get("TEMP", ".")).resolve()
+                fp = (base / f"unrx-gate-fail-{name}.log").resolve()
+                if base in fp.parents:
+                    fp.write_text(out or "", encoding="utf-8")
+                    print(f"  （完整输出已落盘：{fp}）")
+            except OSError:
+                pass
             tail = out.strip().splitlines()[-12:]
             print("  " + "\n  ".join(tail))
     total = sum(r[2] for r in rows)
