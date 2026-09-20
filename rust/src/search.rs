@@ -44,24 +44,23 @@ pub fn code_search(root: &Path, query: &str, k: usize) -> Value {
     }
     let mut docs: Vec<PathBuf> = Vec::new();
     walk(root, &mut docs);
-    // 等价 Python _index：读取失败 continue（上限名额照烧、文档不入库）
-    docs.retain(|p| crate::rcache::read(p).is_ok());
-    let n = docs.len() as f64;
+
+    // S158：**一次读取 + 并行分词 + 有序合并**。
+    // - 原实现：`retain` 读一遍（只判可读性）→ 建索引再读一遍（重复 I/O）；
+    // - 语义不变：不可读文件跳过（= 原 retain 语义，上限名额照烧、文档不入库），
+    //   文档 id 按可读文件的遍历序连续分配；分词逐文件独立，合并按序 = 原顺序。
+    let parts = scan_docs(&docs);
+    let n = parts.len() as f64;
 
     // 倒排索引：token -> [(doc_id, tf)]；doc_len 与整词表同步记录
     let mut idx: HashMap<String, Vec<(u32, i64)>> = HashMap::new();
-    let mut doc_len: Vec<f64> = Vec::with_capacity(docs.len());
-    let mut doc_words: Vec<Vec<String>> = Vec::with_capacity(docs.len());
-    for (id, path) in docs.iter().enumerate() {
-        let (toks, words) = scan(&read_text(path));
-        doc_len.push(toks.len() as f64);
+    let mut doc_len: Vec<f64> = Vec::with_capacity(parts.len());
+    let mut doc_words: Vec<Vec<String>> = Vec::with_capacity(parts.len());
+    for (id, (toks_n, words, tf)) in parts.into_iter().enumerate() {
+        doc_len.push(toks_n as f64);
         doc_words.push(words);
-        let mut tf: HashMap<&str, i64> = HashMap::new();
-        for t in &toks {
-            *tf.entry(t.as_str()).or_insert(0) += 1;
-        }
         for (t, c) in tf {
-            idx.entry(t.to_string()).or_default().push((id as u32, c));
+            idx.entry(t).or_default().push((id as u32, c));
         }
     }
     let total_len: f64 = doc_len.iter().sum();
@@ -434,4 +433,38 @@ fn read_lines(p: &Path) -> Vec<String> {
         text
     };
     text.split('\n').map(|s| s.to_string()).collect()
+}
+
+/// S158：逐文档分词（读一次 + tokenize + 词频），返回按文档序的结果；不可读跳过。
+/// 分块并行（线程数 min(可用并行度, 8)；< 8 文件或单核走串行）——合并顺序 = 文档序。
+#[allow(clippy::type_complexity)]
+fn scan_docs(docs: &[PathBuf]) -> Vec<(usize, Vec<String>, Vec<(String, i64)>)> {
+    type Out = (usize, Vec<String>, Vec<(String, i64)>);
+    fn one(p: &Path) -> Option<Out> {
+        let b = crate::rcache::read(p).ok()?;
+        let text = String::from_utf8_lossy(&b).into_owned();
+        let (toks, words) = scan(&text);
+        let mut tf: HashMap<&str, i64> = HashMap::new();
+        for t in &toks {
+            *tf.entry(t.as_str()).or_insert(0) += 1;
+        }
+        Some((toks.len(), words,
+              tf.into_iter().map(|(k, v)| (k.to_string(), v)).collect()))
+    }
+    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    if docs.len() < 8 || n <= 1 {
+        return docs.iter().filter_map(|p| one(p)).collect();
+    }
+    let chunk = docs.len().div_ceil(n);
+    let mut out: Vec<Out> = Vec::new();
+    std::thread::scope(|s| {
+        let handles: Vec<_> = docs.chunks(chunk).map(|c| {
+            s.spawn(move || c.iter().filter_map(|p| one(p)).collect::<Vec<Out>>())
+        }).collect();
+        for h in handles {
+            let mut v = h.join().unwrap_or_default();
+            out.append(&mut v);
+        }
+    });
+    out
 }

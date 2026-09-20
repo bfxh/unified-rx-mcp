@@ -8,12 +8,12 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.73.0（S157）**：80 工具 / 14 域（core 档 54 件）；**callgraph 全链路并行——taint 累计 2.31×**——
-①阶段 2 并行（`phase2_one` + `chunks_mut`，Resolver 只吃本文件数据）：**40→13ms**；
-②stitch 并行（`stitch_one`，每条 deferred 独立、只读 index/pre，按序合并）：stitch 等
-~93→67ms；③**taint 累计 413.6→178.9ms（2.31×）**，三模式 + external 场景逐字节一致。
-④**clippy 抓到我引入的真 bug**：stitch 提取时两处早返回把已赋的 unresolved 丢了
-（本仓语料不触发→逐字节比对没抓到，静态门抓到）——"逐字节锁只覆盖被测语料"入册。
+**当前 v2.74.0（S158）**：80 工具 / 14 域（core 档 54 件）；**code_search 2.59×**——
+`rx-search` 原来**两遍 I/O + 串行分词**（`retain` 读一遍判可读性、建索引再读一遍）：
+改为 `scan_docs` 一次读取 + 逐文档分词分块并行、按文档序合并；
+**实测 135.8 → 52.4ms（2.59×）**，三个查询输出逐字节一致。
+**semantic（198ms）未做**：`walk_sem` 是有状态递归 + 全局配额（与遍历序耦合），
+照搬并行会改配额消费序——待"遍历/配额"与"抽定义"解耦后再上（如实入册）。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
