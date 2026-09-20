@@ -20,8 +20,9 @@ import server
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GATE = os.path.join(ROOT, "scripts", "local_gate.py")
 CORE = os.path.join(ROOT, ".github", "workflows", "core.yml")
-STEPS = ("secrets", "self-attack", "data-flow", "toolface", "tool-evals",
-         "selftest", "pytest", "cargo-test", "clippy")
+STEPS = ("secrets", "self-attack", "data-flow", "secrets-history", "deps-lock",
+         "audit-freshness", "toolface", "tool-evals", "cli-bench", "perf-gate",
+         "mcp-surface", "selftest", "pytest", "cargo-test", "clippy")
 
 
 def _read(p):
@@ -38,7 +39,7 @@ def _py(*args, cwd=ROOT):
 def test_local_gate_covers_every_ci_gate_script():
     core = _read(CORE)
     gate = _read(GATE)
-    ci_scripts = set(re.findall(r"(?:scripts/[a-z_]+\.py|bench/tool_evals\.py)", core))
+    ci_scripts = set(re.findall(r"(?:scripts/[a-z0-9_]+\.py|bench/tool_evals\.py)", core))
     missing = {s for s in ci_scripts if s not in gate}
     assert not missing, f"CI 有而本地门没有（漂移）: {sorted(missing)}"
 

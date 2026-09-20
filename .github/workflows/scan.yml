@@ -5,6 +5,10 @@ on:
     - cron: '23 3 * * 1'   # 每周一 03:23 UTC：审计周扫（明文 + 自攻 + 数据流）
   workflow_dispatch:
 
+# 最小权限：周扫只读仓库内容——与 core.yml 同款纪律。
+permissions:
+  contents: read
+
 jobs:
   audit-sweep:
     runs-on: windows-latest
@@ -12,6 +16,8 @@ jobs:
       PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false   # 凭据不落盘
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14'

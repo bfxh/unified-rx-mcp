@@ -2,20 +2,49 @@
 """S124 契约：CI 工作流程资产不许悄悄变弱（严苛纪律的机器化）。
 
 形状锁：pytest 双解释器矩阵 / cargo build+test+clippy / 秘密硬门禁 /
-selftest 硬门禁 / fetch-depth: 0 / 周扫 workflow 带 schedule。
+selftest 硬门禁 / fetch-depth: 0 / 周扫 workflow 带 schedule /
+**action 引用必须钉 commit SHA（具名例外除外）**。
 谁删步骤谁红——门禁只许加强不许悄悄退役。
 """
 import os
 import py_compile
+import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CORE = os.path.join(ROOT, ".github", "workflows", "core.yml")
 SCAN = os.path.join(ROOT, ".github", "workflows", "scan.yml")
 
+# 唯一具名例外：它的 ref **就是工具链名**（stable/nightly），没有固定 SHA 语义——
+# 钉 SHA 等于钉错东西。理由同时写在两个 workflow 的行内注释里（互相引用）。
+PIN_EXEMPT = {"dtolnay/rust-toolchain"}
+# 行首两种形态都要认：`- uses:`（步骤列表里最常见）与 `  uses:`（步骤映射续行）。
+# 首版只写了后者，结果整条锁对 `- uses:` 是瞎的——浮动 ref 照样绿（自查实锤）。
+_USES = re.compile(r"^\s*(?:-\s+)?uses:\s*([A-Za-z0-9._/-]+)@(\S+)")
+_SHA40 = re.compile(r"^[0-9a-f]{40}$")
+
 
 def _read(p):
     with open(p, "r", encoding="utf-8") as f:
         return f.read()
+
+
+def test_every_uses_is_sha_pinned_or_named_exempt():
+    """浮动 tag 可被上游重指；钉 SHA 之后供应链面只剩「改这一行」一种变化来源。
+
+    这条不是一次性编辑的备忘，而是防漂移的机器锁：谁把某一行写回 `@v4`，这里就红。
+    """
+    for path in (CORE, SCAN):
+        for lineno, line in enumerate(_read(path).splitlines(), 1):
+            m = _USES.match(line)
+            if not m:
+                continue
+            action, ref = m.group(1), m.group(2)
+            if action in PIN_EXEMPT:
+                continue
+            assert _SHA40.match(ref), (
+                f"{os.path.basename(path)}:{lineno} action {action}@{ref} 是浮动 ref——"
+                f"钉到 commit SHA（注释里写对应 tag），或加入 PIN_EXEMPT 并写明理由"
+            )
 
 
 def test_core_workflow_keeps_hard_gates():
