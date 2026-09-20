@@ -38,7 +38,7 @@ registry.set_profile_change_hook(
 PROTOCOL_VERSION = "2025-06-18"          # 我方最高支持：未知版本请求的回包
 _SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26")   # 白名单：命中即回显客户端版本
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.69.0"
+SERVER_VERSION = "2.70.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()

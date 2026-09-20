@@ -1406,21 +1406,22 @@ fn cross_file_propagate(
             {
                 let a = &units[ui];
                 for call in &a.calls {
-                    let textual = call.callee.rsplit('.').next().unwrap_or("").to_string();
-                    if textual.is_empty() || SANITIZERS.contains(&textual.as_str()) {
+                    // S154：热循环去克隆（每轮 × 每调用一次分配）——逻辑与取值不变
+                    let textual = call.callee.rsplit('.').next().unwrap_or("");
+                    if textual.is_empty() || SANITIZERS.contains(&textual) {
                         continue;
                     }
                     // S128：调用图解析结果优先（含别名/相对导入/模块属性调用），
                     // 无解析则回退文本名——同名多义由消费侧唯一性纪律兜底
-                    let base = match targets.get(&(a.file.clone(), call.line)) {
-                        Some(v) if v.len() == 1 => v[0].clone(),
+                    let base: &str = match targets.get(&(a.file.clone(), call.line)) {
+                        Some(v) if v.len() == 1 => v[0].as_str(),
                         Some(_) => continue, // 同一行多调用多目标：不猜
                         None => textual,
                     };
-                    if SANITIZERS.contains(&base.as_str()) {
+                    if SANITIZERS.contains(&base) {
                         continue;
                     }
-                    let Some(cands) = index.get(&base) else { continue };
+                    let Some(cands) = index.get(base) else { continue };
                     if cands.len() != 1 {
                         continue; // 多义：如实不猜
                     }
