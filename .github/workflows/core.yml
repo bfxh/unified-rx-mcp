@@ -15,16 +15,20 @@ jobs:
     env:
       PYTHONUTF8: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0          # VERSION_TAG 对账需要真实 tag（SKIP 不算对账）
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
 
+      # 按 commit 钉死（注释里是对应标签）——浮动 tag 可以被上游重指，钉 SHA 之后
+      # 供应链面只剩「我们主动改这一行」。唯一例外见下。
       - name: Install Rust toolchain + build exe
+        # 例外：该 action 的 ref **就是工具链名**（stable/nightly），无固定 SHA 语义；
+        # 钉 SHA 等于钉错东西。同理见 rust job。
         uses: dtolnay/rust-toolchain@stable
       # S124：exe 必建——加速工具在 CI 必须真跑，不做静默降级。
       # S125 修：target-dir 覆盖只限本步——仓库根 .cargo/config.toml 的 target-dir 是
@@ -93,8 +97,8 @@ jobs:
     # matrix/vars/secrets/inputs）——${{ runner.temp }} 放这会导致 workflow 整体非法
     # （0 秒失败、标题显示文件路径）。故 CARGO_TARGET_DIR 只放 step 级 env。
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@stable # 例外同 pytest job：ref 即工具链名
         with:
           components: clippy
       - name: cargo test（双绿纪律的 Rust 侧）
