@@ -8,13 +8,12 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.72.0（S156）**：80 工具 / 14 域（core 档 54 件）；**nameres 阶段 1 并行——taint 累计破 2×**——
-同配方推广到调用图构建：函数内 `struct Pre` 提升为模块级 `CgPre`、阶段 1 循环体抽成
-`prescan_one`、`prescan_parallel` 分块并行（收集按块序=文件序，后序消费顺序不变）。
-**实测（探针，env 门控 `UNIFIED_RX_DEBUG_TIMING=1`）**：phase1 **108→27ms（4×）**、
-callgraph **205→131ms**、**taint 累计 408.2→205.6ms（1.99×）**；三模式输出
-**逐字节一致**。剩余分段已量化：phase2 40ms + stitch ~64ms（下轮：Resolver
-按文件独立化 + deferred 分桶并行）。
+**当前 v2.73.0（S157）**：80 工具 / 14 域（core 档 54 件）；**callgraph 全链路并行——taint 累计 2.31×**——
+①阶段 2 并行（`phase2_one` + `chunks_mut`，Resolver 只吃本文件数据）：**40→13ms**；
+②stitch 并行（`stitch_one`，每条 deferred 独立、只读 index/pre，按序合并）：stitch 等
+~93→67ms；③**taint 累计 413.6→178.9ms（2.31×）**，三模式 + external 场景逐字节一致。
+④**clippy 抓到我引入的真 bug**：stitch 提取时两处早返回把已赋的 unresolved 丢了
+（本仓语料不触发→逐字节比对没抓到，静态门抓到）——"逐字节锁只覆盖被测语料"入册。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /

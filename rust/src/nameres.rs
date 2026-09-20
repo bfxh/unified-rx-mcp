@@ -1534,104 +1534,99 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
 
     if _dbg { eprintln!("NM_TIMING phase1={}ms", _t0.elapsed().as_millis()); }
     let _t1 = std::time::Instant::now();
-    // 阶段 2：主遍历（种子 + 调用采集）
+    // 阶段 2：主遍历（种子 + 调用采集）——S157：**分块并行**（每文件自包含：
+    // Resolver 只吃本文件 ps+tree，共享只读 index 仅 stitch 用）；按块序合并 =
+    // 文件序，输出逐字节同（金标准/审计测试锁）。
     let mut nodes: Vec<Value> = Vec::new();
     let mut edges: Vec<Value> = Vec::new();
     let mut unresolved: Vec<Value> = Vec::new();
     let mut deferred: Vec<Value> = Vec::new();
     let (mut n_calls, mut n_builtin_calls) = (0usize, 0usize);
-    for f in pre.iter_mut() {
-        // S155：复用阶段 1 的解析结果（原为再读一遍 + 再解析一遍——纯浪费）
-        let tree = &f.tree;
-        let mut r = Resolver::new(&f.rel, &f.modname, true);
-        r.scopes[0].bindings = std::mem::take(&mut f.ps.module);
-        r.class_tables = std::mem::take(&mut f.ps.classes);
-        r.imports = std::mem::take(&mut f.ps.imports);
-        r.star_import = f.ps.star;
-        for c in &tree.children {
-            r.stmt(c);
+    {
+        let n_thr = std::thread::available_parallelism().map(|x| x.get())
+            .unwrap_or(1).min(8);
+        if pre.len() < 8 || n_thr <= 1 {
+            for f in pre.iter_mut() {
+                let o = phase2_one(f);
+                nodes.extend(o.nodes);
+                edges.extend(o.calls);
+                unresolved.extend(o.unresolved);
+                deferred.extend(o.deferred);
+                n_calls += o.n_calls;
+                n_builtin_calls += o.n_builtin_calls;
+            }
+        } else {
+            let chunk = pre.len().div_ceil(n_thr);
+            std::thread::scope(|s| {
+                let handles: Vec<_> = pre.chunks_mut(chunk).map(|c| {
+                    s.spawn(move || {
+                        let mut o = Phase2Out::default();
+                        for f in c {
+                            let x = phase2_one(f);
+                            o.nodes.extend(x.nodes);
+                            o.calls.extend(x.calls);
+                            o.unresolved.extend(x.unresolved);
+                            o.deferred.extend(x.deferred);
+                            o.n_calls += x.n_calls;
+                            o.n_builtin_calls += x.n_builtin_calls;
+                        }
+                        o
+                    })
+                }).collect();
+                for h in handles {
+                    let o = h.join().unwrap_or_default();
+                    nodes.extend(o.nodes);
+                    edges.extend(o.calls);
+                    unresolved.extend(o.unresolved);
+                    deferred.extend(o.deferred);
+                    n_calls += o.n_calls;
+                    n_builtin_calls += o.n_builtin_calls;
+                }
+            });
         }
-        nodes.append(&mut r.nodes);
-        edges.append(&mut r.calls);
-        unresolved.append(&mut r.calls_unresolved);
-        deferred.append(&mut r.deferred);
-        n_calls += r.n_calls;
-        n_builtin_calls += r.n_builtin_calls;
-        // 主遍历后的模块绑定表放回（stitch 用）
-        f.ps.module = std::mem::take(&mut r.scopes[0].bindings);
     }
 
     if _dbg { eprintln!("NM_TIMING phase2={}ms", _t1.elapsed().as_millis()); }
-    // stitch：跨文件待定调用裁决
+    // stitch：跨文件待定调用裁决（S157：分块并行）
+    // S157：stitch **分块并行**（每条 deferred 独立、只读 index/pre）——按 deferred
+    // 序合并，与串行逐字节同（金标准/审计测试锁）。
     let mut n_stitched = 0usize;
-    for d in &deferred {
-        let file = vstr(d, "file");
-        let line = vint(d, "line");
-        let caller = vstr(d, "caller");
-        let expr = vstr(d, "expr");
-        let target_mod = vstr(d, "target_mod");
-        let base = vstr(d, "base");
-        let name = vstr(d, "name");
-        let kind = vstr(d, "kind");
-        let mk_unres = |reason: &str| {
-            Value::Obj(vec![
-                ("file".into(), Value::Str(file.clone())),
-                ("line".into(), Value::Int(line as i128)),
-                ("caller".into(), Value::Str(caller.clone())),
-                ("expr".into(), Value::Str(expr.clone())),
-                ("reason".into(), Value::Str(reason.to_string())),
-            ])
-        };
-        let Some(&ti) = index.get(&target_mod) else {
-            unresolved.push(mk_unres("external"));
-            continue;
-        };
-        let tf = &pre[ti];
-        // 链根分类：根 import 命中内部模块 → 链式调用静态不可解，归 attr_chain
-        if kind == "attr_chain_root" {
-            unresolved.push(mk_unres("attr_chain"));
-            continue;
-        }
-        // 1) 目标模块直接找 name（`import mod; mod.f()` / `from m import f; f()`）
-        let mut hit: Option<(String, String, usize, &'static str)> = None;
-        if let Some((tl, tk)) = tf.ps.module.get(&name) {
-            hit = Some((format!("{}.{}", tf.modname, name), tf.rel.clone(), *tl, *tk));
-        }
-        // 2) module_attr 的基名回退：`from pkg import sub; sub.f()`
-        if hit.is_none() && kind == "module_attr" && !base.is_empty() {
-            let sub = format!("{}.{}", target_mod, base);
-            if let Some(&si) = index.get(&sub)
-                && let Some((tl, tk)) = pre[si].ps.module.get(&name) {
-                    hit = Some((format!("{}.{}", pre[si].modname, name),
-                                pre[si].rel.clone(), *tl, *tk));
-                }
-        }
-        match hit {
-            Some((callee, tfile, tline, tk)) if tk == "def" || tk == "class" => {
-                n_stitched += 1;
-                edges.push(Value::Obj(vec![
-                    ("file".into(), Value::Str(file.clone())),
-                    ("line".into(), Value::Int(line as i128)),
-                    ("caller".into(), Value::Str(caller.clone())),
-                    ("callee".into(), Value::Str(callee)),
-                    ("to_file".into(), Value::Str(tfile)),
-                    ("to_line".into(), Value::Int(tline as i128)),
-                    ("kind".into(), Value::Str(kind.clone())),
-                ]));
+    {
+        let n_thr = std::thread::available_parallelism().map(|x| x.get())
+            .unwrap_or(1).min(8);
+        if deferred.len() < 8 || n_thr <= 1 {
+            for d in &deferred {
+                let (e, u, st) = stitch_one(d, &index, &pre);
+                if let Some(e) = e { edges.push(e); }
+                if let Some(u) = u { unresolved.push(u); }
+                if st { n_stitched += 1; }
             }
-            Some((_, _, _, "import")) => unresolved.push(mk_unres("re_export")),
-            Some(_) => unresolved.push(mk_unres("var_call")),
-            None => {
-                // from-import 的子模块形态：模块对象不可调用
-                let sub = format!("{}.{}", target_mod, name);
-                if kind == "from_import" && index.contains_key(&sub) {
-                    unresolved.push(mk_unres("var_call"));
-                } else if kind == "module_attr" {
-                    unresolved.push(mk_unres("attr_missing"));
-                } else {
-                    unresolved.push(mk_unres("name_not_found"));
+        } else {
+            let chunk = deferred.len().div_ceil(n_thr);
+            let idx_ref: &HashMap<String, usize> = &index;
+            let pre_ref: &[CgPre] = &pre;
+            std::thread::scope(|s| {
+                let handles: Vec<_> = deferred.chunks(chunk).map(|c| {
+                    s.spawn(move || {
+                        let mut e_v: Vec<Value> = Vec::new();
+                        let mut u_v: Vec<Value> = Vec::new();
+                        let mut st_n = 0usize;
+                        for d in c {
+                            let (e, u, st) = stitch_one(d, idx_ref, pre_ref);
+                            if let Some(e) = e { e_v.push(e); }
+                            if let Some(u) = u { u_v.push(u); }
+                            if st { st_n += 1; }
+                        }
+                        (e_v, u_v, st_n)
+                    })
+                }).collect();
+                for h in handles {
+                    let (mut e_v, mut u_v, st_n) = h.join().unwrap_or_default();
+                    edges.append(&mut e_v);
+                    unresolved.append(&mut u_v);
+                    n_stitched += st_n;
                 }
-            }
+            });
         }
     }
 
@@ -1667,6 +1662,41 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
                 .map(|(k, c)| (k, Value::Int(c as i128))).collect())),
         ])),
     ])
+}
+
+/// S157：阶段 2 单文件结果（合并顺序 = 文件序）。
+#[derive(Default)]
+struct Phase2Out {
+    nodes: Vec<Value>,
+    calls: Vec<Value>,
+    unresolved: Vec<Value>,
+    deferred: Vec<Value>,
+    n_calls: usize,
+    n_builtin_calls: usize,
+}
+
+/// S157：阶段 2 单文件主遍历（原循环体逐字搬入；含绑定表放回）。
+fn phase2_one(f: &mut CgPre) -> Phase2Out {
+    let tree = &f.tree;
+    let mut r = Resolver::new(&f.rel, &f.modname, true);
+    r.scopes[0].bindings = std::mem::take(&mut f.ps.module);
+    r.class_tables = std::mem::take(&mut f.ps.classes);
+    r.imports = std::mem::take(&mut f.ps.imports);
+    r.star_import = f.ps.star;
+    for c in &tree.children {
+        r.stmt(c);
+    }
+    let out = Phase2Out {
+        nodes: r.nodes,
+        calls: r.calls,
+        unresolved: r.calls_unresolved,
+        deferred: r.deferred,
+        n_calls: r.n_calls,
+        n_builtin_calls: r.n_builtin_calls,
+    };
+    // 主遍历后的模块绑定表放回（stitch 用）
+    f.ps.module = std::mem::take(&mut r.scopes[0].bindings);
+    out
 }
 
 /// S156：callgraph 预扫描单元（原 `callgraph_dir` 函数内 `struct Pre` 提升到模块级，
@@ -1736,4 +1766,80 @@ fn prescan_parallel(py: &[std::path::PathBuf], root: &Path, prefix: Option<&str>
         }
     });
     out
+}
+
+/// S157：stitch 单条 deferred 裁决（原循环体逐字搬入；continue → 早返回，
+/// push → 局部输出，计数 → 标志）。返回 (edge, unresolved, stitched)。
+fn stitch_one(d: &Value, index: &HashMap<String, usize>, pre: &[CgPre])
+    -> (Option<Value>, Option<Value>, bool) {
+    let mut edge_out: Option<Value> = None;
+    let mut unresolved_out: Option<Value> = None;
+    let mut stitched = false;
+        let file = vstr(d, "file");
+        let line = vint(d, "line");
+        let caller = vstr(d, "caller");
+        let expr = vstr(d, "expr");
+        let target_mod = vstr(d, "target_mod");
+        let base = vstr(d, "base");
+        let name = vstr(d, "name");
+        let kind = vstr(d, "kind");
+        let mk_unres = |reason: &str| {
+            Value::Obj(vec![
+                ("file".into(), Value::Str(file.clone())),
+                ("line".into(), Value::Int(line as i128)),
+                ("caller".into(), Value::Str(caller.clone())),
+                ("expr".into(), Value::Str(expr.clone())),
+                ("reason".into(), Value::Str(reason.to_string())),
+            ])
+        };
+        let Some(&ti) = index.get(&target_mod) else {
+            return (None, Some(mk_unres("external")), false);
+        };
+        let tf = &pre[ti];
+        // 链根分类：根 import 命中内部模块 → 链式调用静态不可解，归 attr_chain
+        if kind == "attr_chain_root" {
+            return (None, Some(mk_unres("attr_chain")), false);
+        }
+        // 1) 目标模块直接找 name（`import mod; mod.f()` / `from m import f; f()`）
+        let mut hit: Option<(String, String, usize, &'static str)> = None;
+        if let Some((tl, tk)) = tf.ps.module.get(&name) {
+            hit = Some((format!("{}.{}", tf.modname, name), tf.rel.clone(), *tl, *tk));
+        }
+        // 2) module_attr 的基名回退：`from pkg import sub; sub.f()`
+        if hit.is_none() && kind == "module_attr" && !base.is_empty() {
+            let sub = format!("{}.{}", target_mod, base);
+            if let Some(&si) = index.get(&sub)
+                && let Some((tl, tk)) = pre[si].ps.module.get(&name) {
+                    hit = Some((format!("{}.{}", pre[si].modname, name),
+                                pre[si].rel.clone(), *tl, *tk));
+                }
+        }
+        match hit {
+            Some((callee, tfile, tline, tk)) if tk == "def" || tk == "class" => {
+                stitched = true;
+                edge_out = Some(Value::Obj(vec![
+                    ("file".into(), Value::Str(file.clone())),
+                    ("line".into(), Value::Int(line as i128)),
+                    ("caller".into(), Value::Str(caller.clone())),
+                    ("callee".into(), Value::Str(callee)),
+                    ("to_file".into(), Value::Str(tfile)),
+                    ("to_line".into(), Value::Int(tline as i128)),
+                    ("kind".into(), Value::Str(kind.clone())),
+                ]));
+            }
+            Some((_, _, _, "import")) => unresolved_out = Some(mk_unres("re_export")),
+            Some(_) => unresolved_out = Some(mk_unres("var_call")),
+            None => {
+                // from-import 的子模块形态：模块对象不可调用
+                let sub = format!("{}.{}", target_mod, name);
+                if kind == "from_import" && index.contains_key(&sub) {
+                    unresolved_out = Some(mk_unres("var_call"));
+                } else if kind == "module_attr" {
+                    unresolved_out = Some(mk_unres("attr_missing"));
+                } else {
+                    unresolved_out = Some(mk_unres("name_not_found"));
+                }
+            }
+        }
+    (edge_out, unresolved_out, stitched)
 }

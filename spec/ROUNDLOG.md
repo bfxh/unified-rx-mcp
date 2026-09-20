@@ -1399,3 +1399,26 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：全量 pytest 3.14 **885 passed + 3 skipped**；cargo 41 单测绿；clippy 零告警；
   cli-bench 金标准 8 条 + tool-evals 全绿；版本锁步 **2.72.0 ×4**（exe 已重建）。
 - 提交：本次
+
+## S157 · 实施轮：nameres 阶段 2 + stitch 并行——taint 累计 2.31×
+- 项目：unified-rx-mcp｜时间：2026-09-20｜版本 2.72.0 → **2.73.0**
+- 用户指令：「继续」（S156 交接：phase2 40ms + stitch ~64ms）。
+- **① 阶段 2 并行**：抽 `phase2_one(&mut CgPre) -> Phase2Out`（Resolver 只吃本文件
+  ps+tree），`chunks_mut` + `thread::scope` 分块并行、按块序合并 = 文件序。
+  **phase2 40 → 13ms**。
+- **② stitch 并行**：抽 `stitch_one(d, index, pre) -> (edge, unresolved, stitched)`
+  （每条 deferred 独立、只读 index/pre），按 deferred 序合并。callgraph 内 stitch
+  等 ~67ms（原 ~93）。
+- **③ 实测**：`NM_TIMING phase1=28ms / phase2=13ms`、`callgraph=108ms /
+  propagate=16ms`；**taint 累计（交错 A/B vs S150 备份）413.6 → 178.9ms = 2.31×**；
+  三模式 + external 小语料场景**全部逐字节一致** ✓。
+- **④ 门抓到的真 bug（本轮的教训）**：stitch 提取时我把 `push + continue` 机械转成
+  `赋局部值 + return(None, None, false)` —— **两处早返回把已赋的 unresolved 丢了**
+  （本仓语料不触发 → 逐字节比对没抓到；**clippy 的 unused_assignments 抓到**）。
+  修正为 `return (None, Some(mk_resp(...)), false)` 并补 external 场景验证。
+  → "门比人可靠"第四次；也说明**逐字节锁只覆盖被测语料**，静态门负责覆盖不到的边。
+- **⑤ 下轮**：callgraph 剩余 ~108ms 里 stitch 后段与 nodes/edges 序列化仍占大块；
+  search（113ms）/ semantic（198ms）建索引同配方。
+- 验证：全量 pytest 3.14 **885 passed + 3 skipped**；cargo 41 单测绿；clippy 零告警；
+  版本锁步 **2.73.0 ×4**（exe 已重建）。
+- 提交：本次
