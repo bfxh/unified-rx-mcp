@@ -50,6 +50,24 @@
    "why": "本地审核门（S145）：以**固定 argv 列表**运行本仓门脚本（shell=False、无字符串拼接）；argv 形参即来源是已知模式，与 server.py 条目同族（S145 人工确认）"
   },
   {
+   "file": "scripts/perf_gate.py",
+   "sink": ".mkdir",
+   "count": 1,
+   "why": "性能门语料目录（S160）：%TEMP%/unrx-perf-corpus 确定性重建——路径由 TEMP 派生 + 固定名，非外部输入；每次重建前先 rmtree 清理（同 audit_copy 一族）。"
+  },
+  {
+   "file": "scripts/perf_gate.py",
+   "sink": ".write_text",
+   "count": 1,
+   "why": "性能门写语料文件（S160）：文件名由循环下标拼出（mod_<i>.py）、根为 上述 TEMP 语料目录，内容为确定性模板——无外部输入、不出语料根。"
+  },
+  {
+   "file": "scripts/perf_gate.py",
+   "sink": "shutil.rmtree",
+   "count": 1,
+   "why": "性能门清理上轮语料（S160）：只作用于固定的 TEMP 语料根目录，硬编码路径、非外部输入。"
+  },
+  {
    "file": "server.py",
    "sink": "subprocess.run",
    "count": 1,

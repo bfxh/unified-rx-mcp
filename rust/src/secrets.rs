@@ -619,7 +619,7 @@ type Hit = (u8, String, usize, String, String, String, String);
 /// 线程数 = min(可用并行度, 8)；文件数 < 8 或单核 → 串行（与旧版逐字节同）。
 fn scan_files(files: &[PathBuf], root: &Path, size_cap: usize, min_entropy: f64)
     -> (Vec<Hit>, usize, usize) {
-    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    let n = crate::par::par_degree(8);
     if files.len() < 8 || n <= 1 {
         let mut h = Vec::new();
         let (mut sc, mut sk) = (0usize, 0usize);

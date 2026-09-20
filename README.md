@@ -8,13 +8,15 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.75.0（S159）**：80 工具 / 14 域（core 档 54 件）；**semantic 配额解耦**——
-把"遍历+配额"耦合的 `walk_sem` 拆成三步：`collect_candidates`（按原遍历序枚举、
-不读盘、文件配额到顶即停）→ `extract_defs_parallel`（逐文件抽定义、分块并行、
-按序返回）→ 按序消费定义配额（切点仍在文件边界）。**273.5 → 234.5ms（1.17×）**，
-三查询输出逐字节一致；差异如实入册（原实现在配额到顶时提前中止遍历，本版最多多读
-≤200 个候选）。下一步已定位：`sem_vec` 与 df 统计各分词一遍，合并可再省 ~10%
-（注意 df 不得计入三元组 token）。
+**当前 v2.76.0（S160）**：80 工具 / 14 域（core 档 54 件）；**CI 审核再加两道硬门**——
+①**性能门**（`scripts/perf_gate.py`）：判据 = **同机并行 vs 串行比值**（7 处并行度
+收敛到 `rust/src/par.rs`，`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）——扣进程启动基线、
+工作量 <8ms 不判、per-case 上限、≤2 核只判不倒退；实测比率 0.44–0.66（五例）。
+②**协议面门**（`scripts/mcp_surface_gate.py`）：对真实 stdio server 握手校验 15 条契约
+（annotations 上线路/top-level title/不可信前缀/写类 __authorized/握手留痕字段/未知
+方法形态…）——**首跑抓到真违约**：未知方法原先返回"工具级 isError 结果"（JSON-RPC
+客户端会当成功），已改为 `error{code:-32601}`。
+**门清单 30 项**：本地门 15 步（速档 12 步 ~7s）+ pytest 内 15 个门套件，CI 与本地同源。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /

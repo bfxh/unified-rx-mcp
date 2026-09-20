@@ -32,6 +32,8 @@ def test_core_workflow_keeps_hard_gates():
                    "scripts/secrets_history.py",    # S147：历史 diff 明文红线
                    "scripts/deps_lock.py",          # S147：依赖红线机器化
                    "bench/tool_evals.py",           # S144：任务级评测门
+                   "scripts/perf_gate.py",          # S160：性能门（并行/串行比值）
+                   "scripts/mcp_surface_gate.py",   # S160：协议面门（真握手契约）
                    "fetch-depth: 0",                # VERSION_TAG 真对账
                    # S125：本机 config.toml 的 target-dir 是绝对路径，CI 必须 env 覆盖，
                    # 否则 exe 落错位置 → EXE_TAG 硬门禁失败（S124 首跑 CI 实锤）

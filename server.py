@@ -38,7 +38,7 @@ registry.set_profile_change_hook(
 PROTOCOL_VERSION = "2025-06-18"          # 我方最高支持：未知版本请求的回包
 _SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26")   # 白名单：命中即回显客户端版本
 SERVER_NAME = "unified-rx-v2"
-SERVER_VERSION = "2.75.0"
+SERVER_VERSION = "2.76.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
 _SEND_LOCK = threading.Lock()
@@ -241,14 +241,18 @@ def _handle(msg):
         finally:
             registry.clear_request_context()
         return tool_reply(msg_id, name, result)
-    # S78 加固②：通知（无 id）永不回包——未知通知回 UNKNOWN_METHOD 会以 id:null
-    # 污染宿主的响应配对（fuzz 电池实锤，与 Rust 协议层纪律对齐）
+    # S78 加固②：通知（无 id）永不回包——未知通知回包会以 id:null 污染宿主的
+    # 响应配对（fuzz 电池实锤，与 Rust 协议层纪律对齐）
     if "id" not in msg:
         return None
+    # S160 协议面门实测修正：未知方法原先是"工具级 isError 结果"（result.content
+    # 里写 UNKNOWN_METHOD）——那是**非规范**形态：JSON-RPC 客户端会把它当**成功**
+    # 结果。改为规范要求的错误对象（-32601 Method not found），由
+    # scripts/mcp_surface_gate.py 逐条锁住。
     return {
         "jsonrpc": "2.0",
         "id": msg_id,
-        "result": {"content": [{"type": "text", "text": f"UNKNOWN_METHOD {method}"}], "isError": True},
+        "error": {"code": -32601, "message": f"Method not found: {method}"},
     }
 
 

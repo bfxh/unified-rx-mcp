@@ -451,7 +451,7 @@ fn scan_docs(docs: &[PathBuf]) -> Vec<(usize, Vec<String>, Vec<(String, i64)>)> 
         Some((toks.len(), words,
               tf.into_iter().map(|(k, v)| (k.to_string(), v)).collect()))
     }
-    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    let n = crate::par::par_degree(8);
     if docs.len() < 8 || n <= 1 {
         return docs.iter().filter_map(|p| one(p)).collect();
     }

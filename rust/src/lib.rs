@@ -41,6 +41,7 @@ pub mod fs;
 pub mod ide;
 pub mod json;
 pub mod nameres;
+pub mod par;
 pub mod pyast;
 pub mod rcache;
 pub mod repomap;

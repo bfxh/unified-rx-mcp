@@ -542,7 +542,7 @@ fn extract_file_defs(p: &Path) -> Vec<Def> {
 /// S159：分块并行抽定义（线程数 min(可用并行度, 8)；候选 < 8 或单核走串行）；
 /// 结果按候选序返回（外层按序消费定义配额）。
 fn extract_defs_parallel(cands: &[PathBuf]) -> Vec<Vec<Def>> {
-    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    let n = crate::par::par_degree(8);
     if cands.len() < 8 || n <= 1 {
         return cands.iter().map(|p| extract_file_defs(p)).collect();
     }

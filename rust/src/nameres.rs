@@ -1543,8 +1543,7 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
     let mut deferred: Vec<Value> = Vec::new();
     let (mut n_calls, mut n_builtin_calls) = (0usize, 0usize);
     {
-        let n_thr = std::thread::available_parallelism().map(|x| x.get())
-            .unwrap_or(1).min(8);
+        let n_thr = crate::par::par_degree(8);
         if pre.len() < 8 || n_thr <= 1 {
             for f in pre.iter_mut() {
                 let o = phase2_one(f);
@@ -1592,8 +1591,7 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
     // 序合并，与串行逐字节同（金标准/审计测试锁）。
     let mut n_stitched = 0usize;
     {
-        let n_thr = std::thread::available_parallelism().map(|x| x.get())
-            .unwrap_or(1).min(8);
+        let n_thr = crate::par::par_degree(8);
         if deferred.len() < 8 || n_thr <= 1 {
             for d in &deferred {
                 let (e, u, st) = stitch_one(d, &index, &pre);
@@ -1742,7 +1740,7 @@ fn prescan_one(p: &std::path::Path, root: &Path, prefix: Option<&str>) -> Option
 /// S156：分块并行（线程数 = min(可用并行度, 8)；文件 < 8 或单核走串行——与旧版同）。
 fn prescan_parallel(py: &[std::path::PathBuf], root: &Path, prefix: Option<&str>)
     -> Vec<CgPre> {
-    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    let n = crate::par::par_degree(8);
     if py.len() < 8 || n <= 1 {
         return py.iter().filter_map(|p| prescan_one(p, root, prefix)).collect();
     }

@@ -81,6 +81,12 @@ jobs:
       - name: Tool-evals gate（S144：13 个任务级评测 vs 基线，任务失败/体量膨胀即红）
         run: python -X utf8 bench/tool_evals.py --check
 
+      - name: Perf gate（S160：同机并行/串行比值——不依赖 runner 绝对速度）
+        run: python -X utf8 scripts/perf_gate.py
+
+      - name: MCP surface gate（S160：真实 stdio 握手校验对外契约）
+        run: python -X utf8 scripts/mcp_surface_gate.py
+
   rust:
     runs-on: windows-latest
     # 注意（S125 实锤）：runner 上下文在 job 级 env 不可用（只许 github/needs/strategy/

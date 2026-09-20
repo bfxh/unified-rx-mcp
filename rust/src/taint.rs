@@ -1623,7 +1623,7 @@ fn analyze_one(f: &Path, root: &Path, naive: bool) -> (Option<Analyzer>, Option<
 /// S153：分块并行 + 有序收集（线程数 min(可用并行度, 8)；文件 < 4 走串行）。
 fn analyze_files(files: &[PathBuf], root: &Path, naive: bool)
     -> (Vec<Analyzer>, Vec<String>) {
-    let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).min(8);
+    let n = crate::par::par_degree(8);
     if files.len() < 4 || n <= 1 {
         let mut us = Vec::new();
         let mut es = Vec::new();

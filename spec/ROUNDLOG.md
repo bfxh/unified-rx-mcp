@@ -1473,3 +1473,41 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - **⑦ 未复现的偶发（如实挂账）**：上述 pytest 瞬时失败原因未定位（详情丢失）。
   若再遇：`unrx-gate-fail-pytest.log` 会保留完整输出；若确认为计时敏感用例
   （如服务"不得比 CLI 慢 2×"、steer 端到端），按"先测再判"决定是否放宽边界。
+
+## S160 · 实施轮：CI 审核再加两道硬门（性能门 + 协议面门）
+- 项目：unified-rx-mcp｜时间：2026-09-20｜版本 2.75.0 → **2.76.0**
+- 用户指令：「CI 审核继续加强，至少 20 个……可以加一个性能门」。
+- **① 性能门 `scripts/perf_gate.py`（新）**：判据 = **同机"并行 vs 串行"比值**
+  （不依赖 runner 绝对速度，CI 安全）。为此把 7 处 `available_parallelism` 收敛到
+  单一入口 `rust/src/par.rs::par_degree`，并提供 `UNIFIED_RX_NO_PAR=1` 强制串行
+  → 同一二进制、同一语料、交错 A/B。判据细节（三处本轮实锤）：
+  - **必须扣进程启动基线**（~7ms 是固定项；不扣则小语料下"并行 1.067"这种噪声被
+    误判为回归）；工作量 < 8ms 时标 **SIZE-SKIP 不判**；
+  - **per-case 上限**（secrets/bug/search/taint 0.85，semantic 0.95——它的打分段
+    是顺序的，收益本就小）；**核数 ≤2 的 runner 只判"不慢于串行"**（不苛求）；
+  - 语料**确定性重建**（`%TEMP%/unrx-perf-corpus`，400 文件含跨包调用 + 动态执行/
+    裸 except/凭据样式各类命中；危险字面量碎片拼接）；
+  - 实测（空载 24 核）：比率 bug 0.44 / secrets 0.51 / search 0.45 / taint 0.55 /
+    semantic 0.66——五例都有真实工作且都在并行受益。
+- **② 协议面门 `scripts/mcp_surface_gate.py`（新）**：对**真实 stdio server** 握手并
+  逐条校验对外契约（15 条）：initialize 版本/能力、**握手留痕字段**、tools/list 条数
+  与 registry 一致、名字唯一、**annotations.title/readOnlyHint 全部上线路**（S143 那类
+  "发了没转发"的总闸）、**顶层 title**（S146）、写类 schema 含 `__authorized`、
+  **fs_read 回包带不可信前缀**（S144）、sys_topology 回包可解析 JSON、未知方法形态。
+- **③ 首跑就抓到一个真违约（本轮最有价值的产出）**：未知方法原先返回
+  **"工具级 isError 结果"**（`result.content.text = UNKNOWN_METHOD x`）——JSON-RPC
+  客户端会把它当**成功**结果，属非规范形态。已改为规范要求的
+  `error{code:-32601,"Method not found"}`（保留"通知永不回包"的 S78 加固②）。
+  两门均已进 core.yml + local_gate（形状锁 needle 同步）。
+- **④ 门清单（用户要求"至少 20"）**：本地门 **15 步**（secrets / self-attack /
+  data-flow / secrets-history / deps-lock / audit-freshness / toolface / tool-evals /
+  cli-bench / **perf-gate** / **mcp-surface** / selftest / pytest / cargo-test /
+  clippy）+ pytest 内 **15 个门套件**（s94/s113/s124/s127/s138/s139/s143/s144/s145/
+  s147/s148/s149/s150/s151/**s160**）——合计 30 项，CI 与本地同源（速档 12 步 ~7s）。
+- **⑤ 其它实锤**：性能门首版忘了给子进程设沙盒 → taint 被 fail-closed 拒（表现为
+  "工作量 ~0"的假象）→ 补 `UNIFIED_RX_SANDBOX`（自给自足纪律，与 secrets 门同因）；
+  新脚本带进的 3 条数据流条目按流程入基线 + 人工 why（`--update-baseline` 继承既有
+  9 条 why ✓，S147 的修复再次兑现）。
+- 验证：全量 pytest 3.14 **888 passed + 3 skipped**；cargo 41 单测绿；clippy 零告警；
+  本地全门 **15 步全绿 131s**；版本锁步 **2.76.0 ×4**（exe 已重建）。
+- 提交：本次
