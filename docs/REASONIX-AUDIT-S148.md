@@ -3,7 +3,7 @@
 > 承接 S147 外部审计（`docs/AUDIT-DeepSeek-Reasonix.md`）的缺口清单 G1–G6，
 > 本轮把"提案套件"**真正落地到仓库**并新增独立审核 CI workflow。
 > 目标仓库工作树：`D:\开发\DeepSeek-Reasonix`（esengine/DeepSeek-Reasonix
-> main-v2 @ b21deef，审计前从稀疏检出扩展为全量 7,146 文件）。
+> main-v2 @ 482455a（rebase 上游最新后），审计前从稀疏检出扩展为全量 7,146 文件）。
 
 ## 1. 落地清单（实打实写进仓库的文件）
 
@@ -14,10 +14,10 @@
 | `.githooks/pre-push`（改） | 原有 vet+repolint 前插 audit fast 门 | G2 |
 | `Makefile`（改） | 新增 `audit` / `audit-fast` / `audit-deps` / `audit-godfiles` / `audit-coverage` 目标 + .PHONY | 全部 |
 | `.github/workflows/audit.yml` | 独立 CI 审核 workflow（两个 job：audit-gates + coverage-gate） | G1 G3 G5 G6 |
-| `.deps-baseline.json` | 依赖基线（root+sdk go.mod，149 条 require） | G6 |
+| `.deps-baseline.json` | 依赖基线（root+sdk go.mod，151 条 require） | G6 |
 | `.godfiles-baseline.json` | 上帝文件基线（13 个超限文件，只拦新增/变大） | G3 |
 | `.coverage-baseline.json` | 覆盖率基线（72.50%，趋势门 floor=72.0%） | G5 |
-| `.audit-ledger.json` | 审计账本（round 1 seal b21deef03eb8） | G4 |
+| `.audit-ledger.json` | 审计账本（round 1 seal 482455a957） | G4 |
 | `scripts/audit_ledger.py` | 账本仪式入口（--seal <报告>） | G4 |
 
 ## 2. 门与判红（每步可判红，非记录型）
@@ -34,7 +34,7 @@
 
 ```
 OK  repolint   OK  vet       SKIP golangci(本地未装)
-OK  secrets    OK  history   OK  deps(149 无新增)
+OK  secrets    OK  history   OK  deps(151 无新增)
 OK  godfiles(13/13 无变化)   OK  freshness(0d)   OK  coverage(72.50%)
 LOCAL-AUDIT OK steps=9 failed=[]
 ```
