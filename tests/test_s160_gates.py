@@ -40,12 +40,24 @@ def test_perf_gate_green_on_small_corpus():
 
 
 def test_perf_gate_reports_serial_vs_parallel():
-    """门必须真的做了 A/B：输出要同时出现串行与并行两列，且比值为正数。"""
+    """门必须真的做了 A/B：输出要同时出现串行与并行两列，且**被判的**比值都是正数。
+
+    别对 SIZE-SKIP 行要求正比值（2026-09-21 实测偶发红）：门的语义是「工作量 <25ms 的用例
+    不判」（判据是扣启动后的并行/串行比值，工作太小没判定力），但这类行**照旧打印比值**
+    ——当某行扣启动后的并行工作 ≈0 时比值会印成 `0.000`（`wp = max(min(par)-base, 0.001)`），
+    「五个都 >0」于是偶发失败。按门自己声明的语义判：跳过行照旧计数，只是不要求正比值。
+    """
     cp = _run("perf_gate.py", "--files", "120")
     assert "并行=" in cp.stdout and "比率=" in cp.stdout
     import re
-    ratios = [float(m) for m in re.findall(r"比率=\s*([0-9.]+)", cp.stdout)]
-    assert len(ratios) == 5 and all(r > 0 for r in ratios), ratios
+    judged, skipped = [], []
+    for line in cp.stdout.splitlines():
+        m = re.search(r"比率=\s*([0-9.]+)", line)
+        if m:
+            (skipped if "SIZE-SKIP" in line else judged).append(float(m.group(1)))
+    assert len(judged) + len(skipped) == 5, (judged, skipped)
+    assert all(r > 0 for r in judged), (judged, skipped)
+    assert all(x >= 0 for x in skipped), (judged, skipped)
 
 
 def test_mcp_surface_gate_green_and_covers_contracts():
