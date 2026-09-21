@@ -123,9 +123,9 @@ def host_key():
     return f"{platform.node()}|{Path(tempfile.gettempdir()).resolve()}"
 
 
-# 计时判据的**同轮基准**：`mcp_version` 是纯进程启动成本（不读语料、不做活），
-# 拿它当分母，机器级漂移在分子分母里同量抵消。
-BENCH_REF = "mcp_version"
+# 计时判据：不再挑「单条命令当参考」——首版用 `mcp_version` 做分母，实测它自己会在
+# 5.35↔12.9ms 之间抖（缓存/首触），分母一变小就把别人抬成假红。改为**整批比值的中位数**
+# 当机器因子（见 --check 里的注释）。
 
 
 def env_stamp(cmds):
@@ -198,32 +198,38 @@ def main(argv):
             print(f"CLI-BENCH SKIP（异机基线：{bdoc.get('host')} ≠ 本机）")
         else:
             old = bdoc["commands"]
-            ref_old = old.get(BENCH_REF, {}).get("min_ms")
-            if not ref_old:
-                print(f"CLI-BENCH SKIP（基线缺同轮基准 {BENCH_REF}，重采 --bench）")
-                return 2
             now_t = {k: timeit(*v) for k, v in cmds.items()}
-            ref_now = now_t[BENCH_REF]["min_ms"]
+            ratios = {k: now_t[k]["min_ms"] / old[k]["min_ms"]
+                      for k in cmds if old.get(k, {}).get("min_ms")}
+            # 机器因子 = **整批比值的中位数**（留一法不需要：中位数对单条变化本身稳健）。
+            # 为什么不是「拿单条命令当参考」：首版用 `mcp_version` 做分母，实测它自己会
+            # 5.35↔12.9ms 抖动（缓存/首触），分母一变小就把别人抬成假红
+            # （sys_procs 比值 2.098→2.770，而它绝对值 21.4→14.82ms 其实**变快**了）。
+            factor = statistics.median(ratios.values()) if ratios else 1.0
             slow, drift = [], []
             for k in cmds:
                 o, now = old.get(k, {}), now_t[k]
-                if not o.get("min_ms"):
+                r = ratios.get(k)
+                if r is None:
                     continue
-                # **主判据：同轮比值**（分量、分母在同一轮里采，机器级漂移同量抵消）。
-                # 绝对基线只作参考：2026-09-21 实测同机同码曾整体漂 1.25–1.40×，
-                # 连平凡命令一起漂 ⇒ 用绝对数判红绿等于在判机器状态（本仓 perf_gate 早有同款教训）。
-                if k != BENCH_REF and now["min_ms"] / ref_now > (o["min_ms"] / ref_old) * 1.25:
-                    slow.append(f"{k}: 比值 {o['min_ms'] / ref_old:.3f} → "
-                                f"{now['min_ms'] / ref_now:.3f}"
-                                f"（{o['min_ms']}→{now['min_ms']}ms；同轮参考 {ref_old}→{ref_now}ms）")
+                # 主判据是**与门**：既「相对整批变差」又「绝对值也变差」才红。
+                # 两个信号都要求，是因为单看任一个都有实测过的假红模式：
+                #   · 只看绝对 → 机器整体漂移（同机同码 1.25–1.40×）即假红；
+                #   · 只看相对 → ① 参考命令自身抖动（首版 mcp_version 5.35↔12.9ms）；
+                #                ② 成本构成不同的命令对机器状态响应不同（sys_procs 是枚举进程
+                #                   的系统调用活，缓存热起来时整批快 1.8× 而它只快 1.3×）。
+                # 与门把三类假红全挡掉，而「某命令真变慢」两个信号同时成立，照旧红。
+                if r > factor * 1.25 and now["min_ms"] > o["min_ms"] * 1.25:
+                    slow.append(f"{k}: 相对整批 {r:.2f}× vs 机器因子 {factor:.2f}×，"
+                                f"且绝对 {o['min_ms']}→{now['min_ms']}ms")
                 elif now["min_ms"] > o["min_ms"] * 1.25:
-                    drift.append(f"{k}: 绝对 {o['min_ms']} → {now['min_ms']}ms")
+                    drift.append(f"{k}: 绝对 {o['min_ms']} → {now['min_ms']}ms（与整批一致）")
             print(f"CLI-BENCH {'OK' if not slow else 'FAIL'} 对照 {len(cmds)} 条"
-                  f"（判据：同轮比值 vs 基线比值 ×1.25，基准 = {BENCH_REF}）")
+                  f"（判据：本命令比值 vs 整批中位数 ×1.25；机器因子 {factor:.2f}×）")
             for s in slow:
                 print("  ", s)
             if drift:
-                print(f"  NOTE 绝对基线漂移（机器状态，不阻断）：{len(drift)} 条")
+                print(f"  NOTE 绝对变慢但与整批一致（机器状态，不阻断）：{len(drift)} 条")
                 for d in drift[:4]:
                     print("    ", d)
             stamp_old, stamp_now = bdoc.get("env", {}), env_stamp(cmds)
