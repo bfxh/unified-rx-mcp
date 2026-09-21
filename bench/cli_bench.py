@@ -10,7 +10,7 @@
   python -X utf8 bench/cli_bench.py --golden          # 采集金标准（优化前跑）
   python -X utf8 bench/cli_bench.py --check-golden    # 校验输出未变（优化后必跑）
   python -X utf8 bench/cli_bench.py --bench           # 采集计时基线
-  python -X utf8 bench/cli_bench.py --check           # 计时对照基线（>1.25× 即红）
+  python -X utf8 bench/cli_bench.py --check           # 计时对照基线（**同轮比值** >1.25× 即红）
   python -X utf8 bench/cli_bench.py --all             # 上面四步一次跑完
 
 落盘：spec/cli-golden.json（输出指纹）/ spec/cli-baseline.json（计时）。
@@ -123,6 +123,30 @@ def host_key():
     return f"{platform.node()}|{Path(tempfile.gettempdir()).resolve()}"
 
 
+# 计时判据的**同轮基准**：`mcp_version` 是纯进程启动成本（不读语料、不做活），
+# 拿它当分母，机器级漂移在分子分母里同量抵消。
+BENCH_REF = "mcp_version"
+
+
+def env_stamp(cmds):
+    """记录用指纹（**不参与 SKIP 判定**，避免「指纹一变门就静默失效」）：
+    解释器版本 + 被测 exe 的构建戳 + 采集时间。
+    2026-09-21 实测教训：只记 host 时，「同机同码、机器状态漂了」与「环境真的变了」
+    无法区分——归因花掉的时间就白花。写进记录里，一眼分开。"""
+    exes = sorted({v[0] for v in cmds.values()})
+    stamp = []
+    for e in exes:
+        p = Path(e)
+        try:
+            st = p.stat()
+            stamp.append(f"{p.name}:{int(st.st_mtime)}:{st.st_size}")
+        except OSError:
+            stamp.append(f"{p.name}:missing")
+    return {"python": platform.python_version(),
+            "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "exes": stamp}
+
+
 def main(argv):
     build_fixture()
     cmds = commands()
@@ -137,7 +161,7 @@ def main(argv):
         print(f"GOLDEN 已采集（{len(doc)} 条）->", GOLDEN.name)
     if "--bench" in argv or want_all:
         doc = {k: timeit(*v) for k, v in cmds.items()}
-        BASE.write_text(json.dumps({"host": host_key(), "commands": doc},
+        BASE.write_text(json.dumps({"host": host_key(), "env": env_stamp(cmds), "commands": doc},
                                    ensure_ascii=False,
                                    indent=1), encoding="utf-8")
         tot = sum(v["median_ms"] for v in doc.values())
@@ -174,16 +198,39 @@ def main(argv):
             print(f"CLI-BENCH SKIP（异机基线：{bdoc.get('host')} ≠ 本机）")
         else:
             old = bdoc["commands"]
-            slow = []
-            for k, v in cmds.items():
-                now = timeit(*v)
-                o = old.get(k, {})
-                # 对照口径用 min_ms（机器负载下的中位数不稳，min=硬件极限更可复现）
-                if o.get("min_ms") and now["min_ms"] > o["min_ms"] * 1.25:
-                    slow.append(f"{k}: min {o['min_ms']} → {now['min_ms']}ms")
-            print(f"CLI-BENCH {'OK' if not slow else 'FAIL'} 对照 {len(cmds)} 条（阈值 1.25×）")
+            ref_old = old.get(BENCH_REF, {}).get("min_ms")
+            if not ref_old:
+                print(f"CLI-BENCH SKIP（基线缺同轮基准 {BENCH_REF}，重采 --bench）")
+                return 2
+            now_t = {k: timeit(*v) for k, v in cmds.items()}
+            ref_now = now_t[BENCH_REF]["min_ms"]
+            slow, drift = [], []
+            for k in cmds:
+                o, now = old.get(k, {}), now_t[k]
+                if not o.get("min_ms"):
+                    continue
+                # **主判据：同轮比值**（分量、分母在同一轮里采，机器级漂移同量抵消）。
+                # 绝对基线只作参考：2026-09-21 实测同机同码曾整体漂 1.25–1.40×，
+                # 连平凡命令一起漂 ⇒ 用绝对数判红绿等于在判机器状态（本仓 perf_gate 早有同款教训）。
+                if k != BENCH_REF and now["min_ms"] / ref_now > (o["min_ms"] / ref_old) * 1.25:
+                    slow.append(f"{k}: 比值 {o['min_ms'] / ref_old:.3f} → "
+                                f"{now['min_ms'] / ref_now:.3f}"
+                                f"（{o['min_ms']}→{now['min_ms']}ms；同轮参考 {ref_old}→{ref_now}ms）")
+                elif now["min_ms"] > o["min_ms"] * 1.25:
+                    drift.append(f"{k}: 绝对 {o['min_ms']} → {now['min_ms']}ms")
+            print(f"CLI-BENCH {'OK' if not slow else 'FAIL'} 对照 {len(cmds)} 条"
+                  f"（判据：同轮比值 vs 基线比值 ×1.25，基准 = {BENCH_REF}）")
             for s in slow:
                 print("  ", s)
+            if drift:
+                print(f"  NOTE 绝对基线漂移（机器状态，不阻断）：{len(drift)} 条")
+                for d in drift[:4]:
+                    print("    ", d)
+            stamp_old, stamp_now = bdoc.get("env", {}), env_stamp(cmds)
+            for field in ("python", ):
+                if stamp_old.get(field) and stamp_old[field] != stamp_now[field]:
+                    print(f"  NOTE 环境变化：{field} {stamp_old[field]} → {stamp_now[field]}"
+                          f"（基线 {stamp_old.get('recorded_at', '?')} 采；变了就该考虑重采）")
             rc = 1 if slow else rc
     if not any(a in argv for a in ("--golden", "--bench", "--check",
                                    "--check-golden", "--all")):
