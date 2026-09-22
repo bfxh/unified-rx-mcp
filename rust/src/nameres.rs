@@ -1543,7 +1543,7 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
     let mut deferred: Vec<Value> = Vec::new();
     let (mut n_calls, mut n_builtin_calls) = (0usize, 0usize);
     {
-        let n_thr = crate::par::par_degree(8);
+        let n_thr = crate::par::par_degree(0); // S167：0 = 用满可用并行度
         if pre.len() < 8 || n_thr <= 1 {
             for f in pre.iter_mut() {
                 let o = phase2_one(f);
@@ -1737,10 +1737,10 @@ fn prescan_one(p: &std::path::Path, root: &Path, prefix: Option<&str>) -> Option
     Some(CgPre { rel, modname: m, ps, tree })
 }
 
-/// S156：分块并行（线程数 = min(可用并行度, 8)；文件 < 8 或单核走串行——与旧版同）。
+/// S156：分块并行（**S167：线程数＝用满可用并行度**；文件 < 8 或单核走串行——与旧版同）。
 fn prescan_parallel(py: &[std::path::PathBuf], root: &Path, prefix: Option<&str>)
     -> Vec<CgPre> {
-    let n = crate::par::par_degree(8);
+    let n = crate::par::par_degree(0); // S167：0 = 用满可用并行度（按机器来，不再固定 8）
     if py.len() < 8 || n <= 1 {
         return py.iter().filter_map(|p| prescan_one(p, root, prefix)).collect();
     }

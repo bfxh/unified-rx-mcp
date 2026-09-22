@@ -1098,9 +1098,9 @@ fn scan_one(fp: &str) -> (Vec<Issue>, bool) {
     (issues, true)
 }
 
-/// S153：分块并行（线程数 min(可用并行度, 8)；文件 < 8 走串行，与旧版逐字节同）。
+/// S153：分块并行（**S167：线程数＝用满可用并行度**；文件 < 8 走串行，与旧版逐字节同）。
 fn scan_files(files: &[String]) -> (Vec<Issue>, usize) {
-    let n = crate::par::par_degree(8);
+    let n = crate::par::par_degree(0); // S167：0 = 用满可用并行度（按机器来，不再固定 8）
     if files.len() < 8 || n <= 1 {
         let mut iss = Vec::new();
         let mut cnt = 0usize;

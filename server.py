@@ -478,7 +478,14 @@ def main():
     # 协议主循环：tools/call 交给线程池执行，主循环继续读 stdin。
     # 慢工具（local_run/fs_list/engine_query）不再阻塞 ping/keepalive，
     # 否则 Hermes 会判定服务器失联并重连，最终把 in-flight 调用掐成 300s 超时。
-    executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="rxmcp")
+    #
+    # S167：线程数**按机器来**（此前写死 4）——24 核机上 4 是并发天花板。
+    # 默认 = min(8, max(4, cpu))：**不是越大越好**——本仓重工具（scan/taint/bug…）内部
+    # 已经按 par::par_degree(0) 用满核心，服务器再叠高并发只会超订（CPU 满而墙钟变长）。
+    # 想要更多并发（例如以 I/O 型工具为主时）用 UNIFIED_RX_WORKERS 显式调大。
+    _cpu = os.cpu_count() or 4
+    _workers = int(os.environ.get("UNIFIED_RX_WORKERS") or min(8, max(4, _cpu)))
+    executor = ThreadPoolExecutor(max_workers=_workers, thread_name_prefix="rxmcp")
     while True:
         line = _read_line()
         if line is None:

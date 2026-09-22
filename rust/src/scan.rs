@@ -223,7 +223,7 @@ pub fn std_check(path: &str, max_files: usize) -> Value {
     // S166：分块并行（同 S153 `bug.rs::scan_files` 范式——文件 <8 或并行度 ≤1 走串行，
     // 且**按块序合并** ⇒ 输出与串行逐字节同；`UNIFIED_RX_NO_PAR=1` 可强制串行做 A/B）。
     // 动机（2026-09-23 实测）：1446 文件语料上本函数原为纯串行，并行/串行 = 0.99×（一点没吃多核）。
-    let n = crate::par::par_degree(8);
+    let n = crate::par::par_degree(0); // S167：0 = 用满可用并行度（按机器来）
     let (findings, files_scanned) = if files.len() < 8 || n <= 1 {
         std_scan_serial(&files)
     } else {

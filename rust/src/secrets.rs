@@ -616,10 +616,10 @@ type Hit = (u8, String, usize, String, String, String, String);
 
 /// S152：**分块并行 + 有序收集**。出口按 (rank,file,line) 稳定排序（既有语义），
 /// 故合并顺序无关——并行不改变任何输出字节（金标准 + 服务/CLI 逐字节测试锁）。
-/// 线程数 = min(可用并行度, 8)；文件数 < 8 或单核 → 串行（与旧版逐字节同）。
+/// 线程数＝用满可用并行度（S167；此前固定 8）；文件数 < 8 或单核 → 串行（与旧版逐字节同）。
 fn scan_files(files: &[PathBuf], root: &Path, size_cap: usize, min_entropy: f64)
     -> (Vec<Hit>, usize, usize) {
-    let n = crate::par::par_degree(8);
+    let n = crate::par::par_degree(0); // S167：0 = 用满可用并行度（按机器来，不再固定 8）
     if files.len() < 8 || n <= 1 {
         let mut h = Vec::new();
         let (mut sc, mut sk) = (0usize, 0usize);

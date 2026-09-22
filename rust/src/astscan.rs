@@ -1536,7 +1536,7 @@ pub fn ast_scan(path: &str, max_files: usize) -> Value {
         (all_issues, per_unit, rs_sources)
     }
 
-    let n = crate::par::par_degree(8);
+    let n = crate::par::par_degree(0); // S167：0 = 用满可用并行度（按机器来）
     let (mut all_issues, per_unit, rs_sources) = if targets.len() < 8 || n <= 1 {
         scan_chunk(&targets, &base)
     } else {
