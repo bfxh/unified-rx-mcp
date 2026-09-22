@@ -48,6 +48,8 @@ STEPS = [
     ("model-fit",   [PY, "-X", "utf8", "scripts/model_fit_gate.py"], "fast", "模型适配门（弱模型模拟 + 回包预算）"),
     ("selftest",    [PY, "-X", "utf8", "scripts/ci_gate.py"], "fast", "对账硬门（SCHEMA/EXE/VERSION）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),
+    ("stress",      [PY, "-X", "utf8", "bench/stress_run.py", "--tier", "full"], "full",
+     "高压语料（错误形状/成功形状/路由/溢出；并发档需独占锁，单独跑）"),
     ("cargo-test",  [CARGO, "test", "--manifest-path", "rust/Cargo.toml"], "full", "Rust 测试"),
     ("clippy",      [CARGO, "clippy", "--manifest-path", "rust/Cargo.toml",
                      "--all-targets", "--", "-D", "warnings"], "full", "clippy 零告警"),
