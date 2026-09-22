@@ -10,11 +10,13 @@ on:
 permissions:
   contents: read
 
-# 并发纪律（S163）：同一 ref 的旧运行立即取消。
-# 实测动机：一次推送墙钟 5 分 14 秒（run 35753788295）；连推 3 次会让 runner 排队各跑一遍，
-# 而只有最后一次的结果有意义（前两次的绿灯没有任何人看）。
+# 并发纪律（S163）：同一分支/PR 的旧运行立即取消。
+# 实测动机：① 一次推送墙钟 5 分 14 秒（run 35753788295），连推 3 次会排队各跑一遍；
+# ② 首版按 github.ref 分组时，同一次推送仍会跑两个（push 事件 refs/heads/* 与
+#    PR 事件 refs/pull/N/merge 不同组 ⇒ 互不取消）——实测 PR #84 一推两跑。
+# 故按**分支名**分组：head_ref（PR）优先，退回 ref_name（push）⇒ 一条分支同时只有一个运行。
 concurrency:
-  group: core-${{ github.workflow }}-${{ github.ref }}
+  group: core-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
