@@ -53,14 +53,15 @@ jobs:
       # ${{ runner.temp }}\rx-rs-target，而构建实际落在 pwsh 的 $env:TEMP —— 两者不是同一路径，
       # 于是每处仍要全量编译 63–75 秒。改为**构建进工作区内的 rust/target**（rust-cache 原生缓存，
       # 无需 cache-directories），构建后把 exe 拷到工具查找的 %TEMP%\rx-rs-target\release。
-      - name: Rust 构建缓存（S164：换官方 actions/cache，直接缓存工作区 rust\target）
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: rust/target
-          key: rx-target-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust/Cargo.toml') }}-v1
-          restore-keys: |
-            rx-target-${{ runner.os }}-
-        # 以下为 rust-cache 时代的历史根因（留档，别再踩）：
+      # S165（定论）：**不缓存构建产物**。实测证据链——actions/cache 恢复 86 MB rust\target 后，
+      # cargo 仍打印 Compiling unified-rx-rs 且 "Finished in 1m15s"（与冷跑 1m09s 无异）：
+      # checkout 每次把源码 mtime 刷成"现在"，比缓存里的指纹新 ⇒ cargo 判据必然重编；
+      # 而唯一能让它接受旧产物的办法是伪造源码 mtime——那会在真实改动时**复用过时产物**（正确性红线，
+      # 也正是 rust-cache 默认不缓存工作区 crate 的原因）。本仓 rust/ 零依赖（[dependencies] 空、
+      # Cargo.lock 仅 1 包）⇒ 连"只缓存依赖"这条常规路也无东西可存。
+      # 结论：这 70 秒 / 处的 release 编译（11 个 bin）是零依赖自研 crate 的固有成本，改由**并行**摊掉
+      # （7 job 同起，不占墙钟）；要再压只能动 profile / 缩减 bin 数，那属于 crate 自己的取舍。
+      # 以下为历次尝试的根因（留档，别再踩）：
           # S163 三次修正：key 不含路径配置 ⇒ 首次那轮（cache-directories 指错）把"空的
           # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
           # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
@@ -183,14 +184,15 @@ jobs:
 
       # S163 二次修正：构建进工作区 rust\target（rust-cache 原生缓存），再拷 exe 到工具查找的
       # %TEMP%\rx-rs-target\release（实测：原先指 runner.temp 作 cache-directories 时两轮都没命中）。
-      - name: Rust 构建缓存（S164：换官方 actions/cache，直接缓存工作区 rust\target）
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: rust/target
-          key: rx-target-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust/Cargo.toml') }}-v1
-          restore-keys: |
-            rx-target-${{ runner.os }}-
-        # 以下为 rust-cache 时代的历史根因（留档，别再踩）：
+      # S165（定论）：**不缓存构建产物**。实测证据链——actions/cache 恢复 86 MB rust\target 后，
+      # cargo 仍打印 Compiling unified-rx-rs 且 "Finished in 1m15s"（与冷跑 1m09s 无异）：
+      # checkout 每次把源码 mtime 刷成"现在"，比缓存里的指纹新 ⇒ cargo 判据必然重编；
+      # 而唯一能让它接受旧产物的办法是伪造源码 mtime——那会在真实改动时**复用过时产物**（正确性红线，
+      # 也正是 rust-cache 默认不缓存工作区 crate 的原因）。本仓 rust/ 零依赖（[dependencies] 空、
+      # Cargo.lock 仅 1 包）⇒ 连"只缓存依赖"这条常规路也无东西可存。
+      # 结论：这 70 秒 / 处的 release 编译（11 个 bin）是零依赖自研 crate 的固有成本，改由**并行**摊掉
+      # （7 job 同起，不占墙钟）；要再压只能动 profile / 缩减 bin 数，那属于 crate 自己的取舍。
+      # 以下为历次尝试的根因（留档，别再踩）：
           # S163 三次修正：key 不含路径配置 ⇒ 首次那轮（cache-directories 指错）把"空的
           # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
           # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
@@ -241,14 +243,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] 例外同 pytest job：ref 即工具链名
         with:
           components: clippy
-      - name: Rust 构建缓存（S164：换官方 actions/cache，直接缓存工作区 rust\target）
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: rust/target
-          key: rx-target-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust/Cargo.toml') }}-v1
-          restore-keys: |
-            rx-target-${{ runner.os }}-
-        # 以下为 rust-cache 时代的历史根因（留档，别再踩）：
+      # S165（定论）：**不缓存构建产物**。实测证据链——actions/cache 恢复 86 MB rust\target 后，
+      # cargo 仍打印 Compiling unified-rx-rs 且 "Finished in 1m15s"（与冷跑 1m09s 无异）：
+      # checkout 每次把源码 mtime 刷成"现在"，比缓存里的指纹新 ⇒ cargo 判据必然重编；
+      # 而唯一能让它接受旧产物的办法是伪造源码 mtime——那会在真实改动时**复用过时产物**（正确性红线，
+      # 也正是 rust-cache 默认不缓存工作区 crate 的原因）。本仓 rust/ 零依赖（[dependencies] 空、
+      # Cargo.lock 仅 1 包）⇒ 连"只缓存依赖"这条常规路也无东西可存。
+      # 结论：这 70 秒 / 处的 release 编译（11 个 bin）是零依赖自研 crate 的固有成本，改由**并行**摊掉
+      # （7 job 同起，不占墙钟）；要再压只能动 profile / 缩减 bin 数，那属于 crate 自己的取舍。
+      # 以下为历次尝试的根因（留档，别再踩）：
           # S163 三次修正：key 不含路径配置 ⇒ 首次那轮（cache-directories 指错）把"空的
           # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
           # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
@@ -285,14 +288,15 @@ jobs:
         uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
       # S163 二次修正：构建进工作区 rust\target（rust-cache 原生缓存），再拷 exe 到工具查找的
       # %TEMP%\rx-rs-target\release。
-      - name: Rust 构建缓存（S164：换官方 actions/cache，直接缓存工作区 rust\target）
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: rust/target
-          key: rx-target-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust/Cargo.toml') }}-v1
-          restore-keys: |
-            rx-target-${{ runner.os }}-
-        # 以下为 rust-cache 时代的历史根因（留档，别再踩）：
+      # S165（定论）：**不缓存构建产物**。实测证据链——actions/cache 恢复 86 MB rust\target 后，
+      # cargo 仍打印 Compiling unified-rx-rs 且 "Finished in 1m15s"（与冷跑 1m09s 无异）：
+      # checkout 每次把源码 mtime 刷成"现在"，比缓存里的指纹新 ⇒ cargo 判据必然重编；
+      # 而唯一能让它接受旧产物的办法是伪造源码 mtime——那会在真实改动时**复用过时产物**（正确性红线，
+      # 也正是 rust-cache 默认不缓存工作区 crate 的原因）。本仓 rust/ 零依赖（[dependencies] 空、
+      # Cargo.lock 仅 1 包）⇒ 连"只缓存依赖"这条常规路也无东西可存。
+      # 结论：这 70 秒 / 处的 release 编译（11 个 bin）是零依赖自研 crate 的固有成本，改由**并行**摊掉
+      # （7 job 同起，不占墙钟）；要再压只能动 profile / 缩减 bin 数，那属于 crate 自己的取舍。
+      # 以下为历次尝试的根因（留档，别再踩）：
           # S163 三次修正：key 不含路径配置 ⇒ 首次那轮（cache-directories 指错）把"空的
           # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
           # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
