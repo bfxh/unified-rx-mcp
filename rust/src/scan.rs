@@ -219,22 +219,51 @@ pub fn std_check(path: &str, max_files: usize) -> Value {
     if !Path::new(path).exists() {
         return err_obj(&format!("路径不存在: {}", path));
     }
-    let mut findings: Vec<Value> = Vec::new();
-    let mut files_scanned = 0i128;
-    for fp in iter_files(path, max_files) {
-        let lang = lang_of(&fp);
-        if lang.is_empty() {
-            continue;
-        }
-        files_scanned += 1;
-        let Some(src) = read_text(Path::new(&fp)) else { continue };
-        std_check_file(&src, &fp, lang, &mut findings);
-    }
+    let files = iter_files(path, max_files);
+    // S166：分块并行（同 S153 `bug.rs::scan_files` 范式——文件 <8 或并行度 ≤1 走串行，
+    // 且**按块序合并** ⇒ 输出与串行逐字节同；`UNIFIED_RX_NO_PAR=1` 可强制串行做 A/B）。
+    // 动机（2026-09-23 实测）：1446 文件语料上本函数原为纯串行，并行/串行 = 0.99×（一点没吃多核）。
+    let n = crate::par::par_degree(8);
+    let (findings, files_scanned) = if files.len() < 8 || n <= 1 {
+        std_scan_serial(&files)
+    } else {
+        let chunk = files.len().div_ceil(n);
+        let mut out: Vec<Value> = Vec::new();
+        let mut cnt = 0i128;
+        std::thread::scope(|s| {
+            let handles: Vec<_> = files
+                .chunks(chunk)
+                .map(|c| s.spawn(move || std_scan_serial(c)))
+                .collect();
+            for h in handles {
+                let (mut o, k) = h.join().unwrap_or_default();
+                out.append(&mut o);
+                cnt += k;
+            }
+        });
+        (out, cnt)
+    };
     Value::Obj(vec![
         ("files".into(), Value::Int(files_scanned)),
         ("total".into(), Value::Int(findings.len() as i128)),
         ("findings".into(), Value::Arr(findings)),
     ])
+}
+
+/// 逐文件扫描（串行核）：并行版按块调用它、再按块序合并 ⇒ 与整段串行逐字节同。
+fn std_scan_serial(files: &[String]) -> (Vec<Value>, i128) {
+    let mut findings: Vec<Value> = Vec::new();
+    let mut files_scanned = 0i128;
+    for fp in files {
+        let lang = lang_of(fp);
+        if lang.is_empty() {
+            continue;
+        }
+        files_scanned += 1;
+        let Some(src) = read_text(Path::new(fp)) else { continue };
+        std_check_file(&src, fp, lang, &mut findings);
+    }
+    (findings, files_scanned)
 }
 
 fn is_comment_prefix(line: &str) -> bool {

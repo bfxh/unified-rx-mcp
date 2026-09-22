@@ -1463,69 +1463,102 @@ pub fn ast_scan(path: &str, max_files: usize) -> Value {
     }
     let base = if p.is_dir() { path.to_string() } else { py_dirname(path) };
 
-    let mut all_issues: Vec<Value> = Vec::new();
-    let mut per_unit: Vec<Value> = Vec::new();
-    let mut rs_sources: Vec<(String, String, bool)> = Vec::new();
-    for fp in &targets {
-        let Some(raw) = read_text(Path::new(fp)) else {
-            continue; // OSError → 静默跳过（与旧实现一致）
-        };
-        // Python open(..., "r") 的 universal newlines 契约：\r\n → \n、孤立 \r → \n。
-        // CRLF 文件否则在字符串掩码里 \ 先吞 \r、真 \n 反而截断字符串，行号全盘漂移。
-        let src = raw.replace("\r\n", "\n").replace('\r', "\n");
-        let fp_rel = relpath(fp, &base);
-        let lines = src.matches('\n').count() + 1;
-        if fp.ends_with(".py") {
-            let issues = scan_python(&src, &fp_rel);
-            per_unit.push(o(vec![
-                ("file", s(&fp_rel)),
-                ("lang", s("python")),
-                ("lines", i(lines)),
-            ]));
-            all_issues.extend(issues);
-        } else if fp.ends_with(".rs") {
-            let (masked, mstrings, mcomments) = mask_rust(&src);
-            let (issues, meta) = scan_rust_struct(&masked, &fp_rel);
-            // is_test_dir：fp_rel 路径组件（除文件名）含 tests/tests.*，或全路径含 \tests\
-            let is_test_dir = {
-                let fp_norm = fp_rel.replace('\\', "/");
-                let comps: Vec<&str> = fp_norm.split('/').collect();
-                comps[..comps.len().saturating_sub(1)]
-                    .iter()
-                    .any(|pp| *pp == "tests" || pp.starts_with("tests."))
-                    || fp.contains("\\tests\\")
-                    || fp.contains("/tests/")
+    // S166：分块并行（同 S153 `bug.rs::scan_files` 范式——文件 <8 或并行度 ≤1 走串行，
+    // **按块序合并**三个向量 ⇒ 输出与串行逐字节同；`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）。
+    // 动机（2026-09-23 实测）：1446 文件语料上本函数原为纯串行，并行/串行 = 1.02×（没吃多核）。
+    // 跨文件可达性（rust_reach）仍在第二阶段串行跑——它本来就要全量 rs_sources 才能开工。
+    /// 单块的扫描产物（issues / per_unit / rs_sources 三路，按序合并即与串行同）。
+    type ChunkOut = (Vec<Value>, Vec<Value>, Vec<(String, String, bool)>);
+    fn scan_chunk(files: &[String], base: &str) -> ChunkOut {
+        let mut all_issues: Vec<Value> = Vec::new();
+        let mut per_unit: Vec<Value> = Vec::new();
+        let mut rs_sources: Vec<(String, String, bool)> = Vec::new();
+        for fp in files {
+            let Some(raw) = read_text(Path::new(fp)) else {
+                continue; // OSError → 静默跳过（与旧实现一致）
             };
-            rs_sources.push((fp_rel.clone(), src.clone(), is_test_dir));
-            per_unit.push(o(vec![
-                ("file", s(&fp_rel)),
-                ("lang", s("rust")),
-                ("lines", i(lines)),
-                ("strings_masked", i(mstrings)),
-                ("comments_masked", i(mcomments)),
-                ("fn_count", i(meta.fn_count)),
-                ("unsafe_count", i(meta.unsafe_count)),
-                ("risky_fns", Value::Arr(meta.risky)),
-                ("fns", Value::Arr(meta.fns.iter().map(|f| s(f)).collect())),
-            ]));
-            all_issues.extend(issues);
-        } else {
-            // 注意与旧实现一致的怪癖：单文件直扫不经扩展名过滤，.txt 也走 JS 管线；
-            // 目录模式下 ".PY"（大写）能进 targets 但 endswith(".py") 不成立 → JS 管线
-            let (masked, st_strings, st_templates, st_comments) = mask_js(&src);
-            let (issues, calls_total) = scan_js_calls(&masked, &fp_rel);
-            per_unit.push(o(vec![
-                ("file", s(&fp_rel)),
-                ("lang", s("javascript")),
-                ("lines", i(lines)),
-                ("strings_masked", i(st_strings)),
-                ("templates_masked", i(st_templates)),
-                ("comments_masked", i(st_comments)),
-                ("calls_total", i(calls_total)),
-            ]));
-            all_issues.extend(issues);
+            // Python open(..., "r") 的 universal newlines 契约：\r\n → \n、孤立 \r → \n。
+            // CRLF 文件否则在字符串掩码里 \ 先吞 \r、真 \n 反而截断字符串，行号全盘漂移。
+            let src = raw.replace("\r\n", "\n").replace('\r', "\n");
+            let fp_rel = relpath(fp, base);
+            let lines = src.matches('\n').count() + 1;
+            if fp.ends_with(".py") {
+                let issues = scan_python(&src, &fp_rel);
+                per_unit.push(o(vec![
+                    ("file", s(&fp_rel)),
+                    ("lang", s("python")),
+                    ("lines", i(lines)),
+                ]));
+                all_issues.extend(issues);
+            } else if fp.ends_with(".rs") {
+                let (masked, mstrings, mcomments) = mask_rust(&src);
+                let (issues, meta) = scan_rust_struct(&masked, &fp_rel);
+                // is_test_dir：fp_rel 路径组件（除文件名）含 tests/tests.*，或全路径含 \tests\
+                let is_test_dir = {
+                    let fp_norm = fp_rel.replace('\\', "/");
+                    let comps: Vec<&str> = fp_norm.split('/').collect();
+                    comps[..comps.len().saturating_sub(1)]
+                        .iter()
+                        .any(|pp| *pp == "tests" || pp.starts_with("tests."))
+                        || fp.contains("\\tests\\")
+                        || fp.contains("/tests/")
+                };
+                rs_sources.push((fp_rel.clone(), src.clone(), is_test_dir));
+                per_unit.push(o(vec![
+                    ("file", s(&fp_rel)),
+                    ("lang", s("rust")),
+                    ("lines", i(lines)),
+                    ("strings_masked", i(mstrings)),
+                    ("comments_masked", i(mcomments)),
+                    ("fn_count", i(meta.fn_count)),
+                    ("unsafe_count", i(meta.unsafe_count)),
+                    ("risky_fns", Value::Arr(meta.risky)),
+                    ("fns", Value::Arr(meta.fns.iter().map(|f| s(f)).collect())),
+                ]));
+                all_issues.extend(issues);
+            } else {
+                // 注意与旧实现一致的怪癖：单文件直扫不经扩展名过滤，.txt 也走 JS 管线；
+                // 目录模式下 ".PY"（大写）能进 targets 但 endswith(".py") 不成立 → JS 管线
+                let (masked, st_strings, st_templates, st_comments) = mask_js(&src);
+                let (issues, calls_total) = scan_js_calls(&masked, &fp_rel);
+                per_unit.push(o(vec![
+                    ("file", s(&fp_rel)),
+                    ("lang", s("javascript")),
+                    ("lines", i(lines)),
+                    ("strings_masked", i(st_strings)),
+                    ("templates_masked", i(st_templates)),
+                    ("comments_masked", i(st_comments)),
+                    ("calls_total", i(calls_total)),
+                ]));
+                all_issues.extend(issues);
+            }
         }
+        (all_issues, per_unit, rs_sources)
     }
+
+    let n = crate::par::par_degree(8);
+    let (mut all_issues, per_unit, rs_sources) = if targets.len() < 8 || n <= 1 {
+        scan_chunk(&targets, &base)
+    } else {
+        let chunk = targets.len().div_ceil(n);
+        let mut a: Vec<Value> = Vec::new();
+        let mut u: Vec<Value> = Vec::new();
+        let mut r: Vec<(String, String, bool)> = Vec::new();
+        let base_ref = &base; // 先取引用：inner 是 move 闭包，直接写 &base 会被判为移出
+        std::thread::scope(|s| {
+            let handles: Vec<_> = targets
+                .chunks(chunk)
+                .map(|c| s.spawn(move || scan_chunk(c, base_ref)))
+                .collect();
+            for h in handles {
+                let (mut a2, mut u2, mut r2) = h.join().unwrap_or_default();
+                a.append(&mut a2);
+                u.append(&mut u2);
+                r.append(&mut r2);
+            }
+        });
+        (a, u, r)
+    };
 
     let mut reach_summary: Value = Value::Null;
     if !rs_sources.is_empty() {
