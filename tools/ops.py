@@ -177,6 +177,27 @@ def scan_log(action="log", root=None, limit=20, record=None):
     return {"total": len(recs), "logs": recs[:limit]}
 
 
+def _stats_files():
+    """stats 的全部数据源：当前文件 + 轮转分片（S163）。
+
+    轮转（registry._maybe_rotate_stats）把超阈值的 `stats.jsonl` 改名成
+    `stats.<stamp>.jsonl`；读方**必须跨分片读**，否则轮转等于丢历史。
+    分片名走**严格**模式（与 registry._STATS_SHARD_RE 同形）——用 `startswith("stats.")`
+    会把当前文件也算成自己的分片（读两遍）。
+
+    注意：这个辅助函数必须放在 `@tool` 装饰器**之前**——首版插在装饰器与函数之间，
+    装饰器便套到了它身上（usage_stats 未注册、调用报"unexpected keyword argument"）。
+    """
+    d = os.path.dirname(_STATS_FILE)
+    files = [_STATS_FILE]
+    try:
+        files += [os.path.join(d, f) for f in sorted(os.listdir(d))
+                  if _re.match(r"^stats\.\d{8}-\d{6}\.jsonl$", f)]
+    except OSError:
+        pass
+    return [f for f in files if os.path.isfile(f)]
+
+
 @tool("usage_stats", "工具使用统计（频率/耗时 TopN/时段分布；S140 起按 mcp/embedded 来源拆分）", "ops",
       {"type": "object",
        "properties": {
@@ -185,12 +206,17 @@ def scan_log(action="log", root=None, limit=20, record=None):
        },
        "required": []})
 def usage_stats(top=10, days=0):
-    """T4：基于 stats.jsonl 的工具使用统计。
+    """T4：基于 stats.jsonl（含轮转分片）的工具使用统计。
 
     S140：records 附 src（mcp=客户端协议流量 / embedded=脚本与引擎内部直调 /
     unmarked=改造前的旧记录）。freq_top 仍是全量口径保持兼容；freq_top_mcp 是
-    只算客户端流量的口径——评估"模型真实调用量"看它，评估引擎总负载看 total_calls。"""
-    recs = _load_jsonl(_STATS_FILE)
+    只算客户端流量的口径——评估"模型真实调用量"看它，评估引擎总负载看 total_calls。
+    S163：跨分片读（轮转后历史不丢）；单次读取上限 50 万条，防超大日志撑爆内存。"""
+    recs = []
+    for f in _stats_files():
+        recs.extend(_load_jsonl(f))
+        if len(recs) > 500_000:
+            recs = recs[-500_000:]
     if days > 0:
         cutoff = int(time.time()) - days * 86400
         recs = [r for r in recs if _norm_ts(r.get("ts")) is not None and _norm_ts(r.get("ts")) >= cutoff]

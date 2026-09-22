@@ -10,6 +10,7 @@
 import inspect
 import json
 import os
+import re
 import threading
 import time
 import traceback
@@ -325,6 +326,65 @@ def _stats_path():
     return os.path.join(os.path.expanduser("~"), ".unified-rx", "stats.jsonl")
 
 
+# S163：统计日志轮转。此前**无上限**（实测本机 40.8MB 且每次调用追加 ~60B）⇒ 迟早变成
+# 慢 I/O，且 `usage_stats` 会把整份读进内存。策略：当前文件超阈值 → 改成带时间戳的分片
+# （`stats.<stamp>.jsonl`，`os.replace` 原子），只留最近 K 个分片；读方（tools/ops.py）
+# 会跨分片读，所以**轮转不丢历史**（丢的只有超出 K 的旧分片）。
+# 阈值与保留数可用环境变量调（测试与宿主都靠它；缺省 8MB / 3 份）。
+_STATS_MAX_MB_DEFAULT = 8
+_STATS_KEEP_DEFAULT = 3
+_stats_append_count = 0
+# 分片名的**严格**模式：`stats.<YYYYmmdd-HHMMSS>.jsonl`。
+# 别用 `startswith("stats.")`——`"stats.jsonl"` 也满足它，于是当前文件会被当成自己的分片
+# （读方会读两遍、剪枝会把自己算进 KEEP）。这类"前缀匹配撞自己"的坑在符号注册表那边也踩过。
+_STATS_SHARD_RE = re.compile(r"^stats\.\d{8}-\d{6}\.jsonl$")
+
+
+def _stats_shards(d):
+    try:
+        return sorted(f for f in os.listdir(d) if _STATS_SHARD_RE.match(f))
+    except OSError:
+        return []
+
+
+def _stats_limits():
+    """(字节上限, 保留分片数)。支持小数 MB（测试用它把阈值压到 1KB 级）。
+
+    注意：非法值**静默回落默认**——首版只收整数 MB，测试传 `0.001` 直接回落 8MB，
+    于是"轮转没触发"看起来像功能没生效。小数支持下这类假阴性不会再出现。
+    """
+    def _mb(env, default):
+        try:
+            return max(float(os.environ.get(env, default)), 0.0)
+        except (TypeError, ValueError):
+            return float(default)
+    return int(_mb("UNIFIED_RX_STATS_MAX_MB", _STATS_MAX_MB_DEFAULT) * 1024 * 1024), \
+        int(_mb("UNIFIED_RX_STATS_KEEP", _STATS_KEEP_DEFAULT))
+
+
+def _maybe_rotate_stats(path):
+    """每 200 次追加检查一次体积（避免每次调用都 stat）；任何异常都不影响打点。"""
+    global _stats_append_count
+    _stats_append_count += 1
+    max_bytes, keep = _stats_limits()
+    if not max_bytes or _stats_append_count % 200:
+        return
+    try:
+        if os.path.getsize(path) < max_bytes:
+            return
+        d = os.path.dirname(path)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        os.replace(path, os.path.join(d, f"stats.{stamp}.jsonl"))
+        shards = _stats_shards(d)
+        for old in shards[:-keep] if keep else shards:      # keep=0 ⇒ 只留当前
+            try:
+                os.unlink(os.path.join(d, old))
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
 def _record_stats(tool_name, duration_ms):
     """工具调用打点（usage_stats 的数据源）。
 
@@ -343,6 +403,7 @@ def _record_stats(tool_name, duration_ms):
                 "tool": tool_name, "duration_ms": int(duration_ms),
                 "ts": int(time.time()), "src": src,
             }, ensure_ascii=False) + "\n")
+        _maybe_rotate_stats(path)          # S163：超阈值转分片，读方跨分片读 ⇒ 不丢历史
     except OSError:
         pass
     try:
