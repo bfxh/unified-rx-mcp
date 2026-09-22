@@ -62,6 +62,9 @@ jobs:
       - name: Secrets-history gate（S147：近 50 提交 diff 面明文红线）
         run: python -X utf8 scripts/secrets_history.py --n 50
 
+      - name: Path gate（S162：符号链接/文件名卫生/≤1MB/越界写/软链接逃逸——与 key 门并列）
+        run: python -X utf8 scripts/path_gate.py
+
       - name: Deps-lock gate（S147：rust 依赖段恒空红线机器化）
         run: python -X utf8 scripts/deps_lock.py
 

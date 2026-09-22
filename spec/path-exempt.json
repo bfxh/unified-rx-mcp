@@ -1,0 +1,10 @@
+{
+  "note": "路径门（scripts/path_gate.py）的豁免登记：每条必须带 why。判据是「这条路径行为是有意的、可解释的」，不是「这条命中不好看」。",
+  "entries": [
+    {
+      "path": "tools/attack.py",
+      "rule": "P4",
+      "why": "攻击域工具**故意**构造越界路径（`dotdot_escape` 用例：os.path.join(base, '..', '..', 'Windows', 'win.ini')）来验证沙盒是 fail-closed 的——这正是路径门的反面证据，删掉它反而失去「沙盒真的会拒绝」的回归。故按文件+规则豁免。"
+    }
+  ]
+}

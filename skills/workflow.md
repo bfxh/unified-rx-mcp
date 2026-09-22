@@ -144,14 +144,15 @@ python -X utf8 scripts/local_gate.py --fast   # 快门（秒级，提交前用�
 python -X utf8 scripts/local_gate.py --list   # 看步骤
 ```
 
-- **快门**（13 步，秒级）：secrets 明文红线 / self-attack 巡航 / data-flow 污点基线 /
+- **快门**（14 步，秒级）：secrets 明文红线（**key 门**）/ **path-gate 路径门**（符号链接/
+  文件名卫生/≤1MB/越界写/软链接逃逸，S162）/ self-attack 巡航 / data-flow 污点基线 /
   **secrets-history 历史 diff 明文**（S147，近 50 提交）/**deps-lock 依赖红线**
   （S147，Cargo 依赖段恒空）/**audit-freshness 审计时效与账本对账**（S147，
   表↔账本一致 + ≤14 天/≤60 提交，过期即红、`--allow-stale` 显式放行）/
   toolface 工具面体量 / tool-evals 任务级评测 / cli-bench 命令行金标准 /
   perf-gate 性能门（同机并行/串行比值）/ mcp-surface 协议面门（真握手契约）/
   **model-fit 模型适配门**（S161：弱模型模拟器 + 回包预算）/ selftest 对账硬门；
-- **全门**（16 步）：快门 + pytest 全量 + cargo test + clippy 零告警——红线
+- **全门**（17 步）：快门 + pytest 全量 + cargo test + clippy 零告警——红线
   "双绿才准合入"的**本地执行点**；
 - **审计封印账本** `spec/audit-ledger.json`（S147）：每轮副本审计的 seal/条数/head
   机器记账，与人读表（HARDENING §四·补）逐字对账——表与账本各说各话即红；

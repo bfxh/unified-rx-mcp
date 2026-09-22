@@ -32,7 +32,8 @@ CARGO = shutil.which("cargo") or "cargo"
 # (名字, argv, 档位, 说明)——与 .github/workflows/core.yml 的硬门同源（drift 由
 # tests/test_s145_gates.py 锁：core.yml 里出现的门脚本必须都在这里）。
 STEPS = [
-    ("secrets",     [PY, "-X", "utf8", "scripts/ci_secrets_gate.py"], "fast", "明文红线"),
+    ("secrets",     [PY, "-X", "utf8", "scripts/ci_secrets_gate.py"], "fast", "明文红线（key 门）"),
+    ("path-gate",   [PY, "-X", "utf8", "scripts/path_gate.py"], "fast", "路径门（符号链接/文件名卫生/越界写）"),
     ("self-attack", [PY, "-X", "utf8", "scripts/attack_gate.py"], "fast", "自攻门（巡航 clean）"),
     ("data-flow",   [PY, "-X", "utf8", "scripts/taint_gate.py"], "fast", "数据流门（taint 基线）"),
     ("secrets-history", [PY, "-X", "utf8", "scripts/secrets_history.py"], "fast", "历史 diff 明文红线"),

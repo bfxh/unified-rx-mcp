@@ -17,7 +17,10 @@
 方法形态/**S161 模型适配三件**：失败回包也是 JSON、错误带 `next`、`structuredContent`
 与文本同形…）——**首跑抓到真违约**：未知方法原先返回"工具级 isError 结果"（JSON-RPC
 客户端会当成功），已改为 `error{code:-32601}`。
-**门清单 32 项**：本地门 16 步（速档 13 步 ~8s）+ pytest 内 16 个门套件，CI 与本地同源。
+**门清单 33 项**：本地门 17 步（速档 14 步 ~8s）+ pytest 内 16 个门套件，CI 与本地同源。
+**自提交 PR 的双门**：**key 门**（明文红线：工作树 + 历史 diff 两路）与**路径门**
+（`scripts/path_gate.py`：无符号链接 / 文件名卫生 / ≤1MB / 无越界写路径 / 无软链接逃逸），
+两者都在 `.githooks/pre-commit` 的快门上（`core.hooksPath=.githooks` 已设）。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /

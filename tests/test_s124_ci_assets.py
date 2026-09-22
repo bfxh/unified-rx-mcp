@@ -59,6 +59,7 @@ def test_core_workflow_keeps_hard_gates():
                    "scripts/taint_gate.py",         # S139：数据流门（definite 基线）
                    "scripts/toolface_budget.py",    # S143：工具面体量软帽
                    "scripts/secrets_history.py",    # S147：历史 diff 明文红线
+                   "scripts/path_gate.py",          # S162：路径门（与 key 门并列）
                    "scripts/deps_lock.py",          # S147：依赖红线机器化
                    "bench/tool_evals.py",           # S144：任务级评测门
                    "scripts/perf_gate.py",          # S160：性能门（并行/串行比值）
