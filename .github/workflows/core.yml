@@ -4,18 +4,25 @@ on:
   push:
     branches: ['**']
   pull_request:
+  workflow_dispatch:
 
 # 最小权限：CI 只读仓库内容（本仓没有需要写权限的步骤）——与 RUST WL 仓同款纪律。
 permissions:
   contents: read
 
+# 并发纪律（S163）：同一 ref 的旧运行立即取消。
+# 实测动机：一次推送墙钟 5 分 14 秒（run 35753788295）；连推 3 次会让 runner 排队各跑一遍，
+# 而只有最后一次的结果有意义（前两次的绿灯没有任何人看）。
+concurrency:
+  group: core-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  pytest:
+  # ── ① 门禁快档（S163 拆分）：**跑一次**，不再随解释器矩阵重复。
+  # 实测（run 35753788295，step 级）：全部门合计 8 秒；原实现把同一套门在 3.11/3.14 各跑一遍
+  # ⇒ 同一份审核付两遍钱。门与解释器版本无关，故挪出矩阵。
+  gates:
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.11', '3.14']
     env:
       PYTHONUTF8: '1'
     steps:
@@ -24,17 +31,28 @@ jobs:
           fetch-depth: 0          # VERSION_TAG 对账需要真实 tag（SKIP 不算对账）
           persist-credentials: false   # 凭据不落盘（本仓无推送步骤）
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.14
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.14'
 
       # 按 commit 钉死（注释里是对应标签）——浮动 tag 可以被上游重指，钉 SHA 之后
       # 供应链面只剩「我们主动改这一行」。唯一例外见下。
       - name: Install Rust toolchain
         # 例外：该 action 的 ref **就是工具链名**（stable/nightly），无固定 SHA 语义；
-        # 钉 SHA 等于钉错东西。同理见 rust job。
-        uses: dtolnay/rust-toolchain@stable
+        # 钉 SHA 等于钉错东西。同理见 pytest / rust / stress job。
+        uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
+
+      # S163：构建缓存。实测一次 release 构建 80 秒，而原实现一次推送要建 3 遍
+      # （矩阵两腿各一遍 + rust job 一遍）；这里为每个需要 exe 的 job 各加一份缓存，
+      # 第二遍起基本只剩链接时间。target 目录被 step 级 env 改到 %TEMP%（S125），
+      # 故用 cache-directories 指过去；Cargo.toml 在 rust/ 而非仓根 ⇒ workspaces: rust。
+      - name: Rust 构建缓存
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          cache-directories: ${{ runner.temp }}\rx-rs-target
+
       # S124：exe 必建——加速工具在 CI 必须真跑，不做静默降级。
       # S125 修：target-dir 覆盖只限本步——仓库根 .cargo/config.toml 的 target-dir 是
       # 本机绝对路径（S78 workaround），必须 env 覆盖让 exe 落在工具查找的
@@ -73,10 +91,65 @@ jobs:
           UNIFIED_RX_SANDBOX: ${{ github.workspace }}   # selftest 内部 fs 自检在沙盒内跑
         run: python -X utf8 scripts/ci_gate.py
 
+      # ── S163 补齐：这 4 道此前只在本地快门（local_gate.py --fast）里跑，CI 侧漏了。
+      # 实测四道合计 1.4 秒（audit 0.1 / model-fit 0.2 / cli-bench 0.9 / stress 0.2）。
+      - name: Audit-freshness gate（审计账本时效/对账）
+        run: python -X utf8 scripts/audit_ledger.py
+
+      - name: Model-fit gate（弱模型模拟 + 回包预算 + 一形态）
+        run: python -X utf8 scripts/model_fit_gate.py
+
+      - name: CLI-bench gate（命令行：输出金标准 + 计时——不变质量）
+        run: python -X utf8 bench/cli_bench.py --check-golden --check
+
+      # 这两道原在 pytest job 里（随之在矩阵两腿各跑一遍）；它们是快档门 → 收进本 job。
+      - name: Perf gate（S160：同机并行/串行比值——不依赖 runner 绝对速度）
+        run: python -X utf8 scripts/perf_gate.py
+
+      - name: MCP surface gate（S160：真实 stdio 握手校验对外契约）
+        run: python -X utf8 scripts/mcp_surface_gate.py
+
+  # ── ② 全量测试（双解释器矩阵）：只跑测试与评测基线，不再重复门禁
+  pytest:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.14']
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0          # VERSION_TAG 对账需要真实 tag（SKIP 不算对账）
+          persist-credentials: false   # 凭据不落盘（本仓无推送步骤）
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: .github/ci-requirements.txt
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
+
+      - name: Rust 构建缓存
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          cache-directories: ${{ runner.temp }}\rx-rs-target
+
+      - name: Build Rust acceleration (exe 落在工具查找的 %TEMP%\rx-rs-target)
+        shell: pwsh
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
+          cargo build --release --manifest-path rust/Cargo.toml
+
       - name: Install LSP backends (pylsp 系；能力探测失败须如实降级)
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest python-lsp-server jedi pycodestyle pyflakes
+          python -m pip install -r .github/ci-requirements.txt
 
       - name: Install rust-analyzer
         shell: pwsh
@@ -93,12 +166,7 @@ jobs:
       - name: Tool-evals gate（S144：13 个任务级评测 vs 基线，任务失败/体量膨胀即红）
         run: python -X utf8 bench/tool_evals.py --check
 
-      - name: Perf gate（S160：同机并行/串行比值——不依赖 runner 绝对速度）
-        run: python -X utf8 scripts/perf_gate.py
-
-      - name: MCP surface gate（S160：真实 stdio 握手校验对外契约）
-        run: python -X utf8 scripts/mcp_surface_gate.py
-
+  # ── ③ Rust 侧（双绿纪律的另一半）：与 ①② 并行跑
   rust:
     runs-on: windows-latest
     # 注意（S125 实锤）：runner 上下文在 job 级 env 不可用（只许 github/needs/strategy/
@@ -108,9 +176,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false   # 凭据不落盘（本仓无推送步骤）
-      - uses: dtolnay/rust-toolchain@stable # 例外同 pytest job：ref 即工具链名
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] 例外同 pytest job：ref 即工具链名
         with:
           components: clippy
+      - name: Rust 构建缓存
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          cache-directories: ${{ runner.temp }}\rx-rs-target
       - name: cargo test（双绿纪律的 Rust 侧）
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}\rx-rs-target
@@ -119,3 +192,32 @@ jobs:
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}\rx-rs-target
         run: cargo clippy --manifest-path rust/Cargo.toml -- -D warnings
+
+  # ── ④ 高压语料（S163 补齐）：此前只在本地全门里跑。独立 job ⇒ 不占别人的墙钟；
+  # "并发档需独占锁"在 CI 上是天然独占。本机实测 18 例 full 档 0.2–1 秒。
+  stress:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Python 3.14
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
+      - name: Rust 构建缓存
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          cache-directories: ${{ runner.temp }}\rx-rs-target
+      - name: Build Rust acceleration (exe 落在工具查找的 %TEMP%\rx-rs-target)
+        shell: pwsh
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
+          cargo build --release --manifest-path rust/Cargo.toml
+      - name: Stress corpus run（full 档：错误形状/成功形状/路由/溢出）
+        run: python -X utf8 bench/stress_run.py --tier full
