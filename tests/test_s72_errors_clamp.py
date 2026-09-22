@@ -34,16 +34,27 @@ def test_call_error_has_error_detail(monkeypatch):
 
 
 def test_server_error_text_composes_detail(monkeypatch):
-    """S72：协议层 ERROR 文本必须拼上 DETAIL，模型才看得出错位置。"""
+    """S72→S161：协议层错误回包**也是 JSON**（一种形态），detail（堆栈尾部）不丢。
+
+    旧契约是散文 `ERROR: …\\nDETAIL: …`——弱模型要在"成功=JSON / 失败=散文"两套解析间
+    切换，是最典型的错误放大器。S161 起失败也回 JSON，且带 `next`（下一步怎么改），
+    结构化面（`structuredContent`）与文本块同形。
+    """
+    import json as _json
     import server
     _boom_entry(monkeypatch)
     msg = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
            "params": {"name": "fs_stat", "arguments": {"path": __file__}}}
     resp = server._handle(msg)
-    text = resp["result"]["content"][0]["text"]
-    assert resp["result"]["isError"] is True
-    assert text.startswith("ERROR:")
-    assert "DETAIL:" in text and "boom-marker" in text
+    res = resp["result"]
+    assert res["isError"] is True
+    payload = _json.loads(res["content"][0]["text"])      # 可解析：不再是散文
+    assert payload["ok"] is False
+    assert "boom-marker" in payload["error"]["message"]
+    assert "boom-marker" in (payload["error"]["detail"] or ""), "应附堆栈尾部"
+    assert payload["error"]["detail"].strip().splitlines()[-1].startswith("ValueError:")
+    assert payload["error"]["next"], "错误必须带下一步动作（否则弱模型只能盲重试）"
+    assert res["structuredContent"]["ok"] is False        # F2：结构化面与文本同形
 
 
 # ---------- 钳制：嵌套递归 + 全字段 ----------

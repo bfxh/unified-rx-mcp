@@ -136,6 +136,31 @@ def main():
         r = s.call({"jsonrpc": "2.0", "id": 5, "method": "no/such/method"})
         ok(isinstance(r.get("error"), dict) and "code" in r["error"],
            "未知方法返回错误对象（带 code）")
+
+        # 6) S161 契约（模型适配 P0）：错误也是 JSON（一种形态）+ structuredContent 同形
+        r = s.call({"jsonrpc": "2.0", "id": 6, "method": "tools/call",
+                    "params": {"name": "fs_read", "arguments": {}}})   # 缺必填 ⇒ 走错误路径
+        res = r.get("result") or {}
+        ok(res.get("isError") is True, "缺参调用 isError=true（S161 契约）")
+        txt = (res.get("content") or [{}])[0].get("text", "")
+        try:
+            perr = json.loads(txt)
+        except ValueError:
+            perr = None
+        ok(isinstance(perr, dict) and perr.get("ok") is False,
+           "错误回包是可解析 JSON 且 ok=false（禁散文 ERROR:，S161 契约）")
+        ok(isinstance(perr, dict) and (perr.get("error") or {}).get("next"),
+           "错误带 next（下一步动作，弱模型不必盲重试）")
+        sc = res.get("structuredContent")
+        ok(isinstance(sc, dict) and sc.get("ok") is False and isinstance(sc.get("error"), dict),
+           "失败时 structuredContent = {ok:false, error:{…}}（S161 契约）")
+
+        # 7) S161：成功回包 structuredContent = {ok:true, data:{…}}（机器可读的那一层统一）
+        r = s.call({"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+                    "params": {"name": "sys_topology", "arguments": {}}})
+        sc = (r.get("result") or {}).get("structuredContent")
+        ok(isinstance(sc, dict) and sc.get("ok") is True and isinstance(sc.get("data"), dict),
+           "成功时 structuredContent = {ok:true, data:{…}}（S161 契约）")
     finally:
         s.close()
 

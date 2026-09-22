@@ -12,11 +12,12 @@
 ①**性能门**（`scripts/perf_gate.py`）：判据 = **同机并行 vs 串行比值**（7 处并行度
 收敛到 `rust/src/par.rs`，`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）——扣进程启动基线、
 工作量 <8ms 不判、per-case 上限、≤2 核只判不倒退；实测比率 0.44–0.66（五例）。
-②**协议面门**（`scripts/mcp_surface_gate.py`）：对真实 stdio server 握手校验 15 条契约
+②**协议面门**（`scripts/mcp_surface_gate.py`）：对真实 stdio server 握手校验 21 条契约
 （annotations 上线路/top-level title/不可信前缀/写类 __authorized/握手留痕字段/未知
-方法形态…）——**首跑抓到真违约**：未知方法原先返回"工具级 isError 结果"（JSON-RPC
+方法形态/**S161 模型适配三件**：失败回包也是 JSON、错误带 `next`、`structuredContent`
+与文本同形…）——**首跑抓到真违约**：未知方法原先返回"工具级 isError 结果"（JSON-RPC
 客户端会当成功），已改为 `error{code:-32601}`。
-**门清单 30 项**：本地门 15 步（速档 12 步 ~7s）+ pytest 内 15 个门套件，CI 与本地同源。
+**门清单 31 项**：本地门 15 步（速档 12 步 ~7s）+ pytest 内 16 个门套件，CI 与本地同源。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /

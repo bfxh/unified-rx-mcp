@@ -76,7 +76,32 @@ P2（把适配变可测）：G1 弱模型模拟器门 → G2 预算门 → G3 �
 ```
 每步都配一条 G（否则"改好了"不可证）。P0 三条**不改语义**、只改 wire 形状 ⇒ 风险低、可在 S 轮内完成。
 
-## 5. 对"适配我"的诚实结论
+## 6. 落地记录（S161，2026-09-22）
+
+**P0 三件已落地**（wire 层，`registry.call` 形状零变化——沿用 S144 注入前缀的同款设计）：
+
+| 件 | 契约（现行为） | 位置 |
+|---|---|---|
+| **F1 一形态** | 失败回包**也是 JSON**：`{"ok":false,"error":{"message","detail","next"}}`；散文 `ERROR: …` 废止 | `server.py::tool_reply` |
+| **F2 structuredContent** | 机器可读层**统一包络**：成功 `{ok:true,data:…}` / 失败 `{ok:false,error:…}`（+ 不可信工具带 `trust`/`source` 字段） | 同上 |
+| **F3 溢出落盘** | 超阈值（`UNIFIED_RX_SPILL_KB`，默认 48KB）⇒ 写 `<沙盒根>/.urx-spill/` 并回「摘要+路径+取用命令」；**截断降为最后手段**（落盘无上限，信息不丢） | `tools/spill.py` + `server.py` |
+
+**有意保留的兼容**：文本块里**成功**仍是结果原文（旧消费方零改动；`mcp_surface_gate` 的
+`sys_topology.vendor` 断言因此原样通过）；只有**失败**从散文变 JSON——那不兼容面本来就是坏的。
+
+**为什么 spill 单列模块**：手写路径逻辑被安全扫描连拦三次（join+realpath / `_resolve` /
+显式三步校验都被判"路径穿越"）。最终形态是**结构上消除该面**：文件名由
+`tempfile.mkstemp` 生成（不由我们拼），目录走三步校验（abspath+normpath → 禁 `..` → 必须
+在沙盒根内），前缀先过 `[A-Za-z0-9_]` 白名单。归档：`Path` 拼接不再出现在协议层。
+
+**新增门**：`mcp_surface_gate` 15 → **21 条契约**（+6：缺参 isError、错误是 JSON、
+错误带 `next`、失败 structuredContent、成功 structuredContent、容器面同形）；
+`tests/test_s161_model_fit.py` 5 项回归锁（含"恶意前缀不穿越""落盘的是完整结果"）。
+README 门清单 30 → **31 项**、pytest 门套件 15 → **16** 已同步。
+
+**未做（P1/P2，留在上面章节）**：F4（enum/required/示例）、F5（意图动词命名 + `which_tool` 路由）、
+F6 在 fs 工具上的显式示例、G1（弱模型模拟器门）、G2（回包预算门，逐工具 P95 断言）。
+
 
 - 我（v4.1-flash）能读 JSON 文本块，**但那是付费的**：F2+F3 直接砍我的上下文成本（本会话实测放大 87.5×）。
 - 我会写长报告 ⇒ **spill 设计比"求 agent 自律"可靠**（自律不可验证，落盘可验证）。
