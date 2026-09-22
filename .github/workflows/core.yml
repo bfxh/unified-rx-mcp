@@ -61,7 +61,11 @@ jobs:
           # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
           # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
           # 换前缀即重开条目；下次改路径/布局时同理要换。
-          prefix-key: v1-rust
+          prefix-key: v2-rust
+          # S163 四次修正（真根因）：本仓 rust/ 是**零依赖**（[dependencies] 空、Cargo.lock 仅 1 包）
+          # ⇒ rust-cache 默认只缓存「依赖」、不缓存工作区自己的产物 ⇒ 缓存恒为 659 字节、构建恒 70s。
+          # 打开 cache-workspace-crates 让工作区产物也进缓存（正确性由 cargo 指纹保证：源码变则重编）。
+          cache-workspace-crates: true
 
       # S124：exe 必建——加速工具在 CI 必须真跑，不做静默降级。
       # S125 修：target-dir 覆盖只限本步——仓库根 .cargo/config.toml 的 target-dir 是本机
@@ -183,7 +187,11 @@ jobs:
           # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
           # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
           # 换前缀即重开条目；下次改路径/布局时同理要换。
-          prefix-key: v1-rust
+          prefix-key: v2-rust
+          # S163 四次修正（真根因）：本仓 rust/ 是**零依赖**（[dependencies] 空、Cargo.lock 仅 1 包）
+          # ⇒ rust-cache 默认只缓存「依赖」、不缓存工作区自己的产物 ⇒ 缓存恒为 659 字节、构建恒 70s。
+          # 打开 cache-workspace-crates 让工作区产物也进缓存（正确性由 cargo 指纹保证：源码变则重编）。
+          cache-workspace-crates: true
 
       - name: Build Rust acceleration（构建入 rust\target ⇒ 拷到 %TEMP%\rx-rs-target）
         shell: pwsh
@@ -233,7 +241,11 @@ jobs:
           # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
           # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
           # 换前缀即重开条目；下次改路径/布局时同理要换。
-          prefix-key: v1-rust
+          prefix-key: v2-rust
+          # S163 四次修正（真根因）：本仓 rust/ 是**零依赖**（[dependencies] 空、Cargo.lock 仅 1 包）
+          # ⇒ rust-cache 默认只缓存「依赖」、不缓存工作区自己的产物 ⇒ 缓存恒为 659 字节、构建恒 70s。
+          # 打开 cache-workspace-crates 让工作区产物也进缓存（正确性由 cargo 指纹保证：源码变则重编）。
+          cache-workspace-crates: true
       - name: cargo test（双绿纪律的 Rust 侧）
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
@@ -269,7 +281,11 @@ jobs:
           # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
           # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
           # 换前缀即重开条目；下次改路径/布局时同理要换。
-          prefix-key: v1-rust
+          prefix-key: v2-rust
+          # S163 四次修正（真根因）：本仓 rust/ 是**零依赖**（[dependencies] 空、Cargo.lock 仅 1 包）
+          # ⇒ rust-cache 默认只缓存「依赖」、不缓存工作区自己的产物 ⇒ 缓存恒为 659 字节、构建恒 70s。
+          # 打开 cache-workspace-crates 让工作区产物也进缓存（正确性由 cargo 指纹保证：源码变则重编）。
+          cache-workspace-crates: true
       - name: Build Rust acceleration（构建入 rust\target ⇒ 拷到 %TEMP%\rx-rs-target）
         shell: pwsh
         env:
