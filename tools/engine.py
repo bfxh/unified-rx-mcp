@@ -82,8 +82,8 @@ def engine_status():
 @tool("engine_query", "语义查询：优先 codegraph，降级 BM25", "engine",
       {"type": "object",
        "properties": {
-           "query": {"type": "string"},
-           "root": {"type": "string", "description": "代码库根目录"},
+           "query": {"type": "string", "description": "查询词（自然语言或符号名皆可）"},
+           "root": {"type": "string", "description": "代码库根目录（沙盒内）"},
            "limit": {"type": "integer", "description": "条数（默认 10）"},
        },
        "required": ["query", "root"]})

@@ -192,9 +192,9 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
 @tool("ide_rename", "安全重命名：全库找引用→建议（L3 不落盘）", "ide",
       {"type": "object",
        "properties": {
-           "root": {"type": "string"},
-           "symbol": {"type": "string"},
-           "new_name": {"type": "string"},
+           "root": {"type": "string", "description": "仓库根目录（沙盒内）"},
+           "symbol": {"type": "string", "description": "要重命名的符号名（精确匹配）"},
+           "new_name": {"type": "string", "description": "新名字"},
            "include_plan": {"type": "boolean", "description": "生成批量应用计划（默认 false）"},
        },
        "required": ["root", "symbol", "new_name"]})

@@ -118,9 +118,11 @@ def path_probe():
 @tool("big_input", "大输入边界：1MB 字符串 / 10 万项列表 / 500 层嵌套对目标工具", "attack",
       {"type": "object",
        "properties": {
-           "tool_name": {"type": "string"},
-           "base_args": {"type": "object"},
-           "fuzz_field": {"type": "string"},
+           "tool_name": {"type": "string", "description": "被压测的工具名（须在册）"},
+           "base_args": {"type": "object",
+                         "description": "该工具的**合法参数模板**（本工具会把 fuzz_field 换成极端值）"},
+           "fuzz_field": {"type": "string",
+                          "description": "要被放大/模糊化的参数名（base_args 里的键）"},
        },
        "required": ["tool_name", "base_args", "fuzz_field"]})
 def big_input(tool_name, base_args, fuzz_field):

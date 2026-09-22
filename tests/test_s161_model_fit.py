@@ -72,3 +72,35 @@ def test_big_reply_spills_instead_of_inlining(monkeypatch, tmp_path):
     monkeypatch.setenv("UNIFIED_RX_SPILL_KB", "0")
     resp2 = server.tool_reply(1, "sys_topology", {"ok": True, "result": big})
     assert "spilled" not in resp2["result"]["structuredContent"], "=0 关闭溢出"
+
+
+# ---------- F5：意图路由（弱模型的"我该调哪个"入口）----------
+
+def test_routing_hits_curated_intents():
+    """F5：curated 意图簇必须命中——首版纯模糊匹配把"调用"路由到 `ide_break`（实测），
+    故主判据改手工表；这里锁住若干条最常见的意图。"""
+    from tools.guard import capability_manifest
+    cases = [("找出哪些地方调用了这个函数", "ide_callgraph"),
+             ("这个函数有哪些引用", "ide_callgraph"),
+             ("评审一下这个补丁", "code_review"),
+             ("编译报错了怎么办", "ide_build"),
+             ("哪些文件没被用到", "ide_dead_code"),
+             ("重命名这个符号", "ide_rename"),
+             ("看看项目整体健康度", "project_health")]
+    for query, want in cases:
+        names = [c["工具"] for c in capability_manifest(intent=query)["路由"]["候选"]]
+        assert want in names[:2], f"{query!r} → {names[:3]}，期望含 {want}"
+
+
+def test_routing_reply_stays_small_and_keeps_legacy_shape():
+    """F5：路由回包要给**必填/参数/写操作**（弱模型照抄），且体积小（弱模型窗口小）。"""
+    from tools.guard import capability_manifest
+    r = capability_manifest(intent="调用")
+    assert "分组" not in r, "带 intent 时不该回整份清单（对大模型是噪声）"
+    first = r["路由"]["候选"][0]
+    for key in ("工具", "为什么", "参数", "必填", "写操作"):
+        assert key in first
+    assert len(json.dumps(r, ensure_ascii=False)) < 4000, "路由回包要小"
+    legacy = capability_manifest()          # 不带 intent：旧形状必须原样保留
+    for key in ("定位", "有", "没有", "高权限", "工具面", "分组"):
+        assert key in legacy

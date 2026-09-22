@@ -17,7 +17,7 @@
 | # | 事实 | 来源 |
 |---|---|---|
 | E1 | 80 工具 / 14 域；工具面 34.8KB（收窄后 `core`=54 件） | `plugin_cost.py` / 本会话工具表 |
-| E2 | **必填参数 = 0（全部 80 件）、enum = 0（0 个参数有枚举）** | 解析最近一次请求的 `body.tools` |
+| E2 | ~~必填 0 / enum 0~~ **【已更正，见 §1.1】** 实为：21 件无必填、**59 件声明了 `required`**（1–4 个）；251 个参数中 **14 个有 `enum`**；**11 个参数缺 `description`** | 重解析 `body.tools[].input_schema` |
 | E3 | 命名拥挤：`ide×20`、`scan×6`、`code×6`、`sys×6`、`fs×4`（弱模型的选择混淆面） | 同上 |
 | E4 | wire 成功 = **JSON 文本块**（`json.dumps(result)` 塞进 `{"type":"text"}`）；失败 = **散文** `ERROR: …`（+`DETAIL:`）；`isError` 正确 | `server.py:tool_reply` |
 | E5 | **未使用 MCP `structuredContent`**（grep 全仓为空） | `grep structuredContent` |
@@ -25,6 +25,19 @@
 | E7 | **无按模型窗口的预算旋钮**（无 context-budget / max_result_bytes） | grep 为空 |
 | E8 | 注入防护：非可信来源文本加 `[untrusted-content …]` **前缀** | `server.py:97` |
 | E9 | 工具内部 `return {"error": str}` 会被 registry 转 `ok:false`（**这个做对了**，不冤枉） | `registry.py:525` |
+
+## 1.1 测量更正（2026-09-22，**重要教训**）
+
+首版审计里「必填 0 / enum 0」是**测量假象**：wire 上每条工具的 schema 字段名是
+**`input_schema`**（snake_case），而我读的是 `parameters` / `inputSchema` ⇒ 取不到就静默
+得 0，于是得出了"弱模型毫无锚点"的错误结论，并写进了 F4 的严重度。
+
+重测（同源同文件）真实值：**21 件无必填、59 件有 `required`（1–4 个）；251 个参数中 14 个带
+`enum`**。⇒ 本仓的参数锚**基本齐备**，真缺口只有 11 个参数缺 `description`（已补）。
+
+教训（对"用日志做审计"这条路线同样成立）：**取不到值 ≠ 值为 0**。凡是"读到空就当空"的测量，
+必须补一条**正向对照**（例：内置工具 41 个中 31 个有 `required`，说明解析路径本身是通的；
+若连内置都读到 0，就该先怀疑解析而不是先下结论）。
 
 ## 2. 适配缺口（每条附"错误放大链"）
 
@@ -40,9 +53,13 @@
 截断 = 静默丢信息（弱模型不知道丢了什么，照结论走）；且大结果**永久留在上下文里**按剩余轮数重复计费（实测本会话 94 轮放大 87.5×、日烧 ≈160MB）。
 **修**：超阈值 ⇒ 落盘到沙盒内（如 `<sandbox>/.urx-spill/<tool>-<hash>.json`）+ 回包给「摘要 + 路径 + 取用命令」；截断仅作最后手段。**这条同时治本仓最大的成本项**（见 `CONCURRENCY-PROTOCOL.md §8.1`）。
 
-**F4 ⚠️·P1 — 参数无锚（E2）：0 必填 / 0 枚举**
-弱模型靠猜字符串（`lens="Python"` / `mode="fast"` 大小写、别名），错值要么被忽略、要么得到模糊错误 ⇒ **盲重试 → 循环**（`breaker` 是症状级刹车，不是病因）。
-**修**：真必填的标 `required`；受限参数加 `enum`（值域=代码里实际接受的那几个）；描述里**放一个可抄的示例调用**（弱模型靠抄，不靠推理）。
+**F4 ⚠️·P1 — 参数锚【已按更正后的实测收窄】**
+原判据（"0 必填 / 0 枚举"）基于**错误测量**（见 §1.1）。真实的缺口只有一项：**11 个参数缺
+`description`**（弱模型对没说明的参数只能猜）。**已补**（`fs_stat.path`、`std_check.path`、
+`ui_check.{path,max_files}`、`ide_rename.{root,symbol,new_name}`、`engine_query.query`、
+`big_input.{tool_name,base_args,fuzz_field}`）⇒ 现缺口 **0**。
+**剩余可选**：抽查 `enum` 是否覆盖各参数的真值域（现 14 个参数有 enum；`code_review.mode`、
+`ide_build.action`、`code_semantic.mode`、`ide_vscode.action`、`file_scan.engine` 等已具备）。
 
 **F5 ⚠️·P1 — 选择面拥挤 + 无路由（E3）**
 `ide×20` 等前缀群：弱模型在近义工具间随机选（`ide_lsp` ↔ `ide_impact` ↔ `code_search`），选错=答错且**看起来像答对**。
@@ -105,8 +122,19 @@ P2（把适配变可测）：G1 弱模型模拟器门 → G2 预算门 → G3 �
 **计数连锁已同步**：本地门 15 → **16 步**（速档 12 → **13 步**）、README 门清单 30 → **32 项**、
 `skills/workflow.md` 与 `spec/HARDENING.md` 步数、`tests/test_s145_gates.py` 的 STEPS 名单。
 
-**未做（P1/P2，留在上面章节）**：F4（enum/required/示例）、F5（意图动词命名 + `which_tool` 路由）、
-F6 在 fs 工具上的显式示例、G1（弱模型模拟器门）、G2（回包预算门，逐工具 P95 断言）。
+**未做（P1/P2，留在上面章节）**：F5 已完成（见下）、G1/G2 已完成（见下）。
+剩余：**F4 的可选部分**（抽查 enum 覆盖真值域）、**F6 在 fs 工具上的显式示例**。
+
+**F4 切片已落地**：11 个缺失 `description` 的参数补齐（现缺口 0）；F5 落地为
+**`capability_manifest(intent=…)` 路由**——零新增工具面，弱模型"先问再调"。
+
+**F5 的关键教训（实测）**：路由首版用纯文本模糊分，把「找出哪些地方调用了这个函数」
+路由到 `ide_break`、「有哪些引用」路由到 `ide_dead_code`——**因为"函数/引用"这类词在很多
+工具描述里都出现**。改为 **curated 意图簇为主判据**（32 簇，含中文常见变形，例
+"没用到/没被用到/没人用"），模糊分只兜底且排在人写候选之后；实测 7/7 命中
+（`调用/引用→ide_callgraph`、`评审→code_review`、`编译→ide_build`、`重命名→ide_rename`…），
+回包带「参数/必填/写操作」供弱模型照抄，体积 <4KB。不带 `intent` 时**旧形状原样保留**
+（既有消费方不受影响）。
 
 
 - 我（v4.1-flash）能读 JSON 文本块，**但那是付费的**：F2+F3 直接砍我的上下文成本（本会话实测放大 87.5×）。

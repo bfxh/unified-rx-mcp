@@ -135,7 +135,7 @@ def bug_scan(path, max_files=MAX_FILES, knowledge=False):
 @tool("std_check", "工程标准检查（占位文字/魔法数字/未使用导入）", "scan",
       {"type": "object",
        "properties": {
-           "path": {"type": "string"},
+           "path": {"type": "string", "description": "文件或目录（沙盒内）"},
            "max_files": {"type": "integer", "description": "扫描上限（默认 100）"},
        },
        "required": ["path"]})
@@ -153,7 +153,8 @@ def std_check(path, max_files=MAX_FILES):
 # ---------- ui_check：多引擎（Bevy 重点/Godot/Unity 死按钮/空容器模式） ----------
 @tool("ui_check", "UI 静态检查（Bevy 重点/Godot/Unity 死按钮/空容器模式）", "scan",
       {"type": "object",
-       "properties": {"path": {"type": "string"}, "max_files": {"type": "integer"}},
+       "properties": {"path": {"type": "string", "description": "文件或目录（沙盒内）"},
+                      "max_files": {"type": "integer", "description": "扫描上限（默认 100）"}},
        "required": ["path"]})
 def ui_check(path, max_files=MAX_FILES):
     try:

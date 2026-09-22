@@ -185,7 +185,9 @@ def fs_write(path, content, __authorized=False):
 
 
 @tool("fs_stat", "文件元信息（存在/大小/mtime）", "fs",
-      {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]})
+      {"type": "object",
+       "properties": {"path": {"type": "string", "description": "文件路径（沙盒内）"}},
+       "required": ["path"]})
 def fs_stat(path):
     # S95 回迁，语义 = rust/src/fs.rs op_stat：幽灵路径返回 exists:false 而非报错；
     # mtime 秒级截断（int(st_mtime)：正数=floor 与 as_secs 同，负数=向零与 Rust
