@@ -57,6 +57,11 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
+          # S163 三次修正：key 不含路径配置 ⇒ 首次那轮（cache-directories 指错）把"空的
+          # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
+          # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
+          # 换前缀即重开条目；下次改路径/布局时同理要换。
+          prefix-key: v1-rust
 
       # S124：exe 必建——加速工具在 CI 必须真跑，不做静默降级。
       # S125 修：target-dir 覆盖只限本步——仓库根 .cargo/config.toml 的 target-dir 是本机
@@ -174,6 +179,11 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
+          # S163 三次修正：key 不含路径配置 ⇒ 首次那轮（cache-directories 指错）把"空的
+          # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
+          # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
+          # 换前缀即重开条目；下次改路径/布局时同理要换。
+          prefix-key: v1-rust
 
       - name: Build Rust acceleration（构建入 rust\target ⇒ 拷到 %TEMP%\rx-rs-target）
         shell: pwsh
@@ -219,6 +229,11 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
+          # S163 三次修正：key 不含路径配置 ⇒ 首次那轮（cache-directories 指错）把"空的
+          # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
+          # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
+          # 换前缀即重开条目；下次改路径/布局时同理要换。
+          prefix-key: v1-rust
       - name: cargo test（双绿纪律的 Rust 侧）
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
@@ -250,6 +265,11 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
+          # S163 三次修正：key 不含路径配置 ⇒ 首次那轮（cache-directories 指错）把"空的
+          # rust	arget"存进了同一个 key，之后**命中该空缓存且按 GitHub 规则不再覆盖**
+          # （实测 restore 报 "Cache hit ... Cache Size: ~0 MB (659 B)"，构建仍 72s）。
+          # 换前缀即重开条目；下次改路径/布局时同理要换。
+          prefix-key: v1-rust
       - name: Build Rust acceleration（构建入 rust\target ⇒ 拷到 %TEMP%\rx-rs-target）
         shell: pwsh
         env:
