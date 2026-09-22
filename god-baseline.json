@@ -185,9 +185,29 @@
   "max_type_members": 0
  },
  "rust/src/astscan.rs": {
-  "file_lines": 1810,
+  "file_lines": 559,
+  "max_fn_lines": 233,
+  "max_type_members": 0
+ },
+ "rust/src/astscan/js.rs": {
+  "file_lines": 273,
+  "max_fn_lines": 104,
+  "max_type_members": 1
+ },
+ "rust/src/astscan/py.rs": {
+  "file_lines": 395,
   "max_fn_lines": 166,
-  "max_type_members": 2
+  "max_type_members": 0
+ },
+ "rust/src/astscan/rust.rs": {
+  "file_lines": 400,
+  "max_fn_lines": 112,
+  "max_type_members": 0
+ },
+ "rust/src/astscan/rust_reach.rs": {
+  "file_lines": 196,
+  "max_fn_lines": 82,
+  "max_type_members": 0
  },
  "rust/src/bin/rx_appops.rs": {
   "file_lines": 50,
