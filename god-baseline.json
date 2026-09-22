@@ -275,9 +275,34 @@
   "max_type_members": 0
  },
  "rust/src/nameres.rs": {
-  "file_lines": 1844,
+  "file_lines": 344,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "rust/src/nameres/callgraph.rs": {
+  "file_lines": 191,
+  "max_fn_lines": 153,
+  "max_type_members": 0
+ },
+ "rust/src/nameres/files.rs": {
+  "file_lines": 300,
+  "max_fn_lines": 51,
+  "max_type_members": 0
+ },
+ "rust/src/nameres/prescan.rs": {
+  "file_lines": 172,
+  "max_fn_lines": 1,
+  "max_type_members": 0
+ },
+ "rust/src/nameres/resolver_scope.rs": {
+  "file_lines": 387,
+  "max_fn_lines": 98,
+  "max_type_members": 0
+ },
+ "rust/src/nameres/resolver_walk.rs": {
+  "file_lines": 436,
   "max_fn_lines": 165,
-  "max_type_members": 37
+  "max_type_members": 8
  },
  "rust/src/par.rs": {
   "file_lines": 54,
