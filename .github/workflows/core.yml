@@ -111,13 +111,29 @@ jobs:
       - name: MCP surface gate（S160：真实 stdio 握手校验对外契约）
         run: python -X utf8 scripts/mcp_surface_gate.py
 
-  # ── ② 全量测试（双解释器矩阵）：只跑测试与评测基线，不再重复门禁
+      # 以下两步原在 pytest job（会随矩阵+分片跑 4 遍）；它们是契约/评测基线，挪进本 job 跑一次。
+      - name: Bench dry-run gates (语料/双臂配置契约)
+        run: |
+          python -X utf8 bench/replay_ab.py --dry-run
+          python -X utf8 bench/ab_run.py
+
+      - name: Tool-evals gate（S144：13 个任务级评测 vs 基线，任务失败/体量膨胀即红）
+        run: python -X utf8 bench/tool_evals.py --check
+
+  # ── ② 全量测试（双解释器 × 二分片）：只跑测试，不再重复门禁。
+  # S163 关键路径实测：整改前墙钟 5 分 12 秒**全在本 job**（构建 80s + 测试 181s + 依赖 36s）；
+  # 而"测试并行化"唯一安全形态是**分片到不同 job**——
+  #   · pytest-xdist 在本套件上**否证**（本机实测 -n 4：31 failed / 125 errors，全是 Windows
+  #     共享路径 PermissionError；进程内并行会互踩 session/诊断目录）；
+  #   · 分片按**文件名轮询**切（确定性、自维护、无需维护清单）：本机实测 413 + 486 = 899 passed
+  #     3 skipped，与串行完全一致，单片 45s（对 88s）。
   pytest:
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ['3.11', '3.14']
+        shard: [1, 2]
     env:
       PYTHONUTF8: '1'
     steps:
@@ -157,16 +173,12 @@ jobs:
         shell: pwsh
         run: rustup component add rust-analyzer
 
-      - name: Full test suite
-        run: python -X utf8 -m pytest tests/ -q
-
-      - name: Bench dry-run gates (语料/双臂配置契约)
+      - name: Full test suite（分片 ${{ matrix.shard }}/2）
+        shell: bash
         run: |
-          python -X utf8 bench/replay_ab.py --dry-run
-          python -X utf8 bench/ab_run.py
-
-      - name: Tool-evals gate（S144：13 个任务级评测 vs 基线，任务失败/体量膨胀即红）
-        run: python -X utf8 bench/tool_evals.py --check
+          files=$(python -c "import pathlib;fs=sorted(p.as_posix() for p in pathlib.Path('tests').glob('test_*.py'));i=${{ matrix.shard }}-1;print(' '.join(fs[i::2]))")
+          echo "分片 ${{ matrix.shard }}/2：$(echo $files | wc -w) 个测试文件"
+          python -X utf8 -m pytest -q $files
 
   # ── ③ Rust 侧（双绿纪律的另一半）：与 ①② 并行跑
   rust:
