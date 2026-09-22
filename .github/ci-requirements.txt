@@ -1,0 +1,5 @@
+pytest
+python-lsp-server
+jedi
+pycodestyle
+pyflakes

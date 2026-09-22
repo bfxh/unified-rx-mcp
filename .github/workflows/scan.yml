@@ -24,7 +24,7 @@ jobs:
 
       - name: Install Rust toolchain
         # 例外同 core.yml：ref 即工具链名，无固定 SHA 语义
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名
       # S139：自攻/数据流门都要 exe——target-dir 覆盖只限本步（同 core.yml 纪律）
       - name: Build Rust acceleration (exe 落在 %TEMP%\rx-rs-target)
         shell: pwsh
