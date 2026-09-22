@@ -47,26 +47,33 @@ jobs:
         # 钉 SHA 等于钉错东西。同理见 pytest / rust / stress job。
         uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
 
-      # S163：构建缓存。实测一次 release 构建 80 秒，而原实现一次推送要建 3 遍
-      # （矩阵两腿各一遍 + rust job 一遍）；这里为每个需要 exe 的 job 各加一份缓存，
-      # 第二遍起基本只剩链接时间。target 目录被 step 级 env 改到 %TEMP%（S125），
-      # 故用 cache-directories 指过去；Cargo.toml 在 rust/ 而非仓根 ⇒ workspaces: rust。
+      # S163：构建缓存。实测一次 release 构建 63–80 秒，而一次推送有 6 个 job 需要 exe；
+      # 缓存目标 = **工作区内** rust\target（Cargo.toml 在 rust/ 而非仓根 ⇒ workspaces: rust）。
+      # S163 二次修正（实测：缓存连续两轮未命中）：rust-cache 的 cache-directories 我指了
+      # ${{ runner.temp }}\rx-rs-target，而构建实际落在 pwsh 的 $env:TEMP —— 两者不是同一路径，
+      # 于是每处仍要全量编译 63–75 秒。改为**构建进工作区内的 rust/target**（rust-cache 原生缓存，
+      # 无需 cache-directories），构建后把 exe 拷到工具查找的 %TEMP%\rx-rs-target\release。
       - name: Rust 构建缓存
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
-          cache-directories: ${{ runner.temp }}\rx-rs-target
 
       # S124：exe 必建——加速工具在 CI 必须真跑，不做静默降级。
-      # S125 修：target-dir 覆盖只限本步——仓库根 .cargo/config.toml 的 target-dir 是
-      # 本机绝对路径（S78 workaround），必须 env 覆盖让 exe 落在工具查找的
-      # %TEMP%\rx-rs-target；若用 GITHUB_ENV 全局导出，会污染后续 pytest 的 fixture
-      # crate（其 cargo 也跑去共享目录，exe 位置断言即败——CI 实锤）。
-      - name: Build Rust acceleration (exe 落在工具查找的 %TEMP%\rx-rs-target)
+      # S125 修：target-dir 覆盖只限本步——仓库根 .cargo/config.toml 的 target-dir 是本机
+      # 绝对路径（S78 workaround），必须 env 覆盖；若用 GITHUB_ENV 全局导出，会污染后续
+      # pytest 的 fixture crate（其 cargo 也跑去共享目录，exe 位置断言即败——CI 实锤）。
+      # S163 二次修正：覆盖到**工作区内** rust\target（可缓存），再拷 exe 到工具查找的
+      # %TEMP%\rx-rs-target\release（口径见 spec/ROUNDLOG.md「Rust exe 部署到 TEMP 从来不是拷贝」）。
+      - name: Build Rust acceleration（构建入 rust\target ⇒ 拷到 %TEMP%\rx-rs-target）
         shell: pwsh
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
         run: |
-          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
           cargo build --release --manifest-path rust/Cargo.toml
+          $dst = Join-Path $env:TEMP 'rx-rs-target\release'
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item rust\target\release\*.exe $dst -Force
+          Write-Host "已拷 $((Get-ChildItem $dst\*.exe).Count) 个 exe → $dst"
 
       # 先扫再建 target：秘密门禁的扫描面 = 干净工作树
       - name: Secrets gate（明文红线：critical/high 不得出测试区）
@@ -161,17 +168,23 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
 
+      # S163 二次修正：构建进工作区 rust\target（rust-cache 原生缓存），再拷 exe 到工具查找的
+      # %TEMP%\rx-rs-target\release（实测：原先指 runner.temp 作 cache-directories 时两轮都没命中）。
       - name: Rust 构建缓存
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
-          cache-directories: ${{ runner.temp }}\rx-rs-target
 
-      - name: Build Rust acceleration (exe 落在工具查找的 %TEMP%\rx-rs-target)
+      - name: Build Rust acceleration（构建入 rust\target ⇒ 拷到 %TEMP%\rx-rs-target）
         shell: pwsh
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
         run: |
-          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
           cargo build --release --manifest-path rust/Cargo.toml
+          $dst = Join-Path $env:TEMP 'rx-rs-target\release'
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item rust\target\release\*.exe $dst -Force
+          Write-Host "已拷 $((Get-ChildItem $dst\*.exe).Count) 个 exe → $dst"
 
       - name: Install LSP backends (pylsp 系；能力探测失败须如实降级)
         run: |
@@ -206,14 +219,13 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
-          cache-directories: ${{ runner.temp }}\rx-rs-target
       - name: cargo test（双绿纪律的 Rust 侧）
         env:
-          CARGO_TARGET_DIR: ${{ runner.temp }}\rx-rs-target
+          CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
         run: cargo test --manifest-path rust/Cargo.toml
       - name: cargo clippy（零告警红线）
         env:
-          CARGO_TARGET_DIR: ${{ runner.temp }}\rx-rs-target
+          CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
         run: cargo clippy --manifest-path rust/Cargo.toml -- -D warnings
 
   # ── ④ 高压语料（S163 补齐）：此前只在本地全门里跑。独立 job ⇒ 不占别人的墙钟；
@@ -232,15 +244,21 @@ jobs:
           python-version: '3.14'
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
+      # S163 二次修正：构建进工作区 rust\target（rust-cache 原生缓存），再拷 exe 到工具查找的
+      # %TEMP%\rx-rs-target\release。
       - name: Rust 构建缓存
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
-          cache-directories: ${{ runner.temp }}\rx-rs-target
-      - name: Build Rust acceleration (exe 落在工具查找的 %TEMP%\rx-rs-target)
+      - name: Build Rust acceleration（构建入 rust\target ⇒ 拷到 %TEMP%\rx-rs-target）
         shell: pwsh
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
         run: |
-          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
           cargo build --release --manifest-path rust/Cargo.toml
+          $dst = Join-Path $env:TEMP 'rx-rs-target\release'
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item rust\target\release\*.exe $dst -Force
+          Write-Host "已拷 $((Get-ChildItem $dst\*.exe).Count) 个 exe → $dst"
       - name: Stress corpus run（full 档：错误形状/成功形状/路由/溢出）
         run: python -X utf8 bench/stress_run.py --tier full
