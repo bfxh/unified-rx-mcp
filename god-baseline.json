@@ -172,7 +172,7 @@
  "rust/src/appaudit.rs": {
   "file_lines": 1178,
   "max_fn_lines": 164,
-  "max_type_members": 5
+  "max_type_members": 4
  },
  "rust/src/appclone.rs": {
   "file_lines": 655,
@@ -181,13 +181,13 @@
  },
  "rust/src/astgrep.rs": {
   "file_lines": 121,
-  "max_fn_lines": 63,
+  "max_fn_lines": 62,
   "max_type_members": 0
  },
  "rust/src/astscan.rs": {
   "file_lines": 1810,
-  "max_fn_lines": 233,
-  "max_type_members": 4
+  "max_fn_lines": 166,
+  "max_type_members": 2
  },
  "rust/src/bin/rx_appops.rs": {
   "file_lines": 50,
@@ -246,12 +246,12 @@
  },
  "rust/src/bug.rs": {
   "file_lines": 1138,
-  "max_fn_lines": 273,
-  "max_type_members": 6
+  "max_fn_lines": 45,
+  "max_type_members": 3
  },
  "rust/src/deadcode.rs": {
   "file_lines": 266,
-  "max_fn_lines": 133,
+  "max_fn_lines": 30,
   "max_type_members": 0
  },
  "rust/src/fs.rs": {
@@ -261,13 +261,13 @@
  },
  "rust/src/ide.rs": {
   "file_lines": 813,
-  "max_fn_lines": 62,
+  "max_fn_lines": 159,
   "max_type_members": 3
  },
  "rust/src/json.rs": {
   "file_lines": 384,
   "max_fn_lines": 60,
-  "max_type_members": 5
+  "max_type_members": 3
  },
  "rust/src/lib.rs": {
   "file_lines": 59,
@@ -277,7 +277,7 @@
  "rust/src/nameres.rs": {
   "file_lines": 1844,
   "max_fn_lines": 165,
-  "max_type_members": 22
+  "max_type_members": 37
  },
  "rust/src/par.rs": {
   "file_lines": 30,
@@ -285,9 +285,34 @@
   "max_type_members": 0
  },
  "rust/src/pyast.rs": {
-  "file_lines": 2993,
-  "max_fn_lines": 245,
-  "max_type_members": 11
+  "file_lines": 342,
+  "max_fn_lines": 36,
+  "max_type_members": 3
+ },
+ "rust/src/pyast/lex.rs": {
+  "file_lines": 759,
+  "max_fn_lines": 132,
+  "max_type_members": 1
+ },
+ "rust/src/pyast/parse.rs": {
+  "file_lines": 647,
+  "max_fn_lines": 69,
+  "max_type_members": 19
+ },
+ "rust/src/pyast/parse_expr.rs": {
+  "file_lines": 688,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "rust/src/pyast/parse_pattern.rs": {
+  "file_lines": 196,
+  "max_fn_lines": 100,
+  "max_type_members": 5
+ },
+ "rust/src/pyast/parse_simple.rs": {
+  "file_lines": 401,
+  "max_fn_lines": 73,
+  "max_type_members": 15
  },
  "rust/src/rcache.rs": {
   "file_lines": 117,
@@ -296,8 +321,8 @@
  },
  "rust/src/repomap.rs": {
   "file_lines": 267,
-  "max_fn_lines": 180,
-  "max_type_members": 4
+  "max_fn_lines": 0,
+  "max_type_members": 0
  },
  "rust/src/sandbox.rs": {
   "file_lines": 140,
@@ -306,7 +331,7 @@
  },
  "rust/src/scan.rs": {
   "file_lines": 942,
-  "max_fn_lines": 93,
+  "max_fn_lines": 52,
   "max_type_members": 3
  },
  "rust/src/search.rs": {
@@ -322,7 +347,7 @@
  "rust/src/sem.rs": {
   "file_lines": 603,
   "max_fn_lines": 117,
-  "max_type_members": 6
+  "max_type_members": 3
  },
  "rust/src/server.rs": {
   "file_lines": 257,
@@ -341,7 +366,7 @@
  },
  "rust/src/sysinfo.rs": {
   "file_lines": 950,
-  "max_fn_lines": 178,
+  "max_fn_lines": 432,
   "max_type_members": 10
  },
  "rust/src/taint.rs": {
@@ -356,7 +381,7 @@
  },
  "rust/tests/astscan_test.rs": {
   "file_lines": 188,
-  "max_fn_lines": 28,
+  "max_fn_lines": 20,
   "max_type_members": 2
  },
  "rust/tests/bin_version_test.rs": {
@@ -366,12 +391,12 @@
  },
  "rust/tests/bug_test.rs": {
   "file_lines": 326,
-  "max_fn_lines": 38,
+  "max_fn_lines": 20,
   "max_type_members": 2
  },
  "rust/tests/callgraph_test.rs": {
   "file_lines": 281,
-  "max_fn_lines": 15,
+  "max_fn_lines": 6,
   "max_type_members": 2
  },
  "rust/tests/deadcode_test.rs": {
@@ -381,27 +406,27 @@
  },
  "rust/tests/fs_test.rs": {
   "file_lines": 365,
-  "max_fn_lines": 41,
+  "max_fn_lines": 6,
   "max_type_members": 2
  },
  "rust/tests/ide_test.rs": {
   "file_lines": 483,
-  "max_fn_lines": 42,
+  "max_fn_lines": 8,
   "max_type_members": 2
  },
  "rust/tests/json_test.rs": {
   "file_lines": 86,
-  "max_fn_lines": 20,
+  "max_fn_lines": 14,
   "max_type_members": 0
  },
  "rust/tests/nameres_test.rs": {
   "file_lines": 330,
-  "max_fn_lines": 24,
+  "max_fn_lines": 6,
   "max_type_members": 2
  },
  "rust/tests/repomap_test.rs": {
   "file_lines": 137,
-  "max_fn_lines": 17,
+  "max_fn_lines": 6,
   "max_type_members": 2
  },
  "rust/tests/scan_test.rs": {
@@ -411,17 +436,17 @@
  },
  "rust/tests/search_test.rs": {
   "file_lines": 214,
-  "max_fn_lines": 13,
+  "max_fn_lines": 27,
   "max_type_members": 2
  },
  "rust/tests/secrets_test.rs": {
   "file_lines": 170,
-  "max_fn_lines": 44,
+  "max_fn_lines": 43,
   "max_type_members": 2
  },
  "rust/tests/sem_test.rs": {
   "file_lines": 260,
-  "max_fn_lines": 20,
+  "max_fn_lines": 27,
   "max_type_members": 2
  },
  "rust/tests/taint_test.rs": {
@@ -465,8 +490,8 @@
   "max_type_members": 0
  },
  "scripts/god_gate.py": {
-  "file_lines": 254,
-  "max_fn_lines": 53,
+  "file_lines": 312,
+  "max_fn_lines": 55,
   "max_type_members": 0
  },
  "scripts/local_gate.py": {

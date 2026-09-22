@@ -82,13 +82,71 @@ def py_metrics(src: str) -> list[tuple[str, int, str]]:
     return out
 
 
+def _mask(src: str) -> str:
+    """把字符串/字符字面量与注释替换成空格（**保留换行**），供花括号配平与声明识别用。
+
+    为什么必须做（实测）：`format!("{}")`、`"{"` 这类字面量里的花括号会骗过朴素配平——
+    首版把 parse.rs 的最长函数报成 **245 行**（真实 85 行），据此差点去拆一个不存在的巨函数。
+    Rust 的裸字符串（`r#"…"#`）与生命周期（`&'a`）会让本启发式偶有偏差，但方向是"宁可少报"。
+    """
+    out: list[str] = []
+    i, n, state = 0, len(src), None          # None | line | block | str | char
+    while i < n:
+        c = src[i]
+        nxt = src[i + 1] if i + 1 < n else ""
+        if state is None:
+            if c == "/" and nxt == "/":
+                state, out = "line", out + ["  "]
+                i += 2
+                continue
+            if c == "/" and nxt == "*":
+                state, out = "block", out + ["  "]
+                i += 2
+                continue
+            if c in ('"', "'"):
+                state = "str" if c == '"' else "char"
+                out.append(" ")
+                i += 1
+                continue
+            out.append(c)
+            i += 1
+            continue
+        if state == "line":
+            out.append("\n" if c == "\n" else " ")
+            state = None if c == "\n" else state
+            i += 1
+            continue
+        if state == "block":
+            if c == "*" and nxt == "/":
+                out.append("  ")
+                state = None
+                i += 2
+                continue
+            out.append("\n" if c == "\n" else " ")
+            i += 1
+            continue
+        if c == "\\" and nxt:                 # 转义：整体吃掉
+            out.append("  ")
+            i += 2
+            continue
+        if (state == "str" and c == '"') or (state == "char" and c == "'"):
+            out.append(" ")
+            state = None
+            i += 1
+            continue
+        out.append("\n" if c == "\n" else " ")
+        i += 1
+    return "".join(out)
+
+
 def brace_metrics(src: str) -> list[tuple[str, int, str]]:
-    """Rust/JS 启发式：正则找声明起点 + 花括号配平到闭合（字符串/注释不剔除，误差已在文档标注）。
+    """Rust/JS 启发式：正则找声明起点 + 花括号配平到闭合（先 `_mask` 掉字符串/注释再配平）。
 
     两类指标分开算，**别把行数当成员数**（首版就犯了这个错）：
       · fn  → 函数体行数；
       · type→ 深度 1 上的成员数（`fn` 行 + 字段声明行）。
     """
+    src = _mask(src)
     out: list[tuple[str, int, str]] = []
     pat = re.compile(
         r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?(?:fn|function)\s+([A-Za-z_][A-Za-z0-9_]*)"
