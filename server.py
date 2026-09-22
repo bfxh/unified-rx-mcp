@@ -479,12 +479,12 @@ def main():
     # 慢工具（local_run/fs_list/engine_query）不再阻塞 ping/keepalive，
     # 否则 Hermes 会判定服务器失联并重连，最终把 in-flight 调用掐成 300s 超时。
     #
-    # S167：线程数**按机器来**（此前写死 4）——24 核机上 4 是并发天花板。
-    # 默认 = min(8, max(4, cpu))：**不是越大越好**——本仓重工具（scan/taint/bug…）内部
-    # 已经按 par::par_degree(0) 用满核心，服务器再叠高并发只会超订（CPU 满而墙钟变长）。
-    # 想要更多并发（例如以 I/O 型工具为主时）用 UNIFIED_RX_WORKERS 显式调大。
+    # S168 修正：**回到 4**（S167 一度改成 min(8, max(4, cpu))，与 Rust 侧的并行度叠乘后把机器打死：
+    # 实测最坏 = 8 条并发调用 × 每调用 24 线程 = 192 线程抢 24 核）。Rust 侧现已是「有界并行」
+    # （par::DEFAULT_PAR_CAP = 8）⇒ 这里保持 4，叠乘上限 32 线程，与 S167 之前一致（那套不卡）。
+    # 想多并发（例如以 I/O 型工具为主）用 UNIFIED_RX_WORKERS 显式调大，**两边一起想**。
     _cpu = os.cpu_count() or 4
-    _workers = int(os.environ.get("UNIFIED_RX_WORKERS") or min(8, max(4, _cpu)))
+    _workers = int(os.environ.get("UNIFIED_RX_WORKERS") or 4)
     executor = ThreadPoolExecutor(max_workers=_workers, thread_name_prefix="rxmcp")
     while True:
         line = _read_line()

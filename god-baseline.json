@@ -280,8 +280,8 @@
   "max_type_members": 37
  },
  "rust/src/par.rs": {
-  "file_lines": 30,
-  "max_fn_lines": 11,
+  "file_lines": 54,
+  "max_fn_lines": 13,
   "max_type_members": 0
  },
  "rust/src/pyast.rs": {
