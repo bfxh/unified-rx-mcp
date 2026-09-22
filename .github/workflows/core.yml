@@ -37,6 +37,8 @@ jobs:
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: .github/ci-requirements.txt
 
       # 按 commit 钉死（注释里是对应标签）——浮动 tag 可以被上游重指，钉 SHA 之后
       # 供应链面只剩「我们主动改这一行」。唯一例外见下。
@@ -112,6 +114,13 @@ jobs:
         run: python -X utf8 scripts/mcp_surface_gate.py
 
       # 以下两步原在 pytest job（会随矩阵+分片跑 4 遍）；它们是契约/评测基线，挪进本 job 跑一次。
+      # S163 实锤：tool-evals 的 edit_and_test 任务是"改测试由红转绿"，**要用 pytest 跑测试**——
+      # 该依赖原由 pytest job 的 LSP 安装步提供，挪步时漏了 ⇒ 首跑 CI 红（err=1 REGRESS）。
+      - name: Install LSP backends（tool-evals 需要 pytest；顺带与 pytest job 环境对齐）
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r .github/ci-requirements.txt
+
       - name: Bench dry-run gates (语料/双臂配置契约)
         run: |
           python -X utf8 bench/replay_ab.py --dry-run
