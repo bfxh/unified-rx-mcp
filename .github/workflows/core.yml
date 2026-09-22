@@ -127,6 +127,11 @@ jobs:
       - name: CLI-bench gate（命令行：输出金标准 + 计时——不变质量）
         run: python -X utf8 bench/cli_bench.py --check-golden --check
 
+      # S167：上帝对象门（可移植：scripts/god_gate.py + god.gate.json 抄到别的仓即可用）。
+      # 棘轮语义：任何指标超过基线值即红（不许变胖）；低于基线可 --write-baseline 收紧（只准减）。
+      - name: God-object gate（文件/函数/类型规模棘轮——只准减）
+        run: python -X utf8 scripts/god_gate.py
+
       # 这两道原在 pytest job 里（随之在矩阵两腿各跑一遍）；它们是快档门 → 收进本 job。
       - name: Perf gate（S160：同机并行/串行比值——不依赖 runner 绝对速度）
         run: python -X utf8 scripts/perf_gate.py

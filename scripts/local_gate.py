@@ -47,6 +47,8 @@ STEPS = [
     ("mcp-surface", [PY, "-X", "utf8", "scripts/mcp_surface_gate.py"], "fast", "协议面门：真握手契约"),
     ("model-fit",   [PY, "-X", "utf8", "scripts/model_fit_gate.py"], "fast", "模型适配门（弱模型模拟 + 回包预算）"),
     ("selftest",    [PY, "-X", "utf8", "scripts/ci_gate.py"], "fast", "对账硬门（SCHEMA/EXE/VERSION）"),
+    ("god-gate",    [PY, "-X", "utf8", "scripts/god_gate.py"], "fast",
+     "上帝对象（文件/函数/类型规模棘轮：只准减；可移植到别的仓）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),
     ("stress",      [PY, "-X", "utf8", "bench/stress_run.py", "--tier", "full"], "full",
      "高压语料（错误形状/成功形状/路由/溢出；并发档需独占锁，单独跑）"),

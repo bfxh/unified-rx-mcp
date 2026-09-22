@@ -1,0 +1,1362 @@
+{
+ "bench/_cancel_e2e_probe.py": {
+  "file_lines": 87,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "bench/_selfdbg_driver.py": {
+  "file_lines": 11,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "bench/ab_run.py": {
+  "file_lines": 502,
+  "max_fn_lines": 55,
+  "max_type_members": 0
+ },
+ "bench/agent_selfcheck.py": {
+  "file_lines": 111,
+  "max_fn_lines": 54,
+  "max_type_members": 0
+ },
+ "bench/cli_bench.py": {
+  "file_lines": 252,
+  "max_fn_lines": 95,
+  "max_type_members": 0
+ },
+ "bench/diag_history.py": {
+  "file_lines": 41,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "bench/h2_guard_eval.py": {
+  "file_lines": 101,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "bench/h3_score.py": {
+  "file_lines": 119,
+  "max_fn_lines": 52,
+  "max_type_members": 0
+ },
+ "bench/impact_check.py": {
+  "file_lines": 190,
+  "max_fn_lines": 97,
+  "max_type_members": 0
+ },
+ "bench/l2_score.py": {
+  "file_lines": 87,
+  "max_fn_lines": 38,
+  "max_type_members": 0
+ },
+ "bench/l3_anchor.py": {
+  "file_lines": 38,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "bench/log_round.py": {
+  "file_lines": 49,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "bench/p1_build.py": {
+  "file_lines": 149,
+  "max_fn_lines": 51,
+  "max_type_members": 0
+ },
+ "bench/p1_manual_labels.py": {
+  "file_lines": 73,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "bench/p1_review_pack.py": {
+  "file_lines": 59,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "bench/p1_score.py": {
+  "file_lines": 92,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "bench/p1_score2.py": {
+  "file_lines": 83,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
+ "bench/p1_snapshots.py": {
+  "file_lines": 67,
+  "max_fn_lines": 37,
+  "max_type_members": 0
+ },
+ "bench/replay_ab.py": {
+  "file_lines": 135,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "bench/s108_resolve_compare.py": {
+  "file_lines": 126,
+  "max_fn_lines": 73,
+  "max_type_members": 0
+ },
+ "bench/s114_gpu_bench.py": {
+  "file_lines": 133,
+  "max_fn_lines": 93,
+  "max_type_members": 0
+ },
+ "bench/s94_perf.py": {
+  "file_lines": 234,
+  "max_fn_lines": 68,
+  "max_type_members": 1
+ },
+ "bench/s95_fs_golden.py": {
+  "file_lines": 190,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "bench/stress_run.py": {
+  "file_lines": 234,
+  "max_fn_lines": 35,
+  "max_type_members": 4
+ },
+ "bench/swe_p3.py": {
+  "file_lines": 832,
+  "max_fn_lines": 232,
+  "max_type_members": 0
+ },
+ "bench/swe_repair.py": {
+  "file_lines": 537,
+  "max_fn_lines": 185,
+  "max_type_members": 0
+ },
+ "bench/swe_verify.py": {
+  "file_lines": 599,
+  "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "bench/tool_evals.py": {
+  "file_lines": 326,
+  "max_fn_lines": 38,
+  "max_type_members": 2
+ },
+ "bench/unified_report.py": {
+  "file_lines": 101,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
+ "bench/vf3_battery.py": {
+  "file_lines": 67,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "conftest.py": {
+  "file_lines": 71,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "plugins/urx-marketplace/zcode-breaker/hooks/breaker_hook.py": {
+  "file_lines": 185,
+  "max_fn_lines": 97,
+  "max_type_members": 0
+ },
+ "plugins/urx-marketplace/zcode-breaker/hooks/session_guard_hook.py": {
+  "file_lines": 209,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "registry.py": {
+  "file_lines": 646,
+  "max_fn_lines": 109,
+  "max_type_members": 0
+ },
+ "rust/src/appaudit.rs": {
+  "file_lines": 1178,
+  "max_fn_lines": 164,
+  "max_type_members": 5
+ },
+ "rust/src/appclone.rs": {
+  "file_lines": 655,
+  "max_fn_lines": 79,
+  "max_type_members": 12
+ },
+ "rust/src/astgrep.rs": {
+  "file_lines": 121,
+  "max_fn_lines": 63,
+  "max_type_members": 0
+ },
+ "rust/src/astscan.rs": {
+  "file_lines": 1810,
+  "max_fn_lines": 233,
+  "max_type_members": 4
+ },
+ "rust/src/bin/rx_appops.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 34,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_audit.rs": {
+  "file_lines": 32,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_fs.rs": {
+  "file_lines": 57,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_ide.rs": {
+  "file_lines": 155,
+  "max_fn_lines": 111,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_mcp.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_scan.rs": {
+  "file_lines": 235,
+  "max_fn_lines": 178,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_search.rs": {
+  "file_lines": 48,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_semantic.rs": {
+  "file_lines": 48,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_svc.rs": {
+  "file_lines": 249,
+  "max_fn_lines": 162,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_sys.rs": {
+  "file_lines": 121,
+  "max_fn_lines": 95,
+  "max_type_members": 0
+ },
+ "rust/src/bin/rx_taint.rs": {
+  "file_lines": 38,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "rust/src/bug.rs": {
+  "file_lines": 1138,
+  "max_fn_lines": 273,
+  "max_type_members": 6
+ },
+ "rust/src/deadcode.rs": {
+  "file_lines": 266,
+  "max_fn_lines": 133,
+  "max_type_members": 0
+ },
+ "rust/src/fs.rs": {
+  "file_lines": 209,
+  "max_fn_lines": 61,
+  "max_type_members": 0
+ },
+ "rust/src/ide.rs": {
+  "file_lines": 813,
+  "max_fn_lines": 62,
+  "max_type_members": 3
+ },
+ "rust/src/json.rs": {
+  "file_lines": 384,
+  "max_fn_lines": 60,
+  "max_type_members": 5
+ },
+ "rust/src/lib.rs": {
+  "file_lines": 59,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "rust/src/nameres.rs": {
+  "file_lines": 1844,
+  "max_fn_lines": 165,
+  "max_type_members": 22
+ },
+ "rust/src/par.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "rust/src/pyast.rs": {
+  "file_lines": 2993,
+  "max_fn_lines": 245,
+  "max_type_members": 11
+ },
+ "rust/src/rcache.rs": {
+  "file_lines": 117,
+  "max_fn_lines": 33,
+  "max_type_members": 3
+ },
+ "rust/src/repomap.rs": {
+  "file_lines": 267,
+  "max_fn_lines": 180,
+  "max_type_members": 4
+ },
+ "rust/src/sandbox.rs": {
+  "file_lines": 140,
+  "max_fn_lines": 32,
+  "max_type_members": 3
+ },
+ "rust/src/scan.rs": {
+  "file_lines": 942,
+  "max_fn_lines": 93,
+  "max_type_members": 3
+ },
+ "rust/src/search.rs": {
+  "file_lines": 471,
+  "max_fn_lines": 116,
+  "max_type_members": 0
+ },
+ "rust/src/secrets.rs": {
+  "file_lines": 795,
+  "max_fn_lines": 90,
+  "max_type_members": 0
+ },
+ "rust/src/sem.rs": {
+  "file_lines": 603,
+  "max_fn_lines": 117,
+  "max_type_members": 6
+ },
+ "rust/src/server.rs": {
+  "file_lines": 257,
+  "max_fn_lines": 63,
+  "max_type_members": 0
+ },
+ "rust/src/sha256.rs": {
+  "file_lines": 96,
+  "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "rust/src/sketch.rs": {
+  "file_lines": 198,
+  "max_fn_lines": 37,
+  "max_type_members": 0
+ },
+ "rust/src/sysinfo.rs": {
+  "file_lines": 950,
+  "max_fn_lines": 178,
+  "max_type_members": 10
+ },
+ "rust/src/taint.rs": {
+  "file_lines": 1683,
+  "max_fn_lines": 155,
+  "max_type_members": 14
+ },
+ "rust/src/xorscan.rs": {
+  "file_lines": 211,
+  "max_fn_lines": 57,
+  "max_type_members": 0
+ },
+ "rust/tests/astscan_test.rs": {
+  "file_lines": 188,
+  "max_fn_lines": 28,
+  "max_type_members": 2
+ },
+ "rust/tests/bin_version_test.rs": {
+  "file_lines": 46,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "rust/tests/bug_test.rs": {
+  "file_lines": 326,
+  "max_fn_lines": 38,
+  "max_type_members": 2
+ },
+ "rust/tests/callgraph_test.rs": {
+  "file_lines": 281,
+  "max_fn_lines": 15,
+  "max_type_members": 2
+ },
+ "rust/tests/deadcode_test.rs": {
+  "file_lines": 161,
+  "max_fn_lines": 52,
+  "max_type_members": 2
+ },
+ "rust/tests/fs_test.rs": {
+  "file_lines": 365,
+  "max_fn_lines": 41,
+  "max_type_members": 2
+ },
+ "rust/tests/ide_test.rs": {
+  "file_lines": 483,
+  "max_fn_lines": 42,
+  "max_type_members": 2
+ },
+ "rust/tests/json_test.rs": {
+  "file_lines": 86,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "rust/tests/nameres_test.rs": {
+  "file_lines": 330,
+  "max_fn_lines": 24,
+  "max_type_members": 2
+ },
+ "rust/tests/repomap_test.rs": {
+  "file_lines": 137,
+  "max_fn_lines": 17,
+  "max_type_members": 2
+ },
+ "rust/tests/scan_test.rs": {
+  "file_lines": 286,
+  "max_fn_lines": 25,
+  "max_type_members": 2
+ },
+ "rust/tests/search_test.rs": {
+  "file_lines": 214,
+  "max_fn_lines": 13,
+  "max_type_members": 2
+ },
+ "rust/tests/secrets_test.rs": {
+  "file_lines": 170,
+  "max_fn_lines": 44,
+  "max_type_members": 2
+ },
+ "rust/tests/sem_test.rs": {
+  "file_lines": 260,
+  "max_fn_lines": 20,
+  "max_type_members": 2
+ },
+ "rust/tests/taint_test.rs": {
+  "file_lines": 306,
+  "max_fn_lines": 44,
+  "max_type_members": 0
+ },
+ "scripts/attack_gate.py": {
+  "file_lines": 33,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/audit_copy.py": {
+  "file_lines": 63,
+  "max_fn_lines": 41,
+  "max_type_members": 0
+ },
+ "scripts/audit_diff.py": {
+  "file_lines": 38,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "scripts/audit_ledger.py": {
+  "file_lines": 114,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "scripts/ci_gate.py": {
+  "file_lines": 41,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/ci_secrets_gate.py": {
+  "file_lines": 49,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/deps_lock.py": {
+  "file_lines": 46,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "scripts/god_gate.py": {
+  "file_lines": 254,
+  "max_fn_lines": 53,
+  "max_type_members": 0
+ },
+ "scripts/local_gate.py": {
+  "file_lines": 135,
+  "max_fn_lines": 49,
+  "max_type_members": 0
+ },
+ "scripts/mcp_surface_gate.py": {
+  "file_lines": 176,
+  "max_fn_lines": 110,
+  "max_type_members": 3
+ },
+ "scripts/model_fit_gate.py": {
+  "file_lines": 155,
+  "max_fn_lines": 81,
+  "max_type_members": 3
+ },
+ "scripts/path_gate.py": {
+  "file_lines": 126,
+  "max_fn_lines": 65,
+  "max_type_members": 0
+ },
+ "scripts/perf_gate.py": {
+  "file_lines": 230,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
+ "scripts/plugin_cost.py": {
+  "file_lines": 104,
+  "max_fn_lines": 59,
+  "max_type_members": 0
+ },
+ "scripts/secrets_history.py": {
+  "file_lines": 189,
+  "max_fn_lines": 53,
+  "max_type_members": 0
+ },
+ "scripts/taint_gate.py": {
+  "file_lines": 122,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "scripts/toolface_budget.py": {
+  "file_lines": 86,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "server.py": {
+  "file_lines": 546,
+  "max_fn_lines": 82,
+  "max_type_members": 0
+ },
+ "tests/fixtures/fake_lsp_server.py": {
+  "file_lines": 105,
+  "max_fn_lines": 53,
+  "max_type_members": 0
+ },
+ "tests/test_ab_runner.py": {
+  "file_lines": 138,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_appaudit.py": {
+  "file_lines": 262,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_astscan.py": {
+  "file_lines": 262,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_attack.py": {
+  "file_lines": 50,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "tests/test_bench_smoke.py": {
+  "file_lines": 58,
+  "max_fn_lines": 6,
+  "max_type_members": 0
+ },
+ "tests/test_bevy.py": {
+  "file_lines": 126,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "tests/test_game.py": {
+  "file_lines": 76,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_ide_build.py": {
+  "file_lines": 160,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_ide_common.py": {
+  "file_lines": 92,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_ide_diag.py": {
+  "file_lines": 162,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "tests/test_ide_doctor.py": {
+  "file_lines": 85,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_ide_edit.py": {
+  "file_lines": 179,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_ide_fix.py": {
+  "file_lines": 67,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_ide_test.py": {
+  "file_lines": 147,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "tests/test_lsp.py": {
+  "file_lines": 96,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_lsp_real.py": {
+  "file_lines": 124,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "tests/test_manifest_gate.py": {
+  "file_lines": 61,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_meta.py": {
+  "file_lines": 71,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tests/test_metrics.py": {
+  "file_lines": 114,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "tests/test_p1_score.py": {
+  "file_lines": 46,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_r1_guards.py": {
+  "file_lines": 62,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tests/test_r3_rename_impact.py": {
+  "file_lines": 153,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "tests/test_s10.py": {
+  "file_lines": 145,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "tests/test_s101_search_hybrid.py": {
+  "file_lines": 92,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s102_repo_map.py": {
+  "file_lines": 73,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "tests/test_s103_cache.py": {
+  "file_lines": 137,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_s104_tia.py": {
+  "file_lines": 117,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "tests/test_s105_aci.py": {
+  "file_lines": 77,
+  "max_fn_lines": 7,
+  "max_type_members": 0
+ },
+ "tests/test_s107_nameres.py": {
+  "file_lines": 171,
+  "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "tests/test_s108_resolved_graph.py": {
+  "file_lines": 69,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_s109_impact_resolved.py": {
+  "file_lines": 84,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_s110_vulnkb.py": {
+  "file_lines": 100,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_s111_optional_engines.py": {
+  "file_lines": 120,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_s113_gates.py": {
+  "file_lines": 205,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s114_gpu.py": {
+  "file_lines": 118,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_s116_gpu_kernels.py": {
+  "file_lines": 72,
+  "max_fn_lines": 7,
+  "max_type_members": 0
+ },
+ "tests/test_s117_neardupes.py": {
+  "file_lines": 137,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "tests/test_s118_neardupes_scale.py": {
+  "file_lines": 101,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s119_rust_sketch.py": {
+  "file_lines": 99,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_s120_rust_xor.py": {
+  "file_lines": 87,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s122_breaker.py": {
+  "file_lines": 206,
+  "max_fn_lines": 25,
+  "max_type_members": 2
+ },
+ "tests/test_s122_plugin_hook.py": {
+  "file_lines": 129,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s123_deadcode_secrets.py": {
+  "file_lines": 292,
+  "max_fn_lines": 33,
+  "max_type_members": 0
+ },
+ "tests/test_s124_ci_assets.py": {
+  "file_lines": 120,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "tests/test_s125_callgraph.py": {
+  "file_lines": 156,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tests/test_s127_split.py": {
+  "file_lines": 172,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "tests/test_s129_impact_calls.py": {
+  "file_lines": 89,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_s129_risk.py": {
+  "file_lines": 114,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tests/test_s133_cruise.py": {
+  "file_lines": 62,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tests/test_s138_gates.py": {
+  "file_lines": 72,
+  "max_fn_lines": 28,
+  "max_type_members": 0
+ },
+ "tests/test_s139_gates.py": {
+  "file_lines": 39,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_s140_stats_src.py": {
+  "file_lines": 59,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_s141_guards.py": {
+  "file_lines": 113,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "tests/test_s141_session_guard.py": {
+  "file_lines": 81,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s143_toolface.py": {
+  "file_lines": 73,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s144_evals.py": {
+  "file_lines": 52,
+  "max_fn_lines": 8,
+  "max_type_members": 0
+ },
+ "tests/test_s144_injection_stance.py": {
+  "file_lines": 67,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "tests/test_s145_gates.py": {
+  "file_lines": 117,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "tests/test_s146_protocol.py": {
+  "file_lines": 86,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tests/test_s147_gates.py": {
+  "file_lines": 82,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_s148_sys.py": {
+  "file_lines": 109,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "tests/test_s149_disclosure.py": {
+  "file_lines": 109,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tests/test_s150_cli_bench.py": {
+  "file_lines": 67,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_s151_svc.py": {
+  "file_lines": 174,
+  "max_fn_lines": 43,
+  "max_type_members": 0
+ },
+ "tests/test_s160_gates.py": {
+  "file_lines": 99,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "tests/test_s161_model_fit.py": {
+  "file_lines": 107,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "tests/test_s167_god_gate.py": {
+  "file_lines": 69,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "tests/test_s29_fuzz.py": {
+  "file_lines": 142,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tests/test_s33_lang.py": {
+  "file_lines": 151,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tests/test_s34_ide.py": {
+  "file_lines": 100,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "tests/test_s35_ide.py": {
+  "file_lines": 135,
+  "max_fn_lines": 68,
+  "max_type_members": 0
+ },
+ "tests/test_s36_break.py": {
+  "file_lines": 73,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s37_repair.py": {
+  "file_lines": 88,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s38_breaksec.py": {
+  "file_lines": 48,
+  "max_fn_lines": 7,
+  "max_type_members": 0
+ },
+ "tests/test_s42_guards.py": {
+  "file_lines": 137,
+  "max_fn_lines": 49,
+  "max_type_members": 0
+ },
+ "tests/test_s44_review.py": {
+  "file_lines": 85,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_s50_diaghist.py": {
+  "file_lines": 28,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_s60_dig.py": {
+  "file_lines": 65,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "tests/test_s61_hardening.py": {
+  "file_lines": 138,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s62_caps.py": {
+  "file_lines": 118,
+  "max_fn_lines": 11,
+  "max_type_members": 1
+ },
+ "tests/test_s65_batch.py": {
+  "file_lines": 139,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_s66_read_doctor.py": {
+  "file_lines": 134,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tests/test_s68_vscode.py": {
+  "file_lines": 117,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "tests/test_s69_autopilot.py": {
+  "file_lines": 99,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_s70_types_clamp.py": {
+  "file_lines": 91,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_s71_persist.py": {
+  "file_lines": 121,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "tests/test_s72_errors_clamp.py": {
+  "file_lines": 180,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "tests/test_s73_scan_findings.py": {
+  "file_lines": 115,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_s75_power_gates.py": {
+  "file_lines": 147,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s77_auth_gate_sweep.py": {
+  "file_lines": 91,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_s78_protocol_fuzz.py": {
+  "file_lines": 230,
+  "max_fn_lines": 26,
+  "max_type_members": 9
+ },
+ "tests/test_s78_replay_s73.py": {
+  "file_lines": 124,
+  "max_fn_lines": 28,
+  "max_type_members": 0
+ },
+ "tests/test_s78_rust_taint_tool.py": {
+  "file_lines": 133,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "tests/test_s79_fs_rust.py": {
+  "file_lines": 129,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_s80_search_rust.py": {
+  "file_lines": 104,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "tests/test_s81_semantic_rust.py": {
+  "file_lines": 125,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "tests/test_s82_scan_rust.py": {
+  "file_lines": 176,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "tests/test_s83_bug_rust.py": {
+  "file_lines": 81,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tests/test_s88_sandbox_clamp.py": {
+  "file_lines": 159,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_s90_fs_write_rust.py": {
+  "file_lines": 168,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_s91_selftest_audit.py": {
+  "file_lines": 102,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_s92_ide_read_rust.py": {
+  "file_lines": 220,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "tests/test_s93_ide_edit_rust.py": {
+  "file_lines": 318,
+  "max_fn_lines": 35,
+  "max_type_members": 0
+ },
+ "tests/test_s94_quality.py": {
+  "file_lines": 135,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_s95_fs_back_contract.py": {
+  "file_lines": 95,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "tests/test_s95_linux_smoke.py": {
+  "file_lines": 66,
+  "max_fn_lines": 28,
+  "max_type_members": 0
+ },
+ "tests/test_s95_stress.py": {
+  "file_lines": 244,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
+ "tests/test_s99_ide_fallback.py": {
+  "file_lines": 99,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "tests/test_security_fuzz.py": {
+  "file_lines": 144,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_semantic.py": {
+  "file_lines": 76,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "tests/test_stats.py": {
+  "file_lines": 101,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tests/test_swe_p3.py": {
+  "file_lines": 333,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "tests/test_swe_repair.py": {
+  "file_lines": 63,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_swe_verify.py": {
+  "file_lines": 109,
+  "max_fn_lines": 26,
+  "max_type_members": 2
+ },
+ "tests/test_v2.py": {
+  "file_lines": 412,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "tests/test_workflow_doc.py": {
+  "file_lines": 17,
+  "max_fn_lines": 4,
+  "max_type_members": 0
+ },
+ "toolmeta.py": {
+  "file_lines": 142,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "tools/__init__.py": {
+  "file_lines": 56,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "tools/aci.py": {
+  "file_lines": 93,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tools/appaudit.py": {
+  "file_lines": 204,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "tools/astgrep.py": {
+  "file_lines": 43,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tools/astscan.py": {
+  "file_lines": 91,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "tools/attack.py": {
+  "file_lines": 463,
+  "max_fn_lines": 65,
+  "max_type_members": 0
+ },
+ "tools/bevy.py": {
+  "file_lines": 37,
+  "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "tools/breaker.py": {
+  "file_lines": 380,
+  "max_fn_lines": 48,
+  "max_type_members": 0
+ },
+ "tools/burnwatch.py": {
+  "file_lines": 103,
+  "max_fn_lines": 33,
+  "max_type_members": 0
+ },
+ "tools/cache.py": {
+  "file_lines": 220,
+  "max_fn_lines": 39,
+  "max_type_members": 0
+ },
+ "tools/code_review.py": {
+  "file_lines": 418,
+  "max_fn_lines": 63,
+  "max_type_members": 0
+ },
+ "tools/engine.py": {
+  "file_lines": 144,
+  "max_fn_lines": 54,
+  "max_type_members": 0
+ },
+ "tools/filescan.py": {
+  "file_lines": 473,
+  "max_fn_lines": 74,
+  "max_type_members": 0
+ },
+ "tools/filewalk.py": {
+  "file_lines": 83,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "tools/fs.py": {
+  "file_lines": 247,
+  "max_fn_lines": 42,
+  "max_type_members": 0
+ },
+ "tools/game.py": {
+  "file_lines": 183,
+  "max_fn_lines": 50,
+  "max_type_members": 0
+ },
+ "tools/gpu.py": {
+  "file_lines": 241,
+  "max_fn_lines": 39,
+  "max_type_members": 0
+ },
+ "tools/guard.py": {
+  "file_lines": 245,
+  "max_fn_lines": 68,
+  "max_type_members": 0
+ },
+ "tools/ide.py": {
+  "file_lines": 22,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "tools/ide_autopilot.py": {
+  "file_lines": 234,
+  "max_fn_lines": 43,
+  "max_type_members": 0
+ },
+ "tools/ide_build.py": {
+  "file_lines": 267,
+  "max_fn_lines": 35,
+  "max_type_members": 0
+ },
+ "tools/ide_callgraph.py": {
+  "file_lines": 246,
+  "max_fn_lines": 38,
+  "max_type_members": 0
+ },
+ "tools/ide_common.py": {
+  "file_lines": 148,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tools/ide_deadcode.py": {
+  "file_lines": 68,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tools/ide_debug.py": {
+  "file_lines": 370,
+  "max_fn_lines": 48,
+  "max_type_members": 0
+ },
+ "tools/ide_diag.py": {
+  "file_lines": 252,
+  "max_fn_lines": 40,
+  "max_type_members": 0
+ },
+ "tools/ide_doctor.py": {
+  "file_lines": 277,
+  "max_fn_lines": 164,
+  "max_type_members": 0
+ },
+ "tools/ide_edit.py": {
+  "file_lines": 315,
+  "max_fn_lines": 104,
+  "max_type_members": 0
+ },
+ "tools/ide_read.py": {
+  "file_lines": 94,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "tools/ide_riskrank.py": {
+  "file_lines": 209,
+  "max_fn_lines": 66,
+  "max_type_members": 0
+ },
+ "tools/ide_test.py": {
+  "file_lines": 301,
+  "max_fn_lines": 92,
+  "max_type_members": 0
+ },
+ "tools/ide_vscode.py": {
+  "file_lines": 80,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "tools/impact.py": {
+  "file_lines": 250,
+  "max_fn_lines": 48,
+  "max_type_members": 0
+ },
+ "tools/learn.py": {
+  "file_lines": 111,
+  "max_fn_lines": 34,
+  "max_type_members": 0
+ },
+ "tools/lsp.py": {
+  "file_lines": 508,
+  "max_fn_lines": 36,
+  "max_type_members": 15
+ },
+ "tools/lsp_actions.py": {
+  "file_lines": 200,
+  "max_fn_lines": 168,
+  "max_type_members": 0
+ },
+ "tools/meta.py": {
+  "file_lines": 316,
+  "max_fn_lines": 117,
+  "max_type_members": 0
+ },
+ "tools/metrics.py": {
+  "file_lines": 348,
+  "max_fn_lines": 86,
+  "max_type_members": 0
+ },
+ "tools/neardupes.py": {
+  "file_lines": 466,
+  "max_fn_lines": 76,
+  "max_type_members": 0
+ },
+ "tools/ops.py": {
+  "file_lines": 382,
+  "max_fn_lines": 62,
+  "max_type_members": 0
+ },
+ "tools/scan.py": {
+  "file_lines": 217,
+  "max_fn_lines": 41,
+  "max_type_members": 0
+ },
+ "tools/scip.py": {
+  "file_lines": 153,
+  "max_fn_lines": 44,
+  "max_type_members": 0
+ },
+ "tools/search.py": {
+  "file_lines": 295,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
+ "tools/secrets.py": {
+  "file_lines": 75,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tools/spill.py": {
+  "file_lines": 71,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tools/svc.py": {
+  "file_lines": 162,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "tools/sysinfo.py": {
+  "file_lines": 173,
+  "max_fn_lines": 36,
+  "max_type_members": 0
+ },
+ "tools/tia.py": {
+  "file_lines": 77,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "tools/vulnkb.py": {
+  "file_lines": 235,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "urx_tia_plugin.py": {
+  "file_lines": 123,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ }
+}
