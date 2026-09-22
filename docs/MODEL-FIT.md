@@ -94,10 +94,16 @@ P2（把适配变可测）：G1 弱模型模拟器门 → G2 预算门 → G3 �
 `tempfile.mkstemp` 生成（不由我们拼），目录走三步校验（abspath+normpath → 禁 `..` → 必须
 在沙盒根内），前缀先过 `[A-Za-z0-9_]` 白名单。归档：`Path` 拼接不再出现在协议层。
 
-**新增门**：`mcp_surface_gate` 15 → **21 条契约**（+6：缺参 isError、错误是 JSON、
+**新增门**：① `mcp_surface_gate` 15 → **21 条契约**（+6：缺参 isError、错误是 JSON、
 错误带 `next`、失败 structuredContent、成功 structuredContent、容器面同形）；
-`tests/test_s161_model_fit.py` 5 项回归锁（含"恶意前缀不穿越""落盘的是完整结果"）。
-README 门清单 30 → **31 项**、pytest 门套件 15 → **16** 已同步。
+② **`scripts/model_fit_gate.py`（新，S161）**——对真实 stdio server 施压：
+**G1 弱模型模拟器**（缺参 / 空值 / 沙盒外路径 / 未授权写 / 未知工具 / 超长参数 6 例，
+每例必须"结构化 + 带 `next` + 非成功形状"）、**G2 回包预算**（代表工具回包 ≤64KB
+或必须溢出落盘且给 `path`+`fetch`；溢出与截断不得并存）、**G3 一种形态**（所有文本块
+可解析 JSON）。**首跑即抓到我自己写的解析 bug**（前缀只剥标记没剥整行）——门有牙。
+③ `tests/test_s161_model_fit.py` 5 项回归锁（含"恶意前缀不穿越""落盘的是**完整**结果"）。
+**计数连锁已同步**：本地门 15 → **16 步**（速档 12 → **13 步**）、README 门清单 30 → **32 项**、
+`skills/workflow.md` 与 `spec/HARDENING.md` 步数、`tests/test_s145_gates.py` 的 STEPS 名单。
 
 **未做（P1/P2，留在上面章节）**：F4（enum/required/示例）、F5（意图动词命名 + `which_tool` 路由）、
 F6 在 fs 工具上的显式示例、G1（弱模型模拟器门）、G2（回包预算门，逐工具 P95 断言）。

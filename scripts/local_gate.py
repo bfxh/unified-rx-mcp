@@ -44,6 +44,7 @@ STEPS = [
                      "--check"], "fast", "命令行：输出金标准 + 计时（不变质量）"),
     ("perf-gate",   [PY, "-X", "utf8", "scripts/perf_gate.py"], "fast", "性能门：并行/串行比值"),
     ("mcp-surface", [PY, "-X", "utf8", "scripts/mcp_surface_gate.py"], "fast", "协议面门：真握手契约"),
+    ("model-fit",   [PY, "-X", "utf8", "scripts/model_fit_gate.py"], "fast", "模型适配门（弱模型模拟 + 回包预算）"),
     ("selftest",    [PY, "-X", "utf8", "scripts/ci_gate.py"], "fast", "对账硬门（SCHEMA/EXE/VERSION）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),
     ("cargo-test",  [CARGO, "test", "--manifest-path", "rust/Cargo.toml"], "full", "Rust 测试"),
