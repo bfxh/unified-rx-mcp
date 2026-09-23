@@ -54,181 +54,201 @@ fn main() {
     std::process::exit(code);
 }
 
+fn op_scan_simple(sub: &str, args: &[String]) -> Result<Value, String> {
+    let path = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    if path.is_empty() {
+        return Err(USAGE.into());
+    }
+    // schema 校验后恒为整数；负数等价 0（Python count>=max 立即停走）；垃圾回退 100
+    let mf = match args.get(2) {
+        Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(scan::MAX_FILES),
+        None => scan::MAX_FILES,
+    };
+    match sub {
+        "stdcheck" => Ok(scan::std_check(path, mf)),
+        "uicheck" => Ok(scan::ui_check(path, mf)),
+        _ => Ok(bug::bug_scan(path, mf)),
+    }
+}
+
+fn op_astscan(args: &[String]) -> Result<Value, String> {
+    let path = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    if path.is_empty() {
+        return Err(USAGE.into());
+    }
+    // ast_scan 的默认上限是 200（Python ast_scan 默认值），不是 scan::MAX_FILES=100
+    let mf = match args.get(2) {
+        Some(s) => s
+            .parse::<i64>()
+            .map(|n| n.max(0) as usize)
+            .unwrap_or(astscan::AST_MAX_FILES),
+        None => astscan::AST_MAX_FILES,
+    };
+    Ok(astscan::ast_scan(path, mf))
+}
+
+fn op_buglocate(args: &[String]) -> Result<Value, String> {
+    let root = args.get(1).map(|s| s.as_str()).unwrap_or("").to_string();
+    // error_text 允许为空串（Python 空 text → 0 候选合法），只拒缺参
+    let Some(text) = args.get(2).cloned() else {
+        return Err(USAGE.into());
+    };
+    if root.is_empty() {
+        return Err(USAGE.into());
+    }
+    let mut text = text;
+    if text == "-" {
+        let mut buf = Vec::new();
+        if std::io::stdin().read_to_end(&mut buf).is_ok() {
+            text = String::from_utf8_lossy(&buf).into_owned();
+        }
+    }
+    Ok(scan::bug_locate(&root, &text))
+}
+
+fn op_resolve(args: &[String]) -> Result<Value, String> {
+    let file = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    if file.is_empty() {
+        return Err(USAGE.into());
+    }
+    let src = match std::fs::read(file) {
+        Ok(b) => String::from_utf8_lossy(&b).into_owned(),
+        Err(e) => {
+            return Ok(Value::Obj(vec![(
+                "error".into(),
+                Value::Str(format!("读取失败: {} ({})", file, e)),
+            )]));
+        }
+    };
+    Ok(nameres::resolve_file(file, &src))
+}
+
+fn op_astgrep(args: &[String]) -> Result<Value, String> {
+    let pattern = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    let path = args.get(2).map(|s| s.as_str()).unwrap_or("");
+    if pattern.is_empty() || path.is_empty() {
+        return Err(USAGE.into());
+    }
+    let k = match args.get(3) {
+        Some(s) => s.parse::<usize>().map(|n| n.max(1)).unwrap_or(50),
+        None => 50,
+    };
+    Ok(astgrep::ast_grep(pattern, path, k))
+}
+
+fn op_resolvedir(args: &[String]) -> Result<Value, String> {
+    let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    if root.is_empty() {
+        return Err(USAGE.into());
+    }
+    let mf = match args.get(2) {
+        Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(300),
+        None => 300,
+    };
+    let p = std::path::Path::new(root);
+    if !p.is_dir() {
+        return Ok(Value::Obj(vec![(
+            "error".into(),
+            Value::Str(format!("不是目录: {}", root)),
+        )]));
+    }
+    Ok(nameres::resolve_dir(p, mf))
+}
+
+fn op_callgraph(args: &[String]) -> Result<Value, String> {
+    // S125：调用图（同 resolve_dir 的目录/默认上限口径）
+    let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    if root.is_empty() {
+        return Err(USAGE.into());
+    }
+    let mf = match args.get(2) {
+        Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(300),
+        None => 300,
+    };
+    let p = std::path::Path::new(root);
+    if !p.is_dir() {
+        return Ok(Value::Obj(vec![(
+            "error".into(),
+            Value::Str(format!("不是目录: {}", root)),
+        )]));
+    }
+    Ok(nameres::callgraph_dir(p, mf))
+}
+
+fn op_secrets(args: &[String]) -> Result<Value, String> {
+    // S134：凭据泄漏扫描原生化（语义与 tools/secrets.py 逐字节对齐；
+    // min_entropy 走 f64 字面量解析，垃圾回退 4.5）
+    let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    if root.is_empty() {
+        return Err(USAGE.into());
+    }
+    let mf = args.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(3000);
+    let mk = args.get(3).and_then(|s| s.parse::<usize>().ok()).unwrap_or(512);
+    let me = args.get(4).and_then(|s| s.parse::<f64>().ok()).unwrap_or(4.5);
+    let mr = args.get(5).and_then(|s| s.parse::<usize>().ok()).unwrap_or(200);
+    let inc = args.get(6).map(|s| s.as_str()).unwrap_or("");
+    Ok(secrets::secrets_scan(std::path::Path::new(root), mf, mk, me, mr, inc))
+}
+
+fn op_sketch(args: &[String]) -> Result<Value, String> {
+    // S119：批量 bottom-k 指纹。ng/k 越界钳到合法域（与 Python 侧同口径）；
+    // threads=0/缺省 = 自动（available_parallelism）。
+    let ng = match args.get(1) {
+        Some(s) => s.parse::<usize>().map(|n| n.clamp(1, sketch::MAX_NG)).unwrap_or(4),
+        None => 4,
+    };
+    let k = match args.get(2) {
+        Some(s) => s.parse::<usize>().map(|n| n.clamp(1, 4096)).unwrap_or(128),
+        None => 128,
+    };
+    let threads = match args.get(3) {
+        Some(s) => s.parse::<usize>().unwrap_or(0),
+        None => 0,
+    };
+    let threads = if threads == 0 {
+        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+    } else {
+        threads
+    };
+    let paths = sketch::read_path_frames(std::io::stdin())?;
+    Ok(sketch::sketch_batch(&paths, ng, k, threads))
+}
+
+fn op_xor(args: &[String]) -> Result<Value, String> {
+    // S120：单字节异或枚举。crib 走 argv（ASCII hex），路径走 stdin 帧流。
+    let Some(hex) = args.get(1) else {
+        return Err(USAGE.into());
+    };
+    let crib = xorscan::hex_decode(hex)?;
+    if crib.is_empty() {
+        return Err("xor: crib_hex 为空".into());
+    }
+    let threads = match args.get(2) {
+        Some(s) => s.parse::<usize>().unwrap_or(0),
+        None => 0,
+    };
+    let threads = if threads == 0 {
+        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+    } else {
+        threads
+    };
+    let paths = xorscan::read_path_frames(std::io::stdin())?;
+    Ok(xorscan::xor_scan_batch(&paths, &crib, threads))
+}
+
 fn run(args: &[String]) -> Result<Value, String> {
     let sub = args.first().map(|s| s.as_str()).unwrap_or("");
     match sub {
-        "stdcheck" | "uicheck" | "bugscan" => {
-            let path = args.get(1).map(|s| s.as_str()).unwrap_or("");
-            if path.is_empty() {
-                return Err(USAGE.into());
-            }
-            // schema 校验后恒为整数；负数等价 0（Python count>=max 立即停走）；垃圾回退 100
-            let mf = match args.get(2) {
-                Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(scan::MAX_FILES),
-                None => scan::MAX_FILES,
-            };
-            match sub {
-                "stdcheck" => Ok(scan::std_check(path, mf)),
-                "uicheck" => Ok(scan::ui_check(path, mf)),
-                _ => Ok(bug::bug_scan(path, mf)),
-            }
-        }
-        "astscan" => {
-            let path = args.get(1).map(|s| s.as_str()).unwrap_or("");
-            if path.is_empty() {
-                return Err(USAGE.into());
-            }
-            // ast_scan 的默认上限是 200（Python ast_scan 默认值），不是 scan::MAX_FILES=100
-            let mf = match args.get(2) {
-                Some(s) => s
-                    .parse::<i64>()
-                    .map(|n| n.max(0) as usize)
-                    .unwrap_or(astscan::AST_MAX_FILES),
-                None => astscan::AST_MAX_FILES,
-            };
-            Ok(astscan::ast_scan(path, mf))
-        }
-        "buglocate" => {
-            let root = args.get(1).map(|s| s.as_str()).unwrap_or("").to_string();
-            // error_text 允许为空串（Python 空 text → 0 候选合法），只拒缺参
-            let Some(text) = args.get(2).cloned() else {
-                return Err(USAGE.into());
-            };
-            if root.is_empty() {
-                return Err(USAGE.into());
-            }
-            let mut text = text;
-            if text == "-" {
-                let mut buf = Vec::new();
-                if std::io::stdin().read_to_end(&mut buf).is_ok() {
-                    text = String::from_utf8_lossy(&buf).into_owned();
-                }
-            }
-            Ok(scan::bug_locate(&root, &text))
-        }
-        "resolve" => {
-            let file = args.get(1).map(|s| s.as_str()).unwrap_or("");
-            if file.is_empty() {
-                return Err(USAGE.into());
-            }
-            let src = match std::fs::read(file) {
-                Ok(b) => String::from_utf8_lossy(&b).into_owned(),
-                Err(e) => {
-                    return Ok(Value::Obj(vec![(
-                        "error".into(),
-                        Value::Str(format!("读取失败: {} ({})", file, e)),
-                    )]));
-                }
-            };
-            Ok(nameres::resolve_file(file, &src))
-        }
-        "astgrep" => {
-            let pattern = args.get(1).map(|s| s.as_str()).unwrap_or("");
-            let path = args.get(2).map(|s| s.as_str()).unwrap_or("");
-            if pattern.is_empty() || path.is_empty() {
-                return Err(USAGE.into());
-            }
-            let k = match args.get(3) {
-                Some(s) => s.parse::<usize>().map(|n| n.max(1)).unwrap_or(50),
-                None => 50,
-            };
-            Ok(astgrep::ast_grep(pattern, path, k))
-        }
-        "resolvedir" => {
-            let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
-            if root.is_empty() {
-                return Err(USAGE.into());
-            }
-            let mf = match args.get(2) {
-                Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(300),
-                None => 300,
-            };
-            let p = std::path::Path::new(root);
-            if !p.is_dir() {
-                return Ok(Value::Obj(vec![(
-                    "error".into(),
-                    Value::Str(format!("不是目录: {}", root)),
-                )]));
-            }
-            Ok(nameres::resolve_dir(p, mf))
-        }
-        "callgraph" => {
-            // S125：调用图（同 resolve_dir 的目录/默认上限口径）
-            let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
-            if root.is_empty() {
-                return Err(USAGE.into());
-            }
-            let mf = match args.get(2) {
-                Some(s) => s.parse::<i64>().map(|n| n.max(0) as usize).unwrap_or(300),
-                None => 300,
-            };
-            let p = std::path::Path::new(root);
-            if !p.is_dir() {
-                return Ok(Value::Obj(vec![(
-                    "error".into(),
-                    Value::Str(format!("不是目录: {}", root)),
-                )]));
-            }
-            Ok(nameres::callgraph_dir(p, mf))
-        }
-        "secrets" => {
-            // S134：凭据泄漏扫描原生化（语义与 tools/secrets.py 逐字节对齐；
-            // min_entropy 走 f64 字面量解析，垃圾回退 4.5）
-            let root = args.get(1).map(|s| s.as_str()).unwrap_or("");
-            if root.is_empty() {
-                return Err(USAGE.into());
-            }
-            let mf = args.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(3000);
-            let mk = args.get(3).and_then(|s| s.parse::<usize>().ok()).unwrap_or(512);
-            let me = args.get(4).and_then(|s| s.parse::<f64>().ok()).unwrap_or(4.5);
-            let mr = args.get(5).and_then(|s| s.parse::<usize>().ok()).unwrap_or(200);
-            let inc = args.get(6).map(|s| s.as_str()).unwrap_or("");
-            Ok(secrets::secrets_scan(std::path::Path::new(root), mf, mk, me, mr, inc))
-        }
-        "sketch" => {
-            // S119：批量 bottom-k 指纹。ng/k 越界钳到合法域（与 Python 侧同口径）；
-            // threads=0/缺省 = 自动（available_parallelism）。
-            let ng = match args.get(1) {
-                Some(s) => s.parse::<usize>().map(|n| n.clamp(1, sketch::MAX_NG)).unwrap_or(4),
-                None => 4,
-            };
-            let k = match args.get(2) {
-                Some(s) => s.parse::<usize>().map(|n| n.clamp(1, 4096)).unwrap_or(128),
-                None => 128,
-            };
-            let threads = match args.get(3) {
-                Some(s) => s.parse::<usize>().unwrap_or(0),
-                None => 0,
-            };
-            let threads = if threads == 0 {
-                std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
-            } else {
-                threads
-            };
-            let paths = sketch::read_path_frames(std::io::stdin())?;
-            Ok(sketch::sketch_batch(&paths, ng, k, threads))
-        }
-        "xor" => {
-            // S120：单字节异或枚举。crib 走 argv（ASCII hex），路径走 stdin 帧流。
-            let Some(hex) = args.get(1) else {
-                return Err(USAGE.into());
-            };
-            let crib = xorscan::hex_decode(hex)?;
-            if crib.is_empty() {
-                return Err("xor: crib_hex 为空".into());
-            }
-            let threads = match args.get(2) {
-                Some(s) => s.parse::<usize>().unwrap_or(0),
-                None => 0,
-            };
-            let threads = if threads == 0 {
-                std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
-            } else {
-                threads
-            };
-            let paths = xorscan::read_path_frames(std::io::stdin())?;
-            Ok(xorscan::xor_scan_batch(&paths, &crib, threads))
-        }
+        "stdcheck" | "uicheck" | "bugscan" => op_scan_simple(sub, args),
+        "astscan" => op_astscan(args),
+        "buglocate" => op_buglocate(args),
+        "resolve" => op_resolve(args),
+        "astgrep" => op_astgrep(args),
+        "resolvedir" => op_resolvedir(args),
+        "callgraph" => op_callgraph(args),
+        "secrets" => op_secrets(args),
+        "sketch" => op_sketch(args),
+        "xor" => op_xor(args),
         _ => Err(USAGE.into()),
     }
 }

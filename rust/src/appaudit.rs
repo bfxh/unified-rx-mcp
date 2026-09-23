@@ -646,13 +646,6 @@ fn read_up_to(fh: &mut std::fs::File, n: usize) -> Vec<u8> {
 
 /// best-effort asar 提取，移植 tools/appaudit.py::_extract_asar 的两轮内存修复版：
 /// 头窗口流式读、按前导 u32 候选长度逐个试解析、基址用叶节点 SHA256 自标定。
-fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
-    let mut fh = std::fs::File::open(asar_path)
-        .map_err(|e| AsarError(format!("OSError: {e}")))?;
-    let mut buf = read_up_to(&mut fh, 8 * 1024 * 1024);
-    let mut jstart = find_bytes(&buf, b"{\"files\"", 0).map(|i| i as i64).unwrap_or(-1);
-    let mut obj: Option<Value> = None;
-
     fn preamble_of(buf: &[u8], js: i64) -> [u32; 4] {
         if js >= 16 {
             let s = (js - 16) as usize;
@@ -666,9 +659,13 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
         }
     }
 
+
+fn read_header(fh: &mut std::fs::File, buf: &mut Vec<u8>, mut jstart: i64) -> (Option<Value>, i64) {
+    let mut obj: Option<Value> = None;
+
     for _round in 0..3 {
         if jstart >= 0 {
-            let preamble = preamble_of(&buf, jstart);
+            let preamble = preamble_of(buf, jstart);
             let mut lens: BTreeSet<i64> = BTreeSet::new();
             for &v in preamble[1..4].iter().chain(std::iter::once(&4u32)) {
                 for dv in [0i64, -4, -8] {
@@ -695,7 +692,7 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
         if obj.is_some() {
             break;
         }
-        let grow = read_up_to(&mut fh, 8 * 1024 * 1024);
+        let grow = read_up_to(fh, 8 * 1024 * 1024);
         if grow.is_empty() {
             break;
         }
@@ -707,24 +704,9 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
             buf.extend_from_slice(&grow);
         }
     }
-    if jstart < 0 || obj.is_none() {
-        return Err(AsarError("_AsarError: 未找到或未解析出 files 头".into()));
-    }
-    let obj = obj.unwrap();
-    let preamble = preamble_of(&buf, jstart);
+(obj, jstart)
+}
 
-    // 候选基址：JSON 起点前三个 u32 与常量 4 的组合偏移——真值交由 SHA256 裁决
-    let mut cands: BTreeSet<i64> = BTreeSet::new();
-    for &v in preamble[1..4].iter().chain(std::iter::once(&4u32)) {
-        for dv in [0i64, 4, 8, -4] {
-            let c = jstart + v as i64 + dv;
-            if c > jstart {
-                cands.insert(c);
-            }
-        }
-    }
-
-    let mut leaves: Vec<AsarLeaf> = Vec::new();
     fn walk_header(node: &Value, prefix: &str, leaves: &mut Vec<AsarLeaf>) -> Result<(), AsarError> {
         let Some(Value::Obj(files)) = node.get("files") else {
             return Ok(());
@@ -760,15 +742,8 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
         }
         Ok(())
     }
-    // obj.get("root", obj.get("top", obj))：键存在即用（哪怕为 null）
-    let tree = obj
-        .get("root")
-        .cloned()
-        .or_else(|| obj.get("top").cloned())
-        .unwrap_or_else(|| obj.clone());
-    walk_header(&tree, "", &mut leaves)?;
 
-    // 基址自标定：用前几个带 integrity 的中小文本叶试候选基址，SHA256 命中即锁定
+fn calibrate_base(fh: &mut std::fs::File, leaves: &[AsarLeaf], cands: &BTreeSet<i64>) -> Result<i64, AsarError> {
     let mut base: Option<i64> = None;
     let hashed_probes: Vec<&AsarLeaf> = leaves
         .iter()
@@ -781,11 +756,11 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
         .collect();
     'outer: for p in &hashed_probes {
         let want = p.hash.clone().unwrap();
-        for &cand in &cands {
+        for &cand in cands {
             if let Err(e) = fh.seek(SeekFrom::Start((cand + p.off) as u64)) {
                 return Err(AsarError(format!("OSError: {e}")));
             }
-            let data = read_up_to(&mut fh, p.size.clamp(0, MAX_ASAR_ENTRY_BYTES) as usize);
+            let data = read_up_to(fh, p.size.clamp(0, MAX_ASAR_ENTRY_BYTES) as usize);
             if sha256::hex(&data) == want {
                 base = Some(cand);
                 break 'outer;
@@ -796,11 +771,15 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
         return Err(AsarError("_AsarError: 基址标定失败（integrity 全不匹配）".into()));
     };
 
+Ok(base)
+}
+
+fn write_entries(fh: &mut std::fs::File, leaves: &[AsarLeaf], base: i64, out_dir: &Path) -> Result<(i128, i128, i128), AsarError> {
     let _ = std::fs::create_dir_all(out_dir);
     let mut n_ext = 0i128;
     let mut n_bytes = 0i128;
     let mut n_skip = 0i128;
-    for l in &leaves {
+    for l in leaves {
         if l.rel.is_empty() || l.rel.split('/').any(|seg| seg == "..") || is_abs_rel(&l.rel) {
             n_skip += 1;
             continue;
@@ -820,7 +799,7 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
         if let Err(e) = fh.seek(SeekFrom::Start((base + l.off) as u64)) {
             return Err(AsarError(format!("OSError: {e}")));
         }
-        let data = read_up_to(&mut fh, l.size.max(0) as usize);
+        let data = read_up_to(fh, l.size.max(0) as usize);
         if let Some(ih) = &l.hash
             && sha256::hex(&data) != *ih {
                 n_skip += 1;
@@ -837,6 +816,44 @@ fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
         n_ext += 1;
         n_bytes += l.size as i128;
     }
+Ok((n_ext, n_bytes, n_skip))
+}
+
+fn extract_asar(asar_path: &Path, out_dir: &Path) -> Result<Value, AsarError> {
+    let mut fh = std::fs::File::open(asar_path)
+        .map_err(|e| AsarError(format!("OSError: {e}")))?;
+    let mut buf = read_up_to(&mut fh, 8 * 1024 * 1024);
+    let jstart = find_bytes(&buf, b"{\"files\"", 0).map(|i| i as i64).unwrap_or(-1);
+    let (obj, jstart) = read_header(&mut fh, &mut buf, jstart);
+    if jstart < 0 || obj.is_none() {
+        return Err(AsarError("_AsarError: 未找到或未解析出 files 头".into()));
+    }
+    let obj = obj.unwrap();
+    let preamble = preamble_of(&buf, jstart);
+
+    // 候选基址：JSON 起点前三个 u32 与常量 4 的组合偏移——真值交由 SHA256 裁决
+    let mut cands: BTreeSet<i64> = BTreeSet::new();
+    for &v in preamble[1..4].iter().chain(std::iter::once(&4u32)) {
+        for dv in [0i64, 4, 8, -4] {
+            let c = jstart + v as i64 + dv;
+            if c > jstart {
+                cands.insert(c);
+            }
+        }
+    }
+
+    let mut leaves: Vec<AsarLeaf> = Vec::new();
+    // obj.get("root", obj.get("top", obj))：键存在即用（哪怕为 null）
+    let tree = obj
+        .get("root")
+        .cloned()
+        .or_else(|| obj.get("top").cloned())
+        .unwrap_or_else(|| obj.clone());
+    walk_header(&tree, "", &mut leaves)?;
+
+    // 基址自标定：用前几个带 integrity 的中小文本叶试候选基址，SHA256 命中即锁定
+    let base = calibrate_base(&mut fh, &leaves, &cands)?;
+    let (n_ext, n_bytes, n_skip) = write_entries(&mut fh, &leaves, base, out_dir)?;
     Ok(Value::Obj(vec![
         ("extracted".into(), Value::Int(n_ext)),
         ("bytes".into(), Value::Int(n_bytes)),
