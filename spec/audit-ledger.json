@@ -36,6 +36,15 @@
    "findings": 57,
    "verdict": "inconclusive",
    "head": "6e1a837"
+  },
+  {
+   "round": "复审四（S169 函数级瘦身期）",
+   "date": "2026-09-24",
+   "copy": "MIMOSA scan-2026-09-23T16-29-40.701Z-7f210a999686（扫描输出目录；工作树直扫，非源码副本）",
+   "seal": "sha256:0f92c279",
+   "findings": 58,
+   "verdict": "none",
+   "head": "1a84f79"
   }
  ]
 }
