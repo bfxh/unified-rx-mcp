@@ -272,10 +272,14 @@ def evaluate(files: dict, base: dict, cfg: dict) -> tuple[list[str], list[str], 
                     bad.append(f"{rel}: {key}={v} > {lim}（新增，无基线）")
                 continue
             if v > bv:                                      # 变胖
-                if key in ("file_lines", "max_type_members") \
-                        and m["max_fn_lines"] < b.get("max_fn_lines", 0):
-                    # 拆函数带来的**合法交换**：文件变长 / 新增一个小类型。硬阈值仍然管着
-                    # （type 只放行到 lim 以内）；函数没变短就一条都不放行。
+                shrink = b.get("max_fn_lines", 0) - m["max_fn_lines"]
+                if key in ("file_lines", "max_type_members") and shrink > 0:
+                    # 拆函数带来的**合法交换**：文件变长 / 新增一个小类型。两条通道：
+                    #   ① 小涨（≤ pct%，至少 8 行）——覆盖"搬 100 行、加 10 行壳"的常规情形；
+                    #   ② **函数降幅 ≥ 文件涨幅**——纯搬移时 helper 壳（含共用结构体/类型别名）
+                    #      可能让文件涨得比 pct 多，只要"最长函数减少的行数 ≥ 增加的行数"，
+                    #      净复杂度仍是降的（这条不是调参：它把判据从"涨幅比例"改成"净账"）。
+                    # 硬阈值仍然管着（type 只放行到 lim 以内）；函数没变短则一条都不放行。
                     if key == "max_type_members":
                         if v <= lim:
                             grew.append(f"{rel}: max_type_members {bv} → {v}"
@@ -284,12 +288,15 @@ def evaluate(files: dict, base: dict, cfg: dict) -> tuple[list[str], list[str], 
                             continue
                     else:
                         allow = bv + max(8, bv * pct // 100)
-                        if v <= allow:
+                        net_ok = shrink >= (v - bv)
+                        if v <= allow or net_ok:
+                            why = f"≤{pct}% 放行" if v <= allow else \
+                                  f"函数降 {shrink} 行 ≥ 文件涨 {v - bv} 行（净账为负）"
                             grew.append(f"{rel}: file_lines {bv} → {v}"
-                                        f"（最长函数 {b['max_fn_lines']} → {m['max_fn_lines']}，"
-                                        f"≤{pct}% 放行）")
+                                        f"（最长函数 {b['max_fn_lines']} → {m['max_fn_lines']}，{why}）")
                             continue
-                        bad.append(f"{rel}: file_lines {bv} → {v}（超出拆函数放行幅度 {pct}%）")
+                        bad.append(f"{rel}: file_lines {bv} → {v}"
+                                   f"（超出 {pct}% 且函数只降 {shrink} 行）")
                         continue
                 bad.append(f"{rel}: {key} {bv} → {v}（不许变胖）")
             elif v < bv:

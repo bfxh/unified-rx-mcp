@@ -60,7 +60,24 @@ def test_file_growth_allowed_only_when_fn_shrinks(tmp_path):
                  encoding="utf-8")                                        # 只变长、函数没变短
     cp = _run("--root", str(tmp_path), "--top", "0")
     assert cp.returncode != 0, "函数没变短却涨行数 ⇒ 必须红：\n" + cp.stdout
-    assert "不许变胖" in cp.stdout or "超出拆函数放行幅度" in cp.stdout, cp.stdout
+    assert "不许变胖" in cp.stdout or "函数只降" in cp.stdout, cp.stdout
+
+
+def test_growth_allowed_when_fn_shrinks_more_than_file_grows(tmp_path):
+    """金丝雀：**净账**通道——纯搬移时 helper 壳/说明注释会把文件顶过 pct 线；只要"最长函数减少
+    的行数 ≥ 文件增加的行数"，净复杂度仍降 ⇒ 放行（否则正确的重构被比例线拦住）。"""
+    (tmp_path / "god.gate.json").write_text(json.dumps(_cfg()), encoding="utf-8")
+    f = tmp_path / "m.py"
+    f.write_text("def big():\n" + "".join(f"    v{i} = {i}\n" for i in range(60)),
+                 encoding="utf-8")
+    assert _run("--root", str(tmp_path), "--write-baseline").returncode == 0
+    # 20 行说明 + 拆成 30+30：文件 +20 行（>10%，pct 通道不给），但最长函数降 30 行 ⇒ 净账为负
+    half = "".join(f"    v{i} = {i}\n" for i in range(30))
+    doc = "".join(f"# 说明行 {i}（纯增行，模拟搬移时要补的注释/壳）\n" for i in range(20))
+    f.write_text(doc + "def p1():\n" + half + "def p2():\n" + half, encoding="utf-8")
+    cp = _run("--root", str(tmp_path), "--top", "0")
+    assert cp.returncode == 0, "净账为负的重构被误判红：\n" + cp.stdout
+    assert "净账为负" in cp.stdout, cp.stdout
 
 
 def test_small_type_allowed_only_with_fn_shrink(tmp_path):

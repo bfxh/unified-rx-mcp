@@ -130,18 +130,17 @@ fn is_pytest_entry(name: &str, kind: &str, basename: &str) -> bool {
 }
 
 /// 扫描目录 → 结果 json（root/elapsed/note 由薄壳补；键序与 Python 版一致）。
-pub fn dead_code_scan(
-    root: &Path, max_files: usize, max_results: usize, include_decorated: bool,
-) -> Value {
-    if !root.is_dir() {
-        return Value::Obj(vec![(
-            "error".into(),
-            Value::Str(format!("目录不存在: {}", root.display())),
-        )]);
-    }
-    let mut files = walk_py(root, max_files);
-    files.sort(); // 结果排序后等价；遍历序仅影响截断边界与 errors 顺序（模块注记）
+/// 逐文件收集（引用名/属性名/字符串/定义行）的累计结果（S169 从 dead_code_scan 抽出，纯搬移）。
+struct ScanAcc {
+    files_scanned: usize,
+    parse_errors: Vec<Value>,
+    all_strings: Vec<String>,
+    defs: Vec<(String, DefRow)>,
+    ref_names: HashSet<String>,
+    ref_attrs: HashSet<String>,
+}
 
+fn collect_all(files: &[std::path::PathBuf], root: &Path) -> ScanAcc {
     let mut ref_names: HashSet<String> = HashSet::new();
     let mut ref_attrs: HashSet<String> = HashSet::new();
     let mut all_strings: Vec<String> = Vec::new();
@@ -149,7 +148,7 @@ pub fn dead_code_scan(
     let mut files_scanned = 0usize;
     let mut parse_errors: Vec<Value> = Vec::new();
 
-    for fp in &files {
+    for fp in files {
         let rel = fp
             .strip_prefix(root)
             .unwrap_or(fp)
@@ -184,7 +183,20 @@ pub fn dead_code_scan(
         shorthand_refs(&tree, &mut ref_names, &mut ref_attrs, &mut all_strings);
     }
 
-    let blob = all_strings.join("\n");
+ScanAcc { files_scanned, parse_errors, all_strings, defs, ref_names, ref_attrs }
+}
+
+/// 定义行分类（dead / suspect_dynamic）的累计结果（S169 从 dead_code_scan 抽出，纯搬移）。
+struct Classified {
+    dead: Vec<Value>,
+    suspect: Vec<Value>,
+    dead_lines: Vec<(String, usize)>,
+    suspect_lines: Vec<(String, usize)>,
+    exempted_decorated: usize,
+    exempted_pytest: usize,
+}
+
+fn classify_defs(defs: &[(String, DefRow)], ref_names: &HashSet<String>, ref_attrs: &HashSet<String>, blob: &str, include_decorated: bool) -> Classified {
     let mut dead: Vec<Value> = Vec::new();
     let mut suspect: Vec<Value> = Vec::new();
     let mut dead_lines: Vec<(String, usize)> = Vec::new();
@@ -192,7 +204,7 @@ pub fn dead_code_scan(
     let mut exempted_decorated = 0usize;
     let mut exempted_pytest = 0usize;
 
-    for (rel, (name, line, kind, decorated)) in &defs {
+    for (rel, (name, line, kind, decorated)) in defs {
         if name.starts_with("__") && name.ends_with("__") {
             continue;
         }
@@ -235,6 +247,26 @@ pub fn dead_code_scan(
         }
     }
 
+Classified { dead, suspect, dead_lines, suspect_lines, exempted_decorated, exempted_pytest }
+}
+
+pub fn dead_code_scan(
+    root: &Path, max_files: usize, max_results: usize, include_decorated: bool,
+) -> Value {
+    if !root.is_dir() {
+        return Value::Obj(vec![(
+            "error".into(),
+            Value::Str(format!("目录不存在: {}", root.display())),
+        )]);
+    }
+    let mut files = walk_py(root, max_files);
+    files.sort(); // 结果排序后等价；遍历序仅影响截断边界与 errors 顺序（模块注记）
+
+    let ScanAcc { files_scanned, parse_errors, all_strings, defs, ref_names, ref_attrs } =
+            collect_all(&files, root);
+    let blob = all_strings.join("\n");
+    let Classified { dead, suspect, dead_lines, suspect_lines, exempted_decorated,
+                    exempted_pytest } = classify_defs(&defs, &ref_names, &ref_attrs, &blob, include_decorated);
     // 稳定排序 (file, line)：先按键排索引序，再重排两个列表
     let order = |lines: &[(String, usize)]| {
         let mut idx: Vec<usize> = (0..lines.len()).collect();

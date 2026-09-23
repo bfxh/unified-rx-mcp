@@ -290,9 +290,9 @@
   "max_type_members": 0
  },
  "rust/src/deadcode.rs": {
-  "file_lines": 266,
-  "max_fn_lines": 133,
-  "max_type_members": 0
+  "file_lines": 298,
+  "max_fn_lines": 53,
+  "max_type_members": 6
  },
  "rust/src/fs.rs": {
   "file_lines": 209,
@@ -585,7 +585,7 @@
   "max_type_members": 0
  },
  "scripts/god_gate.py": {
-  "file_lines": 378,
+  "file_lines": 385,
   "max_fn_lines": 68,
   "max_type_members": 0
  },
@@ -980,7 +980,7 @@
   "max_type_members": 0
  },
  "tests/test_s169_gate_allowance.py": {
-  "file_lines": 91,
+  "file_lines": 108,
   "max_fn_lines": 25,
   "max_type_members": 0
  },
