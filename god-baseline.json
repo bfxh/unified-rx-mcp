@@ -170,8 +170,8 @@
   "max_type_members": 0
  },
  "rust/src/appaudit.rs": {
-  "file_lines": 1178,
-  "max_fn_lines": 198,
+  "file_lines": 1195,
+  "max_fn_lines": 164,
   "max_type_members": 5
  },
  "rust/src/appclone.rs": {
@@ -235,8 +235,8 @@
   "max_type_members": 0
  },
  "rust/src/bin/rx_scan.rs": {
-  "file_lines": 235,
-  "max_fn_lines": 178,
+  "file_lines": 255,
+  "max_fn_lines": 23,
   "max_type_members": 0
  },
  "rust/src/bin/rx_search.rs": {
@@ -250,8 +250,8 @@
   "max_type_members": 0
  },
  "rust/src/bin/rx_svc.rs": {
-  "file_lines": 249,
-  "max_fn_lines": 162,
+  "file_lines": 261,
+  "max_fn_lines": 61,
   "max_type_members": 0
  },
  "rust/src/bin/rx_sys.rs": {
@@ -430,8 +430,8 @@
   "max_type_members": 0
  },
  "rust/src/sysinfo.rs": {
-  "file_lines": 950,
-  "max_fn_lines": 178,
+  "file_lines": 982,
+  "max_fn_lines": 104,
   "max_type_members": 10
  },
  "rust/src/taint.rs": {
@@ -560,7 +560,7 @@
   "max_type_members": 0
  },
  "scripts/audit_ledger.py": {
-  "file_lines": 114,
+  "file_lines": 118,
   "max_fn_lines": 19,
   "max_type_members": 0
  },
@@ -940,8 +940,8 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 82,
-  "max_fn_lines": 11,
+  "file_lines": 93,
+  "max_fn_lines": 17,
   "max_type_members": 0
  },
  "tests/test_s148_sys.py": {

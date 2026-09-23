@@ -73,9 +73,20 @@ def test_audit_ledger_green_and_consistent():
     assert len(rows) == len(led["entries"]), "表/账本条数不符"
 
 
-def test_audit_ledger_stale_is_a_real_gate():
-    cp = _py("audit_ledger.py", env_extra={"UNIFIED_RX_AUDIT_MAX_DAYS": "0"})
-    assert cp.returncode != 0 and "STALE" in (cp.stdout + cp.stderr)
-    cp2 = _py("audit_ledger.py", "--allow-stale",
-              env_extra={"UNIFIED_RX_AUDIT_MAX_DAYS": "0"})
-    assert cp2.returncode == 0 and "WARN-STALE" in cp2.stdout
+def test_audit_ledger_stale_is_a_real_gate(tmp_path):
+    """金丝雀：时效判据是真门。**自带临时账本**，不看仓里账本的日期/提交数——
+    实测教训（S169）：仓里一旦"今天刚记入审计"，`MAX_DAYS=0` 就恒不触发（age=0 不 > 0 天），
+    这条金丝雀会假绿（当时的"通过"只是因为上一次审计已经 10 天前）。"""
+    led = tmp_path / "audit-ledger.json"
+    led.write_text(json.dumps({"policy": "金丝雀", "entries": [
+        {"round": "旧", "date": "2020-01-01", "copy": "t", "seal": "sha256:deadbeef",
+         "findings": 1, "verdict": "inconclusive", "head": ""}]}), encoding="utf-8")
+    tbl = tmp_path / "HARDENING.md"
+    tbl.write_text("| 轮次 | 副本 | 封印 | 条数 | 运行状态 | 差量 |\n|---|---|---|---|---|---|\n"
+                   "| 旧 | t | sha256:deadbeef… | 1 | inconclusive | — |\n", encoding="utf-8")
+    env = {"UNIFIED_RX_AUDIT_LEDGER": str(led), "UNIFIED_RX_AUDIT_TABLE": str(tbl),
+           "UNIFIED_RX_AUDIT_MAX_DAYS": "0"}
+    cp = _py("audit_ledger.py", env_extra=env)
+    assert cp.returncode != 0 and "STALE" in (cp.stdout + cp.stderr), cp.stdout + cp.stderr
+    cp2 = _py("audit_ledger.py", "--allow-stale", env_extra=env)
+    assert cp2.returncode == 0 and "WARN-STALE" in cp2.stdout, cp2.stdout + cp2.stderr

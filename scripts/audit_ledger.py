@@ -23,8 +23,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LEDGER = ROOT / "spec" / "audit-ledger.json"
-HARDENING = ROOT / "spec" / "HARDENING.md"
+# 账本/人读表可被环境变量改向：**为了金丝雀能自带输入**——实测教训：仓里一旦"今天记入审计"，
+# `UNIFIED_RX_AUDIT_MAX_DAYS=0` 就恒不触发（age=0 不 > 0），靠仓内状态的金丝雀会假绿。
+LEDGER = Path(os.environ["UNIFIED_RX_AUDIT_LEDGER"]) if os.environ.get("UNIFIED_RX_AUDIT_LEDGER") \
+    else ROOT / "spec" / "audit-ledger.json"
+HARDENING = Path(os.environ["UNIFIED_RX_AUDIT_TABLE"]) if os.environ.get("UNIFIED_RX_AUDIT_TABLE") \
+    else ROOT / "spec" / "HARDENING.md"
 
 
 def _git(args):
