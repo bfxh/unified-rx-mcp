@@ -1001,6 +1001,65 @@ fn scan_line(st: &mut ScanState, file_label: &str, ln: i128, line: &str, cap_sur
     }
 }
 
+fn asar_scan(asars: &[&WalkFile], root: &std::path::Path, st: &mut ScanState, asar_report: &mut Vec<Value>) {
+        for ap in asars {
+            let ext_dir = PathBuf::from(format!("{}.audit-ext", ap.path.to_string_lossy()));
+            let mut stat: Vec<(String, Value)> =
+                vec![("asar".into(), s(&rel_of(root, &ap.path)))];
+            match extract_asar(&ap.path, &ext_dir) {
+                Ok(v) => {
+                    if let Value::Obj(pairs) = v {
+                        stat.extend(pairs);
+                    }
+                }
+                Err(AsarError(e)) => stat.push(("error".into(), s(&e))),
+            }
+            let extracted = stat
+                .iter()
+                .find(|(k, _)| k == "extracted")
+                .and_then(|(_, v)| match v {
+                    Value::Int(i) => Some(*i),
+                    _ => None,
+                })
+                .unwrap_or(0);
+            if extracted > 0 {
+                // 提取件在克隆内 → 复扫同套规则；file 前缀 sub（保留反斜杠，
+                // 与 Python os.path.relpath 行为一致）+ "/" + 提取内相对路径
+                let sub = relpath_native(&ext_dir, root);
+                let mut sub_files: Vec<WalkFile> = Vec::new();
+                walk_files(&ext_dir, &mut sub_files);
+                for f in sub_files {
+                    if !is_text_ext(&splitext_lower(&f.rel)) {
+                        continue;
+                    }
+                    let mut file = match std::fs::File::open(&f.path) {
+                        Ok(x) => x,
+                        Err(_) => continue,
+                    };
+                    let head = read_up_to(&mut file, HEAD_BYTES);
+                    let text = String::from_utf8_lossy(&head);
+                    let label = format!("{sub}/{}", f.rel);
+                    for (i, line) in py_splitlines(&text).into_iter().enumerate() {
+                        scan_rescan_line(st, &label, (i + 1) as i128, &line);
+                    }
+                }
+            }
+            asar_report.push(Value::Obj(stat));
+        }
+}
+
+fn binary_inventory(all: &[WalkFile], binaries: &mut Vec<(String, i128)>) {
+    for f in all {
+        if !BINARY_INVENTORY_EXTS.contains(&splitext_lower(&f.rel).as_str()) {
+            continue;
+        }
+        match std::fs::metadata(&f.path) {
+            Ok(m) => binaries.push((f.rel.clone(), m.len() as i128)),
+            Err(_) => continue,
+        }
+    }
+}
+
 pub fn app_audit(snapshot_dir: &str, with_asar: bool) -> Value {
     let trimmed = snapshot_dir.trim();
     if trimmed.is_empty() {
@@ -1040,65 +1099,14 @@ pub fn app_audit(snapshot_dir: &str, with_asar: bool) -> Value {
             })
             .take(MAX_ASARS)
             .collect();
-        for ap in asars {
-            let ext_dir = PathBuf::from(format!("{}.audit-ext", ap.path.to_string_lossy()));
-            let mut stat: Vec<(String, Value)> =
-                vec![("asar".into(), s(&rel_of(&root, &ap.path)))];
-            match extract_asar(&ap.path, &ext_dir) {
-                Ok(v) => {
-                    if let Value::Obj(pairs) = v {
-                        stat.extend(pairs);
-                    }
-                }
-                Err(AsarError(e)) => stat.push(("error".into(), s(&e))),
-            }
-            let extracted = stat
-                .iter()
-                .find(|(k, _)| k == "extracted")
-                .and_then(|(_, v)| match v {
-                    Value::Int(i) => Some(*i),
-                    _ => None,
-                })
-                .unwrap_or(0);
-            if extracted > 0 {
-                // 提取件在克隆内 → 复扫同套规则；file 前缀 sub（保留反斜杠，
-                // 与 Python os.path.relpath 行为一致）+ "/" + 提取内相对路径
-                let sub = relpath_native(&ext_dir, &root);
-                let mut sub_files: Vec<WalkFile> = Vec::new();
-                walk_files(&ext_dir, &mut sub_files);
-                for f in sub_files {
-                    if !is_text_ext(&splitext_lower(&f.rel)) {
-                        continue;
-                    }
-                    let mut file = match std::fs::File::open(&f.path) {
-                        Ok(x) => x,
-                        Err(_) => continue,
-                    };
-                    let head = read_up_to(&mut file, HEAD_BYTES);
-                    let text = String::from_utf8_lossy(&head);
-                    let label = format!("{sub}/{}", f.rel);
-                    for (i, line) in py_splitlines(&text).into_iter().enumerate() {
-                        scan_rescan_line(&mut st, &label, (i + 1) as i128, &line);
-                    }
-                }
-            }
-            asar_report.push(Value::Obj(stat));
-        }
+        asar_scan(&asars, &root, &mut st, &mut asar_report);
     }
 
     // ---------- 二进制盘点 ----------
     let mut all: Vec<WalkFile> = Vec::new();
     walk_files(&root, &mut all);
     let mut binaries: Vec<(String, i128)> = Vec::new();
-    for f in &all {
-        if !BINARY_INVENTORY_EXTS.contains(&splitext_lower(&f.rel).as_str()) {
-            continue;
-        }
-        match std::fs::metadata(&f.path) {
-            Ok(m) => binaries.push((f.rel.clone(), m.len() as i128)),
-            Err(_) => continue,
-        }
-    }
+    binary_inventory(&all, &mut binaries);
     let binaries_total = binaries.len() as i128;
     binaries.sort_by_key(|x| std::cmp::Reverse(x.1)); // 稳定排序：同大保持遍历序
 
