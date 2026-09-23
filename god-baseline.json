@@ -265,9 +265,29 @@
   "max_type_members": 0
  },
  "rust/src/bug.rs": {
-  "file_lines": 1138,
-  "max_fn_lines": 45,
-  "max_type_members": 3
+  "file_lines": 212,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "rust/src/bug/generic.rs": {
+  "file_lines": 98,
+  "max_fn_lines": 1,
+  "max_type_members": 0
+ },
+ "rust/src/bug/phys.rs": {
+  "file_lines": 138,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "rust/src/bug/py.rs": {
+  "file_lines": 301,
+  "max_fn_lines": 273,
+  "max_type_members": 0
+ },
+ "rust/src/bug/rust.rs": {
+  "file_lines": 412,
+  "max_fn_lines": 63,
+  "max_type_members": 0
  },
  "rust/src/deadcode.rs": {
   "file_lines": 266,
