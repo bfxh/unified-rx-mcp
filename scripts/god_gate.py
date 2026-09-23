@@ -272,15 +272,25 @@ def evaluate(files: dict, base: dict, cfg: dict) -> tuple[list[str], list[str], 
                     bad.append(f"{rel}: {key}={v} > {lim}（新增，无基线）")
                 continue
             if v > bv:                                      # 变胖
-                if key == "file_lines" and m["max_fn_lines"] < b.get("max_fn_lines", 0):
-                    allow = bv + max(8, bv * pct // 100)
-                    if v <= allow:
-                        grew.append(f"{rel}: file_lines {bv} → {v}"
-                                    f"（最长函数 {b['max_fn_lines']} → {m['max_fn_lines']}，"
-                                    f"≤{pct}% 放行）")
+                if key in ("file_lines", "max_type_members") \
+                        and m["max_fn_lines"] < b.get("max_fn_lines", 0):
+                    # 拆函数带来的**合法交换**：文件变长 / 新增一个小类型。硬阈值仍然管着
+                    # （type 只放行到 lim 以内）；函数没变短就一条都不放行。
+                    if key == "max_type_members":
+                        if v <= lim:
+                            grew.append(f"{rel}: max_type_members {bv} → {v}"
+                                        f"（最长函数 {b['max_fn_lines']} → {m['max_fn_lines']}，"
+                                        f"未超阈 {lim} 放行）")
+                            continue
+                    else:
+                        allow = bv + max(8, bv * pct // 100)
+                        if v <= allow:
+                            grew.append(f"{rel}: file_lines {bv} → {v}"
+                                        f"（最长函数 {b['max_fn_lines']} → {m['max_fn_lines']}，"
+                                        f"≤{pct}% 放行）")
+                            continue
+                        bad.append(f"{rel}: file_lines {bv} → {v}（超出拆函数放行幅度 {pct}%）")
                         continue
-                    bad.append(f"{rel}: file_lines {bv} → {v}（超出拆函数放行幅度 {pct}%）")
-                    continue
                 bad.append(f"{rel}: {key} {bv} → {v}（不许变胖）")
             elif v < bv:
                 shrank.append(f"{rel}: {key} {bv} → {v}（可收紧基线）")

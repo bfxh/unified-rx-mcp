@@ -320,14 +320,14 @@
   "max_type_members": 5
  },
  "rust/src/nameres/callgraph.rs": {
-  "file_lines": 197,
-  "max_fn_lines": 153,
+  "file_lines": 212,
+  "max_fn_lines": 71,
   "max_type_members": 0
  },
  "rust/src/nameres/files.rs": {
-  "file_lines": 304,
-  "max_fn_lines": 152,
-  "max_type_members": 0
+  "file_lines": 320,
+  "max_fn_lines": 108,
+  "max_type_members": 6
  },
  "rust/src/nameres/prescan.rs": {
   "file_lines": 176,
@@ -460,8 +460,8 @@
   "max_type_members": 0
  },
  "rust/src/taint/xfile.rs": {
-  "file_lines": 232,
-  "max_fn_lines": 155,
+  "file_lines": 237,
+  "max_fn_lines": 88,
   "max_type_members": 0
  },
  "rust/src/xorscan.rs": {
@@ -585,7 +585,7 @@
   "max_type_members": 0
  },
  "scripts/god_gate.py": {
-  "file_lines": 368,
+  "file_lines": 378,
   "max_fn_lines": 68,
   "max_type_members": 0
  },
@@ -975,8 +975,13 @@
   "max_type_members": 0
  },
  "tests/test_s167_god_gate.py": {
-  "file_lines": 123,
+  "file_lines": 101,
   "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "tests/test_s169_gate_allowance.py": {
+  "file_lines": 91,
+  "max_fn_lines": 25,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {

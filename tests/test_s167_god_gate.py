@@ -7,6 +7,9 @@
      被静默跳过 —— 靠"基线里查不到 server.py"才发现；这条测试就是那次的补丁）；
   3. 真门验证：造一个超阈文件 ⇒ 必须判红（不是永远绿）；
   4. 棘轮语义：基线里的值变大 ⇒ 判红（不许变胖）。
+掩码正确性（生命周期/字节字面量/JS 单引号）也在这里；
+**放行策略**（拆函数换来的文件变长、小结构体）的金丝雀在 `tests/test_s169_gate_allowance.py`——
+那些测试自身会把本文件顶过文件行数棘轮，而棘轮只准减，故分文件。
 """
 import importlib.util
 import json
@@ -95,28 +98,3 @@ def test_mask_handles_lifetimes_and_byte_literals():
     js = "function f() {\n  var a = '}';\n  var b = '{';\n  return 1;\n}\n"
     assert [m for m in gg.brace_metrics(js, js=True) if m[2] == "fn"] == [("f", 5, "fn")], \
         gg.brace_metrics(js, js=True)
-
-
-def test_file_growth_allowed_only_when_fn_shrinks(tmp_path):
-    """金丝雀：**拆长函数必然让文件变长**——门要放行，且逐条打印（否则正确重构被判红）。"""
-    cfg = {"max_file_lines": 100000, "max_fn_lines": 100000, "max_type_members": 100000,
-           "file_growth_with_fn_shrink_pct": 10,
-           "include": ["**/*.py"], "exclude": [], "baseline": "god-baseline.json"}
-    (tmp_path / "god.gate.json").write_text(json.dumps(cfg), encoding="utf-8")
-    f = tmp_path / "m.py"
-    body = "\n".join(f"    v{i} = {i}" for i in range(38))
-    f.write_text("def big():\n" + body + "\n", encoding="utf-8")
-    assert _run("--root", str(tmp_path), "--write-baseline").returncode == 0
-
-    half = "\n".join(f"    v{i} = {i}" for i in range(19))
-    f.write_text("def part1():\n" + half + "\n\ndef part2():\n" + half + "\n", encoding="utf-8")
-    cp = _run("--root", str(tmp_path), "--top", "0")
-    assert cp.returncode == 0, "拆函数被误判红（门会逼人关掉它）：\n" + cp.stdout
-    assert "⇄" in cp.stdout, "放行必须逐条打印，不能静默：\n" + cp.stdout
-
-    assert _run("--root", str(tmp_path), "--write-baseline").returncode == 0
-    f.write_text(f.read_text(encoding="utf-8") + "".join(f"z{i} = {i}\n" for i in range(30)),
-                 encoding="utf-8")                                        # 只变长、函数没变短
-    cp = _run("--root", str(tmp_path), "--top", "0")
-    assert cp.returncode != 0, "函数没变短却涨行数 ⇒ 必须红：\n" + cp.stdout
-    assert "不许变胖" in cp.stdout or "超出拆函数放行幅度" in cp.stdout, cp.stdout

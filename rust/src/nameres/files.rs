@@ -146,37 +146,23 @@ pub(crate) fn analyze_file(root: &Path, p: &Path) -> Option<FileRes> {
 
 /// 目录级解析（S108）：逐文件解析 + import 拼接。
 /// 输出 `{root, files, imports, external, unresolved, stats}`（路径均相对 root）。
-pub fn resolve_dir(root: &Path, max_files: usize) -> Value {
-    let mut py: Vec<std::path::PathBuf> = Vec::new();
-    walk_py(root, &mut py, max_files);
-    let mut files: Vec<FileRes> = py.iter().filter_map(|p| analyze_file(root, p)).collect();
-    // root 自身是包（有 __init__.py）时，模块名带包前缀（与 Python 在父目录
-    // 导入时的视角一致：`tools/fs.py` → "tools.fs"）
-    if root.join("__init__.py").is_file()
-        && let Some(base) = root.file_name().map(|s| s.to_string_lossy().into_owned()) {
-            for f in files.iter_mut() {
-                f.modname = if f.modname.is_empty() {
-                    base.clone()
-                } else {
-                    format!("{}.{}", base, f.modname)
-                };
-            }
-        }
+/// 一次逐文件逐 import 拼接的累计结果（S169 从 resolve_dir 抽出，纯搬移）。
+struct ResolveAcc {
+    imports: Vec<Value>,
+    external: Vec<Value>,
+    unresolved: Vec<Value>,
+    n_internal: usize,
+    n_external: usize,
+    n_unresolved: usize,
+}
 
-    // 模块索引：模块名 → 文件下标
-    let mut index: HashMap<String, usize> = HashMap::new();
-    for (i, f) in files.iter().enumerate() {
-        if !f.modname.is_empty() {
-            index.insert(f.modname.clone(), i);
-        }
-    }
-
+fn resolve_imports(files: &[FileRes], index: &HashMap<String, usize>) -> ResolveAcc {
     let mut imports_out: Vec<Value> = Vec::new();
     let mut external_out: Vec<Value> = Vec::new();
     let mut unresolved_out: Vec<Value> = Vec::new();
     let (mut n_internal, mut n_external, mut n_unresolved) = (0usize, 0usize, 0usize);
 
-    for f in &files {
+    for f in files {
         for imp in &f.imports {
             // 目标模块名（相对导入按层级上溯包）
             let target_mod = if imp.is_from && imp.level > 0 {
@@ -276,6 +262,36 @@ pub fn resolve_dir(root: &Path, max_files: usize) -> Value {
         }
     }
 
+ResolveAcc { imports: imports_out, external: external_out, unresolved: unresolved_out, n_internal, n_external, n_unresolved }
+}
+
+pub fn resolve_dir(root: &Path, max_files: usize) -> Value {
+    let mut py: Vec<std::path::PathBuf> = Vec::new();
+    walk_py(root, &mut py, max_files);
+    let mut files: Vec<FileRes> = py.iter().filter_map(|p| analyze_file(root, p)).collect();
+    // root 自身是包（有 __init__.py）时，模块名带包前缀（与 Python 在父目录
+    // 导入时的视角一致：`tools/fs.py` → "tools.fs"）
+    if root.join("__init__.py").is_file()
+        && let Some(base) = root.file_name().map(|s| s.to_string_lossy().into_owned()) {
+            for f in files.iter_mut() {
+                f.modname = if f.modname.is_empty() {
+                    base.clone()
+                } else {
+                    format!("{}.{}", base, f.modname)
+                };
+            }
+        }
+
+    // 模块索引：模块名 → 文件下标
+    let mut index: HashMap<String, usize> = HashMap::new();
+    for (i, f) in files.iter().enumerate() {
+        if !f.modname.is_empty() {
+            index.insert(f.modname.clone(), i);
+        }
+    }
+
+    let ResolveAcc { imports: mut imports_out, external: mut external_out, unresolved: mut unresolved_out,
+                         n_internal, n_external, n_unresolved } = resolve_imports(&files, &index);
     let key = |v: &Value| -> (String, i128) {
         let f = match v.get("file") { Some(Value::Str(s)) => s.clone(), _ => String::new() };
         let l = match v.get("line") { Some(Value::Int(i)) => *i, _ => 0 };
