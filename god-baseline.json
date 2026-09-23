@@ -170,8 +170,8 @@
   "max_type_members": 0
  },
  "rust/src/appaudit.rs": {
-  "file_lines": 1195,
-  "max_fn_lines": 164,
+  "file_lines": 1203,
+  "max_fn_lines": 113,
   "max_type_members": 5
  },
  "rust/src/appclone.rs": {
@@ -385,8 +385,8 @@
   "max_type_members": 3
  },
  "rust/src/repomap.rs": {
-  "file_lines": 267,
-  "max_fn_lines": 180,
+  "file_lines": 297,
+  "max_fn_lines": 64,
   "max_type_members": 4
  },
  "rust/src/sandbox.rs": {
@@ -450,8 +450,8 @@
   "max_type_members": 11
  },
  "rust/src/taint/lex.rs": {
-  "file_lines": 271,
-  "max_fn_lines": 123,
+  "file_lines": 280,
+  "max_fn_lines": 109,
   "max_type_members": 0
  },
  "rust/src/taint/types.rs": {
@@ -590,8 +590,8 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 135,
-  "max_fn_lines": 49,
+  "file_lines": 153,
+  "max_fn_lines": 56,
   "max_type_members": 0
  },
  "scripts/mcp_surface_gate.py": {
@@ -940,8 +940,8 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 93,
-  "max_fn_lines": 17,
+  "file_lines": 113,
+  "max_fn_lines": 18,
   "max_type_members": 0
  },
  "tests/test_s148_sys.py": {

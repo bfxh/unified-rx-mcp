@@ -73,6 +73,26 @@ def test_audit_ledger_green_and_consistent():
     assert len(rows) == len(led["entries"]), "表/账本条数不符"
 
 
+def test_timing_steps_skipped_unless_explicitly_enabled():
+    """金丝雀：计时档（cli-bench / perf-gate）在**非独占**机器上默认跳过——但必须显式可见、且可显式开启。
+
+    实测依据（2026-09-24，三次）：钩子档前几步刚把机器压满，随后测计时必红：cli-bench 报 `sys_devices`
+    相对整批 1.64×，而**同一份输出里它自己算出的机器因子是 0.81×**（= 全机变慢，不是被测命令变慢），
+    重跑即绿。故计时档默认 SKIP（显式、且总结行列出），要跑就设 `UNIFIED_RX_TIMING_GATES=1`。
+    """
+    target = "cli-golden,cli-bench,perf-gate"
+    cp = _py("local_gate.py", "--fast", "--only", target)
+    out = cp.stdout + cp.stderr
+    assert "OK   cli-golden" in out, out                      # 正确性那半照跑（纯比对，与负载无关）
+    assert "SKIP cli-bench" in out and "SKIP perf-gate" in out, out
+    assert "skipped=['cli-bench', 'perf-gate']" in out, out    # 总结行必须列出被跳过的（不静默）
+    assert cp.returncode == 0, out
+    cp2 = _py("local_gate.py", "--fast", "--only", target,
+              env_extra={"UNIFIED_RX_TIMING_GATES": "1"})
+    out2 = cp2.stdout + cp2.stderr
+    assert "SKIP cli-bench" not in out2 and "SKIP perf-gate" not in out2, out2
+
+
 def test_audit_ledger_stale_is_a_real_gate(tmp_path):
     """金丝雀：时效判据是真门。**自带临时账本**，不看仓里账本的日期/提交数——
     实测教训（S169）：仓里一旦"今天刚记入审计"，`MAX_DAYS=0` 就恒不触发（age=0 不 > 0 天），

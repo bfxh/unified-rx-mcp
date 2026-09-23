@@ -14,9 +14,17 @@
   python -X utf8 scripts/local_gate.py --only secrets,toolface
   python -X utf8 scripts/local_gate.py --no-cargo # 无 Rust 工具链时（不静默：显式）
   UNIFIED_RX_GATE_FORCE_FAIL=secrets …            # 自检：注入指定步骤失败（真门验证）
+  UNIFIED_RX_TIMING_GATES=1 …                     # 跑计时档（cli-bench / perf-gate）
 
 纪律：cargo 缺失默认 **FAIL 不静默**（红线是"pytest + cargo 双绿"，缺一不可；
 确需跳过请显式 --no-cargo）；每步输出失败尾部便于就地修复。
+
+**计时档（tier="timing"）为什么默认跳过**（2026-09-24 实测三次）：这两步测的是耗时，而钩子档前几步
+（pytest / cargo test / clippy）刚把机器压满 ⇒ 随后测计时必红：cli-bench 报 `sys_devices` 相对整批 1.64×，
+**同一份输出里它自己算出的机器因子却是 0.81×**（= 全机变慢，不是被测命令变慢），重跑即绿。
+本仓纪律本就是"性能类门要机器级独占"（`perf_lock.py`）⇒ 默认 **显式 SKIP**（不静默、也不算双绿），
+要跑就设 `UNIFIED_RX_TIMING_GATES=1`（拿独占锁时），CI 那边逐条显式调用、不受本表档位影响 ⇒ 覆盖不丢。
+`cli-bench` 原本一步混了"输出金标准 + 计时"，已拆成 `cli-golden`（纯比对，永远跑）+ `cli-bench`（计时）。
 """
 import json
 import os
@@ -41,9 +49,12 @@ STEPS = [
     ("audit-freshness", [PY, "-X", "utf8", "scripts/audit_ledger.py"], "fast", "审计时效/账本对账"),
     ("toolface",    [PY, "-X", "utf8", "scripts/toolface_budget.py"], "fast", "工具面体量软帽"),
     ("tool-evals",  [PY, "-X", "utf8", "bench/tool_evals.py", "--check"], "fast", "任务级评测基线"),
-    ("cli-bench",   [PY, "-X", "utf8", "bench/cli_bench.py", "--check-golden",
-                     "--check"], "fast", "命令行：输出金标准 + 计时（不变质量）"),
-    ("perf-gate",   [PY, "-X", "utf8", "scripts/perf_gate.py"], "fast", "性能门：并行/串行比值"),
+    ("cli-golden",  [PY, "-X", "utf8", "bench/cli_bench.py", "--check-golden"], "fast",
+     "命令行输出金标准（不变质量；纯比对，与机器负载无关）"),
+    ("cli-bench",   [PY, "-X", "utf8", "bench/cli_bench.py", "--check"], "timing",
+     "命令行计时（需独占机器：UNIFIED_RX_TIMING_GATES=1）"),
+    ("perf-gate",   [PY, "-X", "utf8", "scripts/perf_gate.py"], "timing",
+     "性能门：并行/串行比值（需独占机器：UNIFIED_RX_TIMING_GATES=1）"),
     ("mcp-surface", [PY, "-X", "utf8", "scripts/mcp_surface_gate.py"], "fast", "协议面门：真握手契约"),
     ("model-fit",   [PY, "-X", "utf8", "scripts/model_fit_gate.py"], "fast", "模型适配门（弱模型模拟 + 回包预算）"),
     ("selftest",    [PY, "-X", "utf8", "scripts/ci_gate.py"], "fast", "对账硬门（SCHEMA/EXE/VERSION）"),
@@ -82,6 +93,7 @@ def _run_step(name, argv, force_fail=None):
 def main(argv):
     want_fast = "--fast" in argv
     no_cargo = "--no-cargo" in argv
+    timing_ok = os.environ.get("UNIFIED_RX_TIMING_GATES") == "1"
     if "--list" in argv:
         for n, _a, tier, why in STEPS:
             print(f"{tier:4s} {n:12s} {why}")
@@ -91,8 +103,14 @@ def main(argv):
         if a == "--only" and i + 1 < len(argv):
             only = {s.strip() for s in argv[i + 1].split(",") if s.strip()}
     force_fail = os.environ.get("UNIFIED_RX_GATE_FORCE_FAIL")
-    rows, failed = [], []
+    rows, failed, skipped = [], [], []
     for name, cmd, tier, why in STEPS:
+        # 计时档判定要在 `--fast` 档位过滤**之前**：否则被档位静默吃掉，`skipped` 里看不到
+        # （实测：首版顺序反了，快档跑完 skipped=[] ⇒ 等于静默跳过）。
+        if tier == "timing" and not timing_ok:
+            print(f"SKIP {name:12s} 计时档：需独占机器（设 UNIFIED_RX_TIMING_GATES=1，或交给 CI）")
+            skipped.append(name)
+            continue
         if want_fast and tier != "fast":
             continue
         if only is not None and name not in only:
@@ -124,7 +142,7 @@ def main(argv):
             print("  " + "\n  ".join(tail))
     total = sum(r[2] for r in rows)
     print(f"LOCAL-GATE {'OK' if not failed else 'FAIL'} steps={len(rows)} "
-          f"failed={failed} total={total:.1f}s")
+          f"skipped={skipped or '[]'} failed={failed} total={total:.1f}s")
     if failed:
         sys.exit(1)
     return 0
