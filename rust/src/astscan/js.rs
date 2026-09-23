@@ -34,7 +34,9 @@ pub(crate) fn mask_js(src: &str) -> (Vec<char>, usize, usize, usize) {
     let mut out = cs.clone();
     let (mut strings, mut templates, mut comments) = (0usize, 0usize, 0usize);
     struct Tpl {
-        pub(crate) brace: usize,        pub(crate) in_code: bool,    }
+    
+    pub(crate) brace: usize,    
+    pub(crate) in_code: bool,    }
     let mut stack: Vec<Tpl> = Vec::new();
     let mut i = 0usize;
     while i < n {

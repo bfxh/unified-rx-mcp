@@ -7,7 +7,11 @@ use super::*;
 /// 在主遍历开始前即有种子；函数体内的顺序绑定由主遍历按序处理（局部互递归是
 /// 文档化边界，见 spec/CALLGRAPH.md）。
 pub(crate) struct PreScan {
-    pub(crate) module: HashMap<String, (usize, &'static str)>,    pub(crate) classes: HashMap<String, HashMap<String, (usize, &'static str)>>,    pub(crate) imports: Vec<ImportFact>,    pub(crate) star: bool,}
+
+    pub(crate) module: HashMap<String, (usize, &'static str)>,
+    pub(crate) classes: HashMap<String, HashMap<String, (usize, &'static str)>>,
+    pub(crate) imports: Vec<ImportFact>,
+    pub(crate) star: bool,}
 
 pub(crate) fn table_bind(ps: &mut PreScan, level: &str, name: &str, line: usize, kind: &'static str) {
     if name.is_empty() {

@@ -190,9 +190,9 @@
   "max_type_members": 0
  },
  "rust/src/astscan/js.rs": {
-  "file_lines": 273,
-  "max_fn_lines": 104,
-  "max_type_members": 1
+  "file_lines": 275,
+  "max_fn_lines": 106,
+  "max_type_members": 2
  },
  "rust/src/astscan/py.rs": {
   "file_lines": 405,
@@ -200,12 +200,12 @@
   "max_type_members": 0
  },
  "rust/src/astscan/rust.rs": {
-  "file_lines": 400,
+  "file_lines": 404,
   "max_fn_lines": 112,
   "max_type_members": 0
  },
  "rust/src/astscan/rust_reach.rs": {
-  "file_lines": 196,
+  "file_lines": 202,
   "max_fn_lines": 82,
   "max_type_members": 0
  },
@@ -320,17 +320,17 @@
   "max_type_members": 0
  },
  "rust/src/nameres/callgraph.rs": {
-  "file_lines": 191,
+  "file_lines": 197,
   "max_fn_lines": 153,
   "max_type_members": 0
  },
  "rust/src/nameres/files.rs": {
-  "file_lines": 300,
+  "file_lines": 304,
   "max_fn_lines": 51,
   "max_type_members": 0
  },
  "rust/src/nameres/prescan.rs": {
-  "file_lines": 172,
+  "file_lines": 176,
   "max_fn_lines": 1,
   "max_type_members": 0
  },

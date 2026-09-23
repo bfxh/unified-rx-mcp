@@ -53,7 +53,11 @@ pub(crate) fn line_has_fn_def(ln: &str, name: &str) -> bool {
 }
 
 pub(crate) struct RustDef {
-    pub(crate) name: String,    pub(crate) file: String,    pub(crate) line: usize,    pub(crate) test: bool,}
+
+    pub(crate) name: String,
+    pub(crate) file: String,
+    pub(crate) line: usize,
+    pub(crate) test: bool,}
 
 pub(crate) fn rust_defs_and_refs(masked: &[char], fp: &str, is_test_file: bool) -> (Vec<RustDef>, Vec<(String, i128, i128)>) {
     let text: String = masked.iter().collect();
@@ -142,7 +146,9 @@ pub(crate) fn rust_defs_and_refs(masked: &[char], fp: &str, is_test_file: bool) 
 pub(crate) type FnReach = (String, Vec<(String, usize, &'static str)>);
 
 pub(crate) struct ReachResult {
-    pub(crate) lmap: Vec<FnReach>,    pub(crate) helpers: Vec<Value>,}
+
+    pub(crate) lmap: Vec<FnReach>,
+    pub(crate) helpers: Vec<Value>,}
 
 pub(crate) fn rust_reach(rs_sources: &[(String, String, bool)]) -> ReachResult {
     let mut all_defs: Vec<RustDef> = Vec::new();

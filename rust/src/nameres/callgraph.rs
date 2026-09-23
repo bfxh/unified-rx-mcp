@@ -162,7 +162,13 @@ pub fn callgraph_dir(root: &Path, max_files: usize) -> Value {
 /// S157：阶段 2 单文件结果（合并顺序 = 文件序）。
 #[derive(Default)]
 pub(crate) struct Phase2Out {
-    pub(crate) nodes: Vec<Value>,    pub(crate) calls: Vec<Value>,    pub(crate) unresolved: Vec<Value>,    pub(crate) deferred: Vec<Value>,    pub(crate) n_calls: usize,    pub(crate) n_builtin_calls: usize,}
+
+    pub(crate) nodes: Vec<Value>,
+    pub(crate) calls: Vec<Value>,
+    pub(crate) unresolved: Vec<Value>,
+    pub(crate) deferred: Vec<Value>,
+    pub(crate) n_calls: usize,
+    pub(crate) n_builtin_calls: usize,}
 
 /// S157：阶段 2 单文件主遍历（原循环体逐字搬入；含绑定表放回）。
 pub(crate) fn phase2_one(f: &mut CgPre) -> Phase2Out {

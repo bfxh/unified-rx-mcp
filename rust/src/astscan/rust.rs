@@ -268,7 +268,11 @@ pub(crate) fn panic_call_finditer(ln: &str) -> Vec<(String, String)> {
 }
 
 pub(crate) struct RustMeta {
-    pub(crate) fn_count: usize,    pub(crate) unsafe_count: usize,    pub(crate) risky: Vec<Value>,    pub(crate) fns: Vec<String>,}
+
+    pub(crate) fn_count: usize,
+    pub(crate) unsafe_count: usize,
+    pub(crate) risky: Vec<Value>,
+    pub(crate) fns: Vec<String>,}
 
 pub(crate) fn scan_rust_struct(masked: &[char], fp: &str) -> (Vec<Value>, RustMeta) {
     let text: String = masked.iter().collect();

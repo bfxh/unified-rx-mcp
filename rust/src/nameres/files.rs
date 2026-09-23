@@ -113,7 +113,11 @@ pub(crate) fn pkg_of(modname: &str) -> String {
 }
 
 pub(crate) struct FileRes {
-    pub(crate) rel: String,    pub(crate) modname: String,    pub(crate) bindings: HashMap<String, (usize, &'static str)>,    pub(crate) imports: Vec<ImportFact>,}
+
+    pub(crate) rel: String,
+    pub(crate) modname: String,
+    pub(crate) bindings: HashMap<String, (usize, &'static str)>,
+    pub(crate) imports: Vec<ImportFact>,}
 
 pub(crate) fn analyze_file(root: &Path, p: &Path) -> Option<FileRes> {
     let rel = match p.strip_prefix(root) {
