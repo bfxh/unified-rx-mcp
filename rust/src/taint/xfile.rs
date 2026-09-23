@@ -73,6 +73,95 @@ pub(crate) fn callgraph_targets(root: &Path) -> HashMap<(String, usize), Vec<Str
 /// - 净化跨界：实参表达式被 SANITIZERS 包裹时 expr_taint 返回 None（净化区），
 ///   seed 自然不产生——callee 内部再净化同理挡在 pass3；
 /// - 环安全：轮次上限 + 只升级语义，互递归/自递归天然收敛。
+pub(crate) fn collect_seeds(units: &[Analyzer], targets: &HashMap<(String, usize), Vec<String>>, index: &HashMap<String, Vec<(usize, usize)>>, callers_of: &mut HashMap<usize, Vec<usize>>, active: &[usize]) -> Vec<(usize, usize, String, TSrc)> {
+    let mut seeds: Vec<(usize, usize, String, TSrc)> = Vec::new();
+    for &ui in active {
+        let mut local: Vec<(usize, usize, String, TSrc)> = Vec::new();
+        {
+            let a = &units[ui];
+            for call in &a.calls {
+                // S154：热循环去克隆（每轮 × 每调用一次分配）——逻辑与取值不变
+                let textual = call.callee.rsplit('.').next().unwrap_or("");
+                if textual.is_empty() || SANITIZERS.contains(&textual) {
+                    continue;
+                }
+                // S128：调用图解析结果优先（含别名/相对导入/模块属性调用），
+                // 无解析则回退文本名——同名多义由消费侧唯一性纪律兜底
+                let base: &str = match targets.get(&(a.file.clone(), call.line)) {
+                    Some(v) if v.len() == 1 => v[0].as_str(),
+                    Some(_) => continue, // 同一行多调用多目标：不猜
+                    None => textual,
+                };
+                if SANITIZERS.contains(&base) {
+                    continue;
+                }
+                let Some(cands) = index.get(base) else { continue };
+                if cands.len() != 1 {
+                    continue; // 多义：如实不猜
+                }
+                let (tu, tsid) = cands[0];
+                if tu == ui {
+                    continue; // 同文件已由 pass2 处理
+                }
+                // S155：记录"被调方 → 调用方"边（下一轮候选集用）
+                let e = callers_of.entry(tu).or_default();
+                if !e.contains(&ui) {
+                    e.push(ui);
+                }
+                let tparams = units[tu].scopes[tsid].params.clone();
+                let tname = units[tu].scopes[tsid].name.clone();
+                let tfile = units[tu].file.clone();
+                let ret_t = units[tu].scopes[tsid].ret_tainted;
+                let t_entry = units[tu].scopes[tsid].entry;
+                for (ai, arg) in call.args.iter().enumerate() {
+                    if let Some(hit) = a.expr_taint(call.scope, arg.start, arg.end) {
+                        let pname = match &arg.kw {
+                            Some(kw) => Some(kw.clone()),
+                            None => tparams.get(ai).cloned(),
+                        };
+                        if let Some(p) = pname {
+                            let head = chain_head(&a.file, &hit);
+                            let origin = chain_push(&head, &tfile, &tname, &p);
+                            local.push((tu, tsid, p, TSrc {
+                                line: hit.line, kind: hit.kind, interproc: true,
+                                definite: hit.definite, origin: Some(origin),
+                            }));
+                        }
+                    }
+                }
+                if ret_t {
+                    // 污染返回值跨界：调用点 lhs 标污。来源优先取被调函数
+                    // 第一条污染 return 的真实 Hit（kind=env/argv… 比"ret"更真）
+                    let rsrc: Option<Hit> = units[tu].scopes[tsid].rets.iter()
+                        .find_map(|(s, e, _)| units[tu].expr_taint(tsid, *s, *e));
+                    for t in &call.lhs {
+                        let (kind, line, def, origin) = match &rsrc {
+                            Some(h) => {
+                                let head = chain_head(&tfile, h);
+                                let o = chain_push(&head, &tfile, &tname, "<ret>");
+                                (h.kind.clone(), h.line, h.definite || t_entry, Some(o))
+                            }
+                            None => {
+                                let head = chain_head(&a.file, &Hit {
+                                    var: t.clone(), line: call.line, kind: "ret".into(),
+                                    interproc: true, definite: t_entry, origin: None,
+                                });
+                                let o = chain_push(&head, &tfile, &tname, "<ret>");
+                                ("ret".into(), call.line, t_entry, Some(o))
+                            }
+                        };
+                        local.push((ui, call.scope, t.clone(), TSrc {
+                            line, kind, interproc: true, definite: def, origin,
+                        }));
+                    }
+                }
+            }
+        }
+        seeds.extend(local);
+    }
+seeds
+}
+
 pub(crate) fn cross_file_propagate(
     units: &mut [Analyzer],
     targets: &HashMap<(String, usize), Vec<String>>,
@@ -100,91 +189,7 @@ pub(crate) fn cross_file_propagate(
     let mut round = 0usize;
     while round < 4 && !active.is_empty() {
         round += 1;
-        let mut seeds: Vec<(usize, usize, String, TSrc)> = Vec::new();
-        for &ui in &active {
-            let mut local: Vec<(usize, usize, String, TSrc)> = Vec::new();
-            {
-                let a = &units[ui];
-                for call in &a.calls {
-                    // S154：热循环去克隆（每轮 × 每调用一次分配）——逻辑与取值不变
-                    let textual = call.callee.rsplit('.').next().unwrap_or("");
-                    if textual.is_empty() || SANITIZERS.contains(&textual) {
-                        continue;
-                    }
-                    // S128：调用图解析结果优先（含别名/相对导入/模块属性调用），
-                    // 无解析则回退文本名——同名多义由消费侧唯一性纪律兜底
-                    let base: &str = match targets.get(&(a.file.clone(), call.line)) {
-                        Some(v) if v.len() == 1 => v[0].as_str(),
-                        Some(_) => continue, // 同一行多调用多目标：不猜
-                        None => textual,
-                    };
-                    if SANITIZERS.contains(&base) {
-                        continue;
-                    }
-                    let Some(cands) = index.get(base) else { continue };
-                    if cands.len() != 1 {
-                        continue; // 多义：如实不猜
-                    }
-                    let (tu, tsid) = cands[0];
-                    if tu == ui {
-                        continue; // 同文件已由 pass2 处理
-                    }
-                    // S155：记录"被调方 → 调用方"边（下一轮候选集用）
-                    let e = callers_of.entry(tu).or_default();
-                    if !e.contains(&ui) {
-                        e.push(ui);
-                    }
-                    let tparams = units[tu].scopes[tsid].params.clone();
-                    let tname = units[tu].scopes[tsid].name.clone();
-                    let tfile = units[tu].file.clone();
-                    let ret_t = units[tu].scopes[tsid].ret_tainted;
-                    let t_entry = units[tu].scopes[tsid].entry;
-                    for (ai, arg) in call.args.iter().enumerate() {
-                        if let Some(hit) = a.expr_taint(call.scope, arg.start, arg.end) {
-                            let pname = match &arg.kw {
-                                Some(kw) => Some(kw.clone()),
-                                None => tparams.get(ai).cloned(),
-                            };
-                            if let Some(p) = pname {
-                                let head = chain_head(&a.file, &hit);
-                                let origin = chain_push(&head, &tfile, &tname, &p);
-                                local.push((tu, tsid, p, TSrc {
-                                    line: hit.line, kind: hit.kind, interproc: true,
-                                    definite: hit.definite, origin: Some(origin),
-                                }));
-                            }
-                        }
-                    }
-                    if ret_t {
-                        // 污染返回值跨界：调用点 lhs 标污。来源优先取被调函数
-                        // 第一条污染 return 的真实 Hit（kind=env/argv… 比"ret"更真）
-                        let rsrc: Option<Hit> = units[tu].scopes[tsid].rets.iter()
-                            .find_map(|(s, e, _)| units[tu].expr_taint(tsid, *s, *e));
-                        for t in &call.lhs {
-                            let (kind, line, def, origin) = match &rsrc {
-                                Some(h) => {
-                                    let head = chain_head(&tfile, h);
-                                    let o = chain_push(&head, &tfile, &tname, "<ret>");
-                                    (h.kind.clone(), h.line, h.definite || t_entry, Some(o))
-                                }
-                                None => {
-                                    let head = chain_head(&a.file, &Hit {
-                                        var: t.clone(), line: call.line, kind: "ret".into(),
-                                        interproc: true, definite: t_entry, origin: None,
-                                    });
-                                    let o = chain_push(&head, &tfile, &tname, "<ret>");
-                                    ("ret".into(), call.line, t_entry, Some(o))
-                                }
-                            };
-                            local.push((ui, call.scope, t.clone(), TSrc {
-                                line, kind, interproc: true, definite: def, origin,
-                            }));
-                        }
-                    }
-                }
-            }
-            seeds.extend(local);
-        }
+        let seeds = collect_seeds(units, targets, &index, &mut callers_of, &active);
         if seeds.is_empty() {
             break;
         }
