@@ -3,6 +3,85 @@ use super::*;
 
 /// 词法器：字符流 → 令牌流。缩进只在括号深度 0 时生效；反斜杠续行跳过；
 /// f-string 的 {expr} 内层发普通令牌（污点可见），:spec / !conv 跳过。
+fn lex_one(cs: &[char], mut i: usize, mut line: usize, mut depth: usize, mut at_bol: bool, out: &mut Vec<Tok>) -> (usize, usize, usize, bool) {
+    let c = cs[i];
+    match c {
+        '\r' => i += 1,
+        '\n' => {
+            line += 1;
+            i += 1;
+            if depth == 0 {
+                out.push(Tok { tk: Tk::Newline, line });
+                at_bol = true;
+            }
+        }
+        '\\' if i + 1 < cs.len() && cs[i + 1] == '\n' => {
+            i += 2;
+            line += 1;
+        }
+        ' ' | '\t' => i += 1,
+        '#' => {
+            while i < cs.len() && cs[i] != '\n' {
+                i += 1;
+            }
+        }
+        '\'' | '"' => {
+            let (ni, nl) = lex_string(cs, i, out, line, false, false);
+            i = ni;
+            line = nl;
+        }
+        c if c.is_ascii_alphabetic() || c == '_' => {
+            let start = i;
+            while i < cs.len() && (cs[i].is_ascii_alphanumeric() || cs[i] == '_') {
+                i += 1;
+            }
+            let word: String = cs[start..i].iter().collect();
+            // 字符串前缀：r/b/u/f 的非空组合且紧跟引号
+            if i < cs.len()
+                && (cs[i] == '\'' || cs[i] == '"')
+                && !word.is_empty()
+                && word.chars().all(|ch| matches!(ch, 'r'|'R'|'b'|'B'|'u'|'U'|'f'|'F'))
+            {
+                let is_raw = word.contains('r') || word.contains('R');
+                let is_f = word.contains('f') || word.contains('F');
+                let (ni, nl) = lex_string(cs, i, out, line, is_raw, is_f);
+                i = ni;
+                line = nl;
+            } else {
+                out.push(Tok { tk: Tk::Id(word), line });
+            }
+        }
+        c if c.is_ascii_digit() => {
+            while i < cs.len()
+                && (cs[i].is_ascii_alphanumeric() || cs[i] == '.' || cs[i] == '_')
+            {
+                i += 1;
+            }
+            out.push(Tok { tk: Tk::Num, line });
+        }
+        _ => {
+            let three: String = cs[i..(i + 3).min(cs.len())].iter().collect();
+            let two: String = cs[i..(i + 2).min(cs.len())].iter().collect();
+            if cs.len() - i >= 3 && OP3.contains(&three.as_str()) {
+                out.push(Tok { tk: Tk::Op(three), line });
+                i += 3;
+            } else if cs.len() - i >= 2 && OP2.contains(&two.as_str()) {
+                out.push(Tok { tk: Tk::Op(two), line });
+                i += 2;
+            } else {
+                if is_opener(&c.to_string()) {
+                    depth += 1;
+                } else if is_closer(&c.to_string()) && depth > 0 {
+                    depth -= 1;
+                }
+                out.push(Tok { tk: Tk::Op(c.to_string()), line });
+                i += 1;
+            }
+        }
+    }
+(i, line, depth, at_bol)
+}
+
 pub(crate) fn lex(src: &str) -> Vec<Tok> {
     let cs: Vec<char> = src.chars().collect();
     let mut out: Vec<Tok> = Vec::new();
@@ -44,81 +123,11 @@ pub(crate) fn lex(src: &str) -> Vec<Tok> {
             continue;
         }
 
-        let c = cs[i];
-        match c {
-            '\r' => i += 1,
-            '\n' => {
-                line += 1;
-                i += 1;
-                if depth == 0 {
-                    out.push(Tok { tk: Tk::Newline, line });
-                    at_bol = true;
-                }
-            }
-            '\\' if i + 1 < cs.len() && cs[i + 1] == '\n' => {
-                i += 2;
-                line += 1;
-            }
-            ' ' | '\t' => i += 1,
-            '#' => {
-                while i < cs.len() && cs[i] != '\n' {
-                    i += 1;
-                }
-            }
-            '\'' | '"' => {
-                let (ni, nl) = lex_string(&cs, i, &mut out, line, false, false);
+        let (ni, nl, nd, nb) = lex_one(&cs, i, line, depth, at_bol, &mut out);
                 i = ni;
                 line = nl;
-            }
-            c if c.is_ascii_alphabetic() || c == '_' => {
-                let start = i;
-                while i < cs.len() && (cs[i].is_ascii_alphanumeric() || cs[i] == '_') {
-                    i += 1;
-                }
-                let word: String = cs[start..i].iter().collect();
-                // 字符串前缀：r/b/u/f 的非空组合且紧跟引号
-                if i < cs.len()
-                    && (cs[i] == '\'' || cs[i] == '"')
-                    && !word.is_empty()
-                    && word.chars().all(|ch| matches!(ch, 'r'|'R'|'b'|'B'|'u'|'U'|'f'|'F'))
-                {
-                    let is_raw = word.contains('r') || word.contains('R');
-                    let is_f = word.contains('f') || word.contains('F');
-                    let (ni, nl) = lex_string(&cs, i, &mut out, line, is_raw, is_f);
-                    i = ni;
-                    line = nl;
-                } else {
-                    out.push(Tok { tk: Tk::Id(word), line });
-                }
-            }
-            c if c.is_ascii_digit() => {
-                while i < cs.len()
-                    && (cs[i].is_ascii_alphanumeric() || cs[i] == '.' || cs[i] == '_')
-                {
-                    i += 1;
-                }
-                out.push(Tok { tk: Tk::Num, line });
-            }
-            _ => {
-                let three: String = cs[i..(i + 3).min(cs.len())].iter().collect();
-                let two: String = cs[i..(i + 2).min(cs.len())].iter().collect();
-                if cs.len() - i >= 3 && OP3.contains(&three.as_str()) {
-                    out.push(Tok { tk: Tk::Op(three), line });
-                    i += 3;
-                } else if cs.len() - i >= 2 && OP2.contains(&two.as_str()) {
-                    out.push(Tok { tk: Tk::Op(two), line });
-                    i += 2;
-                } else {
-                    if is_opener(&c.to_string()) {
-                        depth += 1;
-                    } else if is_closer(&c.to_string()) && depth > 0 {
-                        depth -= 1;
-                    }
-                    out.push(Tok { tk: Tk::Op(c.to_string()), line });
-                    i += 1;
-                }
-            }
-        }
+                depth = nd;
+                at_bol = nb;
     }
     while indents.len() > 1 {
         indents.pop();

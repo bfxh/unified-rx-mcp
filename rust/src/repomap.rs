@@ -62,21 +62,7 @@ fn focused(focus_lc: &[String], rel_lc: &str, full_lc: &str) -> bool {
 }
 
 /// 主入口。root 已由调用方过沙盒；focus 为路径片段（大小写不敏感、后缀匹配）。
-pub fn repo_map(
-    root: &Path,
-    focus: &[String],
-    budget_tokens: usize,
-    max_files: i64,
-) -> Result<Value, String> {
-    if !root.is_dir() {
-        return Ok(err_obj(&format!("不是目录: {}", root.display())));
-    }
-    let focus_lc: Vec<String> =
-        focus.iter().map(|f| f.replace('\\', "/").to_lowercase()).collect();
-    // S102 补记：max_files 按遍历序截断时，focus 文件可能被大目录（如
-    // bench/manual_snaps）挤掉——先以更大的"发现上限"走全仓，把 focus 命中的
-    // 文件提到队首再截断（读取/解析仍只对入选的 max_files 个文件做）；
-    // 无 focus 时保持原遍历序语义。
+fn select_files(root: &Path, focus_lc: &[String], max_files: i64) -> Vec<String> {
     let walk_cap = max_files.saturating_mul(4).max(2000);
     let all = iter_files_ide(root, walk_cap);
     let mut files: Vec<String> = Vec::new();
@@ -87,18 +73,21 @@ pub fn repo_map(
             let p = Path::new(fp);
             let rel_lc = rel_of(root, p).to_lowercase();
             let full_lc = fp.to_lowercase();
-            focused(&focus_lc, &rel_lc, &full_lc)
+            focused(focus_lc, &rel_lc, &full_lc)
         });
         files.extend(hot);
         files.extend(cold);
         files.truncate(max_files.max(0) as usize);
     }
 
-    // ---- 读文件 + 提取定义 ----
+files
+}
+
+fn read_defs(root: &Path, files: &[String]) -> (Vec<Def>, Vec<String>, Vec<Vec<String>>) {
     let mut defs: Vec<Def> = Vec::new();
     let mut file_rel: Vec<String> = Vec::new();
     let mut file_lines: Vec<Vec<String>> = Vec::new();
-    for fp in &files {
+    for fp in files {
         let p = Path::new(fp);
         let lang = ide_lang_of(fp);
         let text = match crate::rcache::read(p) {
@@ -116,9 +105,10 @@ pub fn repo_map(
         file_rel.push(rel_of(root, p));
         file_lines.push(lines);
     }
-    let n_files = file_lines.len();
+(defs, file_rel, file_lines)
+}
 
-    // ---- 引用扫描：file → def 边（按出现次数加权）----
+fn ref_edges(defs: &[Def], file_lines: &[Vec<String>], n_files: usize) -> Vec<Vec<(usize, f64)>> {
     let mut by_name: HashMap<&str, Vec<usize>> = HashMap::new();
     for (di, d) in defs.iter().enumerate() {
         by_name.entry(d.name.as_str()).or_default().push(di);
@@ -141,22 +131,15 @@ pub fn repo_map(
         out_edges[fi] = counts.into_iter().collect();
     }
 
-    // ---- 图：节点 0..n_files = 文件，n_files..n_files+defs = 定义 ----
-    let n_nodes = n_files + defs.len();
-    let mut out: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n_nodes];
-    out[..n_files].clone_from_slice(&out_edges);
-    // 包含边 file → 自己的每个 def（权重 1）：让"聚焦文件"的权重能流到
-    // 它的定义上（aider 的 scope 边对位；没有它，未被引用的聚焦定义拿不到分）
-    for (di, d) in defs.iter().enumerate() {
-        out[d.file].push((n_files + di, 1.0));
-        out[n_files + di] = vec![(d.file, 1.0)];
-    }
-    // 个人化向量：均匀 1；聚焦文件的文件节点与其全部定义 ×50（aider 同款偏置）
+out_edges
+}
+
+fn personalization(n_nodes: usize, n_files: usize, defs: &[Def], file_rel: &[String], files: &[String], focus_lc: &[String]) -> Vec<f64> {
     let mut pers = vec![1.0f64; n_nodes];
     for fi in 0..n_files {
         let rel_lc = file_rel[fi].to_lowercase();
         let full_lc = Path::new(&files[fi]).to_string_lossy().to_lowercase();
-        if focused(&focus_lc, &rel_lc, &full_lc) {
+        if focused(focus_lc, &rel_lc, &full_lc) {
             pers[fi] *= FOCUS_WEIGHT;
             for (di, d) in defs.iter().enumerate() {
                 if d.file == fi {
@@ -172,8 +155,11 @@ pub fn repo_map(
         }
     }
 
-    // ---- 幂迭代 PageRank（含悬挂节点重分配）----
-    let mut rank = pers.clone();
+pers
+}
+
+fn pagerank(out: &[Vec<(usize, f64)>], pers: &[f64], n_nodes: usize) -> Vec<f64> {
+    let mut rank = pers.to_vec();
     let out_sum: Vec<f64> = out.iter().map(|e| e.iter().map(|(_, w)| w).sum()).collect();
     for _ in 0..ITERATIONS {
         let mut next = vec![0.0f64; n_nodes];
@@ -198,15 +184,16 @@ pub fn repo_map(
         }
     }
 
-    // ---- 排序 + 预算裁剪渲染 ----
-    // S102 补记：仅靠遥传（teleport）偏置，在"内部互引密集的大文件簇"
-    // （如快照语料）面前会被图结构淹没——最终排名再乘聚焦系数（可预测）。
+rank
+}
+
+fn rank_order(defs: &[Def], file_rel: &[String], files: &[String], focus_lc: &[String], rank: &[f64], n_files: usize) -> Vec<usize> {
     let mut order: Vec<usize> = (0..defs.len()).collect();
     let key = |di: usize| -> f64 {
         let d = &defs[di];
         let rel_lc = file_rel[d.file].to_lowercase();
         let full_lc = Path::new(&files[d.file]).to_string_lossy().to_lowercase();
-        let boost = if focused(&focus_lc, &rel_lc, &full_lc) { FOCUS_BOOST } else { 1.0 };
+        let boost = if focused(focus_lc, &rel_lc, &full_lc) { FOCUS_BOOST } else { 1.0 };
         rank[n_files + di] * boost
     };
     order.sort_by(|&a, &b| {
@@ -218,6 +205,49 @@ pub fn repo_map(
             .then_with(|| defs[a].name.cmp(&defs[b].name))
     });
 
+order
+}
+
+pub fn repo_map(
+    root: &Path,
+    focus: &[String],
+    budget_tokens: usize,
+    max_files: i64,
+) -> Result<Value, String> {
+    if !root.is_dir() {
+        return Ok(err_obj(&format!("不是目录: {}", root.display())));
+    }
+    let focus_lc: Vec<String> =
+        focus.iter().map(|f| f.replace('\\', "/").to_lowercase()).collect();
+    // S102 补记：max_files 按遍历序截断时，focus 文件可能被大目录（如
+    // bench/manual_snaps）挤掉——先以更大的"发现上限"走全仓，把 focus 命中的
+    // 文件提到队首再截断（读取/解析仍只对入选的 max_files 个文件做）；
+    // 无 focus 时保持原遍历序语义。
+    let files = select_files(root, &focus_lc, max_files);
+    // ---- 读文件 + 提取定义 ----
+    let (defs, file_rel, file_lines) = read_defs(root, &files);
+    let n_files = file_lines.len();
+
+    // ---- 引用扫描：file → def 边（按出现次数加权）----
+    let out_edges = ref_edges(&defs, &file_lines, n_files);
+    // ---- 图：节点 0..n_files = 文件，n_files..n_files+defs = 定义 ----
+    let n_nodes = n_files + defs.len();
+    let mut out: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n_nodes];
+    out[..n_files].clone_from_slice(&out_edges);
+    // 包含边 file → 自己的每个 def（权重 1）：让"聚焦文件"的权重能流到
+    // 它的定义上（aider 的 scope 边对位；没有它，未被引用的聚焦定义拿不到分）
+    for (di, d) in defs.iter().enumerate() {
+        out[d.file].push((n_files + di, 1.0));
+        out[n_files + di] = vec![(d.file, 1.0)];
+    }
+    // 个人化向量：均匀 1；聚焦文件的文件节点与其全部定义 ×50（aider 同款偏置）
+    let pers = personalization(n_nodes, n_files, &defs, &file_rel, &files, &focus_lc);
+    // ---- 幂迭代 PageRank（含悬挂节点重分配）----
+    let rank = pagerank(&out, &pers, n_nodes);
+    // ---- 排序 + 预算裁剪渲染 ----
+    // S102 补记：仅靠遥传（teleport）偏置，在"内部互引密集的大文件簇"
+    // （如快照语料）面前会被图结构淹没——最终排名再乘聚焦系数（可预测）。
+    let order = rank_order(&defs, &file_rel, &files, &focus_lc, &rank, n_files);
     let budget_chars = budget_tokens.max(1) * 4;
     let mut map = String::new();
     let mut shown = 0usize;
