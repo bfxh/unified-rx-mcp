@@ -3,6 +3,142 @@ use super::*;
 
 
 impl Resolver {
+    pub(crate) fn d_match(&mut self, n: &PyNode)  {
+            // Match children = [subject, match_case...]；
+            // match_case children = [pattern, guard?, body...]
+            for (i, c) in n.children.iter().enumerate() {
+                if i == 0 {
+                    self.expr(c);
+                } else if c.kind == "match_case" {
+                    if let Some(p) = c.children.first() {
+                        self.match_node(p);
+                    }
+                    for b in c.children.iter().skip(1) {
+                        if is_stmt(b.kind) {
+                            self.stmt(b);
+                        } else {
+                            self.expr(b); // guard 表达式
+                        }
+                    }
+                } else {
+                    self.match_node(c);
+                }
+            }
+    }
+}
+
+impl Resolver {
+    pub(crate) fn d_importfrom(&mut self, n: &PyNode)  {
+            for a in &n.children {
+                self.imports.push(ImportFact {
+                    line: a.line, level: n.aux, module: n.name.clone(),
+                    name: a.name.clone(), asname: a.name2.clone(), is_from: true,
+                });
+                if a.name == "*" {
+                    // 规则 8：star import 静态不可解，如实标记
+                    self.star_import = true;
+                    self.n_unresolved += 1;
+                    self.unresolved.push(Value::Obj(vec![
+                        ("line".into(), Value::Int(a.line as i128)),
+                        ("name".into(), Value::Str("*".into())),
+                        ("reason".into(), Value::Str("star_import".into())),
+                    ]));
+                } else {
+                    let bound = if a.name2.is_empty() { a.name.clone() } else { a.name2.clone() };
+                    self.bind(&bound, a.line, "import");
+                }
+            }
+    }
+}
+
+impl Resolver {
+    pub(crate) fn d_try(&mut self, n: &PyNode)  {
+            for c in &n.children {
+                if c.kind == "ExceptHandler" {
+                    if !c.name.is_empty() {
+                        let (name, line) = (c.name.clone(), c.line);
+                        self.bind(&name, line, "except");
+                    }
+                    for b in &c.children {
+                        self.stmt(b);
+                    }
+                } else if is_stmt(c.kind) {
+                    self.stmt(c);
+                } else {
+                    self.expr(c);
+                }
+            }
+    }
+}
+
+impl Resolver {
+    pub(crate) fn d_with(&mut self, n: &PyNode)  {
+            for c in &n.children {
+                if c.kind == "withitem" {
+                    if let Some(ctx) = c.children.first() {
+                        self.expr(ctx);
+                    }
+                    if let Some(t) = c.children.get(1) {
+                        self.bind_target(t, "with");
+                    }
+                } else if is_stmt(c.kind) {
+                    self.stmt(c);
+                } else {
+                    self.expr(c);
+                }
+            }
+    }
+}
+
+impl Resolver {
+    pub(crate) fn d_import(&mut self, n: &PyNode)  {
+            for a in &n.children {
+                let bound = if a.name2.is_empty() {
+                    a.name.split('.').next().unwrap_or("").to_string()
+                } else {
+                    a.name2.clone()
+                };
+                self.imports.push(ImportFact {
+                    line: a.line, level: 0, module: a.name.clone(),
+                    name: String::new(), asname: a.name2.clone(), is_from: false,
+                });
+                self.bind(&bound, a.line, "import");
+            }
+    }
+}
+
+impl Resolver {
+    pub(crate) fn d_augassign(&mut self, n: &PyNode)  {
+            if let Some(t) = n.children.first() {
+                // x += 1 既读又写：先按读取解析，再记绑定
+                if t.kind == "Name" {
+                    let (name, line) = (t.name.clone(), t.line);
+                    self.load(&name, line);
+                }
+                self.bind_target(t, "aug");
+            }
+            for c in n.children.iter().skip(1) {
+                self.expr(c);
+            }
+    }
+}
+
+impl Resolver {
+    pub(crate) fn d_global(&mut self, n: &PyNode)  {
+            let names = n.names.clone();
+            let g = n.kind == "Global";
+            let cur = self.cur();
+            for nm in names {
+                if g {
+                    cur.globals.insert(nm);
+                } else {
+                    cur.nonlocals.insert(nm);
+                }
+            }
+    }
+}
+
+impl Resolver {
     /// import 基名/名字 → 跨文件待定（stitch 阶段查模块索引）。
     /// attr 为空 = 名字调用（`f()`）；非空 = `m.f()` 形态的成员调用（记 base）。
     pub(crate) fn defer_import(&mut self, bound: &str, line: usize, caller: &str, attr: &str) {
@@ -159,53 +295,9 @@ impl Resolver {
         match n.kind {
             "FunctionDef" | "AsyncFunctionDef" => self.funcdef(n),
             "ClassDef" => self.classdef(n),
-            "Import" => {
-                for a in &n.children {
-                    let bound = if a.name2.is_empty() {
-                        a.name.split('.').next().unwrap_or("").to_string()
-                    } else {
-                        a.name2.clone()
-                    };
-                    self.imports.push(ImportFact {
-                        line: a.line, level: 0, module: a.name.clone(),
-                        name: String::new(), asname: a.name2.clone(), is_from: false,
-                    });
-                    self.bind(&bound, a.line, "import");
-                }
-            }
-            "ImportFrom" => {
-                for a in &n.children {
-                    self.imports.push(ImportFact {
-                        line: a.line, level: n.aux, module: n.name.clone(),
-                        name: a.name.clone(), asname: a.name2.clone(), is_from: true,
-                    });
-                    if a.name == "*" {
-                        // 规则 8：star import 静态不可解，如实标记
-                        self.star_import = true;
-                        self.n_unresolved += 1;
-                        self.unresolved.push(Value::Obj(vec![
-                            ("line".into(), Value::Int(a.line as i128)),
-                            ("name".into(), Value::Str("*".into())),
-                            ("reason".into(), Value::Str("star_import".into())),
-                        ]));
-                    } else {
-                        let bound = if a.name2.is_empty() { a.name.clone() } else { a.name2.clone() };
-                        self.bind(&bound, a.line, "import");
-                    }
-                }
-            }
-            "Global" | "Nonlocal" => {
-                let names = n.names.clone();
-                let g = n.kind == "Global";
-                let cur = self.cur();
-                for nm in names {
-                    if g {
-                        cur.globals.insert(nm);
-                    } else {
-                        cur.nonlocals.insert(nm);
-                    }
-                }
-            }
+        "Import" => self.d_import(n),
+        "ImportFrom" => self.d_importfrom(n),
+        "Global" | "Nonlocal" => self.d_global(n),
             "Assign" => {
                 let last = n.children.len().saturating_sub(1);
                 for (i, c) in n.children.iter().enumerate() {
@@ -224,19 +316,7 @@ impl Resolver {
                     self.expr(c);
                 }
             }
-            "AugAssign" => {
-                if let Some(t) = n.children.first() {
-                    // x += 1 既读又写：先按读取解析，再记绑定
-                    if t.kind == "Name" {
-                        let (name, line) = (t.name.clone(), t.line);
-                        self.load(&name, line);
-                    }
-                    self.bind_target(t, "aug");
-                }
-                for c in n.children.iter().skip(1) {
-                    self.expr(c);
-                }
-            }
+        "AugAssign" => self.d_augassign(n),
             "For" | "AsyncFor" => {
                 if let Some(t) = n.children.first() {
                     self.bind_target(t, "for");
@@ -249,61 +329,9 @@ impl Resolver {
                     }
                 }
             }
-            "With" | "AsyncWith" => {
-                for c in &n.children {
-                    if c.kind == "withitem" {
-                        if let Some(ctx) = c.children.first() {
-                            self.expr(ctx);
-                        }
-                        if let Some(t) = c.children.get(1) {
-                            self.bind_target(t, "with");
-                        }
-                    } else if is_stmt(c.kind) {
-                        self.stmt(c);
-                    } else {
-                        self.expr(c);
-                    }
-                }
-            }
-            "Try" | "TryStar" => {
-                for c in &n.children {
-                    if c.kind == "ExceptHandler" {
-                        if !c.name.is_empty() {
-                            let (name, line) = (c.name.clone(), c.line);
-                            self.bind(&name, line, "except");
-                        }
-                        for b in &c.children {
-                            self.stmt(b);
-                        }
-                    } else if is_stmt(c.kind) {
-                        self.stmt(c);
-                    } else {
-                        self.expr(c);
-                    }
-                }
-            }
-            "Match" => {
-                // Match children = [subject, match_case...]；
-                // match_case children = [pattern, guard?, body...]
-                for (i, c) in n.children.iter().enumerate() {
-                    if i == 0 {
-                        self.expr(c);
-                    } else if c.kind == "match_case" {
-                        if let Some(p) = c.children.first() {
-                            self.match_node(p);
-                        }
-                        for b in c.children.iter().skip(1) {
-                            if is_stmt(b.kind) {
-                                self.stmt(b);
-                            } else {
-                                self.expr(b); // guard 表达式
-                            }
-                        }
-                    } else {
-                        self.match_node(c);
-                    }
-                }
-            }
+        "With" | "AsyncWith" => self.d_with(n),
+        "Try" | "TryStar" => self.d_try(n),
+        "Match" => self.d_match(n),
             "Delete" => {
                 for c in &n.children {
                     self.expr(c);

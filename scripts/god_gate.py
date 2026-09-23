@@ -82,15 +82,39 @@ def py_metrics(src: str) -> list[tuple[str, int, str]]:
     return out
 
 
-def _mask(src: str) -> str:
+def _char_lit_len(src: str, i: int):
+    """`i` 指向 `'`：是字符/字节字面量则返回其长度（含引号），是**生命周期**则 None。
+
+    为什么值得单列（实测，S169）：老版把 `'` 一律当字符字面量起点、扫到下一个 `'` 为止，
+    于是 Rust 的 `&'static str` 会**吃掉中间一大段**（含花括号）⇒ 配平失真：bug/rust.rs 的
+    scan_rust 真实 307 行被报成 63 行，写入基线后变成"永不越线"的假绿，而拆出的
+    102 行 helper 又被报成 235 行变成假红。判据坏了，两侧都错。
+    """
+    n = len(src)
+    if i + 1 >= n:
+        return None
+    if src[i + 1] == "\\":                    # '\n' / '\'' / '\u{1F600}'
+        j = i + 2
+        while j < n and src[j] != "'":
+            if src[j] == "\n":
+                return None
+            j += 1
+        return (j - i + 1) if j < n else None
+    if i + 2 < n and src[i + 2] == "'":       # 'a' / '{' / b'{'
+        return 3
+    return None                               # 'a 生命周期 / 'static / '_
+
+
+def _mask(src: str, js: bool = False) -> str:
     """把字符串/字符字面量与注释替换成空格（**保留换行**），供花括号配平与声明识别用。
 
     为什么必须做（实测）：`format!("{}")`、`"{"` 这类字面量里的花括号会骗过朴素配平——
     首版把 parse.rs 的最长函数报成 **245 行**（真实 85 行），据此差点去拆一个不存在的巨函数。
-    Rust 的裸字符串（`r#"…"#`）与生命周期（`&'a`）会让本启发式偶有偏差，但方向是"宁可少报"。
+    `js=True`（JS/TS 家族）：`'…'` 是**字符串**（不是字符字面量），按字符串状态吃到闭合引号。
+    Rust：`'…'` 走字符字面量/生命周期判别（见 `_char_lit_len`）。
     """
     out: list[str] = []
-    i, n, state = 0, len(src), None          # None | line | block | str | char
+    i, n, state, close = 0, len(src), None, '"'   # None | line | block | str（close=闭合引号）
     while i < n:
         c = src[i]
         nxt = src[i + 1] if i + 1 < n else ""
@@ -103,10 +127,22 @@ def _mask(src: str) -> str:
                 state, out = "block", out + ["  "]
                 i += 2
                 continue
-            if c in ('"', "'"):
-                state = "str" if c == '"' else "char"
-                out.append(" ")
+            if c == '"':
+                state, out, close = "str", out + [" "], '"'
                 i += 1
+                continue
+            if c == "'":
+                if js:
+                    state, out, close = "str", out + [" "], "'"
+                    i += 1
+                    continue
+                ln = _char_lit_len(src, i)
+                if ln:                        # 真字符字面量：整体吃掉
+                    out.append(" " * ln)
+                    i += ln
+                else:                         # 生命周期：原样留下（不是字面量）
+                    out.append("'")
+                    i += 1
                 continue
             out.append(c)
             i += 1
@@ -129,7 +165,7 @@ def _mask(src: str) -> str:
             out.append("  ")
             i += 2
             continue
-        if (state == "str" and c == '"') or (state == "char" and c == "'"):
+        if state == "str" and c == close:
             out.append(" ")
             state = None
             i += 1
@@ -139,14 +175,14 @@ def _mask(src: str) -> str:
     return "".join(out)
 
 
-def brace_metrics(src: str) -> list[tuple[str, int, str]]:
+def brace_metrics(src: str, js: bool = False) -> list[tuple[str, int, str]]:
     """Rust/JS 启发式：正则找声明起点 + 花括号配平到闭合（先 `_mask` 掉字符串/注释再配平）。
 
     两类指标分开算，**别把行数当成员数**（首版就犯了这个错）：
       · fn  → 函数体行数；
       · type→ 深度 1 上的成员数（`fn` 行 + 字段声明行）。
     """
-    src = _mask(src)
+    src = _mask(src, js=js)
     out: list[tuple[str, int, str]] = []
     pat = re.compile(
         r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?(?:fn|function)\s+([A-Za-z_][A-Za-z0-9_]*)"
@@ -201,7 +237,7 @@ def scan(root: pathlib.Path, cfg: dict) -> dict:
             except OSError:
                 continue
             metrics = py_metrics(src) if fp.suffix in PY else (
-                brace_metrics(src) if fp.suffix in BRACE else [])
+                brace_metrics(src, js=fp.suffix != ".rs") if fp.suffix in BRACE else [])
             fns = [m for m in metrics if m[2] == "fn"]
             types = [m for m in metrics if m[2] == "type"]
             files[rel] = {
@@ -215,7 +251,15 @@ def scan(root: pathlib.Path, cfg: dict) -> dict:
 
 
 def evaluate(files: dict, base: dict, cfg: dict) -> tuple[list[str], list[str], list[str]]:
+    """红/放行/可收紧三类。
+
+    **拆函数放行**（S169）：把长函数拆成 helper 必然让**文件行数**变大。若 file_lines 涨、
+    但同一文件的 max_fn_lines **严格下降**、且涨幅在 `file_growth_with_fn_shrink_pct` 以内，
+    判为"合法交换"（进 grew，逐条打印）——否则棘轮会把正确的重构判红，逼人去关掉门。
+    净效果仍是只准变好：函数没变短就别想涨行数。
+    """
     bad, grew, shrank = [], [], []
+    pct = cfg.get("file_growth_with_fn_shrink_pct", 10)
     for rel, m in sorted(files.items()):
         b = base.get(rel)
         for key, lim in (("file_lines", cfg["max_file_lines"]),
@@ -226,7 +270,17 @@ def evaluate(files: dict, base: dict, cfg: dict) -> tuple[list[str], list[str], 
             if b is None:                                   # 新文件：只看阈值
                 if v > lim:
                     bad.append(f"{rel}: {key}={v} > {lim}（新增，无基线）")
-            elif v > bv:                                    # 变胖：红线（不看阈值）
+                continue
+            if v > bv:                                      # 变胖
+                if key == "file_lines" and m["max_fn_lines"] < b.get("max_fn_lines", 0):
+                    allow = bv + max(8, bv * pct // 100)
+                    if v <= allow:
+                        grew.append(f"{rel}: file_lines {bv} → {v}"
+                                    f"（最长函数 {b['max_fn_lines']} → {m['max_fn_lines']}，"
+                                    f"≤{pct}% 放行）")
+                        continue
+                    bad.append(f"{rel}: file_lines {bv} → {v}（超出拆函数放行幅度 {pct}%）")
+                    continue
                 bad.append(f"{rel}: {key} {bv} → {v}（不许变胖）")
             elif v < bv:
                 shrank.append(f"{rel}: {key} {bv} → {v}（可收紧基线）")
@@ -294,9 +348,11 @@ def main() -> int:
         return 0
 
     base = load_baseline(bpath)          # 到这里才读（见上：写基线/列清单都不该被坏基线挡住）
-    bad, _grew, shrank = evaluate(files, base, cfg)
+    bad, grew, shrank = evaluate(files, base, cfg)
     if not base:
         print("警告：尚无基线 ⇒ 只对「新文件」判阈值；先跑 --write-baseline 才会管住存量")
+    for line in grew:
+        print(f"  ⇄ {line}")
     for line in bad[:30]:
         print(f"  ✗ {line}")
     if len(bad) > 30:

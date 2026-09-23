@@ -196,6 +196,166 @@ mod rust_reach;
 
 pub(crate) use self::{js::*, py::*, rust::*, rust_reach::*};   // S168：子模块条目再导出（子模块的 use super::* 即可见）
 
+/// 单块的扫描产物（issues / per_unit / rs_sources 三路，按序合并即与串行同）。
+type ChunkOut = (Vec<Value>, Vec<Value>, Vec<(String, String, bool)>);
+
+fn scan_chunk_body(files: &[String], base: &str) -> ChunkOut {
+    let mut all_issues: Vec<Value> = Vec::new();
+    let mut per_unit: Vec<Value> = Vec::new();
+    let mut rs_sources: Vec<(String, String, bool)> = Vec::new();
+    for fp in files {
+        let Some(raw) = read_text(Path::new(fp)) else {
+            continue; // OSError → 静默跳过（与旧实现一致）
+        };
+        // Python open(..., "r") 的 universal newlines 契约：\r\n → \n、孤立 \r → \n。
+        // CRLF 文件否则在字符串掩码里 \ 先吞 \r、真 \n 反而截断字符串，行号全盘漂移。
+        let src = raw.replace("\r\n", "\n").replace('\r', "\n");
+        let fp_rel = relpath(fp, base);
+        let lines = src.matches('\n').count() + 1;
+        if fp.ends_with(".py") {
+            let issues = scan_python(&src, &fp_rel);
+            per_unit.push(o(vec![
+                ("file", s(&fp_rel)),
+                ("lang", s("python")),
+                ("lines", i(lines)),
+            ]));
+            all_issues.extend(issues);
+        } else if fp.ends_with(".rs") {
+            let (masked, mstrings, mcomments) = mask_rust(&src);
+            let (issues, meta) = scan_rust_struct(&masked, &fp_rel);
+            // is_test_dir：fp_rel 路径组件（除文件名）含 tests/tests.*，或全路径含 \tests\
+            let is_test_dir = {
+                let fp_norm = fp_rel.replace('\\', "/");
+                let comps: Vec<&str> = fp_norm.split('/').collect();
+                comps[..comps.len().saturating_sub(1)]
+                    .iter()
+                    .any(|pp| *pp == "tests" || pp.starts_with("tests."))
+                    || fp.contains("\\tests\\")
+                    || fp.contains("/tests/")
+            };
+            rs_sources.push((fp_rel.clone(), src.clone(), is_test_dir));
+            per_unit.push(o(vec![
+                ("file", s(&fp_rel)),
+                ("lang", s("rust")),
+                ("lines", i(lines)),
+                ("strings_masked", i(mstrings)),
+                ("comments_masked", i(mcomments)),
+                ("fn_count", i(meta.fn_count)),
+                ("unsafe_count", i(meta.unsafe_count)),
+                ("risky_fns", Value::Arr(meta.risky)),
+                ("fns", Value::Arr(meta.fns.iter().map(|f| s(f)).collect())),
+            ]));
+            all_issues.extend(issues);
+        } else {
+            // 注意与旧实现一致的怪癖：单文件直扫不经扩展名过滤，.txt 也走 JS 管线；
+            // 目录模式下 ".PY"（大写）能进 targets 但 endswith(".py") 不成立 → JS 管线
+            let (masked, st_strings, st_templates, st_comments) = mask_js(&src);
+            let (issues, calls_total) = scan_js_calls(&masked, &fp_rel);
+            per_unit.push(o(vec![
+                ("file", s(&fp_rel)),
+                ("lang", s("javascript")),
+                ("lines", i(lines)),
+                ("strings_masked", i(st_strings)),
+                ("templates_masked", i(st_templates)),
+                ("comments_masked", i(st_comments)),
+                ("calls_total", i(calls_total)),
+            ]));
+            all_issues.extend(issues);
+        }
+    }
+    (all_issues, per_unit, rs_sources)
+}
+
+fn reach_annotate(all_issues: &mut [Value], rs_sources: &[(String, String, bool)], reach_summary: &mut Value) {
+    let ReachResult { lmap, helpers } = rust_reach(rs_sources);
+    // (file, fn) → reach 标注（仅三条 rust 规则；键序追加在 fn 之后）
+    for it in all_issues.iter_mut() {
+        let Value::Obj(kv) = it else { continue };
+        let file = kv.iter().find(|(k, _)| k == "file").map(|(_, v)| match v {
+            Value::Str(x) => x.clone(),
+            _ => String::new(),
+        });
+        let fnv = kv.iter().find(|(k, _)| k == "fn").map(|(_, v)| match v {
+            Value::Str(x) => x.clone(),
+            _ => String::new(),
+        });
+        let rule = kv.iter().find(|(k, _)| k == "rule").map(|(_, v)| match v {
+            Value::Str(x) => x.clone(),
+            _ => String::new(),
+        });
+        if let (Some(file), Some(fnv), Some(rule)) = (file, fnv, rule)
+            && matches!(
+                rule.as_str(),
+                "rust_unwrap_expect" | "rust_panic_macro" | "rust_unsafe"
+            )
+                && let Some((_, lst)) = lmap.iter().find(|(k, _)| *k == fnv)
+                    && let Some((_, _, v)) =
+                        lst.iter().find(|(f, _, _)| *f == file)
+                    {
+                        kv.push(("reach".into(), s(v)));
+                    }
+    }
+    let mut c_prod = 0i128;
+    let mut c_unref = 0i128;
+    for (_, lst) in &lmap {
+        for (_, _, v) in lst {
+            match *v {
+                "prod" => c_prod += 1,
+                "unreferenced" => c_unref += 1,
+                _ => {}
+            }
+        }
+    }
+    let mut entries: Vec<Value> = Vec::new();
+    for (k, lst) in &lmap {
+        for (f, l, v) in lst {
+            entries.push(o(vec![
+                ("fn", s(k)),
+                ("file", s(f)),
+                ("line", i(*l)),
+                ("reach", s(v)),
+            ]));
+        }
+    }
+    entries.sort_by_key(|e| {
+        let Value::Obj(kv) = e else { return (0u8, 0u8, String::new()) };
+        let get = |key: &str| -> String {
+            kv.iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| match v {
+                    Value::Str(x) => x.clone(),
+                    _ => String::new(),
+                })
+                .unwrap_or_default()
+        };
+        let reach = get("reach");
+        let file = get("file");
+        (
+            (reach != "test_only") as u8,
+            (reach != "unreferenced") as u8,
+            file,
+        )
+    });
+    entries.truncate(60);
+    let defs_evaluated: usize = lmap.iter().map(|(_, lst)| lst.len()).sum();
+    *reach_summary = o(vec![
+        ("defs_evaluated", i(defs_evaluated)),
+        (
+            "by_reach",
+            o(vec![
+                ("prod", Value::Int(c_prod)),
+                ("test_only", Value::Int(helpers.len() as i128)),
+                ("unreferenced", Value::Int(c_unref)),
+            ]),
+        ),
+        (
+            "test_only_helpers",
+            Value::Arr(helpers.into_iter().take(30).collect()),
+        ),
+        ("entries", Value::Arr(entries)),
+    ]);
+}
+
 pub fn ast_scan(path: &str, max_files: usize) -> Value {
     let p = Path::new(path);
     if !p.exists() {
@@ -216,78 +376,9 @@ pub fn ast_scan(path: &str, max_files: usize) -> Value {
     // **按块序合并**三个向量 ⇒ 输出与串行逐字节同；`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）。
     // 动机（2026-09-23 实测）：1446 文件语料上本函数原为纯串行，并行/串行 = 1.02×（没吃多核）。
     // 跨文件可达性（rust_reach）仍在第二阶段串行跑——它本来就要全量 rs_sources 才能开工。
-    /// 单块的扫描产物（issues / per_unit / rs_sources 三路，按序合并即与串行同）。
-    type ChunkOut = (Vec<Value>, Vec<Value>, Vec<(String, String, bool)>);
-    fn scan_chunk(files: &[String], base: &str) -> ChunkOut {
-        let mut all_issues: Vec<Value> = Vec::new();
-        let mut per_unit: Vec<Value> = Vec::new();
-        let mut rs_sources: Vec<(String, String, bool)> = Vec::new();
-        for fp in files {
-            let Some(raw) = read_text(Path::new(fp)) else {
-                continue; // OSError → 静默跳过（与旧实现一致）
-            };
-            // Python open(..., "r") 的 universal newlines 契约：\r\n → \n、孤立 \r → \n。
-            // CRLF 文件否则在字符串掩码里 \ 先吞 \r、真 \n 反而截断字符串，行号全盘漂移。
-            let src = raw.replace("\r\n", "\n").replace('\r', "\n");
-            let fp_rel = relpath(fp, base);
-            let lines = src.matches('\n').count() + 1;
-            if fp.ends_with(".py") {
-                let issues = scan_python(&src, &fp_rel);
-                per_unit.push(o(vec![
-                    ("file", s(&fp_rel)),
-                    ("lang", s("python")),
-                    ("lines", i(lines)),
-                ]));
-                all_issues.extend(issues);
-            } else if fp.ends_with(".rs") {
-                let (masked, mstrings, mcomments) = mask_rust(&src);
-                let (issues, meta) = scan_rust_struct(&masked, &fp_rel);
-                // is_test_dir：fp_rel 路径组件（除文件名）含 tests/tests.*，或全路径含 \tests\
-                let is_test_dir = {
-                    let fp_norm = fp_rel.replace('\\', "/");
-                    let comps: Vec<&str> = fp_norm.split('/').collect();
-                    comps[..comps.len().saturating_sub(1)]
-                        .iter()
-                        .any(|pp| *pp == "tests" || pp.starts_with("tests."))
-                        || fp.contains("\\tests\\")
-                        || fp.contains("/tests/")
-                };
-                rs_sources.push((fp_rel.clone(), src.clone(), is_test_dir));
-                per_unit.push(o(vec![
-                    ("file", s(&fp_rel)),
-                    ("lang", s("rust")),
-                    ("lines", i(lines)),
-                    ("strings_masked", i(mstrings)),
-                    ("comments_masked", i(mcomments)),
-                    ("fn_count", i(meta.fn_count)),
-                    ("unsafe_count", i(meta.unsafe_count)),
-                    ("risky_fns", Value::Arr(meta.risky)),
-                    ("fns", Value::Arr(meta.fns.iter().map(|f| s(f)).collect())),
-                ]));
-                all_issues.extend(issues);
-            } else {
-                // 注意与旧实现一致的怪癖：单文件直扫不经扩展名过滤，.txt 也走 JS 管线；
-                // 目录模式下 ".PY"（大写）能进 targets 但 endswith(".py") 不成立 → JS 管线
-                let (masked, st_strings, st_templates, st_comments) = mask_js(&src);
-                let (issues, calls_total) = scan_js_calls(&masked, &fp_rel);
-                per_unit.push(o(vec![
-                    ("file", s(&fp_rel)),
-                    ("lang", s("javascript")),
-                    ("lines", i(lines)),
-                    ("strings_masked", i(st_strings)),
-                    ("templates_masked", i(st_templates)),
-                    ("comments_masked", i(st_comments)),
-                    ("calls_total", i(calls_total)),
-                ]));
-                all_issues.extend(issues);
-            }
-        }
-        (all_issues, per_unit, rs_sources)
-    }
-
     let n = crate::par::par_degree(0); // S167：0 = 用满可用并行度（按机器来）
     let (mut all_issues, per_unit, rs_sources) = if targets.len() < 8 || n <= 1 {
-        scan_chunk(&targets, &base)
+        scan_chunk_body(&targets, &base)
     } else {
         let chunk = targets.len().div_ceil(n);
         let mut a: Vec<Value> = Vec::new();
@@ -297,7 +388,7 @@ pub fn ast_scan(path: &str, max_files: usize) -> Value {
         std::thread::scope(|s| {
             let handles: Vec<_> = targets
                 .chunks(chunk)
-                .map(|c| s.spawn(move || scan_chunk(c, base_ref)))
+                .map(|c| s.spawn(move || scan_chunk_body(c, base_ref)))
                 .collect();
             for h in handles {
                 let (mut a2, mut u2, mut r2) = h.join().unwrap_or_default();
@@ -311,93 +402,7 @@ pub fn ast_scan(path: &str, max_files: usize) -> Value {
 
     let mut reach_summary: Value = Value::Null;
     if !rs_sources.is_empty() {
-        let ReachResult { lmap, helpers } = rust_reach(&rs_sources);
-        // (file, fn) → reach 标注（仅三条 rust 规则；键序追加在 fn 之后）
-        for it in all_issues.iter_mut() {
-            let Value::Obj(kv) = it else { continue };
-            let file = kv.iter().find(|(k, _)| k == "file").map(|(_, v)| match v {
-                Value::Str(x) => x.clone(),
-                _ => String::new(),
-            });
-            let fnv = kv.iter().find(|(k, _)| k == "fn").map(|(_, v)| match v {
-                Value::Str(x) => x.clone(),
-                _ => String::new(),
-            });
-            let rule = kv.iter().find(|(k, _)| k == "rule").map(|(_, v)| match v {
-                Value::Str(x) => x.clone(),
-                _ => String::new(),
-            });
-            if let (Some(file), Some(fnv), Some(rule)) = (file, fnv, rule)
-                && matches!(
-                    rule.as_str(),
-                    "rust_unwrap_expect" | "rust_panic_macro" | "rust_unsafe"
-                )
-                    && let Some((_, lst)) = lmap.iter().find(|(k, _)| *k == fnv)
-                        && let Some((_, _, v)) =
-                            lst.iter().find(|(f, _, _)| *f == file)
-                        {
-                            kv.push(("reach".into(), s(v)));
-                        }
-        }
-        let mut c_prod = 0i128;
-        let mut c_unref = 0i128;
-        for (_, lst) in &lmap {
-            for (_, _, v) in lst {
-                match *v {
-                    "prod" => c_prod += 1,
-                    "unreferenced" => c_unref += 1,
-                    _ => {}
-                }
-            }
-        }
-        let mut entries: Vec<Value> = Vec::new();
-        for (k, lst) in &lmap {
-            for (f, l, v) in lst {
-                entries.push(o(vec![
-                    ("fn", s(k)),
-                    ("file", s(f)),
-                    ("line", i(*l)),
-                    ("reach", s(v)),
-                ]));
-            }
-        }
-        entries.sort_by_key(|e| {
-            let Value::Obj(kv) = e else { return (0u8, 0u8, String::new()) };
-            let get = |key: &str| -> String {
-                kv.iter()
-                    .find(|(k, _)| k == key)
-                    .map(|(_, v)| match v {
-                        Value::Str(x) => x.clone(),
-                        _ => String::new(),
-                    })
-                    .unwrap_or_default()
-            };
-            let reach = get("reach");
-            let file = get("file");
-            (
-                (reach != "test_only") as u8,
-                (reach != "unreferenced") as u8,
-                file,
-            )
-        });
-        entries.truncate(60);
-        let defs_evaluated: usize = lmap.iter().map(|(_, lst)| lst.len()).sum();
-        reach_summary = o(vec![
-            ("defs_evaluated", i(defs_evaluated)),
-            (
-                "by_reach",
-                o(vec![
-                    ("prod", Value::Int(c_prod)),
-                    ("test_only", Value::Int(helpers.len() as i128)),
-                    ("unreferenced", Value::Int(c_unref)),
-                ]),
-            ),
-            (
-                "test_only_helpers",
-                Value::Arr(helpers.into_iter().take(30).collect()),
-            ),
-            ("entries", Value::Arr(entries)),
-        ]);
+        reach_annotate(&mut all_issues, &rs_sources, &mut reach_summary);
     }
 
     let mut by_rule: Vec<(String, i128)> = Vec::new();

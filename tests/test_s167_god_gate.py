@@ -66,3 +66,57 @@ def test_gate_red_when_baseline_value_grows(tmp_path):
     (tmp_path / "f.py").write_text("y = 1\n" * 200, encoding="utf-8")     # 1 行 → 200 行
     cp = _run("--root", str(tmp_path), "--top", "0")
     assert cp.returncode != 0 and "不许变胖" in cp.stdout, cp.stdout
+
+
+def test_mask_handles_lifetimes_and_byte_literals():
+    """金丝雀：`&'static str` / `b'{'` 不许把掩码带跑。
+
+    老版把 `'` 一律当字符字面量起点、一路吃到下一个 `'` ⇒ `&'static str` 吞掉中间整段（含
+    花括号）⇒ 配平失真：真实 307 行的 scan_rust 被量成 **63 行**写进基线（假绿），而拆出的
+    102 行 helper 又被量成 **235 行**（假红）。两侧都错，所以这条测试锁住"两侧都对"。
+    """
+    gg = _load_gate()
+    src = ("fn f() {\n"
+           "    let a = b'{';\n"
+           "    let b = '{';\n"
+           "    let c = \"}\";\n"
+           "    let d: &'static str = \"x\";\n"
+           "    let e = 'a';\n"
+           "    let g = '\\n';\n"
+           "    if a == b'[' && b == b'}' {\n"
+           "        let h = 1;\n"
+           "    }\n"
+           "}\n")
+    masked = gg._mask(src)
+    assert (masked.count("{"), masked.count("}")) == (2, 2), masked
+    assert [m for m in gg.brace_metrics(src) if m[2] == "fn"] == [("f", 11, "fn")], \
+        gg.brace_metrics(src)
+    # JS 家族：`'…'` 是字符串（不是字符字面量），含花括号也要掩掉
+    js = "function f() {\n  var a = '}';\n  var b = '{';\n  return 1;\n}\n"
+    assert [m for m in gg.brace_metrics(js, js=True) if m[2] == "fn"] == [("f", 5, "fn")], \
+        gg.brace_metrics(js, js=True)
+
+
+def test_file_growth_allowed_only_when_fn_shrinks(tmp_path):
+    """金丝雀：**拆长函数必然让文件变长**——门要放行，且逐条打印（否则正确重构被判红）。"""
+    cfg = {"max_file_lines": 100000, "max_fn_lines": 100000, "max_type_members": 100000,
+           "file_growth_with_fn_shrink_pct": 10,
+           "include": ["**/*.py"], "exclude": [], "baseline": "god-baseline.json"}
+    (tmp_path / "god.gate.json").write_text(json.dumps(cfg), encoding="utf-8")
+    f = tmp_path / "m.py"
+    body = "\n".join(f"    v{i} = {i}" for i in range(38))
+    f.write_text("def big():\n" + body + "\n", encoding="utf-8")
+    assert _run("--root", str(tmp_path), "--write-baseline").returncode == 0
+
+    half = "\n".join(f"    v{i} = {i}" for i in range(19))
+    f.write_text("def part1():\n" + half + "\n\ndef part2():\n" + half + "\n", encoding="utf-8")
+    cp = _run("--root", str(tmp_path), "--top", "0")
+    assert cp.returncode == 0, "拆函数被误判红（门会逼人关掉它）：\n" + cp.stdout
+    assert "⇄" in cp.stdout, "放行必须逐条打印，不能静默：\n" + cp.stdout
+
+    assert _run("--root", str(tmp_path), "--write-baseline").returncode == 0
+    f.write_text(f.read_text(encoding="utf-8") + "".join(f"z{i} = {i}\n" for i in range(30)),
+                 encoding="utf-8")                                        # 只变长、函数没变短
+    cp = _run("--root", str(tmp_path), "--top", "0")
+    assert cp.returncode != 0, "函数没变短却涨行数 ⇒ 必须红：\n" + cp.stdout
+    assert "不许变胖" in cp.stdout or "超出拆函数放行幅度" in cp.stdout, cp.stdout

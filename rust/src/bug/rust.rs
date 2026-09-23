@@ -1,31 +1,17 @@
 //! bug 子模块（S168 从 bug.rs 拆出；纯搬移，未改语义）。
 use super::*;
 
-pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
-    let mut issues: Vec<Issue> = Vec::new();
-    let lines: Vec<&str> = src.split('\n').collect();
-    // 命中行是整行注释则跳过——只作用于 _RUST_RULES 表（bevy 无此闸，与 Python 一致）
-    let push_rule = |issues: &mut Vec<Issue>, pos: usize, rule: &'static str, msg: &str| {
-        let line = count_newlines_before(src, pos) + 1;
-        let text = lines.get(line - 1).copied().unwrap_or("").trim();
-        if text.starts_with("//") {
-            return;
-        }
-        issues.push(Issue {
-            line,
-            rule,
-            msg: msg.to_string(),
-            file: path.to_string(),
-            sev: Some("info"),
-            kind: Some("clue"),
-        });
-    };
+/// 文本规则的推送器签名（`push_rule` 闭包；别名是为了过 clippy::type_complexity）。
+type PushRule<'a> = &'a dyn Fn(&mut Vec<Issue>, usize, &'static str, &str);
+/// Bevy 规则的推送器签名（`push_bevy` 闭包，多一个 sev 参数）。
+type PushBevy<'a> = &'a dyn Fn(&mut Vec<Issue>, usize, &'static str, &str, &'static str);
 
+pub(crate) fn rust_rules_lexical(src: &str, lines: &[&str], path: &str, issues: &mut Vec<Issue>, push_rule: PushRule<'_>) {
     // unwrap：\.unwrap\(\)
     let mut cur = 0usize;
     while let Some(rel) = src[cur..].find(".unwrap()") {
         let p = cur + rel;
-        push_rule(&mut issues, p, "unwrap", "unwrap()——None/Err 时 panic（线索：确认有 ?/match 兜底即可忽略）");
+        push_rule(issues, p, "unwrap", "unwrap()——None/Err 时 panic（线索：确认有 ?/match 兜底即可忽略）");
         cur = p + 9;
     }
     // expect：\.expect\(\s*\"（\s 可跨行）
@@ -37,7 +23,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
             j += 1;
         }
         if src.as_bytes().get(j) == Some(&b'"') {
-            push_rule(&mut issues, p, "expect", "expect()——带消息 panic（线索）");
+            push_rule(issues, p, "expect", "expect()——带消息 panic（线索）");
             cur = j + 1;
         } else {
             cur = p + 1;
@@ -102,6 +88,9 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
             }
         }
     }
+}
+
+pub(crate) fn rust_rules_indexing(src: &str, issues: &mut Vec<Issue>, push_rule: PushRule<'_>) {
     // as_cast：\bas\s+(i64|i32|u64|u32|f64|f32|usize|isize)\b
     {
         const TYPES: [&str; 8] = ["i64", "i32", "u64", "u32", "f64", "f32", "usize", "isize"];
@@ -124,7 +113,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
             let Some(t) = TYPES.iter().find(|t| src[j..].starts_with(**t)) else { continue };
             let after = src.as_bytes().get(j + t.len());
             if after.is_none_or(|c| !is_word(*c)) {
-                push_rule(&mut issues, p, "as_cast", "as 类型转换——截断/精度丢失（线索：建议 try_from）");
+                push_rule(issues, p, "as_cast", "as 类型转换——截断/精度丢失（线索：建议 try_from）");
                 cur = p + 2 + ws + t.len();
             }
         }
@@ -152,7 +141,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
                     j += 1;
                 }
                 if b.get(j) == Some(&b']') {
-                    push_rule(&mut issues, p, "indexing", "索引访问——越界即 panic（线索：建议 .get()）");
+                    push_rule(issues, p, "indexing", "索引访问——越界即 panic（线索：建议 .get()）");
                     cur = j + 1;
                     continue;
                 }
@@ -168,35 +157,28 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
                 cnt += 1;
             }
             if b.get(k) == Some(&b']') && as_cast_suffix(&src[p + 1..k]) {
-                push_rule(&mut issues, p, "indexing", "索引访问（含 as 转换）——越界即 panic（线索：建议 .get()）");
+                push_rule(issues, p, "indexing", "索引访问（含 as 转换）——越界即 panic（线索：建议 .get()）");
                 cur = k + 1;
             }
         }
     }
 
     // ---- Bevy 规则（无注释行闸；kind 统一 clue）----
-    let push_bevy = |issues: &mut Vec<Issue>, pos: usize, rule: &'static str, msg: &str, sev: &'static str| {
-        issues.push(Issue {
-            line: count_newlines_before(src, pos) + 1,
-            rule,
-            msg: msg.to_string(),
-            file: path.to_string(),
-            sev: Some(sev),
-            kind: Some("clue"),
-        });
-    };
+}
+
+pub(crate) fn rust_rules_bevy(src: &str, issues: &mut Vec<Issue>, push_bevy: PushBevy<'_>) {
     // bevy_old_system（字面量含 '('——.add_systems( 不命中）
     let mut cur = 0usize;
     while let Some(rel) = src[cur..].find(".add_system(") {
         let p = cur + rel;
-        push_bevy(&mut issues, p, "bevy_old_system", "add_system 旧 API——用 .add_systems（迁移线索）", "info");
+        push_bevy(issues, p, "bevy_old_system", "add_system 旧 API——用 .add_systems（迁移线索）", "info");
         cur = p + 12;
     }
     // bevy_old_startup
     let mut cur = 0usize;
     while let Some(rel) = src[cur..].find(".add_startup_system(") {
         let p = cur + rel;
-        push_bevy(&mut issues, p, "bevy_old_startup", "add_startup_system 旧 API——用 .add_systems(Startup, ...)（迁移线索）", "info");
+        push_bevy(issues, p, "bevy_old_startup", "add_startup_system 旧 API——用 .add_systems(Startup, ...)（迁移线索）", "info");
         cur = p + 20;
     }
     // bevy_event_iter：EventReader<[^>]+>\.iter\(（[^>]+ 跨行）
@@ -211,7 +193,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
             continue; // [^>]+ 至少 1 字符
         }
         if src[gt + 1..].starts_with(".iter(") {
-            push_bevy(&mut issues, p, "bevy_event_iter", "EventReader.iter 旧 API——用 .read()（迁移线索）", "info");
+            push_bevy(issues, p, "bevy_event_iter", "EventReader.iter 旧 API——用 .read()（迁移线索）", "info");
             cur = gt + 7;
         }
     }
@@ -224,7 +206,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
             j += 1;
         }
         if src.as_bytes().get(j) == Some(&b'{') {
-            push_bevy(&mut issues, p, "bevy_text_old", "TextBundle 旧式——用 Text::new（迁移线索）", "info");
+            push_bevy(issues, p, "bevy_text_old", "TextBundle 旧式——用 Text::new（迁移线索）", "info");
             cur = j + 1;
         } else {
             cur = p + 1;
@@ -234,7 +216,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
     let mut cur = 0usize;
     while let Some(rel) = src[cur..].find(".single()") {
         let p = cur + rel;
-        push_bevy(&mut issues, p, "bevy_query_single", "query.single() 自 Bevy 0.16 起返回 Result——Err 静默失败是逻辑雷（用 let Ok = .. else return 兜）；.single().unwrap() 才会 panic（09-05 VoxelForge 11 处甄别：全部正确 else-return，零真险）（线索）", "low");
+        push_bevy(issues, p, "bevy_query_single", "query.single() 自 Bevy 0.16 起返回 Result——Err 静默失败是逻辑雷（用 let Ok = .. else return 兜）；.single().unwrap() 才会 panic（09-05 VoxelForge 11 处甄别：全部正确 else-return，零真险）（线索）", "low");
         cur = p + 9;
     }
     // bevy_phys_locked_axes_bits
@@ -246,7 +228,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
             j += 1;
         }
         if src[j..].starts_with("0b") {
-            push_bevy(&mut issues, p, "bevy_phys_locked_axes_bits", "LockedAxes 魔数位——位序易错（VoxelForge 0b000_101 曾误读为锁平移），用具名位常量 ROTATION_X/TRANSLATION_* 核对", "info");
+            push_bevy(issues, p, "bevy_phys_locked_axes_bits", "LockedAxes 魔数位——位序易错（VoxelForge 0b000_101 曾误读为锁平移），用具名位常量 ROTATION_X/TRANSLATION_* 核对", "info");
             cur = j + 2;
         } else {
             cur = p + 1;
@@ -259,7 +241,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
             let p = cur + rel;
             match try_static_velocity(src, p) {
                 Some(end) => {
-                    push_bevy(&mut issues, p, "bevy_phys_static_with_velocity", "spawn 元组里 RigidBody::Static 携带速度/受力组件——Static 体不响应力与速度，写了不生效（::ZERO 冗余不报；VoxelForge 09-05 甄别：matches! 判断与测试 fixture 为误报源；S74 两个分支都锚 spawn 元组——前一条 spawn 的速度逗号 + 200 字符内另一条 Static spawn 不再跨语句误连）", "low");
+                    push_bevy(issues, p, "bevy_phys_static_with_velocity", "spawn 元组里 RigidBody::Static 携带速度/受力组件——Static 体不响应力与速度，写了不生效（::ZERO 冗余不报；VoxelForge 09-05 甄别：matches! 判断与测试 fixture 为误报源；S74 两个分支都锚 spawn 元组——前一条 spawn 的速度逗号 + 200 字符内另一条 Static spawn 不再跨语句误连）", "low");
                     cur = end;
                 }
                 None => cur = p + 1,
@@ -277,7 +259,7 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
         if src[j..].starts_with("Vec3::Y") {
             let after = src.as_bytes().get(j + 7);
             if after.is_none_or(|c| !is_word(*c)) {
-                push_bevy(&mut issues, p, "bevy_phys_manual_support_force", "手写竖直支撑/弹簧力（Vec3::Y × f）——多轮/多执行器各自封顶≠总和有界：四轮同压可叠到 3×车重持续弹起（VoxelForge 09-04 四轮弹跳床案），须有整车总力预算", "med");
+                push_bevy(issues, p, "bevy_phys_manual_support_force", "手写竖直支撑/弹簧力（Vec3::Y × f）——多轮/多执行器各自封顶≠总和有界：四轮同压可叠到 3×车重持续弹起（VoxelForge 09-04 四轮弹跳床案），须有整车总力预算", "med");
                 cur = j + 7;
                 continue;
             }
@@ -285,6 +267,41 @@ pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
         cur = p + 1;
     }
 
+}
+
+pub(crate) fn scan_rust(src: &str, path: &str) -> Vec<Issue> {
+    let mut issues: Vec<Issue> = Vec::new();
+    let lines: Vec<&str> = src.split('\n').collect();
+    // 命中行是整行注释则跳过——只作用于 _RUST_RULES 表（bevy 无此闸，与 Python 一致）
+    let push_rule = |issues: &mut Vec<Issue>, pos: usize, rule: &'static str, msg: &str| {
+        let line = count_newlines_before(src, pos) + 1;
+        let text = lines.get(line - 1).copied().unwrap_or("").trim();
+        if text.starts_with("//") {
+            return;
+        }
+        issues.push(Issue {
+            line,
+            rule,
+            msg: msg.to_string(),
+            file: path.to_string(),
+            sev: Some("info"),
+            kind: Some("clue"),
+        });
+    };
+
+    rust_rules_lexical(src, &lines, path, &mut issues, &push_rule);
+    rust_rules_indexing(src, &mut issues, &push_rule);
+    let push_bevy = |issues: &mut Vec<Issue>, pos: usize, rule: &'static str, msg: &str, sev: &'static str| {
+        issues.push(Issue {
+            line: count_newlines_before(src, pos) + 1,
+            rule,
+            msg: msg.to_string(),
+            file: path.to_string(),
+            sev: Some(sev),
+            kind: Some("clue"),
+        });
+    };
+    rust_rules_bevy(src, &mut issues, &push_bevy);
     // ---- 测试代码降级：文件级（tests 目录 / *_test.rs）+ 行级（#[cfg(test)] 起）----
     let norm = path.replace('\\', "/").replace("_tmp/", "");
     let is_test_file =

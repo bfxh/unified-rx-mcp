@@ -171,8 +171,8 @@
  },
  "rust/src/appaudit.rs": {
   "file_lines": 1178,
-  "max_fn_lines": 164,
-  "max_type_members": 4
+  "max_fn_lines": 198,
+  "max_type_members": 5
  },
  "rust/src/appclone.rs": {
   "file_lines": 655,
@@ -185,8 +185,8 @@
   "max_type_members": 0
  },
  "rust/src/astscan.rs": {
-  "file_lines": 559,
-  "max_fn_lines": 233,
+  "file_lines": 564,
+  "max_fn_lines": 89,
   "max_type_members": 0
  },
  "rust/src/astscan/js.rs": {
@@ -201,7 +201,7 @@
  },
  "rust/src/astscan/rust.rs": {
   "file_lines": 404,
-  "max_fn_lines": 112,
+  "max_fn_lines": 116,
   "max_type_members": 0
  },
  "rust/src/astscan/rust_reach.rs": {
@@ -266,12 +266,12 @@
  },
  "rust/src/bug.rs": {
   "file_lines": 212,
-  "max_fn_lines": 0,
-  "max_type_members": 0
+  "max_fn_lines": 48,
+  "max_type_members": 1
  },
  "rust/src/bug/generic.rs": {
   "file_lines": 98,
-  "max_fn_lines": 1,
+  "max_fn_lines": 93,
   "max_type_members": 0
  },
  "rust/src/bug/phys.rs": {
@@ -280,18 +280,18 @@
   "max_type_members": 0
  },
  "rust/src/bug/py.rs": {
-  "file_lines": 301,
-  "max_fn_lines": 273,
+  "file_lines": 309,
+  "max_fn_lines": 110,
   "max_type_members": 0
  },
  "rust/src/bug/rust.rs": {
-  "file_lines": 412,
-  "max_fn_lines": 63,
+  "file_lines": 429,
+  "max_fn_lines": 102,
   "max_type_members": 0
  },
  "rust/src/deadcode.rs": {
   "file_lines": 266,
-  "max_fn_lines": 30,
+  "max_fn_lines": 133,
   "max_type_members": 0
  },
  "rust/src/fs.rs": {
@@ -301,13 +301,13 @@
  },
  "rust/src/ide.rs": {
   "file_lines": 813,
-  "max_fn_lines": 159,
+  "max_fn_lines": 73,
   "max_type_members": 3
  },
  "rust/src/json.rs": {
   "file_lines": 384,
   "max_fn_lines": 60,
-  "max_type_members": 3
+  "max_type_members": 5
  },
  "rust/src/lib.rs": {
   "file_lines": 59,
@@ -316,8 +316,8 @@
  },
  "rust/src/nameres.rs": {
   "file_lines": 344,
-  "max_fn_lines": 0,
-  "max_type_members": 0
+  "max_fn_lines": 73,
+  "max_type_members": 5
  },
  "rust/src/nameres/callgraph.rs": {
   "file_lines": 197,
@@ -326,22 +326,22 @@
  },
  "rust/src/nameres/files.rs": {
   "file_lines": 304,
-  "max_fn_lines": 51,
+  "max_fn_lines": 152,
   "max_type_members": 0
  },
  "rust/src/nameres/prescan.rs": {
   "file_lines": 176,
-  "max_fn_lines": 1,
+  "max_fn_lines": 106,
   "max_type_members": 0
  },
  "rust/src/nameres/resolver_scope.rs": {
   "file_lines": 387,
-  "max_fn_lines": 98,
-  "max_type_members": 0
+  "max_fn_lines": 69,
+  "max_type_members": 13
  },
  "rust/src/nameres/resolver_walk.rs": {
-  "file_lines": 436,
-  "max_fn_lines": 165,
+  "file_lines": 464,
+  "max_fn_lines": 57,
   "max_type_members": 8
  },
  "rust/src/par.rs": {
@@ -351,8 +351,8 @@
  },
  "rust/src/pyast.rs": {
   "file_lines": 342,
-  "max_fn_lines": 36,
-  "max_type_members": 3
+  "max_fn_lines": 27,
+  "max_type_members": 11
  },
  "rust/src/pyast/lex.rs": {
   "file_lines": 759,
@@ -362,12 +362,12 @@
  "rust/src/pyast/parse.rs": {
   "file_lines": 647,
   "max_fn_lines": 69,
-  "max_type_members": 19
+  "max_type_members": 31
  },
  "rust/src/pyast/parse_expr.rs": {
   "file_lines": 688,
-  "max_fn_lines": 18,
-  "max_type_members": 0
+  "max_fn_lines": 83,
+  "max_type_members": 34
  },
  "rust/src/pyast/parse_pattern.rs": {
   "file_lines": 196,
@@ -386,8 +386,8 @@
  },
  "rust/src/repomap.rs": {
   "file_lines": 267,
-  "max_fn_lines": 0,
-  "max_type_members": 0
+  "max_fn_lines": 180,
+  "max_type_members": 4
  },
  "rust/src/sandbox.rs": {
   "file_lines": 140,
@@ -396,7 +396,7 @@
  },
  "rust/src/scan.rs": {
   "file_lines": 942,
-  "max_fn_lines": 52,
+  "max_fn_lines": 93,
   "max_type_members": 3
  },
  "rust/src/search.rs": {
@@ -412,7 +412,7 @@
  "rust/src/sem.rs": {
   "file_lines": 603,
   "max_fn_lines": 117,
-  "max_type_members": 3
+  "max_type_members": 6
  },
  "rust/src/server.rs": {
   "file_lines": 257,
@@ -431,7 +431,7 @@
  },
  "rust/src/sysinfo.rs": {
   "file_lines": 950,
-  "max_fn_lines": 432,
+  "max_fn_lines": 178,
   "max_type_members": 10
  },
  "rust/src/taint.rs": {
@@ -471,7 +471,7 @@
  },
  "rust/tests/astscan_test.rs": {
   "file_lines": 188,
-  "max_fn_lines": 20,
+  "max_fn_lines": 28,
   "max_type_members": 2
  },
  "rust/tests/bin_version_test.rs": {
@@ -481,12 +481,12 @@
  },
  "rust/tests/bug_test.rs": {
   "file_lines": 326,
-  "max_fn_lines": 20,
+  "max_fn_lines": 38,
   "max_type_members": 2
  },
  "rust/tests/callgraph_test.rs": {
   "file_lines": 281,
-  "max_fn_lines": 6,
+  "max_fn_lines": 15,
   "max_type_members": 2
  },
  "rust/tests/deadcode_test.rs": {
@@ -496,12 +496,12 @@
  },
  "rust/tests/fs_test.rs": {
   "file_lines": 365,
-  "max_fn_lines": 6,
+  "max_fn_lines": 41,
   "max_type_members": 2
  },
  "rust/tests/ide_test.rs": {
   "file_lines": 483,
-  "max_fn_lines": 8,
+  "max_fn_lines": 42,
   "max_type_members": 2
  },
  "rust/tests/json_test.rs": {
@@ -511,12 +511,12 @@
  },
  "rust/tests/nameres_test.rs": {
   "file_lines": 330,
-  "max_fn_lines": 6,
+  "max_fn_lines": 24,
   "max_type_members": 2
  },
  "rust/tests/repomap_test.rs": {
   "file_lines": 137,
-  "max_fn_lines": 6,
+  "max_fn_lines": 17,
   "max_type_members": 2
  },
  "rust/tests/scan_test.rs": {
@@ -526,7 +526,7 @@
  },
  "rust/tests/search_test.rs": {
   "file_lines": 214,
-  "max_fn_lines": 27,
+  "max_fn_lines": 13,
   "max_type_members": 2
  },
  "rust/tests/secrets_test.rs": {
@@ -536,7 +536,7 @@
  },
  "rust/tests/sem_test.rs": {
   "file_lines": 260,
-  "max_fn_lines": 27,
+  "max_fn_lines": 20,
   "max_type_members": 2
  },
  "rust/tests/taint_test.rs": {
@@ -579,9 +579,14 @@
   "max_fn_lines": 11,
   "max_type_members": 0
  },
+ "scripts/god_diff.py": {
+  "file_lines": 63,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
  "scripts/god_gate.py": {
-  "file_lines": 312,
-  "max_fn_lines": 55,
+  "file_lines": 368,
+  "max_fn_lines": 68,
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
@@ -970,8 +975,8 @@
   "max_type_members": 0
  },
  "tests/test_s167_god_gate.py": {
-  "file_lines": 69,
-  "max_fn_lines": 9,
+  "file_lines": 123,
+  "max_fn_lines": 27,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {

@@ -3,6 +3,8 @@
   "max_file_lines": 800,
   "max_fn_lines": 120,
   "max_type_members": 24,
+  "_file_growth_doc": "拆函数会让文件行数变大：若 max_fn_lines 严格下降且涨幅 ≤ 该百分比，判合法交换（逐条打印）；否则仍红",
+  "file_growth_with_fn_shrink_pct": 10,
   "include": ["**/*.py", "**/*.rs", "**/*.mjs", "**/*.js", "**/*.ts"],
   "exclude": [
     "**/bench/manual_snaps/**",
