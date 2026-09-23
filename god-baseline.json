@@ -205,7 +205,7 @@
   "max_type_members": 0
  },
  "rust/src/astscan/rust_reach.rs": {
-  "file_lines": 202,
+  "file_lines": 244,
   "max_fn_lines": 82,
   "max_type_members": 0
  },

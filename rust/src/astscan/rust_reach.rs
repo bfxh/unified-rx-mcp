@@ -150,31 +150,68 @@ pub(crate) struct ReachResult {
     pub(crate) lmap: Vec<FnReach>,
     pub(crate) helpers: Vec<Value>,}
 
+/// 单文件的「defs + 引用计数」（S169：并行阶段的产物类型；抽别名同时过 clippy::type_complexity）。
+type FileReach = (Vec<RustDef>, Vec<(String, i128, i128)>);
+
+/// 单文件的「掩码 + 取 defs/refs」（S169：抽成纯函数才能按文件并行，无共享状态）。
+fn reach_one(f: &(String, String, bool)) -> FileReach {
+    let (fp, src, is_test_dir) = f;
+    let (masked, _, _) = mask_rust(src);
+    rust_defs_and_refs(&masked, fp, *is_test_dir)
+}
+
+
 pub(crate) fn rust_reach(rs_sources: &[(String, String, bool)]) -> ReachResult {
+    // S169：逐文件阶段**分块并行 + 按块序合并**（同本仓 S166/S157 范式）——它本是纯逐文件工作
+    // （实测：本仓语料上 astscan 的串行第二阶段主要成本就在这里）。合并顺序 = 文件序 ⇒ 输出逐字节同。
+    let n = crate::par::par_degree(0);
+    let per_file: Vec<FileReach> =
+        if rs_sources.len() < 8 || n <= 1 {
+            rs_sources.iter().map(reach_one).collect()
+        } else {
+            let chunk = rs_sources.len().div_ceil(n);
+            std::thread::scope(|s| {
+                let hs: Vec<_> = rs_sources
+                    .chunks(chunk)
+                    .map(|c| s.spawn(move || c.iter().map(reach_one).collect::<Vec<_>>()))
+                    .collect();
+                let mut out = Vec::new();
+                for h in hs {
+                    out.extend(h.join().unwrap_or_default());
+                }
+                out
+            })
+        };
     let mut all_defs: Vec<RustDef> = Vec::new();
     let mut merged: Vec<(String, i128, i128)> = Vec::new();
-    for (fp, src, is_test_dir) in rs_sources {
-        let (masked, _, _) = mask_rust(src);
-        let (defs, refs) = rust_defs_and_refs(&masked, fp, *is_test_dir);
+    // S169：两个**索引**取代线性查找——原实现每读一个引用/每个 def 都要扫一遍已累积的向量
+    // （实测：本仓语料上 `merged` 数千项 × `defs` 数千项 ⇒ 千万级字符串比较）。索引只用于**查表**，
+    // 向量的追加顺序一字未改 ⇒ 输出逐字节同。
+    let mut merged_idx: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (defs, refs) in per_file {
         all_defs.extend(defs);
         for (name, prod, test) in refs {
-            match merged.iter_mut().find(|m| m.0 == name) {
-                Some(m) => {
-                    m.1 += prod;
-                    m.2 += test;
+            match merged_idx.get(&name).copied() {
+                Some(i) => {
+                    merged[i].1 += prod;
+                    merged[i].2 += test;
                 }
-                None => merged.push((name, prod, test)),
+                None => {
+                    merged_idx.insert(name.clone(), merged.len());
+                    merged.push((name, prod, test));
+                }
             }
         }
     }
     let mut lmap: Vec<FnReach> = Vec::new();
     let mut helpers: Vec<Value> = Vec::new();
+    let mut lmap_idx: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for d in &all_defs {
         if d.test {
             continue;
         }
-        let (prod, test) = match merged.iter().find(|m| m.0 == d.name) {
-            Some(m) => (m.1, m.2),
+        let (prod, test) = match merged_idx.get(&d.name) {
+            Some(&i) => (merged[i].1, merged[i].2),
             None => (0, 0),
         };
         let v: &'static str = if prod > 0 {
@@ -189,10 +226,15 @@ pub(crate) fn rust_reach(rs_sources: &[(String, String, bool)]) -> ReachResult {
         } else {
             "unreferenced"
         };
-        match lmap.iter_mut().find(|l| l.0 == d.name) {
-            Some(l) => l.1.push((d.file.clone(), d.line, v)),
-            None => lmap.push((d.name.clone(), vec![(d.file.clone(), d.line, v)])),
-        }
+        let li = match lmap_idx.get(&d.name) {
+            Some(&i) => i,
+            None => {
+                lmap.push((d.name.clone(), Vec::new()));
+                lmap_idx.insert(d.name.clone(), lmap.len() - 1);
+                lmap.len() - 1
+            }
+        };
+        lmap[li].1.push((d.file.clone(), d.line, v));
     }
     ReachResult { lmap, helpers }
 }
