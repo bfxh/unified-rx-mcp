@@ -195,8 +195,8 @@
   "max_type_members": 1
  },
  "rust/src/astscan/py.rs": {
-  "file_lines": 395,
-  "max_fn_lines": 166,
+  "file_lines": 405,
+  "max_fn_lines": 95,
   "max_type_members": 0
  },
  "rust/src/astscan/rust.rs": {

@@ -103,6 +103,87 @@ pub(crate) fn cval_repr(c: &CVal) -> String {
     }
 }
 
+pub(crate) fn d_call(n: &PyNode) -> String {
+    let func = &n.children[0];
+    let args: Vec<&PyNode> =
+        n.children[1..].iter().filter(|c| c.kind != "keyword").collect();
+    let kws: Vec<&PyNode> =
+        n.children[1..].iter().filter(|c| c.kind == "keyword").collect();
+    let mut out = format!("Call(func={}", dump_expr(func));
+    if !args.is_empty() {
+        out.push_str(", args=[");
+        out.push_str(
+            &args.iter().map(|a| dump_expr(a)).collect::<Vec<_>>().join(", "),
+        );
+        out.push(']');
+    }
+    if !kws.is_empty() {
+        out.push_str(", keywords=[");
+        out.push_str(
+            &kws.iter().map(|a| dump_expr(a)).collect::<Vec<_>>().join(", "),
+        );
+        out.push(']');
+    }
+    out.push(')');
+    out
+}
+
+pub(crate) fn d_keyword(n: &PyNode) -> String {
+    if n.name.is_empty() {
+        format!("keyword(value={})", dump_expr(&n.children[0]))
+    } else {
+        format!(
+            "keyword(arg={}, value={})",
+            py_repr_str(&n.name),
+            dump_expr(&n.children[0])
+        )
+    }
+}
+
+pub(crate) fn d_arguments(n: &PyNode) -> String {
+    let args: Vec<String> = n
+        .children
+        .iter()
+        .filter(|c| c.kind == "arg")
+        .map(|a| format!("arg(arg={})", py_repr_str(&a.name)))
+        .collect();
+    format!("arguments(args=[{}])", args.join(", "))
+}
+
+pub(crate) fn d_dict(n: &PyNode) -> String {
+    if n.children.is_empty() {
+        return "Dict()".into();
+    }
+    let (keys, values): (Vec<String>, Vec<String>) = if n.aux > 0 {
+        (
+            n.children[..n.aux].iter().map(dump_expr).collect(),
+            n.children[n.aux..].iter().map(dump_expr).collect(),
+        )
+    } else {
+        // {**a, ...}：键位全 None（列表内 None 保留）
+        (
+            vec!["None".to_string(); n.children.len()],
+            n.children.iter().map(dump_expr).collect(),
+        )
+    };
+    format!("Dict(keys=[{}], values=[{}])", keys.join(", "), values.join(", "))
+}
+
+pub(crate) fn d_slice(n: &PyNode) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let mut it = n.children.iter();
+    if n.aux & 1 != 0 {
+        parts.push(format!("lower={}", dump_expr(it.next().unwrap())));
+    }
+    if n.aux & 2 != 0 {
+        parts.push(format!("upper={}", dump_expr(it.next().unwrap())));
+    }
+    if n.aux & 4 != 0 {
+        parts.push(format!("step={}", dump_expr(it.next().unwrap())));
+    }
+    format!("Slice({})", parts.join(", "))
+}
+
 pub(crate) fn dump_expr(n: &PyNode) -> String {
     match n.kind {
         "Name" => format!("Name(id={}, ctx={})", py_repr_str(&n.name), ctx_s(n.ctx)),
@@ -119,41 +200,8 @@ pub(crate) fn dump_expr(n: &PyNode) -> String {
             dump_expr(&n.children[1]),
             ctx_s(n.ctx)
         ),
-        "Call" => {
-            let func = &n.children[0];
-            let args: Vec<&PyNode> =
-                n.children[1..].iter().filter(|c| c.kind != "keyword").collect();
-            let kws: Vec<&PyNode> =
-                n.children[1..].iter().filter(|c| c.kind == "keyword").collect();
-            let mut out = format!("Call(func={}", dump_expr(func));
-            if !args.is_empty() {
-                out.push_str(", args=[");
-                out.push_str(
-                    &args.iter().map(|a| dump_expr(a)).collect::<Vec<_>>().join(", "),
-                );
-                out.push(']');
-            }
-            if !kws.is_empty() {
-                out.push_str(", keywords=[");
-                out.push_str(
-                    &kws.iter().map(|a| dump_expr(a)).collect::<Vec<_>>().join(", "),
-                );
-                out.push(']');
-            }
-            out.push(')');
-            out
-        }
-        "keyword" => {
-            if n.name.is_empty() {
-                format!("keyword(value={})", dump_expr(&n.children[0]))
-            } else {
-                format!(
-                    "keyword(arg={}, value={})",
-                    py_repr_str(&n.name),
-                    dump_expr(&n.children[0])
-                )
-            }
-        }
+        "Call" => d_call(n),
+        "keyword" => d_keyword(n),
         "BinOp" => format!(
             "BinOp(left={}, op={}(), right={})",
             dump_expr(&n.children[0]),
@@ -192,15 +240,7 @@ pub(crate) fn dump_expr(n: &PyNode) -> String {
             dump_expr(&n.children[1])
         ),
         // Lambda 链上不可能出现 arguments 之外的字段全量形态，够用即可
-        "arguments" => {
-            let args: Vec<String> = n
-                .children
-                .iter()
-                .filter(|c| c.kind == "arg")
-                .map(|a| format!("arg(arg={})", py_repr_str(&a.name)))
-                .collect();
-            format!("arguments(args=[{}])", args.join(", "))
-        }
+        "arguments" => d_arguments(n),
         "Starred" => format!(
             "Starred(value={}, ctx={})",
             dump_expr(&n.children[0]),
@@ -221,38 +261,8 @@ pub(crate) fn dump_expr(n: &PyNode) -> String {
             "Set(elts=[{}])",
             n.children.iter().map(dump_expr).collect::<Vec<_>>().join(", ")
         ),
-        "Dict" => {
-            if n.children.is_empty() {
-                return "Dict()".into();
-            }
-            let (keys, values): (Vec<String>, Vec<String>) = if n.aux > 0 {
-                (
-                    n.children[..n.aux].iter().map(dump_expr).collect(),
-                    n.children[n.aux..].iter().map(dump_expr).collect(),
-                )
-            } else {
-                // {**a, ...}：键位全 None（列表内 None 保留）
-                (
-                    vec!["None".to_string(); n.children.len()],
-                    n.children.iter().map(dump_expr).collect(),
-                )
-            };
-            format!("Dict(keys=[{}], values=[{}])", keys.join(", "), values.join(", "))
-        }
-        "Slice" => {
-            let mut parts: Vec<String> = Vec::new();
-            let mut it = n.children.iter();
-            if n.aux & 1 != 0 {
-                parts.push(format!("lower={}", dump_expr(it.next().unwrap())));
-            }
-            if n.aux & 2 != 0 {
-                parts.push(format!("upper={}", dump_expr(it.next().unwrap())));
-            }
-            if n.aux & 4 != 0 {
-                parts.push(format!("step={}", dump_expr(it.next().unwrap())));
-            }
-            format!("Slice({})", parts.join(", "))
-        }
+        "Dict" => d_dict(n),
+        "Slice" => d_slice(n),
         "JoinedStr" => {
             if n.children.is_empty() {
                 "JoinedStr()".into()
