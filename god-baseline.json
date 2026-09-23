@@ -415,9 +415,34 @@
   "max_type_members": 10
  },
  "rust/src/taint.rs": {
-  "file_lines": 1683,
+  "file_lines": 259,
+  "max_fn_lines": 37,
+  "max_type_members": 10
+ },
+ "rust/src/taint/analyzer_flow.rs": {
+  "file_lines": 344,
+  "max_fn_lines": 150,
+  "max_type_members": 3
+ },
+ "rust/src/taint/analyzer_scan.rs": {
+  "file_lines": 548,
+  "max_fn_lines": 154,
+  "max_type_members": 11
+ },
+ "rust/src/taint/lex.rs": {
+  "file_lines": 271,
+  "max_fn_lines": 123,
+  "max_type_members": 0
+ },
+ "rust/src/taint/types.rs": {
+  "file_lines": 60,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "rust/src/taint/xfile.rs": {
+  "file_lines": 232,
   "max_fn_lines": 155,
-  "max_type_members": 14
+  "max_type_members": 0
  },
  "rust/src/xorscan.rs": {
   "file_lines": 211,
