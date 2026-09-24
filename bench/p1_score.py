@@ -8,6 +8,7 @@
 """
 import json
 import os
+import pathlib
 import subprocess
 import sys
 from collections import Counter, defaultdict
@@ -16,6 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
+
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
@@ -62,7 +64,7 @@ def score(rows):
 
 def main():
     rows = []
-    for line in open(CORPUS, encoding="utf-8"):
+    for line in pathlib.Path(CORPUS).read_text(encoding="utf-8", errors="replace").splitlines():
         if not line.strip():
             continue
         e = json.loads(line)

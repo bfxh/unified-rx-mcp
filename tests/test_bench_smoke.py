@@ -8,6 +8,7 @@
 """
 import importlib.util
 import os
+import pathlib
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -38,8 +39,7 @@ def test_safe_bench_scripts_import():
 def test_side_effect_bench_scripts_compile():
     """import 即副作用的重脚本：只编译源码（语法级），绝不执行顶层语句。"""
     for name in _SYNTAX_ONLY:
-        src = open(os.path.join(BENCH, f"{name}.py"),
-                   encoding="utf-8", errors="replace").read()
+        src = pathlib.Path(os.path.join(BENCH, f"{name}.py")).read_text(encoding="utf-8", errors="replace")
         compile(src, f"bench/{name}.py", "exec")
 
 

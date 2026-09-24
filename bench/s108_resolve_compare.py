@@ -11,6 +11,7 @@
 """
 import json
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -19,6 +20,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")   # 本机分析脚本显式声明
+
 import registry  # noqa: E402
 import tools  # noqa: F401,E402
 from tools import scan as scan_mod  # noqa: E402
@@ -102,7 +104,7 @@ def main():
         for rel, line in sorted(text_only)[:3]:
             try:
                 ok, full = _inside(os.path.join(root, rel), root)
-                content = open(full, encoding="utf-8", errors="replace").read() \
+                content = pathlib.Path(full).read_text(encoding="utf-8", errors="replace") \
                     .splitlines()[line - 1] if ok else ""
             except (OSError, IndexError):
                 content = ""

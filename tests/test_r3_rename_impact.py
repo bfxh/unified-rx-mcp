@@ -4,11 +4,13 @@ fake server 协议闭环（rename 回显请求 uri）；_apply_text_edits 纯函
 （UTF-16 列 / CRLF / 倒序拼接 / 越界钳制）；授权语义（不落盘拒绝）。
 """
 import os
+import pathlib
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
+
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
@@ -93,7 +95,7 @@ def test_rename_apply_writes_files(tmp_path, monkeypatch):
         assert res["applied"] is True and res["total"] == 1
         assert res["files"][0]["edits"] == 1
         # fake server 编辑 (0,0)-(0,5)：'alpha' → 'renamed_x'
-        assert open(m, encoding="utf-8").read() == "renamed_x_beta()\n"
+        assert pathlib.Path(m).read_text(encoding="utf-8") == "renamed_x_beta()\n"
     finally:
         _stop_sessions(mod)
 
@@ -116,7 +118,7 @@ def test_rename_apply_rejects_non_file_uri(tmp_path, monkeypatch):
         assert r["ok"], r.get("error")
         res = r["result"]
         assert res["total"] == 0 and len(res["rejected"]) == 2
-        assert open(m, encoding="utf-8").read() == "alpha_beta()\n"  # 未被碰
+        assert pathlib.Path(m).read_text(encoding="utf-8") == "alpha_beta()\n"  # 未被碰
     finally:
         _stop_sessions(mod)
 

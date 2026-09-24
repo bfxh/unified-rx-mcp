@@ -4,12 +4,14 @@
 本门禁让"新工具没文档/新域没 skill"在 CI 直接红。
 """
 import os
+import pathlib
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
+
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
@@ -50,7 +52,7 @@ def test_every_domain_has_skill_doc():
 
 def test_language_skills_exist():
     """每一个语言都要有 skill：ide 域声明支持的语言必须有对应指南。"""
-    src = open(os.path.join(ROOT, "tools", "ide.py"), encoding="utf-8").read()
+    src = pathlib.Path(os.path.join(ROOT, "tools", "ide.py")).read_text(encoding="utf-8")
     declared = [lang for lang in ("python", "rust", "java", "go")
                 if f'"{lang}"' in src or f"'{lang}'" in src]
     for lang in ("python", "rust", "java", "go", "c", "cpp"):

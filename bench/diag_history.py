@@ -6,6 +6,7 @@
 """
 import json
 import os
+import pathlib
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +30,7 @@ def diff_since(since_ts, iid_prefix=""):
     out = []
     if not os.path.exists(OUT):
         return out
-    for line in open(OUT, encoding="utf-8"):
+    for line in pathlib.Path(OUT).read_text(encoding="utf-8").splitlines():
         try:
             e = json.loads(line)
         except ValueError:

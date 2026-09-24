@@ -16,6 +16,7 @@
 import ast
 import json
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -46,7 +47,7 @@ def changed_files(argv):
 def _top_symbols(path):
     """改动 .py 的顶层符号名（函数/类/常量）。"""
     try:
-        src = open(path, encoding="utf-8").read()
+        src = pathlib.Path(path).read_text(encoding="utf-8")
         tree = ast.parse(src)
     except (OSError, SyntaxError):
         return []
@@ -76,7 +77,7 @@ def _grep(path, patterns):
     """→ [(行号, 行文本)]，任一 pattern 命中即记。"""
     hits = []
     try:
-        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+        lines = pathlib.Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return hits
     for i, line in enumerate(lines, 1):

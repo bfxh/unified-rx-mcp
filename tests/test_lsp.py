@@ -7,6 +7,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import pathlib
+
 import registry  # noqa: E402
 import tools  # noqa: F401,E402
 from tools import lsp as lsp_mod  # noqa: E402
@@ -60,14 +62,14 @@ def test_references_count_and_lines(fake_env):
 def test_rename_plan_never_applies(fake_env):
     """rename 只出预案：applied=False 且目标文件内容不变——工具箱不抢活。"""
     fp, _ = fake_env
-    before = open(fp, encoding="utf-8").read()
+    before = pathlib.Path(fp).read_text(encoding="utf-8")
     r = _call("rename_plan", fp, line=0, col=5, new_name="renamed_x")
     assert r["ok"] and r["result"]["applied"] is False
     plan = r["result"]["plan"]
     # fake server 回显请求 uri + 固定 (0,0)-(0,5) 编辑——预案必须指向真实文件
     assert plan and plan[0]["newText"] == "renamed_x" and plan[0]["line"] == 0
     assert plan[0]["file"].endswith("m.py")
-    assert open(fp, encoding="utf-8").read() == before
+    assert pathlib.Path(fp).read_text(encoding="utf-8") == before
 
 
 def test_hover_and_symbols(fake_env):

@@ -19,6 +19,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
+import coverage_gate
 import usage_audit
 
 import registry  # noqa: E402  （ruff 对 sys.path 改动后的 import 不报 E402，无需 noqa）
@@ -93,6 +94,34 @@ def test_maintenance_merges_subsequent_runs(stats_env):
     zed = [e for e in doc["merged"] if e["key"].endswith("|Zed|fs_read")]
     assert sum(e["calls"] for e in zed) == 2, doc
     assert sum(e["ms"] for e in zed) == 18, doc
+
+
+def test_usage_audit_monthly_layer(stats_env):
+    """按月分层（S172）：rollup 周键 → 月视图（周一归月，近似口径但要**确定性**）。"""
+    stats, rollup = stats_env
+    stats.write_text("", encoding="utf-8")
+    wk1 = time.strftime("%G-W%V", time.gmtime(NOW))            # NOW 所在周
+    wk2 = time.strftime("%G-W%V", time.gmtime(NOW + 60 * 86400))  # 两个月后
+    entries = []
+    for wk, n in ((wk1, 5), (wk2, 7)):
+        entries.append({"key": f"{wk}|Zed|fs_read", "calls": n, "ms": n * 10})
+    rollup.write_text(json.dumps({"_doc": "t", "merged": entries}, ensure_ascii=False),
+                      encoding="utf-8")
+    monthly = usage_audit._rollup_monthly(str(rollup), 10)
+    assert len(monthly) == 2, monthly                          # 两个不同月
+    assert all(set(r) == {"month", "agents", "calls", "ms"} for r in monthly), monthly
+    assert sum(r["calls"] for r in monthly) == 12, monthly
+    assert all(r["agents"] == 1 for r in monthly), monthly
+
+
+def test_coverage_gate_evaluate_is_a_real_ratchet():
+    """覆盖率门（S172）：只准升——低于基线红、高于提示收紧、无基线只观测。"""
+    ok, why = coverage_gate.evaluate(50.0, None)               # 顶层 import（scripts 在 sys.path）
+    assert ok and "只观测" in why, why
+    ok, why = coverage_gate.evaluate(50.0, 55.0)
+    assert not ok and "只准升" in why, why
+    ok, why = coverage_gate.evaluate(56.0, 55.0)
+    assert ok and "收紧" in why, why
 
 
 def test_usage_audit_report_and_usage_stats_agents(stats_env, capsys):

@@ -20,6 +20,7 @@
 import argparse
 import json
 import os
+import pathlib
 import re
 import shutil
 import subprocess
@@ -31,6 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
+
 
 import swe_p3
 
@@ -286,7 +288,7 @@ def pull():
     meta = {r[0]: r for r in rows}
     out = []
     added = 0
-    for line in open(SAMPLE, encoding="utf-8"):
+    for line in pathlib.Path(SAMPLE).read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         d = json.loads(line)
@@ -507,11 +509,11 @@ def verify(args):
                    glob.glob(os.path.join(RESULTS_DIR, "*_B.json")))
     if args.ids:
         want = {x.strip() for x in args.ids.split(",")}
-        files = [f for f in files if json.load(open(f, encoding="utf-8"))
+        files = [f for f in files if json.loads(pathlib.Path(f).read_text(encoding="utf-8"))
                  ["instance_id"] in want]
     done = 0
     for fp in files:
-        rec = json.load(open(fp, encoding="utf-8"))
+        rec = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         if "verify" in rec and not args.force:
             continue
         inst = insts.get(rec["instance_id"])
@@ -520,16 +522,14 @@ def verify(args):
         if rec["instance_id"] in WSL_TASKS:        # WSL 环境按需构建（幂等）
             if not build_env_wsl(inst):
                 rec["verify"] = {"skip": "no-env-wsl"}
-                json.dump(rec, open(fp, "w", encoding="utf-8"),
-                          ensure_ascii=False, indent=1)
+                pathlib.Path(fp).write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
                 continue
             t0 = time.time()
             rec["verify"] = verify_one(rec, inst, None, cache)
             log(f"verify {os.path.basename(fp)} -> "
                 f"{rec['verify'].get('verified', rec['verify'].get('skip'))} "
                 f"({time.time()-t0:.0f}s)")
-            json.dump(rec, open(fp, "w", encoding="utf-8"),
-                      ensure_ascii=False, indent=1)
+            pathlib.Path(fp).write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
             done += 1
             continue
         py = _uv_py(os.path.join(ENVS, rec["instance_id"].replace("/", "__")))
@@ -544,7 +544,7 @@ def verify(args):
             log(f"verify {os.path.basename(fp)} -> "
                 f"{rec['verify'].get('verified', rec['verify'].get('skip'))} "
                 f"({time.time()-t0:.0f}s)")
-        json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        pathlib.Path(fp).write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
         done += 1
     log(f"[OK] verify done {done} files")
 
@@ -555,7 +555,7 @@ def summary():
     for fp in sorted(glob.glob(os.path.join(RESULTS_DIR, "*_*.json"))):
         if os.path.basename(fp) == "summary.json":
             continue
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         v = d.get("verify") or {}
         a = agg.setdefault(d["arm"], {"n": 0, "feasible": 0, "verified": 0,
                                       "base_bad": 0})

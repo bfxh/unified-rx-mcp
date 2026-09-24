@@ -3,11 +3,13 @@
 真实断言对象：occ 语义 / CRLF 保留 / dry_run 不落盘 / 0 匹配结构化失败 / 定位与上下文。
 """
 import os
+import pathlib
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
+
 
 import tools  # noqa: E402,F401
 from tools.ide_edit import code_context, ide_edit_multi, ide_rename, locate_edit
@@ -100,7 +102,7 @@ def test_edit_bom_file_match_and_preserve(tmp_path):
     r = ide_edit_multi(file_path=str(f), edits=[
         {"old_lines": ["x = 1"], "new_lines": ["x = 2"]}])
     assert r["applied"] == 1, r
-    raw = open(f, "rb").read()
+    raw = pathlib.Path(f).read_bytes()
     assert raw.startswith(b"\xef\xbb\xbf") and b"x = 2" in raw
 
 

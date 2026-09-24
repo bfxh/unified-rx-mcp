@@ -44,3 +44,9 @@ ignore = [
 # 代码里 `# noqa: X` 点了名、但**故意不入门**的规则仍登记为"外部规则"，
 # 否则 RUF100 把它们当"未用 noqa"，一修就把人工说明（"为什么这里必须这样写"）删掉。
 external = ["PLC0415", "E501"]
+
+[lint.per-file-ignores]
+# bench 的端到端探针：open 的 stderr 日志随 server 子进程生命周期（with 反而会在
+# Popen 前关掉它）——S172 逐处清理时登记的唯一例外（产品面与其余 75 处已全部转换）。
+"bench/_cancel_e2e_probe.py" = ["SIM115"]
+

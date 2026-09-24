@@ -5,6 +5,7 @@
 """
 import json
 import os
+import pathlib
 import random
 import subprocess
 
@@ -25,8 +26,7 @@ def git(repo, *args):
 def main():
     os.makedirs(SNAP_DIR, exist_ok=True)
     random.seed(SEED)
-    corpus = [json.loads(l) for l in open(os.path.join(HERE, "bug_corpus.jsonl"),
-                                          encoding="utf-8") if l.strip()]
+    corpus = [json.loads(l) for l in pathlib.Path(os.path.join(HERE, "bug_corpus.jsonl")).read_text(encoding="utf-8", errors="replace").splitlines() if l.strip()]
     files = sorted({(e["repo"], e["file"]) for e in corpus})
     snaps = []
     for repo, path in files:

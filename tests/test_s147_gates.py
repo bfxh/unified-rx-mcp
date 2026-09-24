@@ -9,6 +9,7 @@
 import importlib.util
 import json
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,7 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
+
 
 import deps_lock  # noqa: E402
 import secrets_history  # noqa: E402
@@ -67,10 +69,8 @@ def test_audit_ledger_green_and_consistent():
     cp = _py("audit_ledger.py")
     assert cp.returncode == 0, cp.stdout + cp.stderr
     assert "AUDIT-LEDGER OK" in cp.stdout
-    led = json.loads(open(os.path.join(ROOT, "spec", "audit-ledger.json"),
-                          encoding="utf-8").read())
-    hard = open(os.path.join(ROOT, "spec", "HARDENING.md"),
-                encoding="utf-8").read()
+    led = json.loads(pathlib.Path(os.path.join(ROOT, "spec", "audit-ledger.json")).read_text(encoding="utf-8"))
+    hard = pathlib.Path(os.path.join(ROOT, "spec", "HARDENING.md")).read_text(encoding="utf-8")
     rows = [ln for ln in hard.splitlines() if ln.startswith("|") and "sha256:" in ln]
     assert len(rows) == len(led["entries"]), "表/账本条数不符"
 
@@ -87,7 +87,7 @@ def test_timing_steps_skipped_unless_explicitly_enabled():
     out = cp.stdout + cp.stderr
     assert "OK   cli-golden" in out, out                      # 正确性那半照跑（纯比对，与负载无关）
     assert "SKIP cli-bench" in out and "SKIP perf-gate" in out, out
-    assert "skipped=['cli-bench', 'perf-gate']" in out, out    # 总结行必须列出被跳过的（不静默）
+    assert "skipped=['cli-bench', 'perf-gate', 'coverage-gate']" in out, out    # 总结行必须列出被跳过的（不静默；顺序=STEPS 表序）
     assert cp.returncode == 0, out
     cp2 = _py("local_gate.py", "--fast", "--only", target,
               env_extra={"UNIFIED_RX_TIMING_GATES": "1"})

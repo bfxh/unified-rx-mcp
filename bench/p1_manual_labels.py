@@ -7,6 +7,7 @@ python undefined_name 的 FN 方向未全量精读（connector 2941L）——如
 """
 import json
 import os
+import pathlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -57,13 +58,13 @@ LABELS = {
 
 def main():
     snaps = [json.loads(l) for l in
-             open(os.path.join(HERE, "manual_snapshots.jsonl"), encoding="utf-8")
+             pathlib.Path(os.path.join(HERE, "manual_snapshots.jsonl")).read_text(encoding="utf-8").splitlines()
              if l.strip()]
     with open(OUT, "w", encoding="utf-8") as f:
         for s in snaps:
             lab = LABELS.get(s["snap_id"], {"unsafe": [], "note": "未标注"})
             f.write(json.dumps({**s, "labels": lab}, ensure_ascii=False) + "\n")
-    n = sum(len(json.loads(l)["labels"]["unsafe"]) for l in open(OUT, encoding="utf-8"))
+    n = sum(len(json.loads(l)["labels"]["unsafe"]) for l in pathlib.Path(OUT).read_text(encoding="utf-8").splitlines())
     print(f"[OK] {len(snaps)} 快照标注 -> {os.path.relpath(OUT, ROOT)}（unsafe {n} 处）")
 
 

@@ -15,6 +15,7 @@ import argparse
 import glob
 import json
 import os
+import pathlib
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -70,10 +71,10 @@ def record(path, arm, task_id):
         "judge": None,          # {R1: pass/fail/unverifiable, ...} 由 score 阶段填
     }
     if os.path.exists(path):
-        old = json.load(open(path, encoding="utf-8"))
+        old = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
         old.update({k: v for k, v in doc.items() if k in ("task_id", "arm", "ts")})
         doc = old
-    json.dump(doc, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    pathlib.Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[OK] recorded -> {path}")
 
 
@@ -83,7 +84,7 @@ def score(results_dir):
         raise SystemExit("[FAIL] 无结果文件")
     agg = {}
     for fp in files:
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         if d.get("judge") is None:
             continue
         j = d["judge"]

@@ -18,6 +18,7 @@
 import ast
 import json
 import os
+import pathlib
 import re
 import shutil
 import subprocess
@@ -104,14 +105,14 @@ def test_module_size_gate():
     for fn in sorted(os.listdir(tools_dir)):
         if not fn.endswith(".py"):
             continue
-        n = sum(1 for _ in open(os.path.join(tools_dir, fn), encoding="utf-8"))
+        n = sum(1 for _ in pathlib.Path(os.path.join(tools_dir, fn)).read_text(encoding="utf-8").splitlines())
         if n > _MAX_TOOL_LINES:
             over.append(f"tools/{fn}={n}>{_MAX_TOOL_LINES}")
     rs_dir = os.path.join(ROOT, "rust", "src")
     for fn in sorted(os.listdir(rs_dir)):
         if not fn.endswith(".rs"):
             continue
-        n = sum(1 for _ in open(os.path.join(rs_dir, fn), encoding="utf-8"))
+        n = sum(1 for _ in pathlib.Path(os.path.join(rs_dir, fn)).read_text(encoding="utf-8").splitlines())
         if n > _MAX_RS_LINES:
             over.append(f"rust/src/{fn}={n}>{_MAX_RS_LINES}")
     assert not over, "模块超尺寸（先拆分再谈功能）: " + "; ".join(over)
@@ -124,7 +125,7 @@ def test_function_size_gate():
         if not fn.endswith(".py"):
             continue
         try:
-            tree = ast.parse(open(os.path.join(tools_dir, fn), encoding="utf-8").read())
+            tree = ast.parse(pathlib.Path(os.path.join(tools_dir, fn)).read_text(encoding="utf-8"))
         except SyntaxError:
             continue
         for node in ast.walk(tree):

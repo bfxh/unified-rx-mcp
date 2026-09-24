@@ -1,5 +1,6 @@
 """S23 swe_p3 机械层回归：DSML 残片解析/回收、patch 提取、git apply 校验。"""
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -9,6 +10,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
+
 
 import swe_p3  # noqa: E402
 
@@ -154,15 +156,14 @@ def test_apply_sr_applies_generates_git_diff_and_restores(mini_repo):
     assert applied == 1 and fails == [] and fz == 0
     assert "-line2" in diff and "+line2b" in diff
     # 幂等：diff 取出后仓库必须还原
-    assert open(os.path.join(mini_repo, "a.txt"), encoding="utf-8"
-                ).read().replace("\r\n", "\n") == "line1\nline2\nline3\n"
+    assert pathlib.Path(os.path.join(mini_repo, "a.txt")).read_text(encoding="utf-8").replace("\r\n", "\n") == "line1\nline2\nline3\n"
 
 
 def test_apply_sr_fuzzy_recovers_drifted_search(mini_repo):
     # 模型把注释措辞写飘了：精确匹配必败，模糊窗按相似度兜住
     p = os.path.join(mini_repo, "sub", "c.txt")
-    open(p, "w", encoding="utf-8", newline="").write(
-        "def f():\n    # TODO: later\n    return 1\n")
+    pathlib.Path(p).write_text(
+        "def f():\n    # TODO: later\n    return 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", mini_repo, "add", "-A"], check=True)
     s = "def f():\n    # TODO: afterwards\n    return 1\n"
     r = "def f():\n    # TODO: later, then cleanup\n    return 1\n"
@@ -176,7 +177,7 @@ def test_apply_sr_not_found_and_ambiguous(mini_repo):
     applied, fails, _, _, _ = swe_p3.apply_sr(mini_repo, [("a.txt", "no-such-line", "x")])
     assert applied == 0 and fails == ["a.txt: search-not-found"]
     p = os.path.join(mini_repo, "sub", "b.txt")
-    open(p, "w", encoding="utf-8", newline="").write("dup\nother\ndup\n")
+    pathlib.Path(p).write_text("dup\nother\ndup\n", encoding="utf-8")
     applied, fails, _, _, _ = swe_p3.apply_sr(mini_repo, [("sub/b.txt", "dup", "x")])
     assert applied == 0 and fails == ["sub/b.txt: search-ambiguous(x2)"]
     # 文件缺失

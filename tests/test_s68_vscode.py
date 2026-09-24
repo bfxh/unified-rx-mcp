@@ -4,12 +4,14 @@ VS Code 用 stub exe 测试（bat 写标记文件）；multi_check 用两个 tmp
 （一好一坏）验证汇总排序。
 """
 import os
+import pathlib
 import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
+
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
@@ -55,7 +57,7 @@ def test_vscode_open_with_stub(tmp_path):
             break
         time.sleep(0.1)
     assert marker_seen, "stub 未被拉起"
-    body = open(marker, encoding="utf-8").read()
+    body = pathlib.Path(marker).read_text(encoding="utf-8")
     assert "-g" in body and "3:2" in body   # goto 定位透传
 
 

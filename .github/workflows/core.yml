@@ -145,8 +145,6 @@ jobs:
         run: python -X utf8 scripts/mcp_surface_gate.py
 
       # 以下两步原在 pytest job（会随矩阵+分片跑 4 遍）；它们是契约/评测基线，挪进本 job 跑一次。
-      # S163 实锤：tool-evals 的 edit_and_test 任务是"改测试由红转绿"，**要用 pytest 跑测试**——
-      # 该依赖原由 pytest job 的 LSP 安装步提供，挪步时漏了 ⇒ 首跑 CI 红（err=1 REGRESS）。
       - name: Install LSP backends（tool-evals 需要 pytest；顺带与 pytest job 环境对齐）
         run: |
           python -m pip install --upgrade pip
@@ -168,6 +166,9 @@ jobs:
       - name: Typos gate（拼写——零容忍）
         run: python -X utf8 scripts/typos_gate.py
 
+      # 以下两步原在 pytest job（会随矩阵+分片跑 4 遍）；它们是契约/评测基线，挪进本 job 跑一次。
+      # S163 实锤：tool-evals 的 edit_and_test 任务是"改测试由红转绿"，**要用 pytest 跑测试**——
+      # 该依赖原由 pytest job 的 LSP 安装步提供，挪步时漏了 ⇒ 首跑 CI 红（err=1 REGRESS）。
       - name: Bench dry-run gates (语料/双臂配置契约)
         run: |
           python -X utf8 bench/replay_ab.py --dry-run
@@ -175,6 +176,16 @@ jobs:
 
       - name: Tool-evals gate（S144：13 个任务级评测 vs 基线，任务失败/体量膨胀即红）
         run: python -X utf8 bench/tool_evals.py --check
+
+      # S172：Rust 覆盖率棘轮（llvm-cov 只准升）。基线首次由本 job 取数（本地 windows-gnu
+      # 无 profiler runtime / msvc 无 link.exe，测不了——coverage_gate.py 文档串有实测记录）。
+      # install-action 钉 SHA（test_s124 机器锁要求）；llvm-cov 版本 0.9.1（与 RUST-WL 同钉）。
+      - name: Install cargo-llvm-cov 0.9.1
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: cargo-llvm-cov@0.9.1
+      - name: Coverage gate（行覆盖率——只准升；无基线=只观测）
+        run: python -X utf8 scripts/coverage_gate.py
 
   # ── ② 全量测试（双解释器 × 二分片）：只跑测试，不再重复门禁。
   # S163 关键路径实测：整改前墙钟 5 分 12 秒**全在本 job**（构建 80s + 测试 181s + 依赖 36s）；

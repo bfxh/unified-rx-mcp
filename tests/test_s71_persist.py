@@ -6,6 +6,7 @@
 """
 import json
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -13,6 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 HISTORY = os.path.join(HERE, "results", "autopilot_history.jsonl")
 sys.path.insert(0, ROOT)
+
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
@@ -44,7 +46,7 @@ def test_snapshot_persisted_to_jsonl(tmp_path, monkeypatch):
     p1 = _mkproj(tmp_path / "proj")
     ap.autopilot_run(root=str(tmp_path), force=True, sync=True, vscode=False)
     assert hist.exists()
-    last = json.loads(open(hist, encoding="utf-8").read().strip().split("\n")[-1])
+    last = json.loads(pathlib.Path(hist).read_text(encoding="utf-8").strip().split("\n")[-1])
     assert last["status"] == "done"
     assert last["root"] == str(tmp_path)
     assert any(p["path"] == p1 for p in last["projects"])
@@ -64,7 +66,7 @@ def test_cross_process_reuse(tmp_path, monkeypatch):
     assert snap.get("reused") is True and snap["status"] == "done"
     assert any(p["path"] == p1 for p in snap["projects"])
     # 磁盘历史只有一条（没有重跑追加）
-    assert len(open(hist, encoding="utf-8").read().strip().split("\n")) == 1
+    assert len(pathlib.Path(hist).read_text(encoding="utf-8").strip().split("\n")) == 1
 
 
 # ---------- 健康趋势 ----------

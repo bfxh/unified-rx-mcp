@@ -44,6 +44,12 @@
    "why": "账本门自读两份**本仓内固定产物**（spec/audit-ledger.json 与 spec/HARDENING.md）；S169 为让金丝雀自带输入而把路径改成可用环境变量改向（未设即原路径），于是『env→路径→读文件』被判 definite。良性依据：① 读到的文本只做计数/正则比对，不进 shell/exec/eval，最坏后果只是判据失效；② 改向用的环境变量与既有的 UNIFIED_RX_AUDIT_MAX_DAYS/COMMITS 同一信任面（能设环境变量者本就能调阈值）；③ 非 MCP 工具面，只在仓的 gate/CI 里跑（S169 人工确认）"
   },
   {
+   "file": "scripts/coverage_gate.py",
+   "sink": "subprocess.run",
+   "count": 1,
+   "why": "S172 覆盖率门：以**固定 argv** 调 `cargo llvm-cov --json --summary-only`（shell=False，无字符串拼接；工具链可经 UNIFIED_RX_COV_TOOLCHAIN 显式指定，仍操作者本地信任面）。与 lint_gate/type_gate/perf_gate 同族（S172 人工确认）"
+  },
+  {
    "file": "scripts/local_gate.py",
    "sink": ".write_text",
    "count": 1,

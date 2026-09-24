@@ -11,6 +11,7 @@
 import argparse
 import json
 import os
+import pathlib
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -22,6 +23,7 @@ sys.path.insert(0, HERE)
 # （S88/S97 补漏后），裸 shell 下 fail-closed 会干扰测量；"*" = 本机分析
 # 脚本的显式全开声明。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
+
 
 import l2_score  # noqa: E402
 
@@ -110,7 +112,7 @@ def main():
             print(f"{k}: {json.dumps(v, ensure_ascii=False)[:150]}")
     out_path = os.path.join(HERE, "results", "h3_report.json")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    json.dump(report, open(out_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    pathlib.Path(out_path).write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[OK] 写入 {os.path.relpath(out_path, os.path.dirname(ROOT))}")
 
 

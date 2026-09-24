@@ -1,5 +1,6 @@
 """S35：cargo clippy lint + LSP 诊断进修复轮。"""
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -10,6 +11,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
+
 
 import swe_repair  # noqa: E402
 
@@ -114,11 +116,11 @@ def test_repair_prompt_contains_lsp_section(tmp_path, monkeypatch):
     fp = os.path.join(sv.RESULTS_DIR, f"{iid}_A.json")
     old = None
     if os.path.exists(fp):
-        old = open(fp, encoding="utf-8").read()
+        old = pathlib.Path(fp).read_text(encoding="utf-8")
         os.remove(fp)
     rec = {"instance_id": iid, "arm": "A", "mech": {"candidate_diff": ""},
            "answer": ""}
-    json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False)
+    pathlib.Path(fp).write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
     try:
         args = type("A", (), {"channel": "c", "model": "m", "max_repairs": 1,
                               "force": True, "ids": "",
@@ -128,7 +130,7 @@ def test_repair_prompt_contains_lsp_section(tmp_path, monkeypatch):
         if old is None:
             os.remove(fp)
         else:
-            open(fp, "w", encoding="utf-8").write(old)
+            pathlib.Path(fp).write_text(old, encoding="utf-8")
     joined = "\n".join(str(mm.get("content"))[:300] for mm in captured.get("msgs", []))
     assert "[DIAGNOSTICS" in joined
     assert "undefined name 'z'" in joined

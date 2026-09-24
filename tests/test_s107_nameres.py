@@ -11,6 +11,7 @@
 """
 import json
 import os
+import pathlib
 import subprocess
 import symtable
 
@@ -133,7 +134,7 @@ def test_symtable_agreement_on_repo_files():
     bad = []
     for rel in files:
         p = os.path.join(root, rel)
-        src = open(p, encoding="utf-8").read()
+        src = pathlib.Path(p).read_text(encoding="utf-8")
         ok, diffs = _compare(p, src)
         if not ok:
             bad.append((rel, diffs))

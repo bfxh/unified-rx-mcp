@@ -12,6 +12,7 @@ S93 起旧 Python 实现的职责移入 Rust（tests at rust/tests/ide_test.rs �
 - exe 缺失走清晰报错，不静默降级。
 """
 import os
+import pathlib
 import subprocess
 
 import pytest
@@ -299,8 +300,7 @@ def test_schemas_unchanged():
 
 def test_thin_shell_retirement():
     # S93：遍历/命中/窗口/计数全部退役到 rust/src/ide.rs
-    src = open(os.path.join(os.path.dirname(tools.__file__), "ide_edit.py"),
-               encoding="utf-8").read()
+    src = pathlib.Path(os.path.join(os.path.dirname(tools.__file__), "ide_edit.py")).read_text(encoding="utf-8")
     assert '_rx_ide_call(["locate"' in src
     assert '_rx_ide_call(["context"' in src
     assert '_rx_ide_call(["rename"' in src

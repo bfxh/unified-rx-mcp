@@ -12,11 +12,11 @@ server 每次启动也自动跑同一段维护（tools.ops.stats_maintenance）�
 """
 import argparse
 import collections
+import datetime
 import json
 import os
 import pathlib
 import sys
-import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
@@ -63,6 +63,45 @@ def _rollup_rows(rollup_path, top):
     return rows, len(calls)
 
 
+def _month_of_week(week_key: str) -> str:
+    """ISO 周键（"2026-W35"）→ 该周周一所在月（"2026-09"）。
+
+    **月界周的近似**：跨月的周整周归到周一那侧——文档化口径，保证同一输入恒得
+    同一分层（rollup 键是周粒度，读侧不再有日粒度信息）。
+    """
+    try:
+        year, week = week_key.split("-W")
+        d = datetime.date.fromisocalendar(int(year), int(week), 1)
+        return d.strftime("%Y-%m")
+    except (ValueError, AttributeError):
+        return "unknown"
+
+
+def _rollup_monthly(rollup_path, top):
+    """按月分层视图：周键 → 月（周一归月），逐月给智能体数/调用量。"""
+    p = pathlib.Path(rollup_path)
+    if not p.is_file():
+        return []
+    try:
+        doc = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"[usage-audit] rollup 读不了（{e}）——如实空报", file=sys.stderr)
+        return []
+    calls = collections.Counter()
+    ms = collections.Counter()
+    agents: dict = {}
+    for ent in doc.get("merged") or []:
+        parts = str(ent.get("key", "||")).split("|")
+        week = parts[0] if parts else "?"
+        agent = parts[1] if len(parts) > 1 else "?"
+        month = _month_of_week(week)
+        calls[month] += int(ent.get("calls") or 0)
+        ms[month] += int(ent.get("ms") or 0)
+        agents.setdefault(month, set()).add(agent)
+    return [{"month": mth, "agents": len(agents[mth]), "calls": calls[mth],
+             "ms": ms[mth]} for mth in sorted(calls, reverse=True)[:top]]
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, help="保留期天数（默认取 UNIFIED_RX_STATS_RETENTION_DAYS，缺 7）")
@@ -92,6 +131,7 @@ def main(argv=None) -> int:
                    "per_agent": recent_rows},
         "all_time": {"agents": total_agents, "rollup_keys": m["rollup_keys"],
                      "per_agent": total_rows},
+        "monthly": _rollup_monthly(a.rollup or ops._rollup_path(), a.top),
         "rollup": m["rollup"],
     }
     if a.json:
@@ -108,6 +148,11 @@ def main(argv=None) -> int:
     print(f"全期（rollup 总账，含已删原始）智能体数={total_agents}")
     for r in total_rows:
         print(f"  {r['agent']:<20} calls={r['calls']:<6} ms={r['ms']}")
+    monthly = report["monthly"]
+    if monthly:
+        print("按月分层（周键→周一归月，近似口径）：")
+        for r in monthly:
+            print(f"  {r['month']}  agents={r['agents']:<4} calls={r['calls']:<6} ms={r['ms']}")
     print(f"总账 {m['rollup']}（keys={m['rollup_keys']}）")
     return 0
 

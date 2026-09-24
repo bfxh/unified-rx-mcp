@@ -1,6 +1,7 @@
 """L3 环境锚：VF3 cargo test 实跑 → bench/results/l3_env_anchor.json（--env 生成）。"""
 import json
 import os
+import pathlib
 import re
 import subprocess
 import time
@@ -27,7 +28,7 @@ def main():
               "wall_s": round(time.time() - t0, 1),
               "tail": out[-500:]}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    json.dump(anchor, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    pathlib.Path(OUT).write_text(json.dumps(anchor, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[OK] passed={passed} failed={failed} "
           f"({anchor['wall_s']}s) -> {os.path.relpath(OUT, ROOT)}")
 

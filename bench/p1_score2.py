@@ -5,6 +5,7 @@
 """
 import json
 import os
+import pathlib
 import sys
 import tempfile
 
@@ -12,6 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
+
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
@@ -30,13 +32,12 @@ def scan_text(src, suffix):
 
 def main():
     snaps = [json.loads(l) for l in
-             open(os.path.join(HERE, "p1_manual_labels.jsonl"), encoding="utf-8")
+             pathlib.Path(os.path.join(HERE, "p1_manual_labels.jsonl")).read_text(encoding="utf-8").splitlines()
              if l.strip()]
     tp = fn = fp = late = 0
     detail = []
     for s in snaps:
-        src = open(os.path.join(HERE, "manual_snaps", s["snap_file"]),
-                   encoding="utf-8", errors="replace").read()
+        src = pathlib.Path(os.path.join(HERE, "manual_snaps", s["snap_file"])).read_text(encoding="utf-8", errors="replace")
         issues = scan_text(src, os.path.splitext(s["file"])[1])
         unsafe = {u["line"]: u for u in s["labels"]["unsafe"]}
         hit_unsafe = set()

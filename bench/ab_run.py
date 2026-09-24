@@ -18,6 +18,7 @@ import argparse
 import glob
 import json
 import os
+import pathlib
 import re
 import sys
 import time
@@ -30,6 +31,7 @@ sys.path.insert(0, ROOT)
 # S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——被测工具已过沙盒门，
 # 裸 shell 下 fail-closed 会干扰测量。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
+
 import registry  # noqa: E402
 import tools  # noqa: F401,E402  # 注册面
 
@@ -68,7 +70,7 @@ SYS_B = SYS_A + (
 # ---------- 凭据 / HTTP ----------
 
 def load_channel(name):
-    cfg = json.load(open(YAN_CONFIG, encoding="utf-8"))
+    cfg = json.loads(pathlib.Path(YAN_CONFIG).read_text(encoding="utf-8"))
     p = cfg.get("api", {}).get("providerConfigs", {}).get(name)
     if not p or not p.get("apiKey"):
         raise SystemExit(f"[FAIL] 通道 {name} 无凭据（config 检查仅本地，key 不回显）")
@@ -253,7 +255,7 @@ def run(args):
             fp = result_path(args.arm, t["id"], idx, args.channel,
                              getattr(args, "tag", None))
             if os.path.exists(fp):
-                old = json.load(open(fp, encoding="utf-8"))
+                old = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
                 if not old.get("error_run"):
                     print(f"skip {os.path.relpath(fp, HERE)} (已完成)")
                     continue
@@ -302,7 +304,7 @@ def run(args):
 
 def _dump(fp, doc):
     os.makedirs(os.path.dirname(fp), exist_ok=True)
-    json.dump(doc, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    pathlib.Path(fp).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 # ---------- Judge（Agent-as-a-Judge）----------
@@ -363,7 +365,7 @@ def do_judge(args):
     files = sorted(glob.glob(os.path.join(RESULTS, "*", "*", "*.json")))
     done = fails = 0
     for fp in files:
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         if d.get("judge") and not args.force:
             continue
         t = tasks.get(d.get("task_id"))
@@ -402,7 +404,7 @@ def do_score(args):
     agg = {}
     paths = {}
     for fp in sorted(glob.glob(os.path.join(RESULTS, "*", "*", "*.json"))):
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         if not isinstance(d.get("judge"), dict):
             continue
         grp = (d["arm"] + "@" + str(d.get("channel", "?")) + "/" +

@@ -11,6 +11,7 @@ import argparse
 import glob
 import json
 import os
+import pathlib
 import re
 import sys
 
@@ -21,6 +22,7 @@ sys.path.insert(0, ROOT)
 # S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——guard 已过沙盒门
 # （S88 补漏），裸 shell 下 fail-closed 会把真值判成"不可验证"干扰测量。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
+
 
 import registry  # noqa: E402
 import tools  # noqa: F401,E402
@@ -77,7 +79,7 @@ def main():
     pattern = os.path.join(HERE, "results", "l3", "*", "*", "*.json")
     by_arm = {}
     for fp in sorted(glob.glob(pattern)):
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         arm = fp.replace("\\", "/").split("/l3/")[1].split("/")[0]
         if args.arm and arm != args.arm:
             continue
@@ -91,7 +93,7 @@ def main():
               f"wide={rep['wide_agreement']} strict={rep['strict_agreement']}")
     out = os.path.join(HERE, "results", "l3", "h2_report.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    json.dump(report, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    pathlib.Path(out).write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[OK] 写入 {os.path.relpath(out, HERE)}")
 
 

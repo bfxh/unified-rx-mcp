@@ -66,6 +66,8 @@ STEPS = [
      "Python 类型门（mypy 默认档零容忍：产品面 0 error）"),
     ("typos-gate",  [PY, "-X", "utf8", "scripts/typos_gate.py"], "fast",
      "拼写门（typos 零容忍；豁免/排除见 _typos.toml）"),
+    ("coverage-gate", [PY, "-X", "utf8", "scripts/coverage_gate.py"], "coverage",
+     "Rust 覆盖率棘轮（llvm-cov 只准升；本机测不了——见 UNIFIED_RX_COVERAGE_GATES=1）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),
     ("stress",      [PY, "-X", "utf8", "bench/stress_run.py", "--tier", "full"], "full",
      "高压语料（错误形状/成功形状/路由/溢出；并发档需独占锁，单独跑）"),
@@ -100,6 +102,7 @@ def main(argv):
     want_fast = "--fast" in argv
     no_cargo = "--no-cargo" in argv
     timing_ok = os.environ.get("UNIFIED_RX_TIMING_GATES") == "1"
+    coverage_ok = os.environ.get("UNIFIED_RX_COVERAGE_GATES") == "1"
     if "--list" in argv:
         for n, _a, tier, why in STEPS:
             print(f"{tier:4s} {n:12s} {why}")
@@ -117,7 +120,17 @@ def main(argv):
             print(f"SKIP {name:12s} 计时档：需独占机器（设 UNIFIED_RX_TIMING_GATES=1，或交给 CI）")
             skipped.append(name)
             continue
-        if want_fast and tier != "fast":
+        if tier == "coverage" and not coverage_ok:
+            # 覆盖率档（S172）：llvm-cov 编译要 profiler runtime/link.exe——本机 gnu 无
+            # profiler、msvc 无 link ⇒ 测量在 CI；有 VS Build Tools 的机器可显式开。
+            print(f"SKIP {name:12s} 覆盖率档：本机测量受限（设 UNIFIED_RX_COVERAGE_GATES=1，"
+                  f"或交给 CI）")
+            skipped.append(name)
+            continue
+        # ⭐ fast 过滤要放行**显式开档**的 tier（timing/coverage）——否则"开开关"被
+        # --fast 静默吞掉（金丝雀会空过，S172 补的洞）
+        explicit_on = (tier == "timing" and timing_ok) or (tier == "coverage" and coverage_ok)
+        if want_fast and tier != "fast" and not explicit_on:
             continue
         if only is not None and name not in only:
             continue

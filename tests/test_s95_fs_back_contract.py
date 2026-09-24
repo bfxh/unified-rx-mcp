@@ -12,6 +12,7 @@ test_security_fuzz.py 全权锁定。
 """
 import json
 import os
+import pathlib
 import sys
 
 import pytest
@@ -21,6 +22,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 if os.path.join(_ROOT, "bench") not in sys.path:
     sys.path.insert(0, os.path.join(_ROOT, "bench"))
+
 
 import s95_fs_golden as G  # noqa: E402
 
@@ -57,7 +59,7 @@ def test_golden_fixture_in_place():
 
 
 def test_scenario_table_matches_golden():
-    rows = json.loads(open(G.FIXTURE, encoding="utf-8").read())
+    rows = json.loads(pathlib.Path(G.FIXTURE).read_text(encoding="utf-8"))
     assert [r["label"] for r in rows] == [s[0] for s in G.SCENARIOS], (
         "场景表与 golden fixture 失步——先更新 bench/s95_fs_golden.py 再重新捕获")
 
@@ -86,7 +88,7 @@ def _semantic(out):
 
 
 def test_fs_read_stat_list_match_exe_golden(corpus, monkeypatch):
-    rows = json.loads(open(G.FIXTURE, encoding="utf-8").read())
+    rows = json.loads(pathlib.Path(G.FIXTURE).read_text(encoding="utf-8"))
     live = _live_rows(corpus, monkeypatch)
     bad = [lv["label"] for lv, gd in zip(live, rows)
            if _semantic(lv["out"]) != _semantic(gd["out"])]

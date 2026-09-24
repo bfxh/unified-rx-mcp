@@ -1,5 +1,6 @@
 """p1_review_pack.py —— 人工标注评审包：候选行（评审者自己的超集 grep）± 上下文。"""
 import os
+import pathlib
 import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -28,8 +29,7 @@ CTX = 10
 def main():
     out = []
     for name in sorted(os.listdir(SNAPS)):
-        src = open(os.path.join(SNAPS, name), encoding="utf-8",
-                   errors="replace").read().split("\n")
+        src = pathlib.Path(os.path.join(SNAPS, name)).read_text(encoding="utf-8", errors="replace").split("\n")
         hits = []
         for i, line in enumerate(src):
             if any(c.search(line) for c in CAND):

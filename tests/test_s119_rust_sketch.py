@@ -5,6 +5,7 @@
 默认走 `rx-scan sketch`（一次进程调用批量），GPU/CPU 保留为回落路径并**如实上报**。
 """
 import os
+import pathlib
 
 import pytest
 
@@ -33,7 +34,7 @@ def test_rust_sketch_matches_python_oracle(tmp_path):
     table, errors = neardupes._rust_sketch(files, 4, 32)
     assert errors == {}, errors
     for fp in files:
-        want = neardupes_mod.ngram_bottomk_cpu(open(fp, "rb").read(), 4, 32)
+        want = neardupes_mod.ngram_bottomk_cpu(pathlib.Path(fp).read_bytes(), 4, 32)
         assert table[fp] == want, fp
 
 

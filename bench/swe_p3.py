@@ -20,6 +20,7 @@
 import argparse
 import json
 import os
+import pathlib
 import random
 import re
 import shutil
@@ -36,6 +37,7 @@ sys.path.insert(0, HERE)
 # S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——被测工具已过沙盒门，
 # 裸 shell 下 fail-closed 会干扰测量。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
+
 import ab_run as AB  # noqa: E402  # 复用 chat/usage/exec_tool/registry
 
 import registry  # noqa: E402
@@ -89,7 +91,7 @@ def fetch(parquet_exists_ok=True):
     # （S22 教训：此前把 n 当增量连跑三次攒出 47 条，语义已修正，存量全数保留）
     old = []
     if os.path.exists(SAMPLE):
-        with open(SAMPLE, encoding="utf-8") as f:
+        with open(SAMPLE, "w", encoding="utf-8") as f:
             old = [json.loads(l) for l in f if l.strip()]
     random.seed(20260827)
     final, seen = [], set()
@@ -105,7 +107,7 @@ def fetch(parquet_exists_ok=True):
         seen |= {x[0] for x in take}
         final += [{"instance_id": x[0], "repo": x[1], "base_commit": x[2],
                    "issue": x[3], "gold_patch": x[4]} for x in take]
-    with open(SAMPLE, "w", encoding="utf-8") as f:
+    with open(SAMPLE, encoding="utf-8") as f:
         f.writelines(json.dumps(d, ensure_ascii=False) + "\n" for d in final)
     print(f"[OK] {len(final)} 条抽样（新增 {len(final)-len(old)}）"
           f" -> {os.path.relpath(SAMPLE, ROOT)}", flush=True)
@@ -486,8 +488,7 @@ def _grounded_author(root, answer, ask, mech):
         if fp is None:
             continue
         try:
-            c = open(fp, encoding="utf-8",
-                     errors="replace").read().replace("\r\n", "\n")
+            c = pathlib.Path(fp).read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
         except OSError:
             continue
         if len(c) > 12000:
@@ -708,7 +709,7 @@ def run(args):
                    "mech": mech,
                    "answer": ans}
             os.makedirs(RESULTS_DIR, exist_ok=True)
-            json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+            pathlib.Path(fp).write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
             print(f"done {inst['instance_id']} [{arm}] in={tin} wall={rec['walltime_s']}s")
 
 
@@ -744,7 +745,7 @@ def do_judge(args):
     import glob
     for fp in sorted(glob.glob(os.path.join(RESULTS_DIR, "*_A.json")) +
                      glob.glob(os.path.join(RESULTS_DIR, "*_B.json"))):
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         if "judge" in d and not args.force:
             continue
         iid = d["instance_id"]
@@ -787,7 +788,7 @@ def do_judge(args):
             d["judge_votes_n"] = len(votes)
             if not errs:
                 d.pop("judge_error", None)
-        json.dump(d, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        pathlib.Path(fp).write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
         print("judged", os.path.basename(fp))
     print("[OK] judge done")
 
@@ -800,7 +801,7 @@ def do_score():
     for fp in sorted(glob.glob(os.path.join(RESULTS_DIR, "*.json"))):
         if os.path.basename(fp) == "summary.json":
             continue
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         j = d.get("judge")
         if not isinstance(j, dict):
             continue
@@ -822,7 +823,7 @@ def do_score():
               f"{(sum(s['tin'])/len(s['tin']) if s['tin'] else float('nan')):>10.0f}"
               f"{(sum(s['wall'])/len(s['wall']) if s['wall'] else float('nan')):>10.1f}")
     out = os.path.join(RESULTS_DIR, "summary.json")
-    json.dump(agg, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    pathlib.Path(out).write_text(json.dumps(agg, ensure_ascii=False, indent=1), encoding="utf-8")
     print("[OK]", os.path.relpath(out, ROOT))
 
 

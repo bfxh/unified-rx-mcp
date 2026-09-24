@@ -10,6 +10,7 @@ S92 起旧 Python 实现的职责移入 Rust（语义对齐 tools/code_review.py
 - exe 缺失走清晰报错，不静默降级。
 """
 import os
+import pathlib
 
 import pytest
 
@@ -208,8 +209,7 @@ def test_schemas_unchanged():
 
 def test_thin_shell_retirement():
     # S92：行匹配器/装载/params 计数全部退役到 rust/src/ide.rs
-    src = open(os.path.join(os.path.dirname(tools.__file__), "ide_read.py"),
-               encoding="utf-8").read()
+    src = pathlib.Path(os.path.join(os.path.dirname(tools.__file__), "ide_read.py")).read_text(encoding="utf-8")
     assert "_symbol_spans(" not in src  # docstring 可提其名，调用必须退役
     assert "from tools.scan" not in src
     assert "_fs_resolve" not in src  # os.path.isfile 保留——exe 定位纪律需要它

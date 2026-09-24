@@ -17,6 +17,7 @@
 import argparse
 import json
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -309,7 +310,6 @@ def _ptb_verdict(inst, py, root, verified):
 def _write_rec(fp, rec, out_key, payload):
     """结果记录覆盖写（JSON，非 ASCII 直出）。"""
     rec[out_key] = payload
-    import pathlib
     pathlib.Path(fp).write_text(
         json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
 
@@ -325,12 +325,12 @@ def repair_loop(args):
                    glob.glob(os.path.join(sv.RESULTS_DIR, "*_B.json")))
     if args.ids:
         want = {x.strip() for x in args.ids.split(",")}
-        files = [f for f in files if json.load(open(f, encoding="utf-8"))
+        files = [f for f in files if json.loads(pathlib.Path(f).read_text(encoding="utf-8"))
                  ["instance_id"] in want]
     base_cache = {}
     done = 0
     for fp in files:
-        rec = json.load(open(fp, encoding="utf-8"))
+        rec = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         if out_key in rec and not args.force:
             continue
         iid = rec["instance_id"]
@@ -528,7 +528,7 @@ def summary():
     for fp in sorted(glob.glob(os.path.join(sv.RESULTS_DIR, "*_*.json"))):
         if os.path.basename(fp) == "summary.json":
             continue
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         a = agg.setdefault(d["arm"], {"n": 0, "sig_tried": 0, "sig": 0,
                                       "plain_tried": 0, "plain": 0,
                                       "both": 0, "flip": []})

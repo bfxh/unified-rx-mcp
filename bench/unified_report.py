@@ -9,6 +9,7 @@
 """
 import json
 import os
+import pathlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -27,7 +28,7 @@ def _p3_stats():
     for fp in glob.glob(os.path.join(HERE, "results", "swe", "*_*.json")):
         if os.path.basename(fp) in ("summary.json", "unified_report.json"):
             continue
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         arm = d["arm"]
         a = arms.setdefault(arm, {"n": 0, "feasible": 0, "verified": 0,
                                   "base_bad": 0, "j_n": 0, "eq": 0, "root": 0})

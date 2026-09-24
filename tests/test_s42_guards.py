@@ -1,12 +1,14 @@
 """S42 推广：守卫硬化回归（能力探针 / infra 故障检测 / skip 语义）。"""
 import json
 import os
+import pathlib
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
+
 
 import swe_repair  # noqa: E402
 import swe_verify as sv  # noqa: E402
@@ -114,18 +116,18 @@ def test_repair_base_infra_is_skip(tmp_path, monkeypatch):
                                   "test_patch": patch, "ftb": ["t"], "ptb": [],
                                   "issue": "i", "gold_patch": ""}])
     fp = os.path.join(sv.RESULTS_DIR, f"{iid}_A.json")
-    old = open(fp, encoding="utf-8").read() if os.path.exists(fp) else None
+    old = pathlib.Path(fp).read_text(encoding="utf-8") if os.path.exists(fp) else None
     if old is not None:
         os.remove(fp)
     rec = {"instance_id": iid, "arm": "A", "mech": {"candidate_diff": ""},
            "answer": ""}
-    json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False)
+    pathlib.Path(fp).write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
     try:
         args = type("A", (), {"channel": "c", "model": "m", "max_repairs": 1,
                               "force": True, "ids": "",
                               "variant": "signals"})()
         swe_repair.repair_loop(args)
-        d = json.load(open(fp, encoding="utf-8"))
+        d = json.loads(pathlib.Path(fp).read_text(encoding="utf-8"))
         rp = d.get("repair_signals") or {}
         assert rp.get("skip", "").startswith("infra")
         assert rp.get("verified") is None
@@ -133,4 +135,4 @@ def test_repair_base_infra_is_skip(tmp_path, monkeypatch):
         if old is None:
             os.remove(fp)
         else:
-            open(fp, "w", encoding="utf-8").write(old)
+            pathlib.Path(fp).write_text(old, encoding="utf-8")

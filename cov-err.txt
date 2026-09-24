@@ -1,0 +1,18 @@
+info: cargo-llvm-cov currently setting cfg(coverage); you can opt-out it by passing --no-cfg-coverage
+   Compiling unified-rx-rs v2.76.0 (D:\开发\unified-rx-mcp\rust)
+error: linking with `link.exe` failed: exit code: 1
+  |
+  = note: "link.exe" "/NOLOGO" "C:/Users/lbx13/AppData/Local/Temp/rx-rs-target\\llvm-cov-target\\debug\\deps\\rustcStSSqa\\symbols.o" "<231 object files omitted>" "advapi32.lib" "kernel32.lib" "user32.lib" "<sysroot>\\lib\\rustlib\\x86_64-pc-windows-msvc\\lib/{libprofiler_builtins-*,libtest-*,libgetopts-*,librustc_std_workspace_std-*,libstd-*,libpanic_unwind-*,libcfg_if-*,libwindows_link-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libunwind-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "kernel32.lib" "kernel32.lib" "kernel32.lib" "kernel32.lib" "ntdll.lib" "userenv.lib" "ws2_32.lib" "dbghelp.lib" "/defaultlib:msvcrt" "/NXCOMPAT" "/OUT:C:/Users/lbx13/AppData/Local/Temp/rx-rs-target\\llvm-cov-target\\debug\\deps\\rxrs-ccb9327cec149900.exe" "/OPT:REF,NOICF" "/DEBUG" "/PDBALTPATH:%_PDB%" "/NATVIS:<sysroot>\\lib\\rustlib\\etc\\intrinsic.natvis" "/NATVIS:<sysroot>\\lib\\rustlib\\etc\\liballoc.natvis" "/NATVIS:<sysroot>\\lib\\rustlib\\etc\\libcore.natvis" "/NATVIS:<sysroot>\\lib\\rustlib\\etc\\libstd.natvis"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: link: missing operand after '\377\376'
+          Try 'link --help' for more information.
+          
+
+note: `link.exe` returned an unexpected error
+
+note: you may need to install Visual Studio build tools with the "C++ build tools" workload
+
+error: process didn't exit successfully: `'C:\Users\lbx13\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe' --crate-name rxrs --edition=2024 'src\lib.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=433c08ee6e1358ba -C extra-filename=-ccb9327cec149900 --out-dir 'C:/Users/lbx13/AppData/Local/Temp/rx-rs-target\llvm-cov-target\debug\deps' -C 'incremental=C:/Users/lbx13/AppData/Local/Temp/rx-rs-target\llvm-cov-target\debug\incremental' -L 'dependency=C:/Users/lbx13/AppData/Local/Temp/rx-rs-target\llvm-cov-target\debug\deps' -C instrument-coverage --cfg=coverage` (exit code: 1)
+error: could not compile `unified-rx-rs` (lib test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: process didn't exit successfully: `'C:\Users\lbx13\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\cargo.exe' test --tests --manifest-path 'D:\开发\unified-rx-mcp\rust\Cargo.toml' --target-dir 'C:/Users/lbx13/AppData/Local/Temp/rx-rs-target\llvm-cov-target'` (exit code: 101)

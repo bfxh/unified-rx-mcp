@@ -9,6 +9,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import pathlib
+
 import server  # noqa: E402
 from tools import spill  # noqa: E402
 
@@ -50,7 +52,7 @@ def test_spill_writes_inside_sandbox_and_sanitizes_name(monkeypatch, tmp_path):
     path = spill.spill("PAYLOAD", "../../etc/passwd")
     assert path and os.path.abspath(path).startswith(os.path.abspath(str(tmp_path)))
     assert os.path.basename(path).startswith("etcpasswd"), "白名单应剥掉分隔符与 `..`"
-    assert open(path, encoding="utf-8").read() == "PAYLOAD"
+    assert pathlib.Path(path).read_text(encoding="utf-8") == "PAYLOAD"
     monkeypatch.delenv("UNIFIED_RX_SANDBOX", raising=False)
     assert spill.spill("x", "t") is None, "无沙盒 ⇒ 不落盘（fail-closed，不猜路径）"
 
@@ -65,7 +67,7 @@ def test_big_reply_spills_instead_of_inlining(monkeypatch, tmp_path):
     assert "spilled" in sc and sc["spilled"]["path"]
     assert "fs_read" in sc["spilled"]["fetch"], "必须给出取用命令"
     assert len(resp["result"]["content"][0]["text"]) < 2000, "文本块只留摘要"
-    on_disk = json.loads(open(sc["spilled"]["path"], encoding="utf-8").read())
+    on_disk = json.loads(pathlib.Path(sc["spilled"]["path"]).read_text(encoding="utf-8"))
     assert on_disk["data"] == big, "落盘的是**完整**结果（截断已降为最后手段）"
     monkeypatch.setenv("UNIFIED_RX_SPILL_KB", "0")
     resp2 = server.tool_reply(1, "sys_topology", {"ok": True, "result": big})
