@@ -28,8 +28,11 @@ except Exception:
 import importlib.util as _iu
 
 HAS_FLAKES = _iu.find_spec("pyflakes") is not None   # 诊断靠 pyflakes
-# 注：definition 走 pylsp 内建 jedi 插件（无独立 pylsp_jedi 包）；
-# jedi 0.20.0 与 pylsp 1.15 不兼容（goto 空），环境已钉 0.19.2
+# 注：definition/completion 走 pylsp 内建 jedi 插件（无独立 pylsp_jedi 包）。
+# 旧注记曾写"jedi 0.20 与 pylsp 1.15 不兼容（goto 空）⇒ 环境钉 0.19.2"——
+# **2026-09-24 实测否证**：jedi 0.20.0 + pylsp 1.15.0 下本文件 4 条全绿
+# （definition 拿到真位置、completion 47/47 位置非空），故不再钉小版本，
+# ci-requirements 里保持 `jedi` 浮动 = 取最新。
 HAS_RA = shutil.which("rust-analyzer") is not None
 
 
@@ -69,6 +72,39 @@ def test_pylsp_real_diagnostics_and_definition(tmp_path, monkeypatch):
                                        "file": str(bad)})
         assert r2["ok"], r2.get("error")
         assert r2["result"]["total"] >= 1, "真 pylsp 未报语法错误"
+    finally:
+        _stop(lsp_mod)
+
+
+@pytest.mark.skipif(not HAS_PY, reason="pylsp 未安装")
+def test_pylsp_real_completion(tmp_path, monkeypatch):
+    """真补全（S171 接线）：**判据不是"非空"而是"有没有那个属性"**——
+    空列表与"给了一堆无关标签"在"非空"口径下都算过，那种门等于装饰。
+
+    位置带前缀（`os.pa`）：实测点号后**无前缀**时服务器给整个命名空间（`os.` → 462 条、
+    字母序），前 100 条自然轮不到 `path`；带前缀才是确定性判据（也才是真实用法）。
+    """
+    monkeypatch.setenv("UNIFIED_RX_SANDBOX", str(tmp_path))
+    monkeypatch.setattr(lsp_mod, "_SESSIONS", {})
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    f = proj / "m.py"
+    f.write_text("import os\n\n\nos.pa\n", encoding="utf-8")
+    try:
+        r, labels = None, []
+        for _ in range(4):                      # 冷启动退避（同 definition 那条）
+            r = registry.call("ide_lsp", {"action": "completion",
+                                          "file": str(f), "line": 3, "col": 5})
+            assert r["ok"], r.get("error")
+            labels = [str(i["label"]) for i in r["result"]["items"]]
+            if any(lb.startswith("path") for lb in labels):
+                break
+            time.sleep(3)
+        assert labels, "真 pylsp 补全返回空"
+        assert any(lb.startswith("path") for lb in labels), \
+            f"os.pa 之后没给出 path（前 5：{labels[:5]}）"
+        item = r["result"]["items"][0]
+        assert {"label", "kind", "detail"} <= set(item), item
     finally:
         _stop(lsp_mod)
 

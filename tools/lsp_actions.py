@@ -65,6 +65,51 @@ def _act_diagnostics(lang, real, root):
     return {"engine": f"{lang}-lsp", "total": len(ds), "diagnostics": ds}
 
 
+_COMPLETION_KINDS = {
+    1: "text", 2: "method", 3: "function", 4: "constructor", 5: "field",
+    6: "variable", 7: "class", 8: "interface", 9: "module", 10: "property",
+    11: "unit", 12: "value", 13: "enum", 14: "keyword", 15: "snippet",
+    16: "color", 17: "file", 18: "reference", 19: "folder", 20: "enum_member",
+    21: "constant", 22: "struct", 23: "event", 24: "operator", 25: "type_param",
+}
+
+
+def _act_completion(lang, sess, tdpos):
+    """补全：`textDocument/completion`——兼容 `CompletionItem[]` 与 `CompletionList` 两形态。
+
+    只回"光标处可补的符号名 + 类型 + 插入文本"，**不回 documentation**（服务器常给整段
+    文档，进模型上下文不划算）；按 label 去重、上限 100 条。**截断要如实说**：
+    `total` 是服务器原始条数，截断时附 `hint`（光标的点号后没有前缀时服务器会返回整
+    个命名空间——实测 `os.` 给 462 条、字母序，加前缀才能确定性拿到目标）。
+    """
+    r = _lsp._call_ready(sess, "textDocument/completion", dict(tdpos))
+    items = (r.get("items") if isinstance(r, dict) else r) or []
+    out, seen = [], set()
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        label = it.get("label")
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        ins = it.get("insertText") or (it.get("textEdit") or {}).get("newText")
+        entry = {"label": str(label)[:60],
+                 "kind": _COMPLETION_KINDS.get(it.get("kind"), it.get("kind")),
+                 "detail": str(it.get("detail") or "")[:80]}
+        if ins:
+            entry["insert"] = str(ins)[:40]
+        out.append(entry)
+        if len(out) >= 100:
+            break
+    res = {"engine": f"{lang}-lsp", "total": len(items), "shown": len(out),
+           "isIncomplete": bool(r.get("isIncomplete")) if isinstance(r, dict) else False,
+           "items": out}
+    if len(items) > len(out):
+        res["hint"] = (f"服务器给了 {len(items)} 条，只展示前 {len(out)} 条"
+                       f"（按服务器顺序）——在点号后补几个字符可确定性拿到目标")
+    return res
+
+
 def _rename_plan_items(r):
     """WorkspaceEdit → 预案条目（changes 与 documentChanges 两形态都收）。"""
     plan = []
@@ -146,12 +191,13 @@ def _apply_file_edits(sess, fpath, eds):
     return {"file": real, "edits": n}, n
 
 
-@tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/symbols/diagnostics/rename_plan；apply 落盘需授权", "ide",
+@tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/completion/symbols/diagnostics/rename_plan；apply 落盘需授权", "ide",
       {"type": "object",
        "properties": {
            "action": {"type": "string",
-                      "description": "status/definition/references/hover/document_symbols/"
-                                     "diagnostics/rename_plan/rename_apply/shutdown"},
+                      "description": "status/definition/references/hover/completion/"
+                                     "document_symbols/diagnostics/rename_plan/"
+                                     "rename_apply/shutdown"},
            "file": {"type": "string", "description": "目标文件（沙盒内绝对路径）"},
            "line": {"type": "integer", "description": "0-based 行"},
            "col": {"type": "integer", "description": "0-based 字符列"},
@@ -210,6 +256,9 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
         if action == "hover":
             r = _lsp._call_ready(sess, "textDocument/hover", dict(tdpos))
             return {"engine": f"{lang}-lsp", "result": _lsp._sanitize(r) if r else None}
+
+        if action == "completion":
+            return _act_completion(lang, sess, tdpos)
 
         if action == "rename_plan":
             return _act_rename_plan(lang, sess, tdpos, new_name)

@@ -639,6 +639,11 @@
   "max_fn_lines": 30,
   "max_type_members": 0
  },
+ "scripts/tool_sweep.py": {
+  "file_lines": 161,
+  "max_fn_lines": 35,
+  "max_type_members": 1
+ },
  "scripts/toolface_budget.py": {
   "file_lines": 85,
   "max_fn_lines": 20,
@@ -730,7 +735,7 @@
   "max_type_members": 0
  },
  "tests/test_lsp_real.py": {
-  "file_lines": 124,
+  "file_lines": 160,
   "max_fn_lines": 32,
   "max_type_members": 0
  },
@@ -1420,8 +1425,8 @@
   "max_type_members": 15
  },
  "tools/lsp_actions.py": {
-  "file_lines": 233,
-  "max_fn_lines": 70,
+  "file_lines": 282,
+  "max_fn_lines": 73,
   "max_type_members": 0
  },
  "tools/meta.py": {
