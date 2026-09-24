@@ -74,6 +74,12 @@
    "why": "性能门清理上轮语料（S160）：只作用于固定的 TEMP 语料根目录，硬编码路径、非外部输入。"
   },
   {
+   "file": "scripts/type_gate.py",
+   "sink": "subprocess.run",
+   "count": 1,
+   "why": "S171 类型门：以**固定 argv** 调 `python -m mypy`（shell=False，无字符串拼接）；cache 目录由 TEMP 派生 + 固定名。与 lint_gate/perf_gate 同族（S171 人工确认）"
+  },
+  {
    "file": "scripts/vuln_hunt.py",
    "sink": ".mkdir",
    "count": 2,

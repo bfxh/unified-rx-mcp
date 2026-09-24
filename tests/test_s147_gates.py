@@ -6,6 +6,7 @@
 3. audit_ledger：真跑绿；压阈值（MAX_DAYS=0）必红；`--allow-stale` 显式放行；
    账本条数与 HARDENING 表行数对账（表/账本不许各说各话）。
 """
+import importlib.util
 import json
 import os
 import shutil
@@ -107,6 +108,25 @@ def test_dupe_gate_catches_new_duplicates(tmp_path):
     cp = _py("dupe_gate.py", "--root", str(tmp_path))
     assert cp.returncode == 1, "重复文件没判红——假门\n" + cp.stdout
     assert "新增重复对" in cp.stdout, cp.stdout
+
+
+def test_type_gate_catches_new_type_error(tmp_path):
+    """金丝雀（S171）：类型门零容忍——**注解过的**代码里出类型错必须判红。
+
+    判据的坑：mypy 默认档**不查无注解函数体**（把 `return "x"` 放进无注解函数不会报），
+    金丝雀若写成无注解版就是假绿。故此处用 `-> int` + `return "x"`；
+    修好后还必须回绿（否则门是"恒红 = 摆设"）。
+    """
+    if importlib.util.find_spec("mypy") is None:
+        pytest.skip("本机没有 mypy：门会 FAIL（不静默），但这条金丝雀无法验证")
+    bad = tmp_path / "bad.py"
+    bad.write_text('def f() -> int:\n    return "x"\n', encoding="utf-8")
+    cp = _py("type_gate.py", "--root", str(tmp_path), "--paths", "bad.py")
+    assert cp.returncode == 1, "注解代码里的类型错没判红——假门\n" + cp.stdout
+    assert "return-value" in (cp.stdout + cp.stderr), cp.stdout + cp.stderr
+    bad.write_text("def f() -> int:\n    return 1\n", encoding="utf-8")
+    cp2 = _py("type_gate.py", "--root", str(tmp_path), "--paths", "bad.py")
+    assert cp2.returncode == 0, cp2.stdout + cp2.stderr
 
 
 def test_lint_gate_catches_new_rule_hits(tmp_path):

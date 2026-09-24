@@ -26,7 +26,7 @@ _CL = None
 _CTX = None
 _QUEUE = None
 _DEVICE = None
-_PROGRAMS = {}
+_PROGRAMS: dict[str, object] = {}
 
 
 class GpuError(RuntimeError):

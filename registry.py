@@ -43,7 +43,7 @@ def notify(level, message):
             pass
 
 
-_TOOLS = {}
+_TOOLS: dict[str, dict] = {}
 
 # ---- S10 请求上下文：tools/call 分发线程 ↔ 工具内部（取消轮询等）----
 _REQ_LOCAL = threading.local()
@@ -107,7 +107,7 @@ def current_request_id():
 # ---- S10 取消登记：唯一事实源在 registry ——
 # 教训（端到端探针实测）：server 以 __main__ 运行时，工具内 `import server` 会
 # 触发二次模块执行得到【新的空表】，登记永远查不到。任何跨层状态都收进本模块。
-_CANCELS = {}
+_CANCELS: dict[str, object] = {}
 _CANCEL_LOCK = threading.Lock()
 
 

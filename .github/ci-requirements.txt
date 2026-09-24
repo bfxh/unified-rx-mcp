@@ -3,3 +3,4 @@ python-lsp-server
 jedi
 pyflakes
 ruff==0.16.8
+mypy==2.3.1

@@ -109,13 +109,13 @@ def collect(root: pathlib.Path) -> tuple[list[tuple[str, str, str]], list[tuple[
         for line in req.read_text(encoding="utf-8").splitlines():
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
-            m = _PIN.match(line)
-            if m:
-                deps.append((m.group(1), m.group(2)))
+            pin = _PIN.match(line)
+            if pin:
+                deps.append((pin.group(1), pin.group(2)))
                 continue
-            m = _LOOSE.match(line)
-            if m:
-                deps.append((m.group(1), ""))
+            loose = _LOOSE.match(line)
+            if loose:
+                deps.append((loose.group(1), ""))
     return actions, deps
 
 

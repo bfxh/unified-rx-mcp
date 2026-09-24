@@ -116,10 +116,10 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
     # S34：先整段模拟匹配（在副本上），失败不写盘——dry_run 也复用同一模拟
     sim = list(lines)
     sim_errors = []
-    for e in edits:
-        old = e.get("old_lines") or []
-        new = e.get("new_lines") or []
-        occ = int(e.get("occ", 1) or 1)
+    for ed in edits:
+        old = ed.get("old_lines") or []
+        new = ed.get("new_lines") or []
+        occ = int(ed.get("occ", 1) or 1)
         if not old:
             sim_errors.append("old_lines 为空")
             continue
@@ -255,10 +255,10 @@ def ide_batch_edit(path, edits, files=None, fuzzy=False, apply=False,
         sim = [ln.removesuffix("\r")
                for ln in src.split("\n")]
         applied = 0
-        for e in edits:
-            old = e.get("old_lines") or []
-            new = e.get("new_lines") or []
-            occ = int(e.get("occ", 1) or 1)
+        for ed in edits:
+            old = ed.get("old_lines") or []
+            new = ed.get("new_lines") or []
+            occ = int(ed.get("occ", 1) or 1)
             if not old:
                 continue
             found = _match_idx(sim, old, occ, fuzzy=False)

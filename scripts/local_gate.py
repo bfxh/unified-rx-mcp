@@ -62,6 +62,8 @@ STEPS = [
      "重复代码（同类代码新增即红；复用 rx-scan sketch 指纹）"),
     ("lint-gate",   [PY, "-X", "utf8", "scripts/lint_gate.py"], "fast",
      "Python 静态门（ruff 逐规则棘轮：只准减；规则集在 ruff.toml）"),
+    ("type-gate",   [PY, "-X", "utf8", "scripts/type_gate.py"], "fast",
+     "Python 类型门（mypy 默认档零容忍：产品面 0 error）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),
     ("stress",      [PY, "-X", "utf8", "bench/stress_run.py", "--tier", "full"], "full",
      "高压语料（错误形状/成功形状/路由/溢出；并发档需独占锁，单独跑）"),

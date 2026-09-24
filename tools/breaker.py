@@ -42,14 +42,14 @@ import time
 from registry import tool
 
 _LOCK = threading.Lock()
-_HISTORY = {}      # key -> [ts...]（窗口内调用时间戳）
-_META = {}         # key -> {"tool": name, "args": 摘要}（状态可读）
-_STREAK = {}       # key -> [result_hash, 连续相同次数]
-_TRIPPED = {}      # key -> (until_ts, reason)
+_HISTORY: dict[str, list[float]] = {}      # key -> [ts...]（窗口内调用时间戳）
+_META: dict[str, dict] = {}         # key -> {"tool": name, "args": 摘要}（状态可读）
+_STREAK: dict[str, list] = {}       # key -> [result_hash, 连续相同次数]
+_TRIPPED: dict[str, tuple] = {}      # key -> (until_ts, reason)
 _MAX_KEYS = 4096   # 内存上限：超过就清最老的记录（熔断器不能自己变成内存泄漏）
 
 # S140 全局护栏状态（不分工具、不分参数——专收 per-key 拦不住的洪峰）
-_GLOBAL_HIST = []      # 60s 窗口内全部调用时间戳
+_GLOBAL_HIST: list[float] = []      # 60s 窗口内全部调用时间戳
 _GLOBAL_UNTIL = 0.0    # 全局熔断截止时刻（0=未熔断）
 _GLOBAL_REASON = ""
 _DAILY = {"day": None, "count": 0, "alerted": False}   # 当日总量（reset 不清，跨天归零）

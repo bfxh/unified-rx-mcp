@@ -326,7 +326,7 @@ class _Session:
             return self._request_raw(method, params, timeout=timeout)
 
 
-_SESSIONS = {}
+_SESSIONS: dict[tuple, tuple] = {}
 _MGR_LOCK = threading.Lock()
 
 

@@ -19,7 +19,7 @@ import time
 
 _LOCK = threading.Lock()
 _LAST = 0.0          # 上次探测时刻（节流）
-_SEEN = {}           # file -> {已告警档位}（有界滚动，防无界增长）
+_SEEN: dict[str, set] = {}           # file -> {已告警档位}（有界滚动，防无界增长）
 _INTERVAL = 60.0
 _FRESH_S = 3600.0    # 只盯活跃会话：mtime 超过 1 小时的陈旧文件不告警（否则重启即刷旧账）
 

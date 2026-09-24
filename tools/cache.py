@@ -50,7 +50,7 @@ _FP_EXTS = {".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".gd", ".cs",
             ".cpp", ".h", ".hpp", ".sh", ".toml", ".yaml", ".yml", ".md",
             ".json", ".txt", ".ini", ".cfg", ".sql", ".vue", ".svelte"}
 _LOCK = threading.Lock()
-_STORE = OrderedDict()      # key -> {"ts": int, "value": object}
+_STORE: OrderedDict[str, dict] = OrderedDict()      # key -> {"ts": int, "value": object}
 _STATS = {"hits": 0, "misses": 0, "puts": 0, "evictions": 0, "skipped": 0}
 
 

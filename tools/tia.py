@@ -12,7 +12,7 @@
 import threading
 
 _LOCK = threading.Lock()
-_STATE = {}          # root -> {"snapshot": {...}, "deps": {...}}
+_STATE: dict[str, dict] = {}          # root -> {"snapshot": {...}, "deps": {...}}
 
 
 def get(root):

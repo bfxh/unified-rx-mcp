@@ -54,7 +54,7 @@ def _load_last():
         return None
 
 _LOCK = threading.Lock()
-_SNAPSHOT = {
+_SNAPSHOT: dict = {
     "status": "idle",       # idle/running/done/error
     "root": None,
     "started": None,

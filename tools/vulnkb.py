@@ -162,7 +162,7 @@ KB = [
      "tags": ["并发", "路径", "未覆盖"]},
 ]
 
-_BY_RULE = {}
+_BY_RULE: dict[str, list] = {}
 for _e in KB:
     for _r in _e["rules"]:
         _BY_RULE.setdefault(_r, []).append(_e)

@@ -33,11 +33,11 @@ def _build_fingerprint(root):
                     pass
     return hash(tuple(sorted(fps.items())))
 
-_BUILD_CACHE = {}       # (tool, action, build_root) -> {"key": fp, "result": {...}}
+_BUILD_CACHE: dict[tuple, dict] = {}       # (tool, action, build_root) -> {"key": fp, "result": {...}}
 
 _BUILD_CACHE_MAX = 8
 
-_BUILD_CACHE_ORDER = []
+_BUILD_CACHE_ORDER: list[tuple] = []
 
 def _build_cache_get(key):
     ent = _BUILD_CACHE.get(key)

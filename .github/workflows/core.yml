@@ -158,6 +158,11 @@ jobs:
       - name: Lint gate（Python 静态分析——逐规则棘轮，只准减）
         run: python -X utf8 scripts/lint_gate.py
 
+      # S171：Python 类型门（mypy 默认档零容忍）——与 lint 门不是一类：那管语法/常见错，
+      # 这管类型面。首次启用即清零（19 → 0），故不设基线：冒一条即红。版本钉在 ci-requirements。
+      - name: Type gate（mypy 默认档——产品面 0 error）
+        run: python -X utf8 scripts/type_gate.py
+
       - name: Bench dry-run gates (语料/双臂配置契约)
         run: |
           python -X utf8 bench/replay_ab.py --dry-run

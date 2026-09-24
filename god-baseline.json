@@ -575,7 +575,7 @@
   "max_type_members": 0
  },
  "scripts/deps_lock.py": {
-  "file_lines": 45,
+  "file_lines": 49,
   "max_fn_lines": 11,
   "max_type_members": 0
  },
@@ -600,7 +600,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 155,
+  "file_lines": 157,
   "max_fn_lines": 56,
   "max_type_members": 0
  },
@@ -647,6 +647,16 @@
  "scripts/toolface_budget.py": {
   "file_lines": 85,
   "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "scripts/type_gate.py": {
+  "file_lines": 80,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "scripts/vuln_hunt.py": {
+  "file_lines": 187,
+  "max_fn_lines": 103,
   "max_type_members": 0
  },
  "server.py": {
@@ -955,7 +965,7 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 170,
+  "file_lines": 190,
   "max_fn_lines": 19,
   "max_type_members": 0
  },
@@ -1237,6 +1247,11 @@
  "tests/test_v2.py": {
   "file_lines": 410,
   "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "tests/test_vuln_hunt.py": {
+  "file_lines": 106,
+  "max_fn_lines": 20,
   "max_type_members": 0
  },
  "tests/test_workflow_doc.py": {
