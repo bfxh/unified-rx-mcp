@@ -1,6 +1,6 @@
 """tools/ide_build.py —— 构建面（S48 拆分）。"""
-"""tools/ide_build.py —— 构建面（S48 拆分）。"""
 
+import json
 import os
 
 import re
