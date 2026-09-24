@@ -373,17 +373,20 @@ jobs:
   # Python 侧的跨平台腿后续加（tests 里有 Windows 路径假设，要先梳理）。
   cross-linux:
     runs-on: ubuntu-latest
-    # 实测首跑（S173）：ubuntu runner 的 LD_LIBRARY_PATH 带空条目 ⇒ rustup 代理
-    # "failed to join paths from $LD_LIBRARY_PATH together"（rc=101）——清空即过。
-    # 这正是跨平台腿的价值：环境差异只有真跑了才看得见。
-    env:
-      LD_LIBRARY_PATH: ""
+    # ⭐ 必须覆盖 target-dir：仓库根 .cargo/config.toml 的 [build] target-dir 是**本机
+    # 绝对路径**（S78 中文路径 workaround，注释写明 CI 靠 env 覆盖）——linux 上 rustup
+    # 拿它拼 LD_LIBRARY_PATH ⇒ "path segment contains separator `:`"（两跑实锤：清空/
+    # 卸载 LD_LIBRARY_PATH 都没用，得覆盖根因）。runner 上下文只在 step 级可用。
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false   # 凭据不落盘
       - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名
       - name: cargo test（linux）
-        run: env -u LD_LIBRARY_PATH cargo test --manifest-path rust/Cargo.toml
+        run: cargo test --manifest-path rust/Cargo.toml
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/rx-target
       - name: cargo build --release（linux 产物可构建）
-        run: env -u LD_LIBRARY_PATH cargo build --release --manifest-path rust/Cargo.toml
+        run: cargo build --release --manifest-path rust/Cargo.toml
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/rx-target
