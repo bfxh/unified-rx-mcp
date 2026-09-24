@@ -1435,7 +1435,7 @@
   "max_type_members": 0
  },
  "tools/lsp.py": {
-  "file_lines": 507,
+  "file_lines": 509,
   "max_fn_lines": 36,
   "max_type_members": 15
  },
@@ -1450,8 +1450,8 @@
   "max_type_members": 0
  },
  "tools/metrics.py": {
-  "file_lines": 344,
-  "max_fn_lines": 86,
+  "file_lines": 348,
+  "max_fn_lines": 88,
   "max_type_members": 0
  },
  "tools/neardupes.py": {

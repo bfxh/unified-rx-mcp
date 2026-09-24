@@ -137,7 +137,9 @@ class _Session:
         self.last_used = time.time()
 
     def start(self):
-        err_log = open(os.path.join(os.environ.get("TEMP", "."), f"uRX_lsp_{self.lang}.log"),
+        # 常驻句柄（SIM115 豁免）：stderr 日志随 LSP 进程生命周期，会话回收时关闭
+        # （`_err_log.close()`，S18 的 fd 泄漏修复）——with 反而会在 start() 返回时关掉它。
+        err_log = open(os.path.join(os.environ.get("TEMP", "."), f"uRX_lsp_{self.lang}.log"),  # noqa: SIM115
                        "ab")
         self._err_log = err_log
         self.proc = subprocess.Popen(

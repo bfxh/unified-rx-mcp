@@ -32,7 +32,8 @@ def _walk_py(root, cap=500):
 def _imports_of(fp):
     """提取 .py 文件的 import 模块名列表（含动态 import 的字符串常量）。"""
     try:
-        tree = ast.parse(open(fp, encoding='utf-8', errors='replace').read())
+        with open(fp, encoding='utf-8', errors='replace') as f:
+            tree = ast.parse(f.read())
     except (SyntaxError, OSError):
         return []
     mods = []
@@ -128,7 +129,8 @@ def code_coverage(script, source_dir, args=None, timeout=120, __authorized=False
     for fp in _walk_py(source_dir):
         rel = os.path.relpath(fp, source_dir)
         try:
-            src = open(fp, encoding='utf-8', errors='replace').read()
+            with open(fp, encoding='utf-8', errors='replace') as f:
+                src = f.read()
         except OSError:
             continue
         code_lines = [n for n, l in enumerate(src.split('\n'), 1)
@@ -293,7 +295,8 @@ def module_stability(path, timeout=60):
     corpus = ""
     for p in test_paths[:300]:
         try:
-            corpus += open(p, encoding='utf-8', errors='replace').read() + "\n"
+            with open(p, encoding='utf-8', errors='replace') as f:
+                corpus += f.read() + "\n"
         except OSError:
             pass
 
@@ -307,7 +310,8 @@ def module_stability(path, timeout=60):
             fp = os.path.join(r, fn)
             rel = os.path.relpath(fp, path).replace('\\', '/')
             try:
-                src = open(fp, encoding='utf-8', errors='replace').read()
+                with open(fp, encoding='utf-8', errors='replace') as f:
+                    src = f.read()
             except OSError:
                 src = ""
             lc = sum(1 for l in src.split('\n')

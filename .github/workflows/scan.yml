@@ -41,3 +41,34 @@ jobs:
 
       - name: Data-flow gate（周扫同款：taint 产品面 definite 不得超基线）
         run: python -X utf8 scripts/taint_gate.py
+
+  # S171：一键漏洞挖掘周扫——对仓库**自身**走完整链路（克隆到隔离沙箱 → 自攻+污点+静见
+  # 三合一 → 封印报告）。与上面的逐门周扫互补：那是各门的单点判定，这是整条管道的
+  # 端到端演练 + 封印留痕（seal 打进日志，可跨周比对"同输入同封印"）。
+  # exit 1 = 有面没跑成（工具缺失/越界，如实红）；verdict=issues 不算失败——本仓产品面
+  # 本就有 taint 基线内的发现，要人看的是报告不是退出码。
+  vuln-hunt:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # 凭据不落盘
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名
+      # app_clone（rx-appops.exe）与污点（rx-svc.exe）都要 exe——同 audit-sweep 的构建纪律
+      - name: Build Rust acceleration (exe 落在 %TEMP%\rx-rs-target)
+        shell: pwsh
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
+          cargo build --release --manifest-path rust/Cargo.toml
+      - name: Install deps（pytest 系 + ruff/mypy 钉版）
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r .github/ci-requirements.txt
+      - name: Vuln-hunt weekly sweep（克隆→三合一→封印）
+        run: python -X utf8 scripts/vuln_hunt.py --target .
