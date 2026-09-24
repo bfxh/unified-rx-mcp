@@ -80,15 +80,20 @@ def load_baseline() -> float | None:
 
 
 def evaluate(value: float, baseline: float | None) -> tuple[bool, str]:
-    """(是否通过, 说明)。纯函数——金丝雀直接测它。只准升：低于基线即红。"""
+    """(是否通过, 说明)。纯函数——金丝雀直接测它。只准升：低于基线即红。
+
+    **容差 ±0.005 个百分点**（半个显示位）：CI 两次实测 67.87% 基线判红——
+    实测值是 67.8651…，显示四舍五入成 67.87 而比较用的是原值 ⇒ 浮点尘被当下降
+    （CI 实锤）。棘轮要拦的是真实下降（≥0.01 个百分点），不是舍入噪声。
+    """
     if baseline is None:
         return True, f"尚无基线（实测 {value:.2f}%，只观测；--write-baseline 入册后棘轮生效）"
-    if value + 1e-9 < baseline:
+    if value < baseline - 0.005:
         return False, f"覆盖率 {value:.2f}% < 基线 {baseline:.2f}%（只准升）"
-    if value > baseline:
+    if value > baseline + 0.005:
         return True, (f"覆盖率 {value:.2f}% > 基线 {baseline:.2f}%"
                       f"（可 --write-baseline 收紧）")
-    return True, f"覆盖率 {value:.2f}% = 基线"
+    return True, f"覆盖率 {value:.2f}% ≈ 基线 {baseline:.2f}%"
 
 
 def main() -> int:

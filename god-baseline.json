@@ -575,7 +575,7 @@
   "max_type_members": 0
  },
  "scripts/coverage_gate.py": {
-  "file_lines": 120,
+  "file_lines": 125,
   "max_fn_lines": 22,
   "max_type_members": 0
  },
