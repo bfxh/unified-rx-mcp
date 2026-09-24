@@ -590,7 +590,7 @@
   "max_type_members": 0
  },
  "scripts/god_gate.py": {
-  "file_lines": 385,
+  "file_lines": 391,
   "max_fn_lines": 68,
   "max_type_members": 0
  },
@@ -945,7 +945,7 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 128,
+  "file_lines": 148,
   "max_fn_lines": 18,
   "max_type_members": 0
  },

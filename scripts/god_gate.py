@@ -271,6 +271,12 @@ def evaluate(files: dict, base: dict, cfg: dict) -> tuple[list[str], list[str], 
                 if v > lim:
                     bad.append(f"{rel}: {key}={v} > {lim}（新增，无基线）")
                 continue
+            if key == "max_fn_lines" and cfg.get("fn_hard_threshold") and v > lim:
+                # 硬阈（S170）：函数长度不接受祖父化——棘轮只保证"别更胖"，管不住
+                # "历史上就这么胖"（本轮前 7 个长函数正是这样被放行的）。全仓拆到
+                # 阈值以内后才开闸，否则开闸即红。
+                bad.append(f"{rel}: max_fn_lines {bv} → {v} > 硬阈 {lim}（基线不放行）")
+                continue
             if v > bv:                                      # 变胖
                 shrink = b.get("max_fn_lines", 0) - m["max_fn_lines"]
                 if key in ("file_lines", "max_type_members") and shrink > 0:

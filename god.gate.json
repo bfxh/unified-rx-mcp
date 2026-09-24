@@ -5,6 +5,8 @@
   "max_type_members": 24,
   "_file_growth_doc": "拆函数会让文件行数变大：若 max_fn_lines 严格下降且涨幅 ≤ 该百分比，判合法交换（逐条打印）；否则仍红",
   "file_growth_with_fn_shrink_pct": 10,
+  "_fn_hard_doc": "max_fn_lines 是硬阈（S170 起，全仓拆到阈值以内后才开闸）：函数超长不接受基线祖父化——棘轮只说'别更胖'，管不住'历史上就这么胖'。缺省/置 false = 纯棘轮（可移植副本不写这项即维持旧语义）。",
+  "fn_hard_threshold": true,
   "include": ["**/*.py", "**/*.rs", "**/*.mjs", "**/*.js", "**/*.ts"],
   "exclude": [
     "**/bench/manual_snaps/**",

@@ -108,6 +108,26 @@ def test_dupe_gate_catches_new_duplicates(tmp_path):
     assert "新增重复对" in cp.stdout, cp.stdout
 
 
+def test_god_gate_fn_hard_threshold_is_a_real_gate(tmp_path):
+    """金丝雀（S170）：`max_fn_lines` 是**硬阈**，基线祖父化也不放行。
+
+    背景：本轮之前 7 个长函数被基线记着（棘轮内永远不红）⇒ 门对它们形同摆设。
+    全仓拆到阈值以内后才开闸；这条同时锁住"先记基线、再验红"的顺序（反了会假绿）。
+    """
+    cfg = {"max_file_lines": 800, "max_fn_lines": 120, "max_type_members": 24,
+           "include": ["**/*.py"], "exclude": [], "baseline": "god-baseline.json",
+           "fn_hard_threshold": True}
+    (tmp_path / "god.gate.json").write_text(json.dumps(cfg), encoding="utf-8")
+    (tmp_path / "long.py").write_text(
+        "def f():\n" + "".join(f"    x{i} = {i}\n" for i in range(130)) + "    return 0\n",
+        encoding="utf-8")
+    cp0 = _py("god_gate.py", "--root", str(tmp_path), "--write-baseline")
+    assert cp0.returncode == 0, cp0.stdout + cp0.stderr     # 基线里就记着这个长函数
+    cp = _py("god_gate.py", "--root", str(tmp_path))
+    assert cp.returncode == 1, "130 行函数没判红——硬阈是假门\n" + cp.stdout
+    assert "硬阈" in cp.stdout, cp.stdout
+
+
 def test_audit_ledger_stale_is_a_real_gate(tmp_path):
     """金丝雀：时效判据是真门。**自带临时账本**，不看仓里账本的日期/提交数——
     实测教训（S169）：仓里一旦"今天刚记入审计"，`MAX_DAYS=0` 就恒不触发（age=0 不 > 0 天），
