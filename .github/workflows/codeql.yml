@@ -1,0 +1,69 @@
+# -*- coding: utf-8 -*-
+# 合并结果扫描 + 静态分析（S170）：回答"GitHub 能不能扫合并后的"——能。
+#
+# 两种"合并后"分清：
+#   ① PR 的**合并结果**：`pull_request` 事件默认检出的就是 **merge commit**（GitHub 自动构造的合并树），
+#      所以本工作流的 PR 触发 = 扫"假如合并之后"的代码（CodeQL 官方模板同义）；
+#   ② 合并后（post-merge）：`push: main` + 每周 `schedule` ⇒ 合并进去之后仍被定期全扫（漂移也能被发现）。
+#
+# 为什么加它：本仓自研门（god/dupe/taint/attack…）覆盖"结构/重复/数据流/自攻"，
+# 但**没有**通用静态分析（注入/路径/反序列化等的语义级规则）与 PR 依赖审查。CodeQL 免费（本仓 PUBLIC），
+# 与自研门互补而非替代——两把尺都要有（红线 8：门禁全绿 ≠ CI 全绿）。
+name: merge-scan
+
+on:
+  pull_request:            # 扫合并结果（merge commit）
+  push:
+    branches: [main]       # post-merge 全扫
+  schedule:
+    - cron: '30 20 * * 0'  # 每周日 20:30 UTC（≈ 周一 04:30 本地）兜底全扫
+
+concurrency:
+  # 组键用 head_ref||ref_name：push（refs/heads/*）与 PR（refs/pull/N/merge）不会被当成两组重复跑
+  group: merge-scan-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL（静态分析：${{ matrix.language }}）
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      security-events: write     # 上传 SARIF 到 code scanning
+      actions: read              # 分析 actions 语言时需要读工作流
+    strategy:
+      fail-fast: false
+      matrix:
+        # python：本仓 34.6k 行 Python（MCP 工具层）；actions：把工作流本身也当代码审
+        language: [python, actions]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false   # 凭据不落盘
+      - uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          languages: ${{ matrix.language }}
+          # 纯解释型语言：不做构建（既不需要，也避开 pip install 在 runner 上的不确定性）
+          build-mode: none
+      - uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          category: /language:${{ matrix.language }}
+
+  dependency-review:
+    name: PR 依赖审查
+    if: github.event_name == 'pull_request'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      pull-requests: write          # 只在 PR 上留评论（不改代码、不下结论）
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # 本仓零依赖 ⇒ 此项主要覆盖"CI 工具与 Python 测试依赖"的变更（requirements 一旦被改动）
+          comment-summary-in-pr: on-failure
