@@ -44,55 +44,9 @@ impl Analyzer {
                             }
                     // 点路径来源
                     if let Some((dotted, next)) = self.dotted_at(k, end) {
-                        let is_call = matches!(
-                            self.toks.get(next).map(|t| &t.tk),
-                            Some(Tk::Op(o)) if o == "("
-                        );
-                        let src = if dotted == "sys.argv" || dotted.starts_with("sys.argv.") {
-                            Some("argv")
-                        } else if SOURCE_DOTTED
-                            .iter()
-                            .any(|s| dotted == *s || dotted.starts_with(&format!("{}.", s)))
-                        {
-                            Some("env")
-                        } else if dotted.starts_with("request.") {
-                            Some("request")
-                        } else if is_call && SOURCE_CALLS.contains(&dotted.as_str()) {
-                            Some("input")
-                        } else {
-                            None
-                        };
-                        if let Some(kind) = src
-                            && !in_zone(k) {
-                                return Some(Hit {
-                                    var: dotted,
-                                    line: self.toks[k].line,
-                                    kind: kind.to_string(),
-                                    interproc: false,
-                                    definite: true,
-                                    origin: None,
-                                });
-                            }
-                        // 链尾 .name/.stem：属性访问取出的就是净化值，整条链不算污点
-                        if dotted.ends_with(".name") || dotted.ends_with(".stem") {
-                            k = next;
-                            continue;
+                        if let Some(hit) = self.expr_taint_chain(scope, k, next, &zones, &dotted) {
+                            return Some(hit);
                         }
-                        // 非来源链：基变量污染则整条链的值视为污染
-                        // （p.write_text 的接收者、tainted.strip() 等——dotted_at 已吃掉
-                        // 整条链，不在这里查基变量接收者污点就永远轮不到）
-                        if !in_zone(k)
-                            && let Some(base) = dotted.split('.').next()
-                                && let Some(t) = self.lookup(scope, base) {
-                                    return Some(Hit {
-                                        var: base.to_string(),
-                                        line: t.line,
-                                        kind: t.kind,
-                                        interproc: t.interproc,
-                                        definite: t.definite,
-                                        origin: t.origin.clone(),
-                                    });
-                                }
                         k = next;
                         continue;
                     }
@@ -150,6 +104,70 @@ impl Analyzer {
                 }
                 _ => k += 1,
             }
+        }
+        None
+    }
+
+    /// 点路径链的命中判定（来源链 / `.name`·`.stem` 属性净化 / 基变量污染）；
+    /// `Some` = 命中即返回，`None` = 未命中——链条一律由调用方消费（`dotted_at` 已吃掉整条链）。
+    fn expr_taint_chain(
+        &self,
+        scope: usize,
+        k: usize,
+        next: usize,
+        zones: &[(usize, usize)],
+        dotted: &str,
+    ) -> Option<Hit> {
+        let in_zone = |x: usize| zones.iter().any(|(a, b)| x >= *a && x < *b);
+        let is_call = matches!(
+            self.toks.get(next).map(|t| &t.tk),
+            Some(Tk::Op(o)) if o == "("
+        );
+        let src = if dotted == "sys.argv" || dotted.starts_with("sys.argv.") {
+            Some("argv")
+        } else if SOURCE_DOTTED
+            .iter()
+            .any(|s| dotted == *s || dotted.starts_with(&format!("{}.", s)))
+        {
+            Some("env")
+        } else if dotted.starts_with("request.") {
+            Some("request")
+        } else if is_call && SOURCE_CALLS.contains(&dotted) {
+            Some("input")
+        } else {
+            None
+        };
+        if let Some(kind) = src
+            && !in_zone(k)
+        {
+            return Some(Hit {
+                var: dotted.to_string(),
+                line: self.toks[k].line,
+                kind: kind.to_string(),
+                interproc: false,
+                definite: true,
+                origin: None,
+            });
+        }
+        // 链尾 .name/.stem：属性访问取出的就是净化值，整条链不算污点
+        if dotted.ends_with(".name") || dotted.ends_with(".stem") {
+            return None;
+        }
+        // 非来源链：基变量污染则整条链的值视为污染
+        // （p.write_text 的接收者、tainted.strip() 等——dotted_at 已吃掉
+        // 整条链，不在这里查基变量接收者污点就永远轮不到）
+        if !in_zone(k)
+            && let Some(base) = dotted.split('.').next()
+            && let Some(t) = self.lookup(scope, base)
+        {
+            return Some(Hit {
+                var: base.to_string(),
+                line: t.line,
+                kind: t.kind,
+                interproc: t.interproc,
+                definite: t.definite,
+                origin: t.origin.clone(),
+            });
         }
         None
     }

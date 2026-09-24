@@ -1,6 +1,9 @@
 //! taint 子模块（S168 从 taint.rs 拆出；纯搬移，未改语义）。
 use super::*;
 
+/// 挂起的 `def`：(名字, 形参, def 行缩进层级, def 行号, 入口)。
+type PendingDef = (String, Vec<String>, usize, usize, bool);
+
 impl Analyzer {
     pub(crate) fn new(file: &str, src: &str, naive: bool) -> Self {
         Analyzer {
@@ -37,8 +40,7 @@ impl Analyzer {
     pub(crate) fn pass1(&mut self) {
         let mut scope_stack: Vec<usize> = vec![0];
         let mut ind_level = 0usize;
-        // (name, params, def 行缩进层级, def 行号, 入口)
-        let mut pending_def: Option<(String, Vec<String>, usize, usize, bool)> = None;
+        let mut pending_def: Option<PendingDef> = None;
         let mut i = 0usize;
 
         while i < self.toks.len() {
@@ -88,86 +90,9 @@ impl Analyzer {
                     i += 1;
                 }
                 3 => {
-                    let line = self.toks[i].line;
-                    let mut j = i + 1;
-                    let mut name = String::new();
-                    if let Some(Tk::Id(n)) = self.toks.get(j).map(|t| &t.tk) {
-                        name = n.clone();
-                        j += 1;
-                    }
-                    let mut params = Vec::new();
-                    let mut one_liner = false;
-                    if j < self.toks.len() && self.toks[j].tk == Tk::Op("(".into()) {
-                        j += 1;
-                        let mut expect = true;
-                        while j < self.toks.len() && self.toks[j].tk != Tk::Op(")".into()) {
-                            match &self.toks[j].tk {
-                                Tk::Id(p) => {
-                                    if expect {
-                                        params.push(p.clone());
-                                    }
-                                    expect = false;
-                                }
-                                Tk::Op(o) if o == "," => expect = true,
-                                _ => {}
-                            }
-                            j += 1;
-                        }
-                        j += 1; // ')'
-                    }
-                    // 冒号后到行尾：有实际令牌 = 单行函数体（不建作用域，容忍）
-                    let mut saw_body = false;
-                    while j < self.toks.len() && self.toks[j].tk != Tk::Newline {
-                        if self.toks[j].tk != Tk::Op(":".into()) {
-                            saw_body = true;
-                        }
-                        j += 1;
-                    }
-                    if saw_body {
-                        one_liner = true;
-                    }
-                    // 入口识别：def 前的装饰器段（跨行 dict 也越过）里出现 tool(...
-                    // 即 @tool 装饰 = MCP 宿主可达边界（S73 分诊"暴露面"的机器化）。
-                    // 注意先跳过装饰器行与 def 之间的行分隔 Newline（depth 0），
-                    // 否则第一步就停——entry 恒 false（S73 重放实测踩坑）
-                    let mut entry = false;
-                    {
-                        let mut b = i;
-                        let mut depth = 0usize;
-                        let mut skipped_bol = false;
-                        while b > 0 {
-                            b -= 1;
-                            match &self.toks[b].tk {
-                                Tk::Newline if depth == 0 => {
-                                    if skipped_bol {
-                                        break;
-                                    }
-                                    skipped_bol = true;
-                                }
-                                Tk::Op(o) => {
-                                    if is_closer(o) {
-                                        depth += 1;
-                                    } else if is_opener(o) {
-                                        if depth == 0 {
-                                            break;
-                                        }
-                                        depth -= 1;
-                                    }
-                                }
-                                Tk::Id(w) if depth == 0 && w == "tool" => {
-                                    entry = true;
-                                    break;
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                    if one_liner {
-                        pending_def = None;
-                    } else {
-                        pending_def = Some((name, params, ind_level, line, entry));
-                    }
-                    i = j;
+                    let (next, pend) = self.pass1_def_arm(i, ind_level);
+                    pending_def = pend;
+                    i = next;
                 }
                 _ => {
                     // 语句窗口：到本行行尾 / 缩进边界
@@ -186,6 +111,86 @@ impl Analyzer {
                     i = j.max(start + 1);
                 }
             }
+        }
+    }
+
+    /// `def` 行解析：名字 / 形参 / 单行体 / 入口标记（`def` 前的装饰器段里出现 `tool(`
+    /// = MCP 宿主可达边界）。返回 (下一 token 下标, 挂起的 def)；单行体不建作用域 ⇒ `None`。
+    fn pass1_def_arm(&self, i: usize, ind_level: usize) -> (usize, Option<PendingDef>) {
+        let line = self.toks[i].line;
+        let mut j = i + 1;
+        let mut name = String::new();
+        if let Some(Tk::Id(n)) = self.toks.get(j).map(|t| &t.tk) {
+            name = n.clone();
+            j += 1;
+        }
+        let mut params = Vec::new();
+        if j < self.toks.len() && self.toks[j].tk == Tk::Op("(".into()) {
+            j += 1;
+            let mut expect = true;
+            while j < self.toks.len() && self.toks[j].tk != Tk::Op(")".into()) {
+                match &self.toks[j].tk {
+                    Tk::Id(p) => {
+                        if expect {
+                            params.push(p.clone());
+                        }
+                        expect = false;
+                    }
+                    Tk::Op(o) if o == "," => expect = true,
+                    _ => {}
+                }
+                j += 1;
+            }
+            j += 1; // ')'
+        }
+        // 冒号后到行尾：有实际令牌 = 单行函数体（不建作用域，容忍）
+        let mut saw_body = false;
+        while j < self.toks.len() && self.toks[j].tk != Tk::Newline {
+            if self.toks[j].tk != Tk::Op(":".into()) {
+                saw_body = true;
+            }
+            j += 1;
+        }
+        // 入口识别：def 前的装饰器段（跨行 dict 也越过）里出现 tool(...
+        // 即 @tool 装饰 = MCP 宿主可达边界（S73 分诊"暴露面"的机器化）。
+        // 注意先跳过装饰器行与 def 之间的行分隔 Newline（depth 0），
+        // 否则第一步就停——entry 恒 false（S73 重放实测踩坑）
+        let mut entry = false;
+        {
+            let mut b = i;
+            let mut depth = 0usize;
+            let mut skipped_bol = false;
+            while b > 0 {
+                b -= 1;
+                match &self.toks[b].tk {
+                    Tk::Newline if depth == 0 => {
+                        if skipped_bol {
+                            break;
+                        }
+                        skipped_bol = true;
+                    }
+                    Tk::Op(o) => {
+                        if is_closer(o) {
+                            depth += 1;
+                        } else if is_opener(o) {
+                            if depth == 0 {
+                                break;
+                            }
+                            depth -= 1;
+                        }
+                    }
+                    Tk::Id(w) if depth == 0 && w == "tool" => {
+                        entry = true;
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        if saw_body {
+            (j, None)
+        } else {
+            (j, Some((name, params, ind_level, line, entry)))
         }
     }
 

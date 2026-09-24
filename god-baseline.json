@@ -120,13 +120,13 @@
   "max_type_members": 4
  },
  "bench/swe_p3.py": {
-  "file_lines": 832,
-  "max_fn_lines": 232,
+  "file_lines": 861,
+  "max_fn_lines": 92,
   "max_type_members": 0
  },
  "bench/swe_repair.py": {
-  "file_lines": 537,
-  "max_fn_lines": 185,
+  "file_lines": 582,
+  "max_fn_lines": 67,
   "max_type_members": 0
  },
  "bench/swe_verify.py": {
@@ -355,8 +355,8 @@
   "max_type_members": 11
  },
  "rust/src/pyast/lex.rs": {
-  "file_lines": 759,
-  "max_fn_lines": 132,
+  "file_lines": 798,
+  "max_fn_lines": 95,
   "max_type_members": 1
  },
  "rust/src/pyast/parse.rs": {
@@ -440,14 +440,14 @@
   "max_type_members": 10
  },
  "rust/src/taint/analyzer_flow.rs": {
-  "file_lines": 344,
-  "max_fn_lines": 150,
-  "max_type_members": 3
+  "file_lines": 362,
+  "max_fn_lines": 107,
+  "max_type_members": 9
  },
  "rust/src/taint/analyzer_scan.rs": {
-  "file_lines": 548,
-  "max_fn_lines": 154,
-  "max_type_members": 11
+  "file_lines": 553,
+  "max_fn_lines": 103,
+  "max_type_members": 12
  },
  "rust/src/taint/lex.rs": {
   "file_lines": 280,
@@ -1370,8 +1370,8 @@
   "max_type_members": 0
  },
  "tools/ide_doctor.py": {
-  "file_lines": 277,
-  "max_fn_lines": 164,
+  "file_lines": 307,
+  "max_fn_lines": 33,
   "max_type_members": 0
  },
  "tools/ide_edit.py": {
@@ -1415,8 +1415,8 @@
   "max_type_members": 15
  },
  "tools/lsp_actions.py": {
-  "file_lines": 200,
-  "max_fn_lines": 168,
+  "file_lines": 234,
+  "max_fn_lines": 70,
   "max_type_members": 0
  },
  "tools/meta.py": {

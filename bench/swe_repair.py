@@ -146,6 +146,174 @@ SR_TEMPLATE = ("```sr\npath: <relpath>\n<<<<<<< SEARCH\n<exact lines copied from
                "the file>\n=======\n<replacement lines>\n>>>>>>> REPLACE\n```")
 
 
+def _prep_env(inst, iid):
+    """WSL/venv 环境就绪判定：不可用返回 None（如实 skip 该任务）。"""
+    if iid in sv.WSL_TASKS:
+        # S41：WSL 任务修复覆盖（测试走 _run_tests 的 WSL 分支；
+        # settrace 断点在 WSL 不可用 → bps 信号缺失，frames/LSP 照常）
+        if not sv.build_env_wsl(inst):
+            return None
+        py = None
+    else:
+        py = sv._uv_py(os.path.join(sv.ENVS, iid.replace("/", "__")))
+        if not os.path.exists(py) or not sv._venv_py_ok(py):
+            # S42 推广：存在性 ≠ 能力（venv 缺 pytest 即不可用）
+            return None
+    root = os.path.join(sv.WORK, iid.replace("/", "__"))
+    if not os.path.isdir(root):
+        return None
+    return py, root
+
+
+def _apply_test_patch(root, inst):
+    """把 test_patch 打到干净工作区；失败即该任务不可评。"""
+    r = subprocess.run(["git", "-C", root, "apply", "--whitespace=nowarn", "-"],
+                       input=inst["test_patch"].replace("\r\n", "\n").encode(),
+                       capture_output=True, timeout=120)
+    return r.returncode == 0
+
+
+def _base_verdict(inst, py, root, ftb, base_cache, bkey):
+    """基线（未修）判定：infra=基础设施故障，green=基线本来就绿 ⇒ 两种都该 skip。"""
+    if bkey not in base_cache:
+        rc, tail = sv._run_tests(inst, py, root, ftb)
+        if rc is None:
+            return "infra", tail
+        base_cache[bkey] = (rc != 0)
+    return ("red" if base_cache[bkey] else "green"), None
+
+
+def _start_rounds(inst, root, ch, model, cand):
+    """第 0 轮起点：先试已有候选 diff；不成立则让模型重新定位 + 接地。"""
+    rounds = []
+    cur = cand
+    if cur.strip():
+        rc = subprocess_apply(root, cur)
+        rounds.append({"src": "s23", "applied": rc == 0})
+        if rc != 0:
+            cur = ""
+    else:
+        rounds.append({"src": "none"})
+    if cur.strip():
+        return rounds, cur
+    # 全新起点：定位 + 接地
+    msgs = [{"role": "system", "content":
+             "You are a senior engineer fixing a real repository issue. "
+             f"Repo root: {root}"},
+            {"role": "user", "content": _fresh_issue_block(inst)}]
+    ans = _locate_and_ground(inst, root, ch, model, msgs)
+    blocks = swe_p3.parse_sr(ans)
+    applied, fails, gdiff, _ = _apply_and_diff(root, blocks)
+    rounds.append({"src": "fresh", "applied": applied, "fails": fails[:5]})
+    return rounds, gdiff
+
+
+def _signals_extra(use_signals, root, py, cur, files_show, tail, ftb):
+    """signals 变体的三路结构化信号（失败帧 / LSP 诊断 / 断点 locals）；不用则空串。"""
+    if not use_signals:
+        return ""
+    frames_txt = _structured_frames(tail or "")
+    lsp_txt = _diag_section(root, files_show)
+    # S37：断点命中——补丁行的实际运行时 locals（pytest 在 settrace 下执行）
+    # S41：WSL 任务 settrace 不可用 → 该信号缺失（frames/LSP 照常）
+    bps_txt = ""
+    if cur.strip() and py:
+        hits = _break_hits(root, py, _changed_lines(cur), list(ftb)[:6])
+        bps_txt = _break_section(hits)
+    return (("\n\n" + frames_txt[:2500]) if frames_txt else "") + \
+           (("\n\n" + lsp_txt[:1500]) if lsp_txt else "") + \
+           (("\n\n" + bps_txt[:1500]) if bps_txt else "")
+
+
+def _run_repair_rounds(args, inst, iid, root, py, ch, model, ftb, cur, rounds,
+                       use_signals):
+    """失败→回喂→修正的迭代（≤ max_repairs 轮）；返回 ftb 是否全绿。"""
+    for rnd in range(args.max_repairs + 1):
+        if cur.strip():
+            if not _applied_now(root, cur):
+                subprocess_apply(root, cur)
+        rc, tail = sv._run_tests(inst, py, root, ftb)
+        if rc is None:
+            # S42 推广：基础设施故障 ≠ 测试失败——如实终止该任务的修复
+            rounds.append({"round": rnd, "infra": True, "reason": (tail or "")[:200]})
+            return False
+        ftb_pass = (rc == 0)
+        rounds.append({"round": rnd, "ftb_pass": ftb_pass,
+                       "tail": (tail or "")[-600:] if not ftb_pass else ""})
+        if ftb_pass:
+            return True
+        # S50：诊断历史持久化（跨会话比对这轮修好了几个）
+        try:
+            from bench.diag_history import append_diag
+            dias = (swe_repair.registry.call('ide_diagnostics',
+                    {'path': root, 'files': files_show[:3],
+                     '__authorized': True}) or {}
+                    ).get('result', {}).get('diagnostics') or []
+            append_diag(iid, 'repair', f'round{rnd}', dias)
+        except Exception:
+            pass
+        if rnd == args.max_repairs:
+            return False
+        # 回喂：失败输出 + 触碰文件当前内容；signals 变体追加三路结构化信号
+        files_show = _touched_files(cur) if cur.strip() else []
+        msgs = [{"role": "system", "content":
+                 "You are a senior engineer. Your patch did NOT make the "
+                 "failing tests pass. Fix it."},
+                {"role": "user", "content":
+                 f"[SWE issue · {iid}]\n{inst['issue'][:2500]}"}]
+        if cur.strip():
+            msgs.append({"role": "user", "content":
+                         "[YOUR PREVIOUS PATCH]\n" + cur[:3500]})
+        msgs.append({"role": "user", "content":
+                     "[TEST FAILURE OUTPUT]\n" + (tail or "")[:FTB_TAIL_CAP] +
+                     _signals_extra(use_signals, root, py, cur, files_show, tail, ftb) +
+                     "\n\n[CURRENT FILE CONTENTS]\n" +
+                     "\n\n".join(b for p in files_show
+                                 for b in [_file_block(root, p)] if b)[:22000] +
+                     "\n\nOutput ONLY corrected search/replace blocks, one per "
+                     "edit, in EXACTLY this format:\n" + SR_TEMPLATE +
+                     "\nEvery block MUST start with a `path:` line (one of: " +
+                     ", ".join(files_show[:MAX_FILES] or ["<relpath>"]) +
+                     "). COPY SEARCH lines verbatim from the current contents."})
+        ans = _last_content(_chat(ch, model, msgs))
+        if swe_p3.parse_dsml(ans):
+            outs = []
+            for fn, fa in swe_p3.parse_dsml(ans):
+                txt, _ = AB.exec_tool(fn, fa)
+                outs.append(f"$ {fn}\n{txt}")
+            msgs.append({"role": "assistant", "content": ans})
+            msgs.append({"role": "user", "content": "[tool results]\n" +
+                         "\n\n".join(outs)[:20000] +
+                         "\n\nNow output ONLY corrected ```sr blocks."})
+            ans = _last_content(_chat(ch, model, msgs))
+        blocks = swe_p3.parse_sr(ans)
+        applied, fails, gdiff, _ = _apply_and_diff(root, blocks)
+        rounds.append({"round": rnd, "repair_applied": applied,
+                       "repair_fails": fails[:5]})
+        cur = gdiff
+    return False
+
+
+def _ptb_verdict(inst, py, root, verified):
+    """ptb（pass-to-pass）回归：ftb 绿了还得不碎既有测试；返回 (verified, ptb)。"""
+    if not verified:
+        return verified, {}
+    ptb_list = (inst.get("ptb") or [])[:sv.PTB_CAP]
+    if not ptb_list:
+        return verified, {}
+    rc2, _ = sv._run_tests(inst, py, root, ptb_list)
+    ptb = {"ptb_total": len(ptb_list), "ptb_pass": rc2 == 0}
+    return (verified and ptb["ptb_pass"]), ptb
+
+
+def _write_rec(fp, rec, out_key, payload):
+    """结果记录覆盖写（JSON，非 ASCII 直出）。"""
+    rec[out_key] = payload
+    import pathlib
+    pathlib.Path(fp).write_text(
+        json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 def repair_loop(args):
     ch = AB.load_channel(args.channel)
     model = args.model
@@ -172,161 +340,38 @@ def repair_loop(args):
             continue
         if not (inst.get("test_patch") and inst.get("ftb")):
             continue
-        if iid in sv.WSL_TASKS:
-            # S41：WSL 任务修复覆盖（测试走 _run_tests 的 WSL 分支；
-            # settrace 断点在 WSL 不可用 → bps 信号缺失，frames/LSP 照常）
-            if not sv.build_env_wsl(inst):
-                continue
-            py = None
-        else:
-            py = sv._uv_py(os.path.join(sv.ENVS, iid.replace("/", "__")))
-            if not os.path.exists(py) or not sv._venv_py_ok(py):
-                # S42 推广：存在性 ≠ 能力（venv 缺 pytest 即不可用）
-                continue
-        root = os.path.join(sv.WORK, iid.replace("/", "__"))
-        if not os.path.isdir(root):
+        env = _prep_env(inst, iid)
+        if env is None:
             continue
+        py, root = env
 
         t0 = time.time()
         sv._restore(root)
-        r = subprocess.run(["git", "-C", root, "apply", "--whitespace=nowarn", "-"],
-                           input=inst["test_patch"].replace("\r\n", "\n").encode(),
-                           capture_output=True, timeout=120)
-        if r.returncode != 0:
-            rec[out_key] = {"skip": "test-patch-apply-failed"}
-            json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        if not _apply_test_patch(root, inst):
+            _write_rec(fp, rec, out_key, {"skip": "test-patch-apply-failed"})
             continue
         ftb = list(inst.get("ftb") or [])
         bkey = iid + "::base"
-        if bkey not in base_cache:
-            rc, tail = sv._run_tests(inst, py, root, ftb)
-            if rc is None:
-                # S42 推广：基础设施故障 → 如实 skip（区别于 base-green）
-                rec[out_key] = {"skip": tail[:120] if tail else "infra"}
-                json.dump(rec, open(fp, "w", encoding="utf-8"),
-                          ensure_ascii=False, indent=1)
-                continue
-            base_cache[bkey] = (rc != 0)
-        if not base_cache[bkey]:
-            rec[out_key] = {"skip": "base-already-green"}
-            json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        verdict, tail = _base_verdict(inst, py, root, ftb, base_cache, bkey)
+        if verdict == "infra":
+            # S42 推广：基础设施故障 → 如实 skip（区别于 base-green）
+            _write_rec(fp, rec, out_key, {"skip": (tail or "infra")[:120]})
             continue
+        if verdict == "green":
+            _write_rec(fp, rec, out_key, {"skip": "base-already-green"})
+            continue
+        rounds, cur = _start_rounds(
+            inst, root, ch, model,
+            (rec.get("mech") or {}).get("candidate_diff") or "")
 
-        cand = (rec.get("mech") or {}).get("candidate_diff") or ""
-        rounds = []
-        diff = cand
-        cur = diff
-        if cur.strip():
-            rc = subprocess_apply(root, cur)
-            rounds.append({"src": "s23", "applied": rc == 0})
-            if rc != 0:
-                cur = ""
-        else:
-            rounds.append({"src": "none"})
-        if not cur.strip():
-            # 全新起点：定位 + 接地
-            msgs = [{"role": "system", "content":
-                     "You are a senior engineer fixing a real repository issue. "
-                     f"Repo root: {root}"},
-                    {"role": "user", "content": _fresh_issue_block(inst)}]
-            ans = _locate_and_ground(inst, root, ch, model, msgs)
-            blocks = swe_p3.parse_sr(ans)
-            applied, fails, gdiff, _ = _apply_and_diff(root, blocks)
-            rounds.append({"src": "fresh", "applied": applied, "fails": fails[:5]})
-            cur = gdiff
+        verified = _run_repair_rounds(args, inst, iid, root, py, ch, model, ftb,
+                                      cur, rounds, use_signals)
 
-        verified = False
-        for rnd in range(args.max_repairs + 1):
-            if cur.strip():
-                if not _applied_now(root, cur):
-                    subprocess_apply(root, cur)
-            rc, tail = sv._run_tests(inst, py, root, ftb)
-            if rc is None:
-                # S42 推广：基础设施故障 ≠ 测试失败——如实终止该任务的修复
-                rounds.append({"round": rnd, "infra": True, "reason": (tail or "")[:200]})
-                break
-            ftb_pass = (rc == 0)
-            rounds.append({"round": rnd, "ftb_pass": ftb_pass,
-                           "tail": (tail or "")[-600:] if not ftb_pass else ""})
-            if ftb_pass:
-                verified = True
-                break
-            # S50：诊断历史持久化（跨会话比对这轮修好了几个）
-            try:
-                from bench.diag_history import append_diag
-                dias = (swe_repair.registry.call('ide_diagnostics',
-                        {'path': root, 'files': files_show[:3],
-                         '__authorized': True}) or {}
-                        ).get('result', {}).get('diagnostics') or []
-                append_diag(iid, 'repair', f'round{rnd}', dias)
-            except Exception:
-                pass
-            if rnd == args.max_repairs:
-                break
-            # 回喂：失败输出 + 触碰文件当前内容；signals 变体追加三路结构化信号
-            files_show = _touched_files(cur) if cur.strip() else []
-            msgs = [{"role": "system", "content":
-                     "You are a senior engineer. Your patch did NOT make the "
-                     "failing tests pass. Fix it."},
-                    {"role": "user", "content":
-                     f"[SWE issue · {iid}]\n{inst['issue'][:2500]}"}]
-            if cur.strip():
-                msgs.append({"role": "user", "content":
-                             "[YOUR PREVIOUS PATCH]\n" + cur[:3500]})
-            extra = ""
-            if use_signals:
-                frames_txt = _structured_frames(tail or "")
-                lsp_txt = _diag_section(root, files_show)
-                # S37：断点命中——补丁行的实际运行时 locals（pytest 在 settrace 下执行）
-                # S41：WSL 任务 settrace 不可用 → 该信号缺失（frames/LSP 照常）
-                bps_txt = ""
-                if cur.strip() and py:
-                    hits = _break_hits(root, py, _changed_lines(cur), list(ftb)[:6])
-                    bps_txt = _break_section(hits)
-                extra = (("\n\n" + frames_txt[:2500]) if frames_txt else "") + \
-                        (("\n\n" + lsp_txt[:1500]) if lsp_txt else "") + \
-                        (("\n\n" + bps_txt[:1500]) if bps_txt else "")
-            msgs.append({"role": "user", "content":
-                         "[TEST FAILURE OUTPUT]\n" + (tail or "")[:FTB_TAIL_CAP] +
-                         extra +
-                         "\n\n[CURRENT FILE CONTENTS]\n" +
-                         "\n\n".join(b for p in files_show
-                                     for b in [_file_block(root, p)] if b)[:22000] +
-                         "\n\nOutput ONLY corrected search/replace blocks, one per "
-                         "edit, in EXACTLY this format:\n" + SR_TEMPLATE +
-                         "\nEvery block MUST start with a `path:` line (one of: " +
-                         ", ".join(files_show[:MAX_FILES] or ["<relpath>"]) +
-                         "). COPY SEARCH lines verbatim from the current contents."})
-            ans = _last_content(_chat(ch, model, msgs))
-            if swe_p3.parse_dsml(ans):
-                outs = []
-                for fn, fa in swe_p3.parse_dsml(ans):
-                    txt, _ = AB.exec_tool(fn, fa)
-                    outs.append(f"$ {fn}\n{txt}")
-                msgs.append({"role": "assistant", "content": ans})
-                msgs.append({"role": "user", "content": "[tool results]\n" +
-                             "\n\n".join(outs)[:20000] +
-                             "\n\nNow output ONLY corrected ```sr blocks."})
-                ans = _last_content(_chat(ch, model, msgs))
-            blocks = swe_p3.parse_sr(ans)
-            applied, fails, gdiff, _ = _apply_and_diff(root, blocks)
-            rounds.append({"round": rnd, "repair_applied": applied,
-                           "repair_fails": fails[:5]})
-            cur = gdiff
-
-        ptb = {}
-        if verified:
-            ptb_list = (inst.get("ptb") or [])[:sv.PTB_CAP]
-            if ptb_list:
-                rc2, _ = sv._run_tests(inst, py, root, ptb_list)
-                ptb = {"ptb_total": len(ptb_list), "ptb_pass": rc2 == 0}
-            if ptb and not ptb["ptb_pass"]:
-                verified = False
+        verified, ptb = _ptb_verdict(inst, py, root, verified)
         sv._restore(root)
-        rec[out_key] = {"verified": verified, "variant": args.variant,
-                        "rounds_used": len(rounds), "rounds": rounds[:12],
-                        **ptb, "walltime_s": round(time.time() - t0, 1)}
-        json.dump(rec, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        _write_rec(fp, rec, out_key, {"verified": verified, "variant": args.variant,
+                    "rounds_used": len(rounds), "rounds": rounds[:12], **ptb,
+                    "walltime_s": round(time.time() - t0, 1)})
         log(f"repair[{args.variant}] {os.path.basename(fp)} -> verified={verified} "
             f"rounds={len(rounds)} ({rec[out_key]['walltime_s']}s)")
         done += 1

@@ -51,6 +51,169 @@ def _scan_changed(reg, files):
             "clue": sum(1 for i in issues if i.get("kind") != "definite")}}
 
 
+def _git_changed(path):
+    """S66：改动文件清单（HEAD 相对 + 未跟踪）。非 git 仓库 → None。"""
+    import subprocess
+    try:
+        r1 = subprocess.run(
+            ["git", "-C", path, "diff", "--name-only", "HEAD"],
+            capture_output=True, timeout=60, text=True, encoding="utf-8",
+            errors="replace")
+        r2 = subprocess.run(
+            ["git", "-C", path, "status", "--porcelain"],
+            capture_output=True, timeout=60, text=True, encoding="utf-8",
+            errors="replace")
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if r1.returncode != 0 and r2.returncode != 0:
+        return None
+    names = set()
+    for ln in (r1.stdout or "").splitlines():       # name-only：裸路径
+        if ln.strip():
+            names.add(ln.strip())
+    for ln in (r2.stdout or "").splitlines():       # porcelain: XY path
+        if len(ln) > 3:
+            p = ln[3:]
+        elif ln.strip():
+            p = ln[2:].strip()
+        else:
+            continue
+        if " -> " in p:                              # 重命名取新名
+            p = p.split(" -> ", 1)[1]
+        names.add(p)
+    return sorted(os.path.join(path, n.replace("/", os.sep))
+                  for n in names
+                  if os.path.isfile(os.path.join(path, n.replace("/", os.sep))))
+
+
+def _doctor_checks(reg, path, max_files, run_tests, diff, __authorized):
+    """六项检查的编排；diff=true 但非 git 仓库 ⇒ None（调用方出错误回包）。"""
+    if diff:
+        changed = _git_changed(path)
+        if changed is None:
+            return None
+        checks = [_run_check("bug_scan", lambda: _scan_changed(reg, changed[:60]))]
+        checks.append(_run_check("code_review", lambda: reg(
+            "code_review", {"path": path, "max_files": max_files,
+                            "mode": "diff"})))
+    else:
+        checks = [
+            _run_check("bug_scan", lambda: reg(
+                "bug_scan", {"path": path, "max_files": max_files})),
+            _run_check("code_review", lambda: reg(
+                "code_review", {"path": path, "max_files": max_files})),
+        ]
+    # S132（DESIGN-REVIEW H3）：挂门子调用**字面量**携带 __authorized——
+    # reg() 包装器仍会再合并一次（同键同值无害），但静态检查器
+    # （auth_gate_sweep「组合透传」项）按字面量判，隐式注入不算数。
+    checks.append(_run_check("build", lambda: reg("ide_build", {
+        "path": path, "action": "check", "__authorized": __authorized})))
+    if run_tests:
+        checks.append(_run_check("test", lambda: reg("ide_test", {
+            "path": path, "__authorized": __authorized})))
+    if not diff:
+        # diff 模式：dep_graph/stability 是全仓语义，跳过（note 如实）
+        checks.append(_run_check("dep_graph", lambda: reg("dep_graph",
+                                                          {"path": path})))
+        checks.append(_run_check("stability", lambda: reg(
+            "module_stability", {"path": path})))
+    return checks
+
+
+def _doctor_issues(checks):
+    """六项结果 → (problems, warns)：definite/编译错误/测试失败/依赖环是红灯。"""
+    by_name = {c["check"]: c for c in checks}
+    problems = []      # (severity, text)
+    warns = []
+    _issue_bug_scan(by_name.get("bug_scan", {}), problems, warns)
+    _issue_build(by_name.get("build", {}), problems)
+    _issue_test(by_name.get("test", {}), problems, warns)
+    _issue_dep_graph(by_name.get("dep_graph", {}), problems)
+    _issue_stability(by_name.get("stability", {}), warns)
+    return problems, warns
+
+
+def _issue_bug_scan(bs, problems, warns):
+    """bug_scan：definite 是真问题，clue 是线索。"""
+    if bs.get("status") != "ok":
+        return
+    r = bs["result"]
+    if not r.get("total"):
+        return
+    defs = [i for i in (r.get("issues") or []) if i.get("kind") == "definite"]
+    if defs:
+        problems.extend(f"bug_scan definite: {i['file']}:{i['line']} "
+                        f"{i['rule']} {i['msg']}" for i in defs[:5])
+    else:
+        warns.append(f"bug_scan: {r['total']} 条线索（无 definite）")
+
+
+def _issue_build(bd, problems):
+    """build：errors>0 或检查本身失败 = 红灯（体检对象坏了不是体检器坏了）。"""
+    if bd.get("status") == "ok":
+        r = bd["result"]
+        n_err = len(r.get("errors") or [])
+        if n_err:
+            problems.append(f"build: {n_err} 个编译错误")
+        elif not r.get("ok", True):
+            problems.append(f"build: exit={r.get('exit')}")
+    elif bd.get("status") == "failed":
+        r = bd.get("result") or {}
+        problems.append(f"build: exit={r.get('exit')} "
+                        f"({r.get('tool', 'compileall')} 失败)")
+    else:
+        problems.append(f"build: 检查无法运行（{bd.get('summary', '')[:80]}）")
+
+
+def _issue_test(ts, problems, warns):
+    """test：失败 = 红灯；没写测试 = 显式黄灯（不是绿灯）。"""
+    if ts.get("status") == "ok":
+        r = ts["result"]
+        if r.get("collected") == 0:
+            warns.append("test: 收集到 0 个测试——没写测试本身就是要处理的问题")
+        elif r.get("failed"):
+            problems.extend(f"test failed: {f['test']}"
+                            for f in (r.get("failures") or [])[:5])
+    elif ts.get("status") == "error":
+        if "未检测到测试设施" in str(ts.get("summary", "")):
+            warns.append("test: 未检测到测试设施——没写测试本身就是要处理的问题")
+        else:
+            warns.append(f"test: {ts['summary']}")
+
+
+def _issue_dep_graph(dg, problems):
+    """dep_graph：环 = 红灯。"""
+    if dg.get("status") == "ok" and dg["result"].get("cycles"):
+        problems.append(f"依赖环: {len(dg['result']['cycles'])} 个 "
+                        f"({'; '.join(dg['result']['cycles'][:2])})")
+
+
+def _issue_stability(st, warns):
+    """stability：risky = 黄灯。"""
+    if st.get("status") == "ok" and st["result"].get("risky_modules"):
+        warns.append(f"stability: {len(st['result']['risky_modules'])} 个 risky 模块"
+                     f"（无测试覆盖代理）")
+
+
+def _summarize_checks(checks):
+    """逐项摘要：ok 只留关键标量（不把全量结果再塞一遍）。"""
+    out = []
+    for c in checks:
+        o = {"check": c["check"], "status": c["status"],
+             "elapsed_s": c["elapsed_s"]}
+        if c["status"] == "ok":
+            r = c["result"]
+            keep = {k: r[k] for k in ("total", "files", "by_lens", "exit",
+                                      "errors", "tool", "collected", "failed",
+                                      "cycles", "risky_modules", "by_stability")
+                    if k in r}
+            o["summary"] = keep
+        else:
+            o["summary"] = c.get("summary", "")
+        out.append(o)
+    return out
+
+
 @tool("ide_multi_check", "多项目联动体检：逐项目 ide_doctor 全量 → 汇总排序（issues 优先）；vscode=true 打开非 clean 项目；用全量而非 diff", "ide",
       {"type": "object",
        "properties": {
@@ -127,147 +290,14 @@ def ide_doctor(path, max_files=300, run_tests=True, diff=False,
             args = {**args, "__authorized": __authorized}
         return call(name, args)
 
-    def _git_changed():
-        """S66：改动文件清单（HEAD 相对 + 未跟踪）。非 git 仓库 → None。"""
-        import subprocess
-        try:
-            r1 = subprocess.run(
-                ["git", "-C", path, "diff", "--name-only", "HEAD"],
-                capture_output=True, timeout=60, text=True, encoding="utf-8",
-                errors="replace")
-            r2 = subprocess.run(
-                ["git", "-C", path, "status", "--porcelain"],
-                capture_output=True, timeout=60, text=True, encoding="utf-8",
-                errors="replace")
-        except (OSError, subprocess.TimeoutExpired):
-            return None
-        if r1.returncode != 0 and r2.returncode != 0:
-            return None
-        names = set()
-        for ln in (r1.stdout or "").splitlines():       # name-only：裸路径
-            if ln.strip():
-                names.add(ln.strip())
-        for ln in (r2.stdout or "").splitlines():       # porcelain: XY path
-            if len(ln) > 3:
-                p = ln[3:]
-            elif ln.strip():
-                p = ln[2:].strip()
-            else:
-                continue
-            if " -> " in p:                              # 重命名取新名
-                p = p.split(" -> ", 1)[1]
-            names.add(p)
-        return sorted(os.path.join(path, n.replace("/", os.sep))
-                      for n in names
-                      if os.path.isfile(os.path.join(path, n.replace("/", os.sep))))
+    checks = _doctor_checks(reg, path, max_files, run_tests, diff, __authorized)
+    if checks is None:
+        return {"error": "diff=true 需要 git 仓库（HEAD 可解析）"}
 
-    if diff:
-        changed = _git_changed()
-        if changed is None:
-            return {"error": "diff=true 需要 git 仓库（HEAD 可解析）"}
-        checks = [_run_check("bug_scan", lambda: _scan_changed(reg, changed[:60]))]
-        checks.append(_run_check("code_review", lambda: reg(
-            "code_review", {"path": path, "max_files": max_files,
-                            "mode": "diff"})))
-    else:
-        checks = [
-            _run_check("bug_scan", lambda: reg(
-                "bug_scan", {"path": path, "max_files": max_files})),
-            _run_check("code_review", lambda: reg(
-                "code_review", {"path": path, "max_files": max_files})),
-        ]
-    # S132（DESIGN-REVIEW H3）：挂门子调用**字面量**携带 __authorized——
-    # reg() 包装器仍会再合并一次（同键同值无害），但静态检查器
-    # （auth_gate_sweep「组合透传」项）按字面量判，隐式注入不算数。
-    checks.append(_run_check("build", lambda: reg("ide_build", {
-        "path": path, "action": "check", "__authorized": __authorized})))
-    if run_tests:
-        checks.append(_run_check("test", lambda: reg("ide_test", {
-            "path": path, "__authorized": __authorized})))
-    if diff:
-        # diff 模式：dep_graph/stability 是全仓语义，跳过（note 如实）
-        pass
-    else:
-        checks.append(_run_check("dep_graph", lambda: reg("dep_graph",
-                                                          {"path": path})))
-        checks.append(_run_check("stability", lambda: reg(
-            "module_stability", {"path": path})))
-
-    problems = []      # (severity, text)
-    warns = []
-    by_name = {c["check"]: c for c in checks}
-
-    # bug_scan：definite 是真问题，clue 是线索
-    bs = by_name.get("bug_scan", {})
-    if bs.get("status") == "ok":
-        r = bs["result"]
-        if r.get("total"):
-            defs = [i for i in (r.get("issues") or [])
-                    if i.get("kind") == "definite"]
-            if defs:
-                problems.extend(f"bug_scan definite: {i['file']}:{i['line']} "
-                                f"{i['rule']} {i['msg']}" for i in defs[:5])
-            else:
-                warns.append(f"bug_scan: {r['total']} 条线索（无 definite）")
-
-    # build：errors>0 或检查本身失败 = 红灯（体检对象坏了不是体检器坏了）
-    bd = by_name.get("build", {})
-    if bd.get("status") == "ok":
-        r = bd["result"]
-        n_err = len(r.get("errors") or [])
-        if n_err:
-            problems.append(f"build: {n_err} 个编译错误")
-        elif not r.get("ok", True):
-            problems.append(f"build: exit={r.get('exit')}")
-    elif bd.get("status") == "failed":
-        r = bd.get("result") or {}
-        problems.append(f"build: exit={r.get('exit')} "
-                        f"({r.get('tool', 'compileall')} 失败)")
-    else:
-        problems.append(f"build: 检查无法运行（{bd.get('summary', '')[:80]}）")
-
-    # test：失败 = 红灯；没写测试 = 显式黄灯（不是绿灯）
-    ts = by_name.get("test", {})
-    if ts.get("status") == "ok":
-        r = ts["result"]
-        if r.get("collected") == 0:
-            warns.append("test: 收集到 0 个测试——没写测试本身就是要处理的问题")
-        elif r.get("failed"):
-            problems.extend(f"test failed: {f['test']}"
-                            for f in (r.get("failures") or [])[:5])
-    elif ts.get("status") == "error":
-        if "未检测到测试设施" in str(ts.get("summary", "")):
-            warns.append("test: 未检测到测试设施——没写测试本身就是要处理的问题")
-        else:
-            warns.append(f"test: {ts['summary']}")
-
-    # dep_graph：环 = 红灯
-    dg = by_name.get("dep_graph", {})
-    if dg.get("status") == "ok" and dg["result"].get("cycles"):
-        problems.append(f"依赖环: {len(dg['result']['cycles'])} 个 "
-                        f"({'; '.join(dg['result']['cycles'][:2])})")
-
-    # stability：risky = 黄灯
-    st = by_name.get("stability", {})
-    if st.get("status") == "ok" and st["result"].get("risky_modules"):
-        warns.append(f"stability: {len(st['result']['risky_modules'])} 个 risky 模块"
-                     f"（无测试覆盖代理）")
+    problems, warns = _doctor_issues(checks)
 
     verdict = "issues" if problems else ("warn" if warns else "clean")
-    out_checks = []
-    for c in checks:
-        o = {"check": c["check"], "status": c["status"],
-             "elapsed_s": c["elapsed_s"]}
-        if c["status"] == "ok":
-            r = c["result"]
-            keep = {k: r[k] for k in ("total", "files", "by_lens", "exit",
-                                      "errors", "tool", "collected", "failed",
-                                      "cycles", "risky_modules", "by_stability")
-                    if k in r}
-            o["summary"] = keep
-        else:
-            o["summary"] = c.get("summary", "")
-        out_checks.append(o)
+    out_checks = _summarize_checks(checks)
     return {"path": path, "verdict": verdict, "diff": diff,
             "problems": problems[:10], "warns": warns[:10],
             "checks": out_checks,

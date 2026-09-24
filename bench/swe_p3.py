@@ -402,27 +402,10 @@ def apply_sr(root, blocks):
 
 # ---------------- run ----------------
 
-def run_once(arm, inst, ch, model, max_rounds, root, tools_schema):
-    if arm == "A":
-        sys_p = ("You are fixing a real repository issue with minimal read tools "
-                 f"(fs_list/fs_read/fs_stat). Repo root: {root}\n"
-                 "Locate the relevant code yourself, then output search/replace "
-                 "edit blocks as instructed.")
-        msgs = [{"role": "system", "content": sys_p},
-                {"role": "user", "content": arm_prompt(inst)}]
-    else:
-        sys_p = (AB.SYS_B.split("Produce")[0] if False else
-                 "You are a senior engineer fixing a real repository issue. "
-                 f"Repo root: {root}\n"
-                 "Use the read-only diagnostic tools (semantic search, AST scan, "
-                 "LSP definition/references, file read) to ground your fix in "
-                 "actual code. Then output search/replace edit blocks as instructed.")
-        msgs = [{"role": "system", "content": sys_p},
-                {"role": "user", "content": arm_prompt(inst)}]
+def _tool_rounds(msgs, ch, model, tools_schema, trace, mech, max_rounds):
+    """带工具面的对话轮：执行 tool_calls 与 DSML 文本残片；返回 (answer, tin, tout)。"""
     tin = tout = 0
-    trace = []
     answer = ""
-    mech = {"dsml_recovered": 0, "patch_repaired": False}
     for rnd in range(max_rounds):
         active = tools_schema if tools_schema else None   # A/B 臂各带各自的工具面
         resp = AB.chat(ch, model, msgs, tools_schema=active)
@@ -472,6 +455,145 @@ def run_once(arm, inst, ch, model, max_rounds, root, tools_schema):
         tin += i
         tout += o
         answer = (resp.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+    return answer, tin, tout
+
+
+def _path_candidates(root, text):
+    """答案文本里的候选相对路径（`path:` 行优先，其次疑似文件名的 token）。"""
+    pths = re.findall(r"^\s*path:\s*(\S+)\s*$", text or "", re.M)
+    pths += re.findall(r"[A-Za-z0-9_./\\-]+\.[A-Za-z0-9]{1,5}", text or "")
+    out = []
+    for p in pths:
+        p = p.replace("\\", "/").lstrip("/").strip(".,`;*\"'()[]")
+        if p in out or len(p) > 200 or "/" in p and p.startswith("/"):
+            continue
+        if safe_join(root, p) and os.path.isfile(safe_join(root, p)):
+            out.append(p)
+        if len(out) >= 3:
+            break
+    return out
+
+
+def _grounded_author(root, answer, ask, mech):
+    """(b) 完全无块：定位轮 + 真实文件内容注入的接地定稿；返回 blocks。"""
+    loc = ask("List ONLY the relative file path(s) you intend to modify, one "
+              "per line in the form `path: <relpath>`, nothing else.")
+    paths = _path_candidates(root, loc)
+    if not paths:
+        paths = _path_candidates(root, answer)   # 原始答案里提到的文件也试
+    parts = []
+    for p in paths:
+        fp = safe_join(root, p)
+        if fp is None:
+            continue
+        try:
+            c = open(fp, encoding="utf-8",
+                     errors="replace").read().replace("\r\n", "\n")
+        except OSError:
+            continue
+        if len(c) > 12000:
+            c = c[:6000] + "\n…[middle truncated]…\n" + c[-6000:]
+        parts.append(f"===== ACTUAL CONTENT of {p} =====\n{c}")
+    if not parts:
+        return []
+    blocks = parse_sr(ask(
+        "Above are the ACTUAL file contents. Output ONLY the final "
+        "search/replace edit blocks (```sr) — COPY SEARCH lines verbatim "
+        "from these contents.\n" + "\n\n".join(parts)[:26000]))
+    mech["grounded_author"] = bool(blocks)
+    return blocks
+
+
+def _sr_apply_rounds(root, blocks, answer, ask, mech):
+    """(c) S/R 应用：精确匹配 → 模糊窗 → 接地修复轮；返回 (gdiff, answer)。"""
+    mech["protocol"] = "sr"
+    mech["sr_blocks"] = len(blocks)
+    sr_answer = answer
+    applied, fails, gdiff, fz, grounds = apply_sr(root, blocks)
+    fuzzy_n = fz
+    if fails:
+        listing = "\n".join(f"- {f}" for f in fails[:8])
+        ground_txt = "\n\n".join(
+            f"[ACTUAL CONTENT of {p} (lines around the closest match)]:\n"
+            f"{excerpt}" for p, excerpt in list(grounds.items())[:3])
+        answer = ask("Some search/replace blocks FAILED to apply:\n" + listing[:1200] +
+                     ("\n\n" + ground_txt[:9000] if ground_txt else "") +
+                     "\n\nRe-output ONLY corrected search/replace blocks:\n"
+                     "```sr\npath: <relpath>\n<<<<<<< SEARCH\n<exact lines>\n=======\n"
+                     "<replacement>\n>>>>>>> REPLACE\n```\n"
+                     "COPY the SEARCH lines verbatim from the actual content above or "
+                     "from files you read with tools — never from memory.")
+        if parse_sr(answer):
+            sr_answer = answer
+        b2 = parse_sr(answer)
+        if b2:
+            applied, fails, gdiff2, fz2, _ = apply_sr(root, b2)
+            if gdiff2.strip():
+                gdiff = gdiff2
+            fuzzy_n += fz2
+        mech["patch_repaired"] = True
+        if applied == 0 and sr_answer:
+            answer = sr_answer          # 修复轮没产出块时保住原有尝试供判官看
+    mech["sr_applied"] = applied
+    mech["sr_fuzzy"] = fuzzy_n
+    mech["sr_failed"] = fails[:8]
+    if gdiff.strip():
+        mech["patch_ok"] = True
+        mech["patch_strategy"] = "sr"
+    return gdiff, answer
+
+
+def _diff_fallback(root, answer, diff, ask, mech):
+    """(d) ```diff 兜底（模型无视 S/R 指令时）；返回 (diff, answer)。"""
+    mech["protocol"] = "diff"
+    ok, strat, err = patch_check(root, diff)
+    if not ok:
+        diff_answer = answer
+        answer = ask("Your patch does NOT apply to the repository. "
+                     "`git apply --check` says:\n" + err[:600] +
+                     "\nFix the diff (usually wrong context lines or wrong file path), "
+                     "or better: re-output as search/replace blocks (```sr).")
+        b2 = parse_sr(answer)
+        d2 = extract_patch(answer)
+        if b2:
+            _, _, gdiff, _, _ = apply_sr(root, b2)
+            if gdiff.strip():
+                diff, ok, strat = gdiff, True, "sr"
+        elif d2:
+            ok2, strat2, _ = patch_check(root, d2)
+            if ok2 or len(d2) > len(diff):
+                diff, ok, strat = d2, ok2, strat2
+        if not ok:
+            answer = diff_answer
+        mech["patch_repaired"] = True
+    mech["patch_ok"] = ok
+    mech["patch_strategy"] = strat
+    return diff, answer
+
+
+def run_once(arm, inst, ch, model, max_rounds, root, tools_schema):
+    if arm == "A":
+        sys_p = ("You are fixing a real repository issue with minimal read tools "
+                 f"(fs_list/fs_read/fs_stat). Repo root: {root}\n"
+                 "Locate the relevant code yourself, then output search/replace "
+                 "edit blocks as instructed.")
+        msgs = [{"role": "system", "content": sys_p},
+                {"role": "user", "content": arm_prompt(inst)}]
+    else:
+        sys_p = (AB.SYS_B.split("Produce")[0] if False else
+                 "You are a senior engineer fixing a real repository issue. "
+                 f"Repo root: {root}\n"
+                 "Use the read-only diagnostic tools (semantic search, AST scan, "
+                 "LSP definition/references, file read) to ground your fix in "
+                 "actual code. Then output search/replace edit blocks as instructed.")
+        msgs = [{"role": "system", "content": sys_p},
+                {"role": "user", "content": arm_prompt(inst)}]
+    tin = tout = 0
+    trace = []
+    answer = ""
+    mech = {"dsml_recovered": 0, "patch_repaired": False}
+    answer, tin, tout = _tool_rounds(msgs, ch, model, tools_schema, trace, mech,
+                                     max_rounds)
     # ---------- 收线机械管道（S23） ----------
     # 证据链：LLM 手写 unified diff 的 hunk 行数不可靠（16/16 "solved" 补丁 0 可
     # 应用）→ S/R 块由 runner 应用、git 生成真 diff；SEARCH 漂移 → 模糊窗兜底 +
@@ -530,108 +652,15 @@ def run_once(arm, inst, ch, model, max_rounds, root, tools_schema):
 
     # (b) 完全无块：定位轮 + 真实文件内容注入的接地定稿
     if not blocks and not diff:
-        loc = _ask("List ONLY the relative file path(s) you intend to modify, one "
-                   "per line in the form `path: <relpath>`, nothing else.")
-
-        def _path_candidates(text):
-            pths = re.findall(r"^\s*path:\s*(\S+)\s*$", text or "", re.M)
-            pths += re.findall(r"[A-Za-z0-9_./\\-]+\.[A-Za-z0-9]{1,5}", text or "")
-            out = []
-            for p in pths:
-                p = p.replace("\\", "/").lstrip("/").strip(".,`;*\"'()[]")
-                if p in out or len(p) > 200 or "/" in p and p.startswith("/"):
-                    continue
-                if safe_join(root, p) and os.path.isfile(safe_join(root, p)):
-                    out.append(p)
-                if len(out) >= 3:
-                    break
-            return out
-
-        paths = _path_candidates(loc)
-        if not paths:
-            paths = _path_candidates(answer)   # 原始答案里提到的文件也试
-        parts = []
-        for p in paths:
-            fp = safe_join(root, p)
-            if fp is None:
-                continue
-            try:
-                c = open(fp, encoding="utf-8",
-                         errors="replace").read().replace("\r\n", "\n")
-            except OSError:
-                continue
-            if len(c) > 12000:
-                c = c[:6000] + "\n…[middle truncated]…\n" + c[-6000:]
-            parts.append(f"===== ACTUAL CONTENT of {p} =====\n{c}")
-        if parts:
-            _ask("Above are the ACTUAL file contents. Output ONLY the final "
-                 "search/replace edit blocks (```sr) — COPY SEARCH lines verbatim "
-                 "from these contents.\n" + "\n\n".join(parts)[:26000])
-            blocks = parse_sr(answer)
-            mech["grounded_author"] = bool(blocks)
+        blocks = _grounded_author(root, answer, _ask, mech)
 
     # (c) S/R 应用：精确匹配 → 模糊窗 → 接地修复轮
     if blocks:
-        mech["protocol"] = "sr"
-        mech["sr_blocks"] = len(blocks)
-        sr_answer = answer
-        applied, fails, gdiff, fz, grounds = apply_sr(root, blocks)
-        fuzzy_n = fz
-        if fails:
-            listing = "\n".join(f"- {f}" for f in fails[:8])
-            ground_txt = "\n\n".join(
-                f"[ACTUAL CONTENT of {p} (lines around the closest match)]:\n"
-                f"{excerpt}" for p, excerpt in list(grounds.items())[:3])
-            _ask("Some search/replace blocks FAILED to apply:\n" + listing[:1200] +
-                 ("\n\n" + ground_txt[:9000] if ground_txt else "") +
-                 "\n\nRe-output ONLY corrected search/replace blocks:\n"
-                 "```sr\npath: <relpath>\n<<<<<<< SEARCH\n<exact lines>\n=======\n"
-                 "<replacement>\n>>>>>>> REPLACE\n```\n"
-                 "COPY the SEARCH lines verbatim from the actual content above or "
-                 "from files you read with tools — never from memory.")
-            if parse_sr(answer):
-                sr_answer = answer
-            b2 = parse_sr(answer)
-            if b2:
-                applied, fails, gdiff2, fz2, _ = apply_sr(root, b2)
-                if gdiff2.strip():
-                    gdiff = gdiff2
-                fuzzy_n += fz2
-            mech["patch_repaired"] = True
-            if applied == 0 and sr_answer:
-                answer = sr_answer          # 修复轮没产出块时保住原有尝试供判官看
-        mech["sr_applied"] = applied
-        mech["sr_fuzzy"] = fuzzy_n
-        mech["sr_failed"] = fails[:8]
-        if gdiff.strip():
-            mech["patch_ok"] = True
-            mech["patch_strategy"] = "sr"
+        gdiff, answer = _sr_apply_rounds(root, blocks, answer, _ask, mech)
         diff = gdiff or diff
     # (d) ```diff 兜底（模型无视 S/R 指令时）
     elif diff:
-        mech["protocol"] = "diff"
-        ok, strat, err = patch_check(root, diff)
-        if not ok:
-            diff_answer = answer
-            _ask("Your patch does NOT apply to the repository. "
-                 "`git apply --check` says:\n" + err[:600] +
-                 "\nFix the diff (usually wrong context lines or wrong file path), "
-                 "or better: re-output as search/replace blocks (```sr).")
-            b2 = parse_sr(answer)
-            d2 = extract_patch(answer)
-            if b2:
-                _, _, gdiff, _, _ = apply_sr(root, b2)
-                if gdiff.strip():
-                    diff, ok, strat = gdiff, True, "sr"
-            elif d2:
-                ok2, strat2, _ = patch_check(root, d2)
-                if ok2 or len(d2) > len(diff):
-                    diff, ok, strat = d2, ok2, strat2
-            if not ok:
-                answer = diff_answer
-            mech["patch_repaired"] = True
-        mech["patch_ok"] = ok
-        mech["patch_strategy"] = strat
+        diff, answer = _diff_fallback(root, answer, diff, _ask, mech)
     mech["candidate_diff"] = diff[:MAX_PATCH]
     return answer, tin, tout, trace, mech
 

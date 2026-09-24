@@ -15,7 +15,73 @@ pub(crate) struct Lexer<'a> {
     line_open: bool,
 }
 
+/// 行首扫描的去向：`Break`=输入到底、`Skip`=本行已消费（空行/注释行）、
+/// `Plain`=正常落到 token 扫描。
+enum LineStart {
+    Break,
+    Skip,
+    Plain,
+}
+
 impl<'a> Lexer<'a> {
+    /// 行首处理：缩进栈维护 + 空行/注释行跳过（两者都不产生 token）；制表按
+    /// CPython tab=8 折算。
+    fn run_at_line_start(&mut self) -> Result<LineStart, PyErr> {
+        let mut col = 0usize;
+        loop {
+            match self.peek() {
+                Some(b' ') => {
+                    col += 1;
+                    self.pos += 1;
+                }
+                Some(b'\t') => {
+                    col = col / 8 * 8 + 8;
+                    self.pos += 1;
+                }
+                Some(0x0c) => {
+                    col = 0;
+                    self.pos += 1;
+                }
+                _ => break,
+            }
+        }
+        match self.peek() {
+            None => return Ok(LineStart::Break),
+            Some(b'\n') => {
+                self.pos += 1;
+                self.line += 1;
+                return Ok(LineStart::Skip);
+            }
+            Some(b'#') => {
+                while let Some(c) = self.peek() {
+                    if c == b'\n' {
+                        break;
+                    }
+                    self.pos += 1;
+                }
+                return Ok(LineStart::Skip);
+            }
+            _ => {}
+        }
+        let last = *self.indents.last().unwrap();
+        if col > last {
+            self.indents.push(col);
+            self.push(Tok::Indent);
+        } else if col < last {
+            while *self.indents.last().unwrap() > col {
+                self.indents.pop();
+                self.push(Tok::Dedent);
+            }
+            if *self.indents.last().unwrap() != col {
+                return Err(PyErr {
+                    line: self.line,
+                    msg: "unindent does not match any outer indentation level".into(),
+                });
+            }
+        }
+        Ok(LineStart::Plain)
+    }
+
     pub(crate) fn peek(&self) -> Option<u8> {
         self.b.get(self.pos).copied()
     }
@@ -52,58 +118,10 @@ impl<'a> Lexer<'a> {
         let mut at_start = true;
         loop {
             if at_start && self.opens.is_empty() {
-                // 行首缩进：空行/注释行不产生 token；制表按 CPython tab=8 折算
-                let mut col = 0usize;
-                loop {
-                    match self.peek() {
-                        Some(b' ') => {
-                            col += 1;
-                            self.pos += 1;
-                        }
-                        Some(b'\t') => {
-                            col = col / 8 * 8 + 8;
-                            self.pos += 1;
-                        }
-                        Some(0x0c) => {
-                            col = 0;
-                            self.pos += 1;
-                        }
-                        _ => break,
-                    }
-                }
-                match self.peek() {
-                    None => break,
-                    Some(b'\n') => {
-                        self.pos += 1;
-                        self.line += 1;
-                        continue;
-                    }
-                    Some(b'#') => {
-                        while let Some(c) = self.peek() {
-                            if c == b'\n' {
-                                break;
-                            }
-                            self.pos += 1;
-                        }
-                        continue;
-                    }
-                    _ => {}
-                }
-                let last = *self.indents.last().unwrap();
-                if col > last {
-                    self.indents.push(col);
-                    self.push(Tok::Indent);
-                } else if col < last {
-                    while *self.indents.last().unwrap() > col {
-                        self.indents.pop();
-                        self.push(Tok::Dedent);
-                    }
-                    if *self.indents.last().unwrap() != col {
-                        return Err(PyErr {
-                            line: self.line,
-                            msg: "unindent does not match any outer indentation level".into(),
-                        });
-                    }
+                match self.run_at_line_start()? {
+                    LineStart::Break => break,
+                    LineStart::Skip => continue,
+                    LineStart::Plain => {}
                 }
                 at_start = false;
             }
@@ -354,25 +372,33 @@ impl<'a> Lexer<'a> {
         if is_raw {
             return Ok(StrLit { s: body.to_string(), b: Vec::new(), is_bytes });
         }
+        let (s, b) = Self::decode_body(body, is_bytes)?;
+        Ok(StrLit { s, b, is_bytes })
+    }
+
+    /// 解码产物写入：bytes 字面量里 >0x7F 的源字符按 CPython 报错。
+    fn put_ch(is_bytes: bool, s: &mut String, b: &mut Vec<u8>, c: char) -> Result<(), String> {
+        if is_bytes {
+            if (c as u32) > 0x7F {
+                return Err("bytes can only contain ASCII literal characters".into());
+            }
+            b.push(c as u8);
+        } else {
+            s.push(c);
+        }
+        Ok(())
+    }
+
+    /// 剥前缀与引号后的转义解码：未知转义保形、bytes 非 ASCII 报错（CPython 口径）。
+    fn decode_body(body: &str, is_bytes: bool) -> Result<(String, Vec<u8>), String> {
         let cs: Vec<char> = body.chars().collect();
         let mut s = String::new();
         let mut b = Vec::new();
-        let put = |s: &mut String, b: &mut Vec<u8>, c: char| -> Result<(), String> {
-            if is_bytes {
-                if (c as u32) > 0x7F {
-                    return Err("bytes can only contain ASCII literal characters".into());
-                }
-                b.push(c as u8);
-            } else {
-                s.push(c);
-            }
-            Ok(())
-        };
         let mut i = 0usize;
         while i < cs.len() {
             let c = cs[i];
             if c != '\\' {
-                put(&mut s, &mut b, c)?;
+                Self::put_ch(is_bytes, &mut s, &mut b, c)?;
                 i += 1;
                 continue;
             }
@@ -382,93 +408,106 @@ impl<'a> Lexer<'a> {
             }
             let e = cs[i];
             i += 1;
-            match e {
-                '\n' => {}
-                '\r' => {
-                    if cs.get(i) == Some(&'\n') {
-                        i += 1;
-                    }
+            Self::decode_escape(e, is_bytes, &cs, &mut i, &mut s, &mut b)?;
+        }
+        Ok((s, b))
+    }
+
+    /// 单个转义序列：`i` 已越过反斜杠与该序列首字符，可被八进制/十六进制/Unicode 续位推进。
+    fn decode_escape(
+        e: char,
+        is_bytes: bool,
+        cs: &[char],
+        i: &mut usize,
+        s: &mut String,
+        b: &mut Vec<u8>,
+    ) -> Result<(), String> {
+        match e {
+            '\n' => {}
+            '\r' => {
+                if cs.get(*i) == Some(&'\n') {
+                    *i += 1;
                 }
-                'n' => put(&mut s, &mut b, '\n')?,
-                't' => put(&mut s, &mut b, '\t')?,
-                'r' => put(&mut s, &mut b, '\r')?,
-                'a' => put(&mut s, &mut b, '\u{7}')?,
-                'b' => put(&mut s, &mut b, '\u{8}')?,
-                'f' => put(&mut s, &mut b, '\u{c}')?,
-                'v' => put(&mut s, &mut b, '\u{b}')?,
-                '\\' | '\'' | '"' => put(&mut s, &mut b, e)?,
-                '0'..='7' => {
-                    let mut v: u32 = e.to_digit(8).unwrap();
-                    let mut n = 1;
-                    while n < 3 && matches!(cs.get(i), Some('0'..='7')) {
-                        v = v * 8 + cs[i].to_digit(8).unwrap();
-                        i += 1;
-                        n += 1;
-                    }
-                    if is_bytes {
-                        // 转义产物可取任意字节值，ASCII 限制只针对源字符（b"\xef" 合法）
-                        if v > 0xFF {
-                            return Err("bytes must be in range(0, 256)".into());
-                        }
-                        b.push(v as u8);
-                    } else {
-                        s.push(char::from_u32(v).unwrap_or('\u{fffd}'));
-                    }
+            }
+            'n' => Self::put_ch(is_bytes, s, b, '\n')?,
+            't' => Self::put_ch(is_bytes, s, b, '\t')?,
+            'r' => Self::put_ch(is_bytes, s, b, '\r')?,
+            'a' => Self::put_ch(is_bytes, s, b, '\u{7}')?,
+            'b' => Self::put_ch(is_bytes, s, b, '\u{8}')?,
+            'f' => Self::put_ch(is_bytes, s, b, '\u{c}')?,
+            'v' => Self::put_ch(is_bytes, s, b, '\u{b}')?,
+            '\\' | '\'' | '"' => Self::put_ch(is_bytes, s, b, e)?,
+            '0'..='7' => {
+                let mut v: u32 = e.to_digit(8).unwrap();
+                let mut n = 1;
+                while n < 3 && matches!(cs.get(*i), Some('0'..='7')) {
+                    v = v * 8 + cs[*i].to_digit(8).unwrap();
+                    *i += 1;
+                    n += 1;
                 }
-                'x' => {
-                    let mut v = 0u32;
-                    let mut n = 0;
-                    while n < 2 && matches!(cs.get(i), Some(c) if c.is_ascii_hexdigit()) {
-                        v = v * 16 + cs[i].to_digit(16).unwrap();
-                        i += 1;
-                        n += 1;
+                if is_bytes {
+                    // 转义产物可取任意字节值，ASCII 限制只针对源字符（b"\xef" 合法）
+                    if v > 0xFF {
+                        return Err("bytes must be in range(0, 256)".into());
                     }
-                    if n < 2 {
-                        return Err("truncated \\xXX escape".into());
-                    }
-                    if is_bytes {
-                        b.push(v as u8);
-                    } else {
-                        s.push(char::from_u32(v).unwrap());
-                    }
+                    b.push(v as u8);
+                } else {
+                    s.push(char::from_u32(v).unwrap_or('\u{fffd}'));
                 }
-                'u' | 'U' => {
-                    if is_bytes {
-                        return Err("invalid \\u escape in bytes literal".into());
-                    }
-                    let want = if e == 'u' { 4 } else { 8 };
-                    let mut v = 0u32;
-                    let mut n = 0;
-                    while n < want && matches!(cs.get(i), Some(c) if c.is_ascii_hexdigit()) {
-                        v = v * 16 + cs[i].to_digit(16).unwrap();
-                        i += 1;
-                        n += 1;
-                    }
-                    if n < want {
-                        return Err("truncated \\uXXXX escape".into());
-                    }
-                    match char::from_u32(v) {
-                        Some(ch) => s.push(ch),
-                        None => return Err("illegal Unicode character".into()),
-                    }
+            }
+            'x' => {
+                let mut v = 0u32;
+                let mut n = 0;
+                while n < 2 && matches!(cs.get(*i), Some(c) if c.is_ascii_hexdigit()) {
+                    v = v * 16 + cs[*i].to_digit(16).unwrap();
+                    *i += 1;
+                    n += 1;
                 }
-                _ => {
-                    // 未知转义：CPython 保形（DeprecationWarning），\N{名字} 亦从简；
-                    // bytes 的 ASCII 限制作用于源字符——转义符本身非 ASCII 也报错
-                    if is_bytes {
-                        if (e as u32) > 0x7F {
-                            return Err("bytes can only contain ASCII literal characters".into());
-                        }
-                        b.push(b'\\');
-                        b.push(e as u8);
-                    } else {
-                        s.push('\\');
-                        s.push(e);
+                if n < 2 {
+                    return Err("truncated \\xXX escape".into());
+                }
+                if is_bytes {
+                    b.push(v as u8);
+                } else {
+                    s.push(char::from_u32(v).unwrap());
+                }
+            }
+            'u' | 'U' => {
+                if is_bytes {
+                    return Err("invalid \\u escape in bytes literal".into());
+                }
+                let want = if e == 'u' { 4 } else { 8 };
+                let mut v = 0u32;
+                let mut n = 0;
+                while n < want && matches!(cs.get(*i), Some(c) if c.is_ascii_hexdigit()) {
+                    v = v * 16 + cs[*i].to_digit(16).unwrap();
+                    *i += 1;
+                    n += 1;
+                }
+                if n < want {
+                    return Err("truncated \\uXXXX escape".into());
+                }
+                match char::from_u32(v) {
+                    Some(ch) => s.push(ch),
+                    None => return Err("illegal Unicode character".into()),
+                }
+            }
+            _ => {
+                // 未知转义：CPython 保形（DeprecationWarning），\N{名字} 亦从简；
+                // bytes 的 ASCII 限制作用于源字符——转义符本身非 ASCII 也报错
+                if is_bytes {
+                    if (e as u32) > 0x7F {
+                        return Err("bytes can only contain ASCII literal characters".into());
                     }
+                    b.push(b'\\');
+                    b.push(e as u8);
+                } else {
+                    s.push('\\');
+                    s.push(e);
                 }
             }
         }
-        Ok(StrLit { s, b, is_bytes })
+        Ok(())
     }
 
     /// f-string 外层内容扫描：{{/}} 字面量、{区域} 提取、引号终止。
