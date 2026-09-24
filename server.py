@@ -234,6 +234,9 @@ def _handle(msg):
         # 我方支持的版本"——四代差的完整决策面见 spec/EXTERNAL-ALIGNMENT.md B1）
         negotiated = _negotiate_version(params.get("protocolVersion"))
         _record_hello(params, negotiated)
+        # S172：登记宿主身份（clientInfo.name）——此后 registry.call 的打点带 agent 维度
+        # （"哪个智能体调了什么、多少次"的归因源；usage_stats/usage_audit 消费）
+        registry.set_agent((params.get("clientInfo") or {}).get("name"))
         return {
             "jsonrpc": "2.0",
             "id": msg_id,
@@ -483,6 +486,17 @@ def main():
     _cpu = os.cpu_count() or 4
     _workers = int(os.environ.get("UNIFIED_RX_WORKERS") or 4)
     executor = ThreadPoolExecutor(max_workers=_workers, thread_name_prefix="rxmcp")
+    # S172：启动即做一次账本维护（量化超期记录进 rollup + 删保留期外的原始日志）——
+    # "自动"的挂点：宿主每次拉起服务器就维护一次，无需额外定时任务。审计是旁路，
+    # 失败只留日志，绝不影响主循环。
+    try:
+        from tools import ops as _ops
+        _m = _ops.stats_maintenance()
+        if _m.get("pruned"):
+            log_msg("info", f"stats maintenance: pruned={_m['pruned']} "
+                            f"rollup={_m['rollup']} keys={_m['rollup_keys']}")
+    except Exception as e:                                  # noqa: BLE001 维护是旁路
+        log_msg("warning", f"stats maintenance failed: {type(e).__name__}: {e}")
     while True:
         line = _read_line()
         if line is None:

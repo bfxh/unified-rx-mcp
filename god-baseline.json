@@ -165,7 +165,7 @@
   "max_type_members": 0
  },
  "registry.py": {
-  "file_lines": 645,
+  "file_lines": 658,
   "max_fn_lines": 109,
   "max_type_members": 0
  },
@@ -659,14 +659,19 @@
   "max_fn_lines": 35,
   "max_type_members": 0
  },
+ "scripts/usage_audit.py": {
+  "file_lines": 117,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
  "scripts/vuln_hunt.py": {
   "file_lines": 187,
   "max_fn_lines": 103,
   "max_type_members": 0
  },
  "server.py": {
-  "file_lines": 543,
-  "max_fn_lines": 81,
+  "file_lines": 557,
+  "max_fn_lines": 84,
   "max_type_members": 0
  },
  "tests/fixtures/fake_lsp_server.py": {
@@ -1234,6 +1239,11 @@
   "max_fn_lines": 20,
   "max_type_members": 0
  },
+ "tests/test_stats_agent.py": {
+  "file_lines": 115,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
  "tests/test_swe_p3.py": {
   "file_lines": 332,
   "max_fn_lines": 29,
@@ -1465,8 +1475,8 @@
   "max_type_members": 0
  },
  "tools/ops.py": {
-  "file_lines": 381,
-  "max_fn_lines": 62,
+  "file_lines": 478,
+  "max_fn_lines": 84,
   "max_type_members": 0
  },
  "tools/scan.py": {

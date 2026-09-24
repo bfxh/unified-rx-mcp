@@ -384,13 +384,26 @@ def _maybe_rotate_stats(path):
         pass
 
 
+_AGENT_NAME: str | None = None
+
+
+def set_agent(name) -> None:
+    """S172：登记宿主（智能体）身份——server 在 initialize 时传 clientInfo.name。
+
+    打点记录随之带 `agent` 维度（usage_stats / usage_audit 按"哪个智能体调了什么、
+    多少次"归因）。 None = 未握手/未登记（审计归为 unattributed）。"""
+    global _AGENT_NAME
+    _AGENT_NAME = str(name)[:60] if name else None
+
+
 def _record_stats(tool_name, duration_ms):
     """工具调用打点（usage_stats 的数据源）。
 
     S140：附 src 来源——mcp=客户端协议流量，embedded=脚本/测试/引擎内部直调。
     旧记录无 src 字段（usage_stats 归为 unmarked），脚本洪峰从此不再污染 MCP 口径。
     S141：附带会话烧量哨兵（burnwatch，内部 60s 节流）——model-io 越过阈值写告警，
-    让马拉松会话的 token 消耗在几分钟内可见。"""
+    让马拉松会话的 token 消耗在几分钟内可见。
+    S172：附 agent（宿主身份，initialize 的 clientInfo.name；未登记为 null）。"""
     try:
         src = getattr(_REQ_LOCAL, "source", None)
         if src is None:
@@ -400,7 +413,7 @@ def _record_stats(tool_name, duration_ms):
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps({
                 "tool": tool_name, "duration_ms": int(duration_ms),
-                "ts": int(time.time()), "src": src,
+                "ts": int(time.time()), "src": src, "agent": _AGENT_NAME,
             }, ensure_ascii=False) + "\n")
         _maybe_rotate_stats(path)          # S163：超阈值转分片，读方跨分片读 ⇒ 不丢历史
     except OSError:

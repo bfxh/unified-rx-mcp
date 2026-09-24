@@ -16,6 +16,7 @@ import collections
 import datetime
 import json
 import os
+import pathlib
 import re as _re
 import time
 import zipfile
@@ -197,6 +198,97 @@ def _stats_files():
     return [f for f in files if os.path.isfile(f)]
 
 
+def _rollup_path():
+    """量化总账落点（与 stats.jsonl 同目录：删原始不删总账）。"""
+    return os.path.join(os.path.dirname(_STATS_FILE), "stats-rollup.json")
+
+
+def stats_maintenance(retention_days=None, rollup_path=None, now=None):
+    """S172：原始调用账本的**自动量化 + 保留期清理**（usage_audit 脚本与 server 启动共用）。
+
+    - 量化：把**超出保留期**的记录合并进持久 rollup（默认 ~/.unified-rx/stats-rollup.json），
+      键 = "ISO周|agent|tool"，值 = {calls, ms}——同键**累加**（后续任何一次量化都并进同一本账，
+      可持续合并）；原始日志删了，总账一直在。
+    - 清理：改写 stats.jsonl 与各分片（临时文件 + os.replace 原子替换），只留保留期内的记录；
+      变空的分片删除（当前文件保留，可为空）。轮转份数（UNIFIED_RX_STATS_KEEP）语义不变。
+    - 保留期：retention_days 参数 > 环境变量 UNIFIED_RX_STATS_RETENTION_DAYS（默认 7 天）。
+    - ts 解析不了的旧记录一律**保留**（不删看不懂的东西）。
+
+    返回 {pruned, kept, files_changed, shards_deleted, rollup, rollup_keys}；
+    I/O 异常上抛（调用方决定是否旁路）。"""
+    if retention_days is None:
+        try:
+            retention_days = int(os.environ.get("UNIFIED_RX_STATS_RETENTION_DAYS", "7"))
+        except ValueError:
+            retention_days = 7
+    cutoff = int(now if now is not None else time.time()) - int(retention_days) * 86400
+    rpath = rollup_path or _rollup_path()
+
+    merged: dict = {}
+    if os.path.isfile(rpath):
+        # ⭐ rollup 是**多行 pretty JSON**，不能走 _load_jsonl（按行解析 ⇒ 全部静默失败
+        # ⇒ 下次维护会把旧总账清掉——测试 test_maintenance_merges_subsequent_runs 实锤）。
+        # 解析失败就报错中止：绝不拿"部分账"覆盖旧总账。
+        try:
+            doc = json.loads(pathlib.Path(rpath).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise RuntimeError(f"rollup 账本解析失败（{rpath}）：{e}——先修复该文件再跑维护") from e
+        for ent in doc.get("merged") or []:
+            k = ent.get("key")
+            if isinstance(k, str) and isinstance(ent.get("calls"), int):
+                merged[k] = {"calls": ent["calls"], "ms": int(ent.get("ms") or 0)}
+
+    pruned = kept = 0
+    files_changed = 0
+    shards_deleted = 0
+    for fp in _stats_files():
+        recs = _load_jsonl(fp)
+        keep_lines = []
+        dropped = 0
+        for r in recs:
+            ts = _norm_ts(r.get("ts"))
+            if ts is not None and ts < cutoff:
+                dropped += 1
+                key = "|".join((
+                    time.strftime("%G-W%V", time.gmtime(ts)),
+                    str(r.get("agent") or "unattributed"),
+                    str(r.get("tool") or "?"),
+                ))
+                ent = merged.setdefault(key, {"calls": 0, "ms": 0})
+                ent["calls"] += 1
+                ent["ms"] += int(r.get("duration_ms") or 0)
+            else:
+                kept += 1
+                keep_lines.append(json.dumps(r, ensure_ascii=False))
+        pruned += dropped
+        if not dropped:
+            continue
+        files_changed += 1
+        is_shard = os.path.basename(fp) != os.path.basename(_STATS_FILE)
+        if not keep_lines and is_shard:
+            os.unlink(fp)
+            shards_deleted += 1
+            continue
+        tmp = pathlib.Path(fp + ".tmp")          # 临时文件 + os.replace = 原子改写
+        tmp.write_text("".join(ln + "\n" for ln in keep_lines), encoding="utf-8")
+        os.replace(tmp, fp)
+
+    if pruned:
+        os.makedirs(os.path.dirname(rpath), exist_ok=True)
+        doc = {
+            "_doc": ("调用账本量化总账（S172）：键=ISO周|agent|tool，值=calls/ms。"
+                     "原始 stats.jsonl 只留保留期内的记录；删除部分先并入本账（同键累加），"
+                     "由 scripts/usage_audit.py 与 server 启动自动维护。"),
+            "merged": [{"key": k, **v} for k, v in sorted(merged.items())],
+        }
+        rtmp = pathlib.Path(rpath + ".tmp")
+        rtmp.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        os.replace(rtmp, rpath)
+    return {"pruned": pruned, "kept": kept, "files_changed": files_changed,
+            "shards_deleted": shards_deleted, "rollup": rpath,
+            "rollup_keys": len(merged)}
+
+
 @tool("usage_stats", "工具使用统计（频率/耗时 TopN/时段分布；S140 起按 mcp/embedded 来源拆分）", "ops",
       {"type": "object",
        "properties": {
@@ -225,12 +317,14 @@ def usage_stats(top=10, days=0):
     by_ms = collections.Counter()
     by_hour = collections.Counter()
     by_src = collections.Counter()
+    by_agent = collections.Counter()
     mcp_tool = collections.Counter()
     for r in recs:
         t = r.get("tool", "?")
         by_tool[t] += 1
         by_ms[t] += r.get("duration_ms", 0)
         by_src[r.get("src", "unmarked")] += 1
+        by_agent[str(r.get("agent") or "unattributed")] += 1
         ts = _norm_ts(r.get("ts"))
         if ts is not None:
             by_hour[datetime.datetime.fromtimestamp(ts).hour] += 1
@@ -242,6 +336,9 @@ def usage_stats(top=10, days=0):
     return {
         "total_calls": len(recs),
         "by_source": dict(by_src),
+        # S172：智能体归因维度（agent=initialize 的 clientInfo.name；旧记录/未登记=unattributed）
+        "agents": {"distinct": len(by_agent),
+                   "top": [{"agent": a, "calls": c} for a, c in by_agent.most_common(8)]},
         "freq_top": freq,
         "freq_top_mcp": [{"tool": t, "calls": c} for t, c in mcp_tool.most_common(top)],
         "slowest_top": slow,
