@@ -1,0 +1,4 @@
+{
+ "_doc": "Rust 行覆盖率基线（scripts/coverage_gate.py）：只准升，不许降。首测 2026-09-24 于 CI windows runner（MSVC，cargo-llvm-cov 0.9.1），实测 67.87%",
+ "line_percent": 67.87
+}
