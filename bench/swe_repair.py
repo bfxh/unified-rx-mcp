@@ -43,8 +43,8 @@ def log(msg):
 
 
 if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # TextIO 桩没有 reconfigure（CPython 实际是 TextIOWrapper）
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # TextIO 桩没有 reconfigure（CPython 实际是 TextIOWrapper）
 
 
 def _chat(ch, model, msgs):

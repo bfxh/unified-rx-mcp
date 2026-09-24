@@ -69,7 +69,7 @@ TEST_TIMEOUT = 900
 # S28：C 扩展仓走 WSL（Ubuntu 24.04 + uv 托管 python + gcc 现场构建）。
 # 每任务独立 venv（WSL ~/swe/envs2/<iid>），era 依赖钉 + pip legacy develop。
 WSL_MOUNT = "/mnt/c/Users/lbx13/AppData/Local/Temp/opencode/swe"
-WSL_TASKS = {
+WSL_TASKS: dict[str, dict] = {
     "scikit-learn__scikit-learn-10908": {"py": "3.8"},
     "scikit-learn__scikit-learn-11310": {"py": "3.8"},
     "scikit-learn__scikit-learn-12973": {"py": "3.7",
@@ -240,8 +240,8 @@ def log(msg):
 
 
 if hasattr(sys.stdout, "reconfigure"):          # GBK 控制台兼容（uv 报错含非 GBK 字符）
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # TextIO 桩没有 reconfigure（CPython 实际是 TextIOWrapper）
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # TextIO 桩没有 reconfigure（CPython 实际是 TextIOWrapper）
 
 
 def _uv_py(env_dir):
@@ -249,7 +249,7 @@ def _uv_py(env_dir):
 
 
 # ---- S42 推广：存在性 ≠ 能力——venv python 必须能 import pytest 才算可用 ----
-_VENV_PY_PROBE = {}
+_VENV_PY_PROBE: dict[str, bool] = {}
 
 
 def _venv_py_ok(py):

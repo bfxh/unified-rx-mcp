@@ -111,6 +111,7 @@ def test_version_lockstep_server_equals_cargo_toml():
 
 _spec = importlib.util.spec_from_file_location(
     "s94_perf", os.path.join(_ROOT, "bench", "s94_perf.py"))
+assert _spec is not None and _spec.loader is not None   # 文件在仓内，找不到就是环境坏了
 s94_perf = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(s94_perf)
 

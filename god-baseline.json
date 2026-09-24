@@ -1,6 +1,6 @@
 {
  "bench/_cancel_e2e_probe.py": {
-  "file_lines": 86,
+  "file_lines": 87,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
@@ -650,7 +650,7 @@
   "max_type_members": 0
  },
  "scripts/type_gate.py": {
-  "file_lines": 80,
+  "file_lines": 85,
   "max_fn_lines": 29,
   "max_type_members": 0
  },
@@ -1190,7 +1190,7 @@
   "max_type_members": 0
  },
  "tests/test_s94_quality.py": {
-  "file_lines": 134,
+  "file_lines": 135,
   "max_fn_lines": 14,
   "max_type_members": 0
  },

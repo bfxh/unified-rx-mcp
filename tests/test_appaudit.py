@@ -149,7 +149,7 @@ def _synth_asar(path: Path, entries):
     """entries: {rel: bytes}。模拟实证观测到的真实布局：
     4×u32 前导 + JSON 头（字符从 b'{\"files\"' 起）+ 对齐 + 内容区。"""
     pos = 0
-    tree = {"files": {}}
+    tree: dict = {"files": {}}
     payload = []
     for rel, data in entries.items():
         h = hashlib.sha256(data).hexdigest()

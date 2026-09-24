@@ -31,7 +31,7 @@ def test_ast_grep_sandbox(tmp_path):
     assert r.get("ok") is False and "沙盒外" in r["error"], r
 
 
-@pytest.mark.skipif(shutil.which("ast-grep") or shutil.which("sg"),
+@pytest.mark.skipif(bool(shutil.which("ast-grep") or shutil.which("sg")),
                     reason="本机装了 ast-grep——未装分支不可测")
 def test_ast_grep_not_installed_clear_error(tmp_path):
     (tmp_path / "m.py").write_text("x = 1\n", encoding="utf-8")

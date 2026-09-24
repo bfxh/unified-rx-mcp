@@ -79,7 +79,7 @@ def score():
 
 if __name__ == "__main__":
     try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # TextIO 桩没有 reconfigure（CPython 实际是 TextIOWrapper）
     except Exception:
         pass
     print(json.dumps(score(), ensure_ascii=False, indent=2))

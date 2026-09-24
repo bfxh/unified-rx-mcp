@@ -20,6 +20,7 @@ proc = subprocess.Popen(
     stderr=open(r"C:\Users\lbx13\AppData\Local\Temp\opencode\uRX_server_err.log",
                 "w", encoding="utf-8"),
     text=True, encoding="utf-8")
+assert proc.stdout is not None          # Popen(stdout=PIPE) ⇒ 非 None（供 mypy 收窄）
 
 
 def send(obj):

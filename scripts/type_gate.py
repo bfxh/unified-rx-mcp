@@ -1,14 +1,18 @@
 """scripts/type_gate.py —— Python 类型门（S171）：mypy 默认档**零容忍**。
 
-判据：产品面（默认 `registry.py server.py toolmeta.py tools/ scripts/`）在 mypy 默认档下
-**0 error**——2026-09-24 实测已清零（19 → 0），所以**不设基线棘轮**：冒一条即红。
+判据：**全 Python 面**（默认 `registry.py server.py toolmeta.py tools/ scripts/ tests/ bench/`）
+在 mypy 默认档下 **0 error**——2026-09-24 实测清零（产品面 19 → 0；扩面后 tests 5 + bench 12 →
+0），所以**不设基线棘轮**：冒一条即红。
 
-**范围**：`tests/`、`bench/` 暂不入册（夹具与跑批脚本，噪声面不同，另行评估）；
+口径由仓内 `mypy.ini` 定：`mypy_path = scripts`（测试里 `import deps_lock` 这类靠运行期
+sys.path 注入）、`explicit_package_bases`（bench 的模块既是顶层又是包）、`exclude` 掉
+**生成物/合成语料**（`bench/manual_snaps`、`bench/results`——同 ruff.toml 的 exclude 口径）。
 `--paths` 可自定义目标（金丝雀就这么用）。
 **工具缺失不静默**：mypy 不在当前解释器里直接 FAIL（CI 由 `ci-requirements.txt` 钉版本装）。
 
 为什么与 ruff 门并存：ruff 的 F/E/B 管语法与常见错，mypy 管**类型面**——不是一类。
-首次启用就抓到 1 处变量复用（`Match[str]` 被赋成 `Optional`）+ 16 处模块级空容器缺注解。
+启用过程本身抓到 3 处真东西（变量复用 `Match`→`Optional`、`_BY_RULE` 注解写错、
+`module_from_spec` 的 None 收窄缺失）。
 
 用法：
   python -X utf8 scripts/type_gate.py                     # 判红（默认 root=.）
@@ -23,7 +27,8 @@ import re
 import subprocess
 import sys
 
-DEFAULT_PATHS = ("registry.py", "server.py", "toolmeta.py", "tools", "scripts")
+DEFAULT_PATHS = ("registry.py", "server.py", "toolmeta.py", "tools", "scripts",
+                 "tests", "bench")
 _DIAG = re.compile(r": error: ")
 
 
