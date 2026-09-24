@@ -1,0 +1,30 @@
+# _typos.toml —— typos 拼写门配置（S171；scripts/typos_gate.py 消费）。
+# 原则：**生成物排除、域名术语字面豁免（写理由）、其余零容忍**。
+
+[files]
+extend-exclude = [
+  "bench/results",             # 跑批产物（SWE 语料里的 np.arange 等是代码原文）
+  "bench/manual_snaps",        # 合成语料（故意写坏）
+  "bench/manual_review_pack.txt",  # 生成的评审包
+]
+
+[default.extend-words]
+# 自映射 = 判定为有意拼写（每条都要有理由；理由写在旁边）。
+"ACI" = "ACI"         # S105 域名概念（Agent Context Insights 提示族；test_s105 在册）
+"aci" = "aci"         # 同上（小写标识符 _aci_trunc 等）
+"ND" = "ND"           # OpenCL API：clEnqueueNDRangeKernel
+"clen" = "clen"       # OpenCL 内核形参（crib length，xor_crib_scan）
+"ba" = "ba"           # ab_run 的 A/B 双臂聚合变量（ba/bb = arm A/B）
+"rotat" = "rotat"     # ROUNDLOG 历史日志里的截词（非真实词，历史不改写）
+"thr" = "thr"         # threshold 缩写（burnwatch 档位 / dupe 阈值 / callgraph.rs）
+"strat" = "strat"     # strategy 缩写（swe_p3 管道策略）
+"ser" = "ser"         # serial（perf_gate 的串行基线变量）
+"ths" = "ths"         # stress_run 内部标识符
+"anc" = "anc"         # anchor 缩写（rust/src/sandbox.rs）
+"rin" = "rin"         # rust/src/server.rs 内部标识符
+"pn" = "pn"           # sysinfo 的 P 核计数字段（warm 桩不动它——既有约定）
+"tru" = "tru"         # 词法测试夹具：截断的 true token（json_test.rs）
+"optin" = "optin"     # 测试名 opt-in（无连字符的既有命名）
+"Ue" = "Ue"           # 高熵测试密钥串片段（…nT8yUe）
+"unparseable" = "unparseable"  # 合法英文拼法（typos 词典只认 unparsable——误报）
+"appliable" = "appliable"      # swe_p3/UPGRADE 的输出列名（历史报告同口径；改=动输出契约/失真历史）

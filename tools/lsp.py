@@ -404,8 +404,12 @@ _TRANSIENT_ERR = ("content modified", "file not found", "timed out")
 def _call_ready(sess, method, params, waits=(1.0, 2.0, 3.0, 5.0, 8.0)):
     """冷启动期服务器按规范合法返 null 或抛瞬时错（VF3 实测 ra 首响 ~17s；
     未就绪时 references 会直接报 'file not found'）——两者都归入退避重试。
-    非瞬时错误立即上浮，不吞真失败。"""
-    for w in waits:
+    非瞬时错误立即上浮，不吞真失败。
+
+    首个尝试**不预睡**（S172 实测：热会话原先也要白付第一档 1.0s——补全/定义等
+    全部 LSP 动作的耗时地板 1010ms 里 1000ms 是这觉）：服务器已就绪即零等待直返；
+    冷启动由退避档兜底，sleep 预算不变（1+2+3+5+8=19s，只分摊到重试之间）。"""
+    for w in (0.0, *waits):
         if w:
             time.sleep(w)
         try:

@@ -600,7 +600,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 157,
+  "file_lines": 159,
   "max_fn_lines": 56,
   "max_type_members": 0
  },
@@ -652,6 +652,11 @@
  "scripts/type_gate.py": {
   "file_lines": 85,
   "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "scripts/typos_gate.py": {
+  "file_lines": 59,
+  "max_fn_lines": 35,
   "max_type_members": 0
  },
  "scripts/vuln_hunt.py": {
@@ -965,7 +970,7 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 190,
+  "file_lines": 211,
   "max_fn_lines": 19,
   "max_type_members": 0
  },
@@ -1435,7 +1440,7 @@
   "max_type_members": 0
  },
  "tools/lsp.py": {
-  "file_lines": 509,
+  "file_lines": 513,
   "max_fn_lines": 36,
   "max_type_members": 15
  },

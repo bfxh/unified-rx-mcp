@@ -163,6 +163,11 @@ jobs:
       - name: Type gate（mypy 默认档——产品面 0 error）
         run: python -X utf8 scripts/type_gate.py
 
+      # S171：拼写门（typos 零容忍）。生成物排除 + 域名术语自映射都在 _typos.toml（写理由）；
+      # typos 版本钉在 ci-requirements（退出码 2 = 有命中）。
+      - name: Typos gate（拼写——零容忍）
+        run: python -X utf8 scripts/typos_gate.py
+
       - name: Bench dry-run gates (语料/双臂配置契约)
         run: |
           python -X utf8 bench/replay_ab.py --dry-run

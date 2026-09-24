@@ -129,6 +129,27 @@ def test_type_gate_catches_new_type_error(tmp_path):
     assert cp2.returncode == 0, cp2.stdout + cp2.stderr
 
 
+def test_typos_gate_catches_misspelling(tmp_path):
+    """金丝雀（S171）：拼写门零容忍——真拼写错必须判红，改对后回绿。
+
+    退出码口径实测：typos 用 **2** 表示"有命中"（不是 1）——门按 0=干净 / 1·2=命中 /
+    其余=工具异常 三段判。夹具词用**碎片拼接**（本测试文件自己也在拼写门的扫描面里，
+    写完整错词会让门红——与 secrets 夹具同款纪律）。
+    """
+    if not shutil.which("typos"):
+        pytest.skip("本机没有 typos：门会 FAIL（不静默），但这条金丝雀无法验证")
+    bad_word = "reci" + "eve"
+    good_word = "rece" + "ive"
+    bad = tmp_path / "bad.py"
+    bad.write_text(f'x = "{bad_word} it"\n', encoding="utf-8")
+    cp = _py("typos_gate.py", "--root", str(tmp_path))
+    assert cp.returncode == 1, "拼写错没判红——假门\n" + cp.stdout
+    assert bad_word in (cp.stdout + cp.stderr), cp.stdout + cp.stderr
+    bad.write_text(f'x = "{good_word} it"\n', encoding="utf-8")
+    cp2 = _py("typos_gate.py", "--root", str(tmp_path))
+    assert cp2.returncode == 0, cp2.stdout + cp2.stderr
+
+
 def test_lint_gate_catches_new_rule_hits(tmp_path):
     """金丝雀（S171）：Python 静态门是**逐规则棘轮**——涨一条就红，且认得出是哪条规则。
 

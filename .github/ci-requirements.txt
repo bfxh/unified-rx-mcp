@@ -4,3 +4,4 @@ jedi
 pyflakes
 ruff==0.16.8
 mypy==2.3.1
+typos==1.50.2
