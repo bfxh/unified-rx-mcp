@@ -1,0 +1,5 @@
+{
+ "policy": "重复对基线：新增即红（scripts/dupe_gate.py）；只登记产品代码面（bench/tests/docs/spec 不入册）",
+ "threshold": 0.8,
+ "pairs": []
+}

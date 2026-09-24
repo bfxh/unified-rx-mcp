@@ -579,6 +579,11 @@
   "max_fn_lines": 11,
   "max_type_members": 0
  },
+ "scripts/dupe_gate.py": {
+  "file_lines": 160,
+  "max_fn_lines": 55,
+  "max_type_members": 0
+ },
  "scripts/god_diff.py": {
   "file_lines": 63,
   "max_fn_lines": 30,
@@ -590,7 +595,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 153,
+  "file_lines": 155,
   "max_fn_lines": 56,
   "max_type_members": 0
  },
@@ -940,7 +945,7 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 113,
+  "file_lines": 128,
   "max_fn_lines": 18,
   "max_type_members": 0
  },

@@ -93,6 +93,21 @@ def test_timing_steps_skipped_unless_explicitly_enabled():
     assert "SKIP cli-bench" not in out2 and "SKIP perf-gate" not in out2, out2
 
 
+def test_dupe_gate_catches_new_duplicates(tmp_path):
+    """金丝雀：重复代码门必须**真的会红**——造一对 100% 相同的文件，门要判"新增重复对"。
+
+    与 god-gate 同纪律：门不做金丝雀就等于装饰。这里同时锁住"先记基线（单文件无对）→ 再造重复 ⇒ 红"。
+    """
+    body = "\n".join(f"def f{i}(x):\n    return x + {i}\n" for i in range(40))
+    (tmp_path / "a.py").write_text(body, encoding="utf-8")
+    cp0 = _py("dupe_gate.py", "--root", str(tmp_path), "--write-baseline")
+    assert cp0.returncode == 0, cp0.stdout + cp0.stderr
+    (tmp_path / "b.py").write_text(body, encoding="utf-8")          # 造重复（同内容）
+    cp = _py("dupe_gate.py", "--root", str(tmp_path))
+    assert cp.returncode == 1, "重复文件没判红——假门\n" + cp.stdout
+    assert "新增重复对" in cp.stdout, cp.stdout
+
+
 def test_audit_ledger_stale_is_a_real_gate(tmp_path):
     """金丝雀：时效判据是真门。**自带临时账本**，不看仓里账本的日期/提交数——
     实测教训（S169）：仓里一旦"今天刚记入审计"，`MAX_DAYS=0` 就恒不触发（age=0 不 > 0 天），

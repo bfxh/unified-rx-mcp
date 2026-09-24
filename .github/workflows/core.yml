@@ -132,6 +132,11 @@ jobs:
       - name: God-object gate（文件/函数/类型规模棘轮——只准减）
         run: python -X utf8 scripts/god_gate.py
 
+      # S169：重复代码门（管"多处雷同"，与上帝对象门管"单点过大"是两件事）。
+      # 引擎复用 rx-scan sketch（与 MCP 工具 near_dupes 同源），基线棘轮：新增重复对即红。
+      - name: Dupe gate（重复代码——新增即红）
+        run: python -X utf8 scripts/dupe_gate.py
+
       # 这两道原在 pytest job 里（随之在矩阵两腿各跑一遍）；它们是快档门 → 收进本 job。
       - name: Perf gate（S160：同机并行/串行比值——不依赖 runner 绝对速度）
         run: python -X utf8 scripts/perf_gate.py
