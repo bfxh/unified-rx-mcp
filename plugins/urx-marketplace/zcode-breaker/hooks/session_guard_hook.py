@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """session-guard 钩子（ZCode，zcode-breaker 插件）—— 会话烧量哨兵（S141）。
 
 用法（hooks/hooks.json 传入）：

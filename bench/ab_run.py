@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """ab_run.py —— L3 双臂增益评测实跑器（EVAL-P2 / UPGRADE-S14）
 
 双臂：A=裸模型(API 单轮)   B=模型+只读证据工具集(进程内 registry.call)。
@@ -32,7 +31,7 @@ sys.path.insert(0, ROOT)
 # 裸 shell 下 fail-closed 会干扰测量。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
 import registry  # noqa: E402
-import tools      # noqa: F401,E402  注册面
+import tools  # noqa: F401,E402  # 注册面
 
 CORPUS = os.path.join(HERE, "l3_tasks.jsonl")
 RESULTS = os.path.join(HERE, "results", "l3")

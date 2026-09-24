@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S50 workflow 文档存在性门禁。"""
 import os
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/filewalk.py —— 代码文件遍历统一实现（S127，CONSOLIDATION C1 除重）。
 
 此前三份模块级文件遍历器（`scan._iter_files` / `ide_common._iter_files` /

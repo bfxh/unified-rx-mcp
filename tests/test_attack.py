@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S55：attack 域测试（此前零引用——test_v2 只是 docstring 提到，从未真调）。
 
 registry 层全往返：病态输入必须被结构化拒绝，绝不崩、绝不产生噪音结果。

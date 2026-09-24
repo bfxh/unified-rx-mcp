@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S75：权力面盘点（继承 S73 深扫后的全面核查）四处收口的回归测试。
 
 1. blender_verify：screenshot_path 原样拼进 PowerShell 单引号字符串——路径含 '
@@ -19,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import registry  # noqa: E402
-import tools  # noqa: E402,F401  注册全部
+import tools  # noqa: E402,F401  # 注册全部
 
 越界 = "越界"
 授权 = "授权"

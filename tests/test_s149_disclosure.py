@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S149 契约：渐进披露（域 profile）+ sys 域提权与通用档位。
 
 用户指令两件（本轮）：①"不需要每次把全部工具展给智能体看，部分的东西逐渐发"
@@ -14,13 +13,12 @@
 5. sys 通用档位：class_=any 时不碰核定向；priority/eco 合法性校验；
    空档位组合报错（防"什么都没设"的静默空转）。
 """
-import os
 
 import pytest
 
 import registry
-import tools  # noqa: F401
 import toolmeta
+import tools  # noqa: F401
 
 
 @pytest.fixture(autouse=True)

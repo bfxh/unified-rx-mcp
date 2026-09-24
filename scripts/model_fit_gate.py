@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """模型适配门（S161）：把"能被**弱模型**安全使用"变成可判定的门。
 
 为什么单列一道门：`mcp_surface_gate` 验的是**协议契约**（字段在不在、上不上线路），
@@ -93,7 +92,7 @@ def main() -> int:
                 bad(f"G1[{label}] 未被判错（isError={res.get('isError')!r}）")
                 continue
             try:
-                p = parse(((res.get("content") or [{}])[0].get("text") or ""))
+                p = parse((res.get("content") or [{}])[0].get("text") or "")
             except ValueError:
                 bad(f"G1[{label}] 错误回包不是 JSON（弱模型无法解析）")
                 continue

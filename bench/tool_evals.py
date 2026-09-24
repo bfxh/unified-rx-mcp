@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """任务级工具评测（S144，兑现 EXTERNAL-ALIGNMENT B2）。
 
 外部方法论（Anthropic writing-tools-for-agents）：工具面要用**真实多步任务**评测，

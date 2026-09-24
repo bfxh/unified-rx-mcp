@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S36 ide_break：python settrace 断点记录器端到端。"""
 import os
 import sys

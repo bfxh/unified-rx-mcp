@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S120 Rust 异或枚举契约：rx-scan xor vs Python oracle + file_scan 三档引擎如实上报。
 
 实测交叉点（单文件 / min-of-3）：64KB CPU 最优、128-256KB GPU 最优、≥512KB Rust 最优
@@ -11,8 +10,8 @@ import pytest
 
 import registry
 import tools  # noqa: F401
+from tools import filescan
 from tools import filescan as filescan_mod  # S130：kernel 就近迁移
-from tools import filescan, gpu
 
 _HAS_EXE = filescan._rx_scan_exe() is not None
 _EXE_HINT = "rx-scan.exe 未构建（cargo build --release）"

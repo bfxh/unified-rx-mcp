@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """tests/test_meta.py —— meta 域测试（P1-P7 修复验证）。"""
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

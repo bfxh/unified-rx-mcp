@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S66：IDE 升级回归钉——ide_outline / ide_read_symbol / ide_doctor diff 模式。"""
 import os
 import subprocess

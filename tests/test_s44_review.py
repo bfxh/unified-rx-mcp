@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S44 code_review：多透镜 + diff 模式回归。"""
 import os
 import subprocess

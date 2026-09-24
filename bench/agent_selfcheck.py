@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """agent_selfcheck —— S8 复用入口：对任意已安装智能体执行 克隆→隔离审计。
 
 用户规则固化：以后遇到智能体类应用，默认动作就是本脚本——先复制到隔离沙箱，
@@ -17,8 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import registry   # noqa: E402
-import tools      # noqa: F401,E402  注册全部域
+import registry  # noqa: E402
+import tools  # noqa: F401,E402  # 注册全部域
 
 
 def _run_one(tag, source, clean):
@@ -59,7 +58,7 @@ def _run_one(tag, source, clean):
         err = "" if "error" not in a else " error=" + str(a["error"])
         line = f"    asar {a['asar']}: {ext} 条目已提取重扫{err}"
         print(line[:160])
-    print(f"    URL Top: " + ", ".join(
+    print("    URL Top: " + ", ".join(
         f"{u['host']}({u['count']})" for u in res["url_host_top"][:8]))
     if clean:
         clr = registry.call("app_clean", {"target": snap["snapshot"], "__authorized": True})

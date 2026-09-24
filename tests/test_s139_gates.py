@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S139 契约：数据流门（taint 基线）。
 
 - 门判定必须绿（产品面 definite 对照 spec/taint-baseline.json）；

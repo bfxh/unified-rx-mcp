@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S147 契约：审核再上强度——历史明文门 / 依赖红线门 / 审计时效账本门。
 
 三锁（都含"真门"负例，防止出现永远绿的摆设）：
@@ -18,7 +17,6 @@ import pytest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-import audit_ledger  # noqa: E402
 import deps_lock  # noqa: E402
 import secrets_history  # noqa: E402
 

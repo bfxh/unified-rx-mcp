@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S123 契约：ide_dead_code（死符号可达性）+ secrets_hunt（凭据/密钥扫描）。
 
 口径（spec 见两模块 docstring）：
@@ -15,7 +14,6 @@ import textwrap
 
 import registry
 import tools  # noqa: F401
-from tools import secrets as secrets_mod
 
 NL = chr(10)  # 夹具行拼接用（测试文件里不出现字面 \n 形状）
 

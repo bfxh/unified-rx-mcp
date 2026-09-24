@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """R4：ide_doctor 一键体检。
 
 真链路聚合测试：git 化 tmp 项目（通过 py 测试）→ 六个检查全在场 + verdict；

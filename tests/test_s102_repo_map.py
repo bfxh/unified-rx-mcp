@@ -1,18 +1,14 @@
-# -*- coding: utf-8 -*-
 """S102 repo_map 契约：注册面 / 输出形状 / 聚焦偏置 / 沙盒 / exe 缺失。
 
 算法侧（符号图、PageRank、预算裁剪）由 rust/tests/repomap_test.rs 打同一语义；
 本文件守 Python 侧包络：沙盒拒绝与 exe 缺失走 ValueError 包络（ok:false），
 工具级错误走 result.error。
 """
-import os
 
-import pytest
 
 import registry
 import tools  # noqa: F401
 from tools import ide_read
-from tools import search as search_mod
 
 
 def _fixture(tmp_path):

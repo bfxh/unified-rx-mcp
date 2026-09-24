@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/lsp_actions.py —— ide_lsp 动作分发（S129 自 tools/lsp.py 平移）。
 
 拆分纪律（CONSOLIDATION §三 P1）：只动归属不动语义——动作分发与客户端核心
@@ -137,7 +136,7 @@ def _apply_file_edits(sess, fpath, eds):
     except PermissionError as e:
         return {"file": fpath, "error": str(e)}, 0
     try:
-        with open(real, "r", encoding="utf-8", errors="replace", newline="") as f:
+        with open(real, encoding="utf-8", errors="replace", newline="") as f:
             src = f.read()
     except OSError as e:
         return {"file": real, "error": str(e)}, 0
@@ -229,5 +228,5 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
         return {"error": f"LSP 服务器未检出: {e}"}
     except RuntimeError as e:
         return {"error": str(e), "hint": "首查可能因建索引超时；重试或放宽预算"}
-    except Exception as e:                                  # noqa: BLE001 失败语义统一
+    except Exception as e:                                  # noqa: BLE001  # 失败语义统一
         return {"error": f"{type(e).__name__}: {e}"}

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """CI 秘密门禁（S124）：dogfood secrets_hunt，明文红线机器化。
 
 红线：critical/high 级命中不得出现在测试区（tests/）之外。

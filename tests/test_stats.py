@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """tests/test_stats.py —— 统计域测试（T1-T7）。"""
 import os
 import sys
-import json
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

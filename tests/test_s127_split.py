@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S127：CONSOLIDATION §三 P0 拆分与 §二 C1 遍历除重的契约测试。
 
 守住四件事：
@@ -16,10 +15,13 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
 import pytest  # noqa: E402
+
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-from tools import filewalk  # noqa: E402
-from tools import ide_common, ide_deadcode  # noqa: E402
+from tools import (  # noqa: E402
+    filewalk,  # noqa: E402
+    ide_common,
+)
 
 
 def _w(p, content):

@@ -1,5 +1,4 @@
-﻿# -*- coding: utf-8 -*-
-"""S55：ide_diag 直接单测 + S52 类错绑/缺导入回归门。
+﻿"""S55：ide_diag 直接单测 + S52 类错绑/缺导入回归门。
 
 历史教训：
 - S48 拆分后 ide_diag.py 用 registry.call 却没 import registry——NameError 被

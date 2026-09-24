@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S42 推广：守卫硬化回归（能力探针 / infra 故障检测 / skip 语义）。"""
 import json
 import os
@@ -9,10 +8,11 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
 
+import swe_repair  # noqa: E402
+import swe_verify as sv  # noqa: E402
+
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-import swe_verify as sv  # noqa: E402
-import swe_repair  # noqa: E402
 
 
 def call_tool(name, args):

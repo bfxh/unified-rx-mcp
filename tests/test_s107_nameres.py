@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S107 名字解析 oracle：与 stdlib `symtable` 对照 + 包络/确定性契约。
 
 口径（spec/NAMERES.md §六）：
@@ -14,7 +13,6 @@ import json
 import os
 import subprocess
 import symtable
-import sys
 
 import pytest
 

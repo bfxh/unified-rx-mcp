@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S31 code_semantic：向量空间语义检索回归。"""
 import os
 import sys

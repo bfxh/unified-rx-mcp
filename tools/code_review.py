@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/code_review.py —— 多维代码评审域（code_review 单工具）。
 
 S44：多透镜代码评审（找问题不再单一）+ diff 模式（只报改动）。
@@ -13,12 +12,13 @@ import re
 import subprocess
 from collections import Counter, defaultdict
 
-from tools.fs import _resolve as _fs_resolve
-from tools.filewalk import iter_code_files, SCAN_SKIP_DIRS as _SKIP_DIRS
-
 import registry  # S55 同类修复：code_review 的 bug_scan 透镜用 registry.call 却没导入，
-                 # NameError 被 except 吞掉——S44 起该透镜从未真正运行过
+
+# NameError 被 except 吞掉——S44 起该透镜从未真正运行过
 from registry import tool
+from tools.filewalk import SCAN_SKIP_DIRS as _SKIP_DIRS
+from tools.filewalk import iter_code_files
+from tools.fs import _resolve as _fs_resolve
 
 _RE_SECRET = re.compile(
     r"(?i)(password|passwd|api_?key|secret|token|access_key)\s*[=:]\s*[\"'][^\"']{6,}")
@@ -198,7 +198,7 @@ def _review_file(fp, changed=None):
     """单文件全透镜。changed=改动行区间列表时只报区间内的发现。"""
     lang = _lang_of_file(fp)
     try:
-        with open(fp, "r", encoding="utf-8", errors="replace") as f:
+        with open(fp, encoding="utf-8", errors="replace") as f:
             src = f.read()
     except OSError:
         return []

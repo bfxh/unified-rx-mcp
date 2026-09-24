@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tests/test_v2.py —— unified-rx-v2 全量测试（P3 增强后）
 
 覆盖：注册表/协议/fs/scan/ide/guard/learn/ops/search/engine。
@@ -7,7 +6,6 @@ S15 起移除 pure/collab 域与 cmd_cheatsheet（废物清理，见 UPGRADE.md 
 """
 import os
 import sys
-import threading
 from pathlib import Path
 
 import pytest
@@ -15,7 +13,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import registry
-import server  # noqa: F401 (S3 协议层测试用)
+import server  # noqa: F401  # (S3 协议层测试用)
 import tools  # noqa: F401
 
 
@@ -318,7 +316,7 @@ def test_registry_notifier_hook():
     got = []
     reg.set_notifier(lambda level, msg: got.append((level, msg)))
     try:
-        from tools.engine import engine_query  # noqa: F401 触发注册
+        from tools.engine import engine_query  # noqa: F401  # 触发注册
         registry.call("engine_query", {"query": "sandbox roots",
                                        "root": os.path.dirname(os.path.dirname(os.path.abspath(__file__)))})
         assert any("BM25" in m for _, m in got), f"降级应发通知: {got}"
@@ -403,7 +401,7 @@ def test_locate_edit_reference_count(tmp_path):
 
 def test_bench_corpus_and_dryrun():
     """bench 标注库可加载 + dry-run 退出码 0（CI 门禁）。"""
-    import subprocess, sys as _sys
+    import subprocess
     bench = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "bench" / "replay_ab.py"
     r = subprocess.run([sys.executable, "-X", "utf8", str(bench), "--dry-run"],
                        capture_output=True, text=True, encoding="utf-8")

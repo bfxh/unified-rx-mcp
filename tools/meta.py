@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/meta.py —— 元域（2 工具）：local_run / process
 
 local_run：白名单命令执行（收敛自旧版 local_run + local_tools）。
@@ -16,8 +15,10 @@ import subprocess
 import threading
 import time
 
-from registry import tool
-from registry import current_request_id  # S10：取消轮询用（经 server.cancel_flag 查 Event）
+from registry import (
+    current_request_id,  # S10：取消轮询用（经 server.cancel_flag 查 Event）
+    tool,
+)
 
 # Blender 默认路径（Windows）
 _BLENDER = r"D:\rj\GJ\Blender 5.2\blender.exe"

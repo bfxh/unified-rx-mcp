@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_diag.py —— 统一诊断面（S48 拆分；S130：linter 探测 + 信号缺席如实上报）。
 
 诊断源（统一形状 `{source, file, line(1-based), col, severity, message}`）：
@@ -22,7 +21,8 @@ import subprocess
 import tempfile
 
 import registry  # 显式导入：_lsp_file_diags/_clippy_diags 依赖 registry.call（S55：拆分后缺此导入，
-                 # NameError 被 except Exception 静默吞掉，LSP+clippy 信号全空）
+
+# NameError 被 except Exception 静默吞掉，LSP+clippy 信号全空）
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
 

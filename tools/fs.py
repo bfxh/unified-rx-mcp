@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/fs.py —— 文件层（4 工具）：fs_read / fs_write / fs_stat / fs_list
 
 S95 读面回迁：fs_read/fs_stat/fs_list 回到纯 Python——S94 EVAL §6 实锤，微秒级

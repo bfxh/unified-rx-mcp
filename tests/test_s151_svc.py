@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S151 契约：常驻服务（stdio）——**不变质量**的加速通道。
 
 用户指令：「命令行需要不变质量的情况下加速」（S150 做构建层，本文件守运行层）。
@@ -13,7 +12,6 @@
 import json
 import os
 import subprocess
-import sys
 import time
 
 import pytest

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """常驻服务客户端（S151）：把"每次调用 ~9ms 的进程创建"降到 ~0.1ms。
 
 架构（首版 TCP 环回被本机安全栈间歇拦截——min 0.4ms/中位 15ms——弃用）：
@@ -121,7 +120,7 @@ def call(domain, argv, timeout=_CALL_HARD_TIMEOUT_S):
             if not isinstance(out, str):
                 return None
             return rc, out
-        except Exception:                  # noqa: BLE001 —— 任何异常都回退
+        except Exception:                  # noqa: BLE001  # —— 任何异常都回退
             _proc = None
             return None
         finally:

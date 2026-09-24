@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S83：bug_scan 全量 Rust 原生化（rx-scan bugscan 子命令）的契约测试。
 
 Python 侧退化为薄壳转调（同 S82 std_check 模式）：registry 契约、exe 缺失
@@ -9,7 +8,6 @@ Python 侧退化为薄壳转调（同 S82 std_check 模式）：registry 契约�
 """
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

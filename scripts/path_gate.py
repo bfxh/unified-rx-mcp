@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """路径门（S162）：提交路径上的**路径纪律**——与 key 门（明文红线）并列为自提交 PR 的双门。
 
 为什么要有它：本仓是"80 个工具在大量目录上读写"的项目，路径是最容易出逃逸面的一环
@@ -25,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EXEMPT = ROOT / "spec" / "path-exempt.json"
 MAX_BYTES = 1024 * 1024
-DEVICE = re.compile(r"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$", re.I)
+DEVICE = re.compile(r"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$", re.IGNORECASE)
 # P4：一行里同时出现 `..` 字面量与写/拷贝原语 ⇒ 可疑越界写
 DANGEROUS = re.compile(r"""(["']\.\.["']|\.\./|\.\.\\\\)""")
 WRITE_PRIM = re.compile(r"(open\(|write_text\(|write_bytes\(|os\.path\.join|shutil\.copy|cp\s|Path\()")

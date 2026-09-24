@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S24 swe_verify 离线回归：FTB 标签转换 / sympy 裸名定位 / pull 幂等。"""
 import json
 import os
@@ -12,7 +11,6 @@ sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
 
 import swe_verify as sv  # noqa: E402
-
 
 # ---------- django 括号标签 → runtests 标签 ----------
 

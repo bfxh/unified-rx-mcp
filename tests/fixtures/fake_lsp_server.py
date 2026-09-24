@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """fake_lsp_server.py —— LSP 协议测试桩：极小 stdio JSON-RPC 语言服务器。
 
 测试用法：UNIFIED_RX_LSP_CMD_PYTHON="<python> <本文件>" 驱动 tools/lsp.py 真客户端逻辑。

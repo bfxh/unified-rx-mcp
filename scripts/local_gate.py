@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """本地审核门（S145，用户指令：「把审核这个东西搞强点，不需要用 GitHub 和 Linux
 就直接搞这个流程」）。
 
@@ -26,7 +25,6 @@
 要跑就设 `UNIFIED_RX_TIMING_GATES=1`（拿独占锁时），CI 那边逐条显式调用、不受本表档位影响 ⇒ 覆盖不丢。
 `cli-bench` 原本一步混了"输出金标准 + 计时"，已拆成 `cli-golden`（纯比对，永远跑）+ `cli-bench`（计时）。
 """
-import json
 import os
 import shutil
 import subprocess

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """plugin_cost.py —— 每轮工具 schema 税盘点（S141；S161 增「使用证据」列）。
 
 解析 ~/.zcode/cli/rollout 里最新的 model-io 会话文件末行，按提供方分组统计

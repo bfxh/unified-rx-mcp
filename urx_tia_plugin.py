@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """urx_tia_plugin.py —— pytest 插件（S104 TIA）：记录测试的文件依赖。
 
 由 tools/ide_test.py 以 `-p urx_tia_plugin` 注入（PYTHONPATH 指向本仓根）。

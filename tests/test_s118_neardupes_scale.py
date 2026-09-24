@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S118 near_dupes 规模化契约：精确候选剪枝（不丢真对）+ 截断如实上报。
 
 背景（实测）：两两比较原为 O(n²) 全对——100 文件 263ms、300 文件 1033ms；
@@ -8,11 +7,9 @@
 """
 import os
 
-import pytest
-
 import registry
 import tools  # noqa: F401
-from tools import gpu, neardupes
+from tools import neardupes
 from tools import neardupes as neardupes_mod  # S130：kernel 就近迁移
 
 

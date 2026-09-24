@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """R3：rename 落盘 + ide_impact 影响面。
 
 fake server 协议闭环（rename 回显请求 uri）；_apply_text_edits 纯函数单测
@@ -13,8 +12,8 @@ sys.path.insert(0, ROOT)
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-from tools import lsp as lsp_mod
 from tools import impact as impact_mod  # noqa: E402
+from tools import lsp as lsp_mod
 from tools.lsp import _apply_text_edits  # noqa: E402
 
 

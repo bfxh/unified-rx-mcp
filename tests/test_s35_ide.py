@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S35：cargo clippy lint + LSP 诊断进修复轮。"""
 import os
 import shutil
@@ -12,9 +11,10 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
 
+import swe_repair  # noqa: E402
+
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-import swe_repair  # noqa: E402
 
 CARGO = shutil.which("cargo")
 CLIPPY = shutil.which("cargo-clippy")

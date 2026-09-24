@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S50：诊断历史 JSONL + 跨会话 diff 回归。"""
 import os
 import sys
@@ -8,7 +7,6 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
 
-from bench.diag_history import append_diag, diff_since  # noqa: E402
 
 
 def test_append_and_diff(tmp_path, monkeypatch):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S140 打点来源契约：mcp=协议分发 / embedded=程序直调；usage_stats 按来源拆分。
 
 口径：server.py 分发线程先 set_request_context(msg_id)（默认 source=mcp）再

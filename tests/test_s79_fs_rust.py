@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S79 fs 读面 Rust 化契约测试：薄壳（tools/fs.py）→ rx-fs.exe 的包络与行为。
 
 S79 起旧 Python 实现的职责移入 Rust（tests at rust/tests/fs_test.rs 打同一语义）；
@@ -7,7 +6,6 @@ S79 起旧 Python 实现的职责移入 Rust（tests at rust/tests/fs_test.rs �
 - universal newlines 归一 / 1MB 上限 / 深度语义（0=仅根层，S79 归正）；
 - exe 缺失走清晰报错，不静默降级。
 """
-import os
 
 import pytest
 

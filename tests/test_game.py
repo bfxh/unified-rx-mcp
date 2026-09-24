@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S55：game 域测试（此前零测试）。
 
 game_check 走真实文件扫描；blender_verify 用替身 subprocess 固定两种环境

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S32 ide_build / ide_debug：编译与调试捕获回归。"""
 import os
 import subprocess

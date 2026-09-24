@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/guard.py —— 防幻觉域（2 工具）：hallucination_guard / capability_manifest
 
 AI 声明事实核查（verified/refuted/unverifiable 三分级）——防 AI 编造
@@ -7,7 +6,7 @@ file:line / 符号 / 工具名。这是"工具代替智能体"里最关键的护
 import os
 import re
 
-from registry import tool, list_tools
+from registry import list_tools, tool
 from tools.fs import _resolve as _fs_resolve
 
 _CAPABILITIES = {
@@ -215,7 +214,7 @@ def hallucination_guard(text, root=None):
         if os.path.isfile(full):
             if lineno:
                 try:
-                    with open(full, "r", encoding="utf-8", errors="replace") as f:
+                    with open(full, encoding="utf-8", errors="replace") as f:
                         n = sum(1 for _ in f)
                     status = "verified" if int(lineno) <= n else "refuted"
                     detail = f"文件存在，行号 {'在范围内' if status == 'verified' else f'越界（文件 {n} 行）'}"

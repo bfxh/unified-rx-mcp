@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
 """S105 ACI 输出纪律契约（ADVANCES P1 末项）。
 
 三件：①空结果显式说明；②截断提示（cursor 续读/缩小范围）；③错误可修复化。
 口径：只在确有建议时加 `hint`/尾注——有结果时不加（不制造噪音）。
 """
-import os
-import tempfile
 
 import registry
 import tools  # noqa: F401

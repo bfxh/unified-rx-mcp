@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/scip.py —— SCIP 索引消费（S112，ADVANCES P2 第 11 项）。
 
 SCIP（sourcegraph/scip）是紧凑的代码情报索引格式（protobuf）：外部索引器

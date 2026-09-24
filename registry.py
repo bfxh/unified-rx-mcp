@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """registry.py —— 注册=声明：name → (handler, description, group, schema)
 
 设计原则：

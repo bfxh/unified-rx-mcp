@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S34：ide_edit_multi dry_run 预览 / ide_build 诊断缓存 / pytest 失败解析。"""
 import os
 import sys
@@ -8,11 +7,11 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
 
+import swe_repair  # noqa: E402
+
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
 from tools.ide import _parse_pytest  # noqa: E402
-
-import swe_repair  # noqa: E402
 
 
 def call_tool(name, args):

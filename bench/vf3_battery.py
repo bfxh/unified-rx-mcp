@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """VF3 battery: run full unified-rx tool surface over VoxelForge-V3, emit baseline JSON."""
 import collections
 import json
@@ -11,7 +10,7 @@ sys.path.insert(0, ".")
 # 裸 shell 下 fail-closed 会干扰测量。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
 import registry  # noqa: E402
-import tools      # noqa: F401,E402
+import tools  # noqa: F401,E402
 
 ROOT = r"D:\开发\VoxelForge-V3"
 report = {"root": ROOT, "ts": int(time.time())}

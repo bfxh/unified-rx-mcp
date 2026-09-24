@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S99 ide 域两修契约：①LSP 检测诚实化；②ide_impact 文本级降级。
 
 实锤背景（S99 探针）：`ide_lsp status` 对 python 的探测只做 exe 的 which/存在性
@@ -20,8 +19,8 @@ import pytest
 import registry
 import tools  # noqa: F401
 from tools import ide_read
-from tools import lsp as lsp_mod
 from tools import impact as impact_mod
+from tools import lsp as lsp_mod
 
 
 def _status():

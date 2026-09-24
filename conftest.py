@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """conftest.py —— pytest 全局配置：tmp 基目录在 %TEMP%\\unified-rx-pytest，
 并把该前缀加入沙盒放行（保持 fail-closed 语义：仅此显式白名单 + 项目根）。
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S78：rust_taint_scan 工具接入测试（python 薄壳 → rx-taint.exe）。
 
 覆盖：正常扫描透传 / 沙盒拒绝 / naive 基线模式 / exe 缺失干净报错 /
@@ -16,7 +15,6 @@ sys.path.insert(0, ROOT)
 
 import registry  # noqa: E402
 from tools import attack  # noqa: E402
-
 from tools.attack import rust_taint_scan  # noqa: E402
 
 # 故意含漏洞的样例（同 taint_test.rs 的嵌串纪律：不落盘成 .py 夹具，

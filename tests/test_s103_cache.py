@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 """S103 内容寻址增量缓存契约（tools/cache.py + registry.call 接线）。
 
 核心承诺：缓存只影响延迟、不影响语义——命中结果与冷跑**逐字节一致**；
 文件一变指纹就变（失效）；写/执行类工具永不入缓存；越界调用不入缓存。
 """
 import json
-import os
 
 import pytest
 

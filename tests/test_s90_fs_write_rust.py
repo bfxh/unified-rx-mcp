@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S90 fs_write Rust 化契约测试：fs 域 4/4 收官（写面走 rx-fs.exe）。
 
 守住三层契约：
@@ -47,7 +46,7 @@ def test_write_roundtrip_overwrite_and_empty(tmp_path, open_sandbox):
     assert _write(p, "v1")["ok"]
     r = _write(p, "你好")  # 覆盖写
     assert r["ok"] and r["result"]["size"] == 2
-    assert p.read_bytes() == "你好".encode("utf-8")
+    assert p.read_bytes() == "你好".encode()
     assert _write(p, "")["ok"]  # 空内容 → 空文件
     assert p.read_bytes() == b""
 

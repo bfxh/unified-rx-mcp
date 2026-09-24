@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """unified_report.py —— T4：三套评测器统一报告（verified 为主、judge 为辅）。
 
 聚合：

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """swe_repair.py —— S25 真·闭环：测试执行失败输出回喂模型做修复轮。
 
 与 S24 的区别：S24 只"判分"，本模块把执行结果喂回模型让它改自己的补丁，
@@ -31,6 +30,7 @@ sys.path.insert(0, HERE)
 import ab_run as AB
 import swe_p3
 import swe_verify as sv
+
 import registry
 
 MAX_FILES = 3
@@ -60,7 +60,7 @@ def _last_content(resp):
 
 def _touched_files(diff):
     return sorted({m.group(1) for m in
-                   re.finditer(r"^diff --git a/(\S+) b/", diff, re.M)})[:MAX_FILES]
+                   re.finditer(r"^diff --git a/(\S+) b/", diff, re.MULTILINE)})[:MAX_FILES]
 
 
 def _locate_ok(root, path):
@@ -105,7 +105,7 @@ def _locate_and_ground(inst, root, ch, model, msgs):
                      "\n\nNow list the file path(s) as `path: <relpath>`."})
         loc = _last_content(_chat(ch, model, msgs))
     paths = []
-    for pm in re.finditer(r"^\s*path:\s*(\S+)\s*$", loc or "", re.M):
+    for pm in re.finditer(r"^\s*path:\s*(\S+)\s*$", loc or "", re.MULTILINE):
         p = pm.group(1).replace("\\", "/").lstrip("/").strip(".,`;*\"'()[]")
         if (p not in paths and len(paths) < MAX_FILES and _locate_ok(root, p)):
             paths.append(p)
@@ -380,8 +380,7 @@ def repair_loop(args):
 
 def _structured_frames(text):
     """S33/S34：把测试失败输出解析成结构化帧文本段（无帧返回空）。"""
-    from tools.ide import (_parse_py_traceback, _parse_java_trace,
-                           _parse_go_panic, _parse_pytest)
+    from tools.ide import _parse_go_panic, _parse_java_trace, _parse_py_traceback, _parse_pytest
     parts = []
     pf, asserts = _parse_pytest(text)
     if pf or asserts:

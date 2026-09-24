@@ -1,16 +1,10 @@
-# -*- coding: utf-8 -*-
 """tools/ide_common.py —— ide 域共享助手与解析器（S48 职责拆分）。
 本模块不含 @tool 注册；由 tools/ide.py 门面统一再导出。"""
 import os
 import re
-import json
-import tempfile
-import subprocess
-import shutil
-import math
 
-from tools.fs import _resolve as _fs_resolve
 from tools.filewalk import iter_files
+from tools.fs import _resolve as _fs_resolve
 
 MAX_CTX = 5000
 """tools/ide.py —— IDE 增强域（8 工具）
@@ -43,7 +37,7 @@ def _read(path):
     if not os.path.isfile(path):
         return None
     # newline="" 保留原始行尾（CRLF 不被转 LF），供 _detect_eol 检测
-    with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
+    with open(path, encoding="utf-8", errors="replace", newline="") as f:
         return f.read()
 
 def _lang_of(path):

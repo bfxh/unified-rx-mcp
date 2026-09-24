@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """真 LSP 服务器 e2e（慢速桶）：pylsp / rust-analyzer 在场才跑，缺席如实跳过。
 
 此前所有 LSP 测试都走 fake server——协议对但语义零覆盖（服务器真解析代码后
@@ -27,6 +26,7 @@ try:
 except Exception:
     pass
 import importlib.util as _iu
+
 HAS_FLAKES = _iu.find_spec("pyflakes") is not None   # 诊断靠 pyflakes
 # 注：definition 走 pylsp 内建 jedi 插件（无独立 pylsp_jedi 包）；
 # jedi 0.20.0 与 pylsp 1.15 不兼容（goto 空），环境已钉 0.19.2

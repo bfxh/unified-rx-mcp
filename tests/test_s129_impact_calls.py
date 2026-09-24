@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S129：ide_impact 调用面档（`calls` 段）契约——引用面 ≠ 调用面，分层不混。
 
 夹具带 .git 标记让 `_session_root` 认包根（from pkg.a import target 才可解析）；
@@ -15,7 +14,6 @@ sys.path.insert(0, ROOT)
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-from tools import impact as impact_mod  # noqa: E402
 from tools import scan as scan_mod  # noqa: E402
 
 pytestmark = pytest.mark.skipif(scan_mod._rx_scan_exe() is None,

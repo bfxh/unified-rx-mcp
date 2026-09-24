@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """L3 环境锚：VF3 cargo test 实跑 → bench/results/l3_env_anchor.json（--env 生成）。"""
 import json
 import os

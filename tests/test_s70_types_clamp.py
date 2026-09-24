@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S70：钳制保头保尾 + 类型符号（struct/enum/trait/impl/class）。"""
 import os
 import sys
@@ -10,7 +9,7 @@ sys.path.insert(0, ROOT)
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
 from registry import _clamp  # noqa: E402
-from tools.code_review import _symbol_spans  # noqa: E402  S127：自 scan.py 平移
+from tools.code_review import _symbol_spans  # noqa: E402  # S127：自 scan.py 平移
 
 RUST_SRC = """pub struct WheelCompound {
     pub center: Vec3,

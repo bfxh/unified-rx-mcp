@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S38 门禁：MCP 对外工具必须有 manifest 完整声明 + 域级 skill 文档覆盖。
 
 用户要求："MCP 对外也是要求有 skill 才行"、"每一个格式每一个语言都要配置 skill"。

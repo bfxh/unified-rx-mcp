@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S113 极致门禁（workflow.md 原则 8）：把"看似不关联也会被关联"变成机器检查。
 
 四类门：
@@ -68,7 +67,7 @@ def test_panorama_counts_match_registry():
     n = registry.tool_count()
     m = re.search(r"\*\*工具面 (\d+)/14 组\*\*", pan)
     assert m and int(m.group(1)) == n, f"PANORAMA 工具数不一致: {m and m.group(1)} != {n}"
-    m2 = re.search(r"（selftest 口径）：(.+?)。", pan, re.S)
+    m2 = re.search(r"（selftest 口径）：(.+?)。", pan, re.DOTALL)
     assert m2, "PANORAMA 缺分组清单"
     pairs = dict(re.findall(r"(\w+)\((\d+)\)", m2.group(1)))
     real = _groups()
@@ -80,7 +79,7 @@ def test_panorama_counts_match_registry():
 def test_skills_readme_domain_counts():
     s = _read("skills/README.md")
     rows = dict(re.findall(r"^\| (\w+) \| \[[^\]]+\]\([^)]+\) \| (\d+) \|",
-                           s, re.M))
+                           s, re.MULTILINE))
     real = _groups()
     assert set(rows) == set(real), f"skills/README 域集合不一致: {set(rows) ^ set(real)}"
     for k, v in real.items():
@@ -143,7 +142,7 @@ def test_version_lockstep_four_faces():
     assert m, "server.py 缺 SERVER_VERSION"
     ver = m.group(1)
     cargo = _read("rust/Cargo.toml")
-    m2 = re.search(r'^version = "([\d.]+)"', cargo, re.M)
+    m2 = re.search(r'^version = "([\d.]+)"', cargo, re.MULTILINE)
     assert m2 and m2.group(1) == ver, f"Cargo.toml {m2 and m2.group(1)} != server {ver}"
     lock = _read("rust/Cargo.lock")
     m3 = re.search(r'name = "unified-rx-rs"\nversion = "([\d.]+)"', lock)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S8 智能体自查域测试：克隆隔离 / 审计规则与掩码 / asar 自标定提取 / 清理路径安全。"""
 import hashlib
 import inspect
@@ -12,7 +11,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import registry   # noqa: E402
+import registry  # noqa: E402
 import tools.appaudit as aa  # noqa: E402
 
 SK = "sk-aabbccddeeffgghhiijjkk00112233"

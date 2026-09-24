@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S78 协议层 fuzz 电池（spec/VULN-HUNTING.md P1-c）。
 
 双靶打 stdio 协议层：靶 "python" = 现役 server.py；靶 "rust" = S78 rx-mcp.exe

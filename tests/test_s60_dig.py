@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S60 挖洞轮的回归钉：会话 root 统一 / 旗标注入 / BOM 匹配 / scheme 混淆。
 
 对应四个真 bug（探针实锤后修复）：
@@ -14,7 +13,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-import registry  # noqa: E402
 import tools  # noqa: E402,F401
 from tools import lsp as lsp_mod
 from tools import lsp_actions as lsp_actions_mod  # noqa: E402

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """s108_resolve_compare.py —— 文本级 vs 解析级引用对比（NAMERES §六 验收③）。
 
 口径：
@@ -21,7 +20,7 @@ sys.path.insert(0, ROOT)
 
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")   # 本机分析脚本显式声明
 import registry  # noqa: E402
-import tools     # noqa: F401,E402
+import tools  # noqa: F401,E402
 from tools import scan as scan_mod  # noqa: E402
 
 

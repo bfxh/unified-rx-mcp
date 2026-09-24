@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """CI 自攻门（S138）：dogfood `attack_cruise`——全攻击面巡航 verdict 必须 clean。
 
 覆盖：授权门自审（含组合透传静态检查）+ 路径探针 8 形态 + 四靶模糊

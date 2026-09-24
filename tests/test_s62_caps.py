@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S62 加固轮回归钉：入站尺寸上限（协议行 / registry 参数 / LSP 帧）+ 原子写。"""
 import io
 import os
@@ -11,9 +10,9 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
 import registry  # noqa: E402
+import server  # noqa: E402
 import tools  # noqa: E402,F401
 from tools import lsp as lsp_mod  # noqa: E402
-import server  # noqa: E402
 
 AUTH = {"__authorized": True}
 

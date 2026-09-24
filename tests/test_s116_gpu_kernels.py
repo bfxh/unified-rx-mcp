@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S116 GPU 内核扩面契约：异或密钥枚举 / 点积矩阵（vs CPU oracle）+ file_scan 接入。
 
 两个实测坑入册：
@@ -12,8 +11,8 @@ import pytest
 
 import registry
 import tools  # noqa: F401
-from tools import gpu
 from tools import filescan as filescan_mod  # S130：kernel 就近迁移
+from tools import gpu
 
 _HAS_GPU = gpu.status().get("available") is True
 

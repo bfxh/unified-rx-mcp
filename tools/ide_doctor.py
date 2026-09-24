@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_doctor.py —— 一键项目体检（R4，vf3_battery 脱硬编码成通用工具）。
 
 一次调用聚合六个既有检查：bug_scan / code_review / build / test / dep_graph /

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """test_lsp.py —— S17 真 LSP 客户端测试：fake server 协议闭环 + 沙盒/失败语义。"""
 import os
 import sys
@@ -9,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import registry  # noqa: E402
-import tools     # noqa: F401,E402
+import tools  # noqa: F401,E402
 from tools import lsp as lsp_mod  # noqa: E402
 
 
@@ -84,7 +83,7 @@ def test_sandbox_rejects_outside_path(fake_env, tmp_path):
     with open(outside, "w", encoding="utf-8") as fh:
         fh.write("x = 1\n")
     r = _call("definition", outside, line=0, col=0)
-    assert not r["ok"] and "沙盒" in r["error"] or "越界" in r["error"]
+    assert (not r["ok"] and "沙盒" in r["error"]) or "越界" in r["error"]
 
 
 def test_shutdown_kills_sessions(fake_env):

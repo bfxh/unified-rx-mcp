@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S37：断点命中回喂修复轮 + ide_break 模块模式 + changed_lines。"""
 import os
 import sys
@@ -8,9 +7,10 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
 
+import swe_repair  # noqa: E402
+
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-import swe_repair  # noqa: E402
 
 PY = sys.executable
 

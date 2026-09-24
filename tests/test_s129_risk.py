@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S129：ide_risk_rank 风险榜契约（高扇入×无测试排序 + 历史趋势 + 如实边界）。"""
 import json
 import os

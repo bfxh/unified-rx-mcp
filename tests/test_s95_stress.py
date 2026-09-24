@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tests/test_s95_stress.py —— S95 高压电池：回迁后的 fs 读面在压力下行为不变形。
 
 用户点名要"严苛的流程：高压、多线程"，本文件是正确性/一致性面（时延面在
@@ -40,7 +39,7 @@ def open_sandbox(monkeypatch):
 @pytest.fixture()
 def mini_corpus(tmp_path):
     for i in range(20):
-        (tmp_path / f"f{i:02d}.txt").write_bytes(f"内容{i}".encode("utf-8"))
+        (tmp_path / f"f{i:02d}.txt").write_bytes(f"内容{i}".encode())
     (tmp_path / "sub").mkdir()
     for i in range(5):
         (tmp_path / "sub" / f"s{i}.txt").write_bytes(b"sub")

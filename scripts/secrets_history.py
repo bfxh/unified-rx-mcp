@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """历史明文扫描（S147）：近 N 个提交的 **diff 面**不得出现 critical/high 明文。
 
 为什么补这一道：现有 secrets gate 只扫**工作树**、GitHub push protection 只管

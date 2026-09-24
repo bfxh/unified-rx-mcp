@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """p1_score2.py —— 独立人工标注 vs bug_scan：泛化 P/R 测量。
 
 规则：scan issue 与人工标注同行同族 → unsafe=TP / safe=FP；

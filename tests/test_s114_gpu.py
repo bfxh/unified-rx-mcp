@@ -1,17 +1,16 @@
-# -*- coding: utf-8 -*-
 """S114/S115 GPU 支持契约：OpenCL 内核 vs CPU oracle / 交叉点选路 / 降级 / 文件扫描。
 
 环境相关项（是否有 GPU）用 skipif 分流；降级路径用 monkeypatch 强制。
 """
 import hashlib
 import os
+
 import pytest
 
 import registry
 import tools  # noqa: F401
-from tools import filescan
-from tools import gpu
 from tools import filescan as filescan_mod  # S130：kernel 就近迁移
+from tools import gpu
 
 _HAS_GPU = gpu.status().get("available") is True
 # EICAR 测试串（业界标准可验证样例，非真实恶意样本）——分片拼接，避免源码里成串

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S141 契约：session-guard 会话烧量哨兵钩子（zcode-breaker 插件）。
 
 与宿主行为同形：子进程 + stdin JSON + stdout 严格信封；隔离 HOME（USERPROFILE，

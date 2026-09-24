@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """CI 数据流门（S139）：dogfood `rust_taint_scan`——产品面 definite 发现对照基线。
 
 范围口径：

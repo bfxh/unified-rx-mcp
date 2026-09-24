@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """s114_gpu_bench.py —— GPU 内核 vs CPU 参考实现的交叉点实测（S114）。
 
 口径：预热一次（内核编译/上下文只付一次），再按尺寸扫；每个尺寸取 3 次最小值。
@@ -16,8 +15,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
+import tools.filescan as filescan_mod  # noqa: E402  # S130：kernel 就近迁移
 import tools.gpu as gpu  # noqa: E402
-import tools.filescan as filescan_mod  # noqa: E402  S130：kernel 就近迁移
 import tools.neardupes as neardupes_mod  # noqa: E402
 
 SIZES_MB = (1, 2, 4, 8, 16, 32, 64)

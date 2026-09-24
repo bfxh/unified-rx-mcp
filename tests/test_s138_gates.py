@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S138 契约：审计/自攻门脚本（CI 自攻门 + Mimosa 复审仪式两件）。
 
 - attack_gate.py：dogfood attack_cruise，verdict 必须 clean（CI step 同款）；
@@ -10,15 +9,11 @@ import re
 import subprocess
 import sys
 
-import pytest
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-import registry  # noqa: E402
 import tools  # noqa: E402,F401
-from tools import scan as scan_mod  # noqa: E402
 
 
 def _run(args, **kw):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S72：错误可修性（error_detail 堆栈尾部）+ 钳制嵌套递归 + local_run 解码/上限。"""
 import os
 import sys
@@ -8,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
 from registry import _clamp  # noqa: E402
-from tools.meta import _run_decode, _run_tail, _run_caps  # noqa: E402
+from tools.meta import _run_caps, _run_decode, _run_tail  # noqa: E402
 
 BIG = registry.MAX_STR_CHARS + 5000
 
@@ -41,6 +40,7 @@ def test_server_error_text_composes_detail(monkeypatch):
     结构化面（`structuredContent`）与文本块同形。
     """
     import json as _json
+
     import server
     _boom_entry(monkeypatch)
     msg = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
@@ -109,7 +109,7 @@ def test_clamp_depth_limit():
 # ---------- local_run 解码与错误感知上限 ----------
 
 def test_run_decode_utf8_first_gbk_fallback():
-    assert _run_decode("中文输出".encode("utf-8")) == "中文输出"
+    assert _run_decode("中文输出".encode()) == "中文输出"
     assert _run_decode("中文输出".encode("gbk")) == "中文输出"
     assert isinstance(_run_decode(b"\xff\xfe\x00bad"), str)   # 永不抛异常
 

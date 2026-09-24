@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
 """tools/learn.py —— 记忆域（1 工具）：lesson
 
 收敛自旧版 lesson_recall_lse/lesson_feedback/rule_feedback；chatlog_search 已于 S15 移除
 （无宿主数据源、零外部引用——提供不了证据的工具就是能力幻觉）。
 本地 JSONL 教训库（无 LSE Rust 引擎依赖，纯 stdlib）。
 """
-import os
 import json
-import time
+import os
 import re
+import time
 
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
@@ -21,7 +20,7 @@ def _load_lessons(path):
         return []
     out = []
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -37,8 +36,7 @@ def _load_lessons(path):
 def _save_lessons(lessons, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        for l in lessons:
-            f.write(json.dumps(l, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(l, ensure_ascii=False) + "\n" for l in lessons)
 
 
 def _kw_hits(query, text):

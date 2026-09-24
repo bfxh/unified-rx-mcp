@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/metrics.py —— 代码质量度量域（S52：coverage / dep_graph / module_stability）。
 
 所有工具零外部依赖（stdlib trace + ast + subprocess git）。
@@ -9,8 +8,6 @@ import os
 import re
 import subprocess
 import sys
-import trace
-import io
 
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
@@ -194,7 +191,7 @@ def dep_graph(path, max_files=300, resolved=False):
     # `if dep in graph` 永假 → 环检测自 S53 起是死代码（永不报警的假阴性）
     def _stem(rel):
         base = os.path.basename(rel)
-        return base[:-3] if base.endswith('.py') else base
+        return base.removesuffix('.py')
     cycles = _find_cycles({_stem(rel): [d for d in imports if d in local_names]
                            for rel, imports in graph.items()})
     for rel, imports in graph.items():
@@ -248,7 +245,6 @@ def _find_cycles(graph):
 
 
 from collections import defaultdict
-
 
 # ==================== module_stability ====================
 

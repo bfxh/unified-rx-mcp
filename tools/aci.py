@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/aci.py —— ACI 输出纪律层（S105，ADVANCES P1 末项）。
 
 SWE-agent ACI 论文（NeurIPS 2024）证明**只改接口设计**值 +10.7pp：动作简单、
@@ -11,7 +10,6 @@ SWE-agent ACI 论文（NeurIPS 2024）证明**只改接口设计**值 +10.7pp：
 
 口径：**只在确有建议时加 `hint` 字段**，没有就不加——不制造噪音。
 """
-import re
 
 # 工具 → (结果键, 空结果提示)。只收"空 = 常见且有下一步"的工具。
 _EMPTY = {

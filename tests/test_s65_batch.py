@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S65：IDE 升级回归钉——code_review lens 过滤 + 测试区复杂度跳过 +
 ide_batch_edit 跨文件批量替换（dry_run/apply/语法门/白名单）。"""
 import os

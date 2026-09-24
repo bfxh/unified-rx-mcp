@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S55：ide_edit 直接单测（registry 层已有 test_s34/test_ide_fix，本文件钉单位语义）。
 
 真实断言对象：occ 语义 / CRLF 保留 / dry_run 不落盘 / 0 匹配结构化失败 / 定位与上下文。
@@ -12,7 +11,6 @@ sys.path.insert(0, ROOT)
 
 import tools  # noqa: E402,F401
 from tools.ide_edit import code_context, ide_edit_multi, ide_rename, locate_edit
-
 
 # ---------- ide_edit_multi ----------
 
@@ -32,7 +30,7 @@ def test_edit_preserves_crlf(tmp_path):
         {"old_lines": ["beta"], "new_lines": ["BETA"]}])
     assert r["applied"] == 1 and r["eol"] == "CRLF"
     raw = f.read_bytes()
-    assert b"alpha\r\nBETA\r\n" == raw
+    assert raw == b"alpha\r\nBETA\r\n"
 
 
 def test_edit_dry_run_no_write(tmp_path):

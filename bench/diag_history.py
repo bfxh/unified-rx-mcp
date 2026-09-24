@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S50：诊断历史持久化——每轮 verify/repair 的诊断摘要追加 JSONL。
 
 格式：{"ts", "iid", "arm", "phase", "findings_total", "by_severity",

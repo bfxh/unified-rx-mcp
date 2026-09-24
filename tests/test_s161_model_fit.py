@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S161：模型适配 wire 层三件的**回归锁**（F1 一形态 / F2 structuredContent / F3 溢出落盘）。
 
 为什么单列测试：这三件都是"对模型可见的契约"，最容易在后续重构里被悄悄改回去——
@@ -7,7 +6,6 @@
 import json
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

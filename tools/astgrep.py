@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/astgrep.py —— ast-grep 结构搜索（S111，可选外部引擎）薄壳。
 
 实现在 rust/src/astgrep.rs + rx-scan astgrep 子命令（探测 PATH 上的 ast-grep/sg，

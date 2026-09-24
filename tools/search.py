@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/search.py —— 语义检索域（2 工具）：code_search / code_semantic
 
 收敛自旧版 code_search(BM25) + explore_code/semantic_search/dep_graph/kb_query；
@@ -7,12 +6,12 @@ S80 起 BM25 引擎 Rust 原生化（rx-search.exe，见 rust/src/search.rs）�
 S81 起 code_semantic 也 Rust 原生化（rx-semantic.exe，见 rust/src/sem.rs）——
 Python 侧只留薄壳转调，exe 缺失报清晰错误不静默降级。
 """
-import os
 import json
+import os
 import subprocess
 
 from registry import tool
-from tools.fs import _resolve as _fs_resolve   # S88：S73 纪律补全——读路径过沙盒
+from tools.fs import _resolve as _fs_resolve  # S88：S73 纪律补全——读路径过沙盒
 
 # 大查询不走 argv：Windows CreateProcess 命令行上限 32767 UTF-16 码元（代理对
 # 最坏翻倍），10000 字符留足余量；argv 传 "-" 时 exe 侧改读 stdin 全文。
@@ -289,6 +288,6 @@ def repo_map(root, focus=None, budget_tokens=1024, max_files=200):
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
     focus_spec = ";".join(str(f) for f in (focus or []))
-    from tools.ide_read import _rx_ide_call     # 同 exe（rx-ide repomap 子命令）
+    from tools.ide_read import _rx_ide_call  # 同 exe（rx-ide repomap 子命令）
     return _rx_ide_call(["repomap", root, focus_spec,
                          str(int(budget_tokens)), str(int(max_files))])

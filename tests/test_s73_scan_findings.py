@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S73：深度扫描（Mimosa scan-2026-09-04T15-42-49, seal 32bfc234）实锤三处修复的回归测试。
 
 1. code_coverage 跑任意脚本却无授权门 + script/source_dir 只 abspath 不过沙盒
@@ -9,12 +8,11 @@
 """
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import registry  # noqa: E402
-import tools  # noqa: E402,F401  注册全部
+import tools  # noqa: E402,F401  # 注册全部
 
 越界 = "越界"
 

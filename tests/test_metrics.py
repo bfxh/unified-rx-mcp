@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S55：metrics 域测试（code_coverage / dep_graph / module_stability）。
 
 module_stability 用真 git 仓库验证评分规则（risky/fair 判定 + has_test 三路信号：
@@ -13,7 +12,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
 import registry  # noqa: E402
-import tools  # noqa: E402,F401  注册全部
+import tools  # noqa: E402,F401  # 注册全部
 
 
 def call(name, args):

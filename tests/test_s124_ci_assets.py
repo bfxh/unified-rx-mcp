@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S124 契约：CI 工作流程资产不许悄悄变弱（严苛纪律的机器化）。
 
 形状锁：pytest 双解释器矩阵 / cargo build+test+clippy / 秘密硬门禁 /
@@ -24,7 +23,7 @@ _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _read(p):
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         return f.read()
 
 

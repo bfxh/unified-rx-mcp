@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S143 契约：工具面注解（annotations/title）+ 体量仪表门。
 
 背景（EXTERNAL-ALIGNMENT A1/A2，2026-09-14 联网对标轮产出）：annotations 是
@@ -19,8 +18,8 @@ import subprocess
 import sys
 
 import registry
-import tools  # noqa: F401
 import toolmeta
+import tools  # noqa: F401
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(ROOT, "scripts", "toolface_budget.py")

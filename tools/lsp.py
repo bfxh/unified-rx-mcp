@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/lsp.py —— S17 真 LSP 客户端域（stdio JSON-RPC 语言服务器驱动）。
 
 S129 拆分（CONSOLIDATION §三 P1）：本文件收敛为**客户端核心**——服务器探测/
@@ -68,7 +67,7 @@ _IDLE_TTL_S = 600          # 空闲回收
 _INIT_TIMEOUT = 60         # 首次 initialize/index 上限
 _REQ_TIMEOUT = 45
 
-_HEADER_RE = re.compile(rb"Content-Length:\s*(\d+)\r\n", re.I)
+_HEADER_RE = re.compile(rb"Content-Length:\s*(\d+)\r\n", re.IGNORECASE)
 _MAX_FRAME_BYTES = 64 * 1024 * 1024   # S62：入站帧上限（服务器异常不撑爆内存）
 
 
@@ -273,7 +272,7 @@ class _Session:
     def ensure_open(self, path):
         if path in self.opened:
             return
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             text = f.read(2_000_000)
         ext = os.path.splitext(path)[1].lower().lstrip(".")
         self._notify("textDocument/didOpen", {
@@ -287,7 +286,7 @@ class _Session:
         诊断增量推送的前提。版本号单调递增。"""
         if path not in self.opened:
             return
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             text = f.read(2_000_000)
         self._version = getattr(self, "_version", 1) + 1
         self._notify("textDocument/didChange", {
@@ -389,7 +388,7 @@ def _session_root(fp):
 def _locate(lang, fp, line, col):
     """(session, uri, {line,character})——含 utf-16 列换算与 didOpen。"""
     sess = _get_session(lang, _session_root(fp))
-    with open(fp, "r", encoding="utf-8", errors="replace") as f:
+    with open(fp, encoding="utf-8", errors="replace") as f:
         lines_txt = f.readlines()
     txt = lines_txt[line] if 0 <= line < len(lines_txt) else ""
     pos = {"line": line, "character": _to_utf16_col(txt.rstrip("\n"), max(col, 0))}

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """重复代码门（S169）：同类代码不许**新增**，只报新增、可收紧基线（与 `god_gate.py` 同形态）。
 
 为什么要有它：上帝对象门管的是"单点过大"，这个门管"多处雷同"——两件不同的事，但都是维护成本的源头。
@@ -41,7 +40,7 @@ def _exe():
         if c.is_file():
             return str(c)
     env = os.environ.get("UNIFIED_RX_RS_EXE")
-    return env if env else None
+    return env or None
 
 
 def collect(root: pathlib.Path):

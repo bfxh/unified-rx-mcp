@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S93 ide_edit 定位三件 Rust 化契约测试：薄壳（tools/ide_edit.py）→ rx-ide.exe。
 
 S93 起旧 Python 实现的职责移入 Rust（tests at rust/tests/ide_test.rs 打同一
@@ -19,7 +18,7 @@ import pytest
 
 import registry
 import tools  # noqa: F401
-from tools import ide as ide_facade  # noqa: F401  门面 re-export 契约
+from tools import ide as ide_facade  # noqa: F401  # 门面 re-export 契约
 from tools import ide_edit
 
 

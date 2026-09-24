@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/cache.py —— 内容寻址增量缓存（S103，ADVANCES P1）。
 
 只缓存**纯读分析**工具的结果；写/执行类绝不入缓存（白名单 _CACHEABLE）。
@@ -157,7 +156,7 @@ def fingerprint(root):
                 except OSError:
                     continue
                 rel = os.path.relpath(p, root)
-                h.update(f"{rel}\x00{st.st_size}\x00{st.st_mtime_ns}\x00".encode("utf-8"))
+                h.update(f"{rel}\x00{st.st_size}\x00{st.st_mtime_ns}\x00".encode())
                 if st.st_size <= _HASH_MAX:
                     hashed += st.st_size
                     if hashed > _HASH_BUDGET:
@@ -194,7 +193,7 @@ def cache_key(name, args, cursor=None):
         _STATS["skipped"] += 1
         return None
     canon = json.dumps(args, ensure_ascii=False, sort_keys=True, default=str)
-    h = hashlib.sha256(f"{name}\x00{canon}\x00cursor={cursor}\x00{fp}".encode("utf-8"))
+    h = hashlib.sha256(f"{name}\x00{canon}\x00cursor={cursor}\x00{fp}".encode())
     return h.hexdigest()
 
 

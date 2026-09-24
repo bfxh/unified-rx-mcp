@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_deadcode.py —— 死符号可达性（S123；S135 原生化薄壳）：ide_dead_code。
 
 动机（SCAN-POLICY：上帝对象拆分大于测试）：拆分前先知道**谁没人用**。全库

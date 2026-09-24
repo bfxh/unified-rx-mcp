@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """swe_verify.py —— P3 真测试执行反馈：fail-to-pass 实跑验证（S24）。
 
 与 LLM judge 的本质区别：补丁好坏由仓库自己的测试说了算。

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """h2_guard_eval.py —— H2 首测：hallucination_guard 判定 vs 路径存在性真值的一致率。
 
 数据源：bench/results/l3/** 已收集的答案（本会话双臂实验产物，零额外 API 成本）。
@@ -24,7 +23,7 @@ sys.path.insert(0, ROOT)
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
 
 import registry  # noqa: E402
-import tools     # noqa: F401,E402
+import tools  # noqa: F401,E402
 
 VF3_ROOT = r"D:\开发\VoxelForge-V3"
 FILE_RE = re.compile(r"([A-Za-z0-9_./\\\-]+\.(?:py|rs|go|ts|js|gd|cs|dart|java|kt|rb|php))"

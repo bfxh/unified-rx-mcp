@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_autopilot.py —— 开发目录自动驾驶（S69）。
 
 智能体（MCP server）启动即自动：扫描开发目录的项目 → 逐项目全量体检 →

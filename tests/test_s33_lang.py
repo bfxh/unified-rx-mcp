@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S33 多语言 ide_build/ide_debug + swe_repair 结构化帧回归。"""
 import os
 import shutil
@@ -12,12 +11,11 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
 
+import swe_repair  # noqa: E402
+
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-from tools.ide import (  # noqa: E402
-    _parse_java_trace, _parse_go_panic, _parse_gcc)
-
-import swe_repair  # noqa: E402
+from tools.ide import _parse_gcc, _parse_go_panic, _parse_java_trace  # noqa: E402
 
 JAVAC = shutil.which("javac")
 JAVA = shutil.which("java")

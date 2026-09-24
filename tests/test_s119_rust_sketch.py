@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S119 Rust sketch 契约：rx-scan sketch 批量指纹 vs Python oracle + near_dupes 三档引擎。
 
 背景（实测）：n-gram bottom-k 的 GPU 路径打的是纯 Python 基线；原生 Rust（std::thread
@@ -11,7 +10,7 @@ import pytest
 
 import registry
 import tools  # noqa: F401
-from tools import gpu, neardupes
+from tools import neardupes
 from tools import neardupes as neardupes_mod  # S130：kernel 就近迁移
 
 _HAS_EXE = neardupes._rx_scan_exe() is not None

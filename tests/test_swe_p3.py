@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S23 swe_p3 机械层回归：DSML 残片解析/回收、patch 提取、git apply 校验。"""
 import os
 import subprocess

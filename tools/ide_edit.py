@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_edit.py —— 编辑面（S48 拆分；R1 写前防护；S93 定位三件薄壳化）。
 
 写前两道门：
@@ -18,11 +17,10 @@ LSP 泵不可原生平替）。
 """
 import ast
 import os
-import re
 
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
-from tools.ide_common import (_read, _iter_files, _detect_eol, MAX_CTX)
+from tools.ide_common import MAX_CTX, _detect_eol, _iter_files, _read
 from tools.ide_read import _rx_ide_call
 from tools.lsp import validate_content
 
@@ -111,7 +109,7 @@ def ide_edit_multi(file_path, edits, root=None, __authorized=False,
         pass
     lines = src.split("\n")
     # 去掉每行尾部的 \r（CRLF 时），统一成 \n 数组
-    lines = [ln[:-1] if ln.endswith("\r") else ln for ln in lines]
+    lines = [ln.removesuffix("\r") for ln in lines]
     applied = 0
     errors = []
     edits = edits or []
@@ -254,7 +252,7 @@ def ide_batch_edit(path, edits, files=None, fuzzy=False, apply=False,
         if had_bom:
             src = src[1:]
         eol = _detect_eol(src)
-        sim = [ln[:-1] if ln.endswith("\r") else ln
+        sim = [ln.removesuffix("\r")
                for ln in src.split("\n")]
         applied = 0
         for e in edits:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S104 测试影响分析（TIA）契约：首次全量建图 → 按变更选跑 → 无变更跳过。
 
 安全性口径（本轮核心）：**宁多跑不误跳**——新测试/无依赖记录/收集失败一律全量。
@@ -6,8 +5,6 @@
 测试 nodeid；`.pyc` 映射回源文件；路径统一正斜杠与 nodeid 对齐。
 状态进程内保存（与 tools/cache.py 同边界）。
 """
-import os
-import sys
 
 import pytest
 

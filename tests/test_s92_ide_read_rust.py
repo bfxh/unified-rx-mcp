@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S92 ide_read 双件 Rust 化契约测试：薄壳（tools/ide_read.py）→ rx-ide.exe。
 
 S92 起旧 Python 实现的职责移入 Rust（语义对齐 tools/code_review.py::_symbol_spans

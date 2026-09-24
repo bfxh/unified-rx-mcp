@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """R1 系统性回归门：S52 错绑 / S55 缺导入 两类事故的 AST 级全局守卫。
 
 历史教训（三次同源静默死亡，全靠 except Exception 吞 NameError）：
@@ -15,8 +14,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-import tools  # noqa: E402,F401  注册全部
 import registry  # noqa: E402
+import tools  # noqa: E402,F401  # 注册全部
 
 
 def test_all_tool_handlers_named_after_tool():

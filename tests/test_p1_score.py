@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """P1 p1_score.score 纯函数回归（P/R 口径锁死）。"""
 import os
 import sys
@@ -34,7 +33,7 @@ def test_score_empty():
 
 def test_indexing_cast_rule_catches_member_expr():
     # S27 人工标注审计发现的召回缺口：[rot as usize] 此前 indexing 漏报
-    import json
+
     import registry
     import tools  # noqa: F401
     d = os.path.join(ROOT, "bench", "manual_snaps")

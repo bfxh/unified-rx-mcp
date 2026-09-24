@@ -1,16 +1,13 @@
-# -*- coding: utf-8 -*-
 """S71：autopilot 快照持久化（跨进程去重）+ 健康趋势工具 + ide_test 重试提示。
 
 - 快照落 JSONL：多客户端/重启后跨进程复用（10 分钟窗口内不重跑）
 - ide_health_trend：项目健康趋势——最近 N 次体检的 verdict/problems 曲线
 - ide_test 失败时附 retry_hint：agent 下一步直接重跑单个失败测试
 """
-import io
 import json
 import os
 import subprocess
 import sys
-import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)

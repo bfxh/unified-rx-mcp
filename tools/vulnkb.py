@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/vulnkb.py —— 漏洞知识库（S110，ADVANCES P2 第 9 项，Vul-RAG 式）。
 
 给扫描器命中附"这类问题的成因/修法/先例"——Vul-RAG（arXiv:2406.11147）证明

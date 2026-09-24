@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """p1_snapshots.py —— 人工标注快照抽取（选择独立于 bug_scan 输出）。
 
 15 个语料文件 × 2 版本（HEAD + seed 随机历史版）= 30 快照。
@@ -53,8 +52,7 @@ def main():
                           "snap_file": snapname, "lines": src.count("\n") + 1,
                           "bytes": len(src)})
     with open(OUT, "w", encoding="utf-8") as f:
-        for s in snaps:
-            f.write(json.dumps(s, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(s, ensure_ascii=False) + "\n" for s in snaps)
     big = sum(1 for s in snaps if s["lines"] > 400)
     print(f"[OK] {len(snaps)} snapshots -> {os.path.relpath(SNAP_DIR, ROOT)} "
           f"(>400 行的 {big} 个)")

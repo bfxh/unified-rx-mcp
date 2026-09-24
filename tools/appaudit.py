@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/appaudit.py —— S8 智能体/桌面应用自查域（3 工具）：app_clone / app_audit / app_clean
 
 用户规则固化（2026-08-27）：遇到任何已安装智能体或桌面应用 → 先克隆到隔离沙箱，

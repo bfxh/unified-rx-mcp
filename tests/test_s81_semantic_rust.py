@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S81：code_semantic Rust 原生化（rx-semantic.exe）的契约测试。
 
 薄壳转调 + exe 缺失清晰报错 + 大查询走 stdin（Windows 命令行 32767 码元上限）

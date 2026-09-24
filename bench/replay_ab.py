@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """replay_ab.py —— L3 任务增益评测骨架（UPGRADE-S6 / EVAL-L3）
 
 双臂回放：A=裸模型基线记录, B=模型+unified-rx 工具面。

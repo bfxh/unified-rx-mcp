@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """依赖红线机器化（S147）：`rust/Cargo.toml` 的依赖段**恒空**。
 
 规范里这条写在迁移红线（[dependencies] 恒空——与 Python 侧纯 stdlib 同纪律），

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S122 ZCode 插件契约：plugins/urx-marketplace/zcode-breaker 的钩子行为。
 
 钩子以子进程方式被 ZCode 调用：stdin 收事件 JSON，退出码 2 = 阻断（stderr 作为
@@ -10,8 +9,6 @@ import os
 import pathlib
 import subprocess
 import sys
-
-import pytest
 
 HOOK = (pathlib.Path(__file__).resolve().parent.parent / "plugins" / "urx-marketplace"
         / "zcode-breaker" / "hooks" / "breaker_hook.py")
@@ -105,7 +102,7 @@ def test_state_file_created_under_temp(tmp_path):
     state = tmp_path / "zcode-breaker" / "state.json"
     assert state.is_file(), list(tmp_path.iterdir())
     data = json.loads(state.read_text(encoding="utf-8"))
-    assert "sessions" in data and data["sessions"]
+    assert data.get("sessions")
 
 
 def test_hooks_manifest_matches_script(tmp_path):

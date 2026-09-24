@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/scan.py —— 扫描域壳工具（5 工具）：bug_scan / std_check / ui_check / bug_locate / project_scan
 
 收敛自旧版 vuln_scan/scan_all/scan_now/scan_delta → project_scan 组合。
@@ -15,13 +14,13 @@ S127（2026-09-14）：CONSOLIDATION §三 P0 上帝对象拆分——**评审�
   30 天 30 提交全仓最高）。本文件还原为纯壳域；两侧同批清理两个零引用死常量
   （_PLACEHOLDER_WORDS / _RE_FUNC_START，S83 原生化后的遗留）。注册名全部不变。
 """
-import os
 import json
+import os
 import subprocess
 
+from registry import tool
 from tools.fs import _resolve as _fs_resolve
 
-from registry import tool
 # tools/bevy.py 自 S83 起为规则档案：bevy_rules 的正则唯一实现在 rust/src/bug.rs
 
 MAX_FILES = 100

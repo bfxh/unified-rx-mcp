@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """tests/test_ide_fix.py —— IDE 域修复测试（I1/I2/I3/I4）。"""
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

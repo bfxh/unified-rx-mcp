@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S117 近似重复聚类契约：bottom-k MinHash 两遍选择引擎 + near_dupes 工具。
 
 三条口径入册（实测见 spec/GPU.md §二）：
@@ -13,9 +12,11 @@ import pytest
 
 import registry
 import tools  # noqa: F401
-from tools import gpu
+from tools import (
+    gpu,
+    neardupes,  # noqa: F401
+)
 from tools import neardupes as neardupes_mod  # S130：kernel 就近迁移
-from tools import neardupes  # noqa: F401
 
 _HAS_GPU = gpu.status().get("available") is True
 

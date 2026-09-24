@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
 """S25 swe_repair 离线回归：触碰文件提取 / sr 应用回打 / 文件块截断。"""
 import os
 import subprocess
 import sys
-
-import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)

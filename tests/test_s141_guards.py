@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S141 契约：烧量护栏——QPM/日量默认值标定、日计数跨重启持久化、
 burnwatch 会话哨兵（分级告警 + 开关）、session_burn 工具、打点热路径挂钩。"""
 import time

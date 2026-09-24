@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """server.py —— MCP stdio 协议薄层（纯 stdlib 零依赖，<300 行；S91 起含自检对账）
 
 协议：newline-delimited JSON-RPC 2.0（现代 MCP stdio 标准）
@@ -11,13 +10,13 @@
 
 运行：python server.py
 """
-import sys
 import json
 import os
 import re
 import subprocess
-import time
+import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import registry
@@ -260,7 +259,6 @@ def _handle(msg):
     if method == "tools/list":
         # S144 实锤修复：S143 的 annotations 在 registry 已发，但这里只转发
         # name/description/inputSchema → 注解根本没上线路（"改了一半"）。
-        import toolmeta  # noqa: PLC0415 —— 与注册面同包，延迟导入避免循环
         tools_list = []
         for t in registry.list_tools():
             entry = {"name": t["name"], "description": t["description"],
@@ -352,7 +350,6 @@ def _selftest_skills_docs(base_dir=None):
     工具化——文档漂移机器抓）。口径：每份域文档（除 README/workflow）至少命中
     1 个在册工具名；文档中疑似工具名（域前缀+下划线，且非 tools/ 模块名）若
     不在册 → 计陈旧名（改名/退役后文档没跟上）。返回 (stale 列表, 零命中文件列表)。"""
-    import re
     base = base_dir or os.path.dirname(os.path.abspath(__file__))
     skills = os.path.join(base, "skills")
     tools_dir = os.path.join(base, "tools")

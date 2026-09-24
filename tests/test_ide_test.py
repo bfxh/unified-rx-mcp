@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """R2：ide_test 统一测试入口。
 
 pytest 走真链路（本解释器自带 pytest）；cargo 走真迷你 crate（编译无依赖，
@@ -116,7 +115,7 @@ def test_cargo_parser_multi_crate_workspace(monkeypatch):
     r = _run_cargo("p", "p", None, 60)
     assert r["passed"] == 177 and r["failed"] == 3 and r["skipped"] == 2
     assert r["result_lines"] == 2
-    assert any("b::bad" == f["test"] for f in r["failures"])
+    assert any(f["test"] == "b::bad" for f in r["failures"])
 
 
 def test_go_parser_canned(monkeypatch):

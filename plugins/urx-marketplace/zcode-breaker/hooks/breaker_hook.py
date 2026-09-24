@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """zcode-breaker 钩子（ZCode）—— 工具熔断，与 unified-rx-mcp tools/breaker.py 同规则。
 
 用法（由 hooks/hooks.json 传入）：
@@ -146,7 +145,7 @@ def main(argv):
             streaks.pop(key, None)
         _save(st)
         try:                                   # S141：搭车跑烧量哨兵（不额外起进程）
-            import session_guard_hook as _sg   # 同目录；仅在档位上升时有输出
+            import session_guard_hook as _sg  # 同目录；仅在档位上升时有输出
             _msg = _sg.tick(ev.get("session_id"))
             if _msg:
                 print(json.dumps({"hookSpecificOutput": {

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Mimosa 复审副本生成器（S138）：工作树 → 隔离副本（纪律：深扫只跑副本）。
 
 用法：python scripts/audit_copy.py <dest>

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_vscode.py —— VS Code 后手入口（S68）。
 
 定位：工具链（build/lint/LSP/doctor）查不出或需要人工/AI 深查时，

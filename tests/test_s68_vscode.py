@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S68：VS Code 后手入口 + 多项目联动体检。
 
 VS Code 用 stub exe 测试（bat 写标记文件）；multi_check 用两个 tmp git 仓

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S61 硬化轮回归钉：动态执行 AST 规则 / 旗标后授权统一 / fuzzy 匹配 /
 尺寸护栏 / 动态 import 依赖边。"""
 import os
@@ -10,7 +9,6 @@ sys.path.insert(0, ROOT)
 
 import registry  # noqa: E402
 import tools  # noqa: E402,F401
-from tools.metrics import _imports_of  # noqa: E402
 
 AUTH = {"__authorized": True}
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """h3_score.py —— H3 首测：扫描器在真实对象上的 precision 覆盖与 FP 复检。
 
 组成（EVAL-L2/H3）：
@@ -24,9 +23,10 @@ sys.path.insert(0, HERE)
 # 脚本的显式全开声明。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
 
-import registry  # noqa: E402
-import tools     # noqa: F401,E402
 import l2_score  # noqa: E402
+
+import registry  # noqa: E402
+import tools  # noqa: F401,E402
 
 YA_CLONE = r"D:\开发\audits\repos\yan-agent-src"
 VF3_ROOT = r"D:\开发\VoxelForge-V3"

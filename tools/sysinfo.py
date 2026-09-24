@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """sys 域（S148）：混合架构调度观测与引导——P/E 核拓扑、线程视图、steer、设备。
 
 背景（用户简报）：传统引擎默认所有核心性能一致 → 关键渲染线程被误调度到 E 核
@@ -19,11 +18,10 @@
 是厂商侧运行时不可编程；ITT/VTune 需厂商 SDK（本域只产出结构化 JSON）。
 """
 import json
-import os
 import subprocess
 
 from registry import tool
-from tools.appaudit import _rs_exe          # exe 定位单一来源（S137 去重纪律）
+from tools.appaudit import _rs_exe  # exe 定位单一来源（S137 去重纪律）
 
 _RX_SYS_EXE_NAME = "rx-sys.exe"
 

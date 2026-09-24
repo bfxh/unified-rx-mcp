@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """p1_build.py —— P1 语料挖掘：VoxelForge 系 git 历史 → 标注 bug 库。
 
 条目（bench/bug_corpus.jsonl）：
@@ -116,7 +115,7 @@ def main():
                 break
             files = re.findall(r"^(\S+\.(?:py|rs))$",
                                git(repo, "show", "--name-only", "--pretty=format:",
-                                   sha) or "", re.M)
+                                   sha) or "", re.MULTILINE)
             for path in files[:1]:
                 if any(e["repo"] == repo and e["file"] == path for e in extra):
                     continue
@@ -137,8 +136,7 @@ def main():
                               "evidence": "", "subject": "clean state"})
                 n_clean += 1
     with open(OUT, "w", encoding="utf-8") as f:
-        for c in final + extra:
-            f.write(json.dumps(c, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(c, ensure_ascii=False) + "\n" for c in final + extra)
     print(f"[OK] bug {len(final)} + clean {n_clean} = {len(final)+n_clean} -> "
           f"{os.path.relpath(OUT, ROOT)}")
     print(Counter(b["rule_expect"] for b in final))

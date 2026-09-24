@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S55：ide_common 共享解析器直接单测（此前只被 registry 间接路过）。
 
 真实断言对象：行尾检测 / 语言映射 / 沙盒读 / 遍历上限 / gcc-cargo-go 诊断解析。
@@ -11,9 +10,15 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
 import tools  # noqa: E402,F401
-from tools.ide_common import (_detect_eol, _iter_files, _lang_of, _parse_cargo_short,
-                              _parse_gcc, _parse_go_build, _read)
-
+from tools.ide_common import (
+    _detect_eol,
+    _iter_files,
+    _lang_of,
+    _parse_cargo_short,
+    _parse_gcc,
+    _parse_go_build,
+    _read,
+)
 
 # ---------- 行尾 / 语言 ----------
 

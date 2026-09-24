@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """高压语料跑机器（S162）：读 `spec/stress-corpus.json`，对**真实 stdio server** 逐条施压。
 
 判据是**数据**（语料），本脚本只是跑它的机器——加场景=加一条 JSON，不改代码。

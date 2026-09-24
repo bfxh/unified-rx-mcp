@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """工具面体量仪表（S143，兑现 EXTERNAL-ALIGNMENT A2）。
 
 tools/list 是每个会话开场的**固定摊派**（宿主把全部工具定义塞进上下文）。

@@ -1,19 +1,16 @@
-# -*- coding: utf-8 -*-
 """S10 强度包测试：入口 schema 门禁 / 出口大字符串截断 / local_run 取消接线。"""
 import os
 import sys
 import threading
 import time
-from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import registry   # noqa: E402
-import server     # noqa: E402  S10 取消端到端用 _CANCELS/cancel_flag
-import tools      # noqa: F401,E402
-
+import registry  # noqa: E402
+import server  # noqa: E402  # S10 取消端到端用 _CANCELS/cancel_flag
+import tools  # noqa: F401,E402
 
 # ---------- 入口门禁：tools/list 声明了 schema，call() 现在真的校验 ----------
 

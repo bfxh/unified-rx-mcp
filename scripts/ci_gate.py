@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """CI 硬门禁（S124）：把 selftest 对账行从"提示"升为"退出码"。
 
 selftest 本身对 VERSION_TAG/EXE_TAG 只打印不退出（开发期语义）。CI 必须严苛：

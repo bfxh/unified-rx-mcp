@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S80：code_search Rust 原生化（rx-search.exe）的契约测试。
 
 薄壳转调 + exe 缺失清晰报错 + walk 顺序契约（201 文件判别法）+ engine.py

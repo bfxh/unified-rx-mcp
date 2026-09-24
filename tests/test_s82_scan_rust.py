@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S82：scan 域轻正则三工具（std_check / ui_check / bug_locate）Rust 原生化
 （rx-scan.exe）的契约测试。
 

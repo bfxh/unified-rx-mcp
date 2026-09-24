@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S77（VULN-HUNTING P0-a）：auth_gate_sweep 授权门自审的回归测试。
 
 S75 靠人眼盘点出 4 个实锤，本工具把方法固化：漏一处门即 ok:False。
@@ -9,7 +8,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import registry  # noqa: E402
-import tools  # noqa: E402,F401  注册全部
+import tools  # noqa: E402,F401  # 注册全部
 
 
 def test_sweep_all_clean():

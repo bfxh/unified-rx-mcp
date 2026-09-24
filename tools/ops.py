@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ops.py —— 运维域（5 工具）：backup / scan_log / usage_stats / project_health / lesson_stats
 
 收敛自旧版 backup/rollback + stats/telemetry/alarm/scan_log。
@@ -13,13 +12,13 @@ trend action——一个数据源只留一个读出口。
 - T6: project_health 项目健康度评分（bug/std/ui 综合 0-100）
 - T7: lesson_stats 教训库统计（总量/关键词分布/召回热度）
 """
-import os
+import collections
+import datetime
 import json
+import os
+import re as _re
 import time
 import zipfile
-import datetime
-import collections
-import re as _re
 
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
@@ -40,7 +39,7 @@ def _load_jsonl(path):
     if not os.path.exists(path):
         return recs
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             for line in f:
                 line = line.strip()
                 if not line:

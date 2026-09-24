@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S29 高压检查：S23-S28 新模块的对抗测试（模型输出即不可信输入）。
 
 覆盖：sr path 逃逸（写/读）、locate 轮读取逃逸、wsl 脚本注入与临时文件碰撞、
@@ -99,7 +98,7 @@ def test_wsl_run_script_names_unique(monkeypatch):
 
 def test_ftb_ids_are_shell_quoted():
     import shlex
-    import swe_verify as sv
+
     # 注入串必须被 quote 包住（不能裸拼进 bash）
     evil = "x; touch /tmp/pwned; $(calc)"
     quoted = " ".join(shlex.quote(x) for x in [evil])

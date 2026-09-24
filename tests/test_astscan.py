@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S9 结构化扫描测试：AST/词法层对抗样例——正则层的每个坑在这里都要有对应的反例。"""
 import os
 import sys

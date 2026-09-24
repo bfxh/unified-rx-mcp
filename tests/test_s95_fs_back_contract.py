@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tests/test_s95_fs_back_contract.py —— S95 fs 读面回迁 golden master（oracle 收口）。
 
 oracle 链路：回迁前 bench/s95_fs_golden.py 以现行 exe 薄壳捕获 40 场景 →
@@ -13,7 +12,6 @@ test_security_fuzz.py 全权锁定。
 """
 import json
 import os
-import re
 import sys
 
 import pytest
@@ -25,8 +23,9 @@ if os.path.join(_ROOT, "bench") not in sys.path:
     sys.path.insert(0, os.path.join(_ROOT, "bench"))
 
 import s95_fs_golden as G  # noqa: E402
+
 import registry  # noqa: E402
-import tools  # noqa: E402,F401  注册工具面
+import tools  # noqa: E402,F401  # 注册工具面
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32",
                                 reason="golden 为 Windows 捕获；Linux 面走 tests/test_s95_linux_smoke.py")

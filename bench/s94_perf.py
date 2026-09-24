@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """s94_perf —— S94 质量体检：L2 延迟预算复测 + 内存基线/泄漏 soak（用户：
 「不希望 内存 性能 架构 不行，必须在标准上」——先有数，才谈达标）。
 
@@ -124,8 +123,8 @@ def make_corpus():
 
 
 def run():
-    import tools  # noqa: F401  注册 57 工具
     import registry
+    import tools  # noqa: F401  # 注册 57 工具
 
     corpus = make_corpus()
     one_file = os.path.join(corpus, "mod_000.py")
@@ -225,7 +224,7 @@ def main():
     hist.append(out)
     with open(dst, "w", encoding="utf-8") as f:
         json.dump(hist[-20:], f, ensure_ascii=False, indent=1)
-    print(f"  结果追加 → bench/results/s94_perf.json（保留最近20条）")
+    print("  结果追加 → bench/results/s94_perf.json（保留最近20条）")
     return 1 if out["budget_fail"] else 0
 
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S125 调用图契约：ide_callgraph（薄壳 rx-scan callgraph + 查询层）。
 
 夹具场景与 Rust 侧 rust/tests/callgraph_test.rs 同源——两端各锁一次：

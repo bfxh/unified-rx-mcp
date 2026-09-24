@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S101 code_search hybrid：BM25（行级）× code_semantic（定义级）RRF 融合契约。
 
 背景：两路互补——BM25 强在词面命中，语义路强在"定义级"聚合。RRF
@@ -13,8 +12,6 @@
 - 语义路不可用（exe 缺失/工具级错误）→ **显式降级**：返回 BM25 结果 +
   hybrid=false + degraded 原因，不静默、不报错。
 """
-import os
-import sys
 
 import pytest
 

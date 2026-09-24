@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S109 ide_impact 三级降级契约：LSP（语义）→ 解析（名字解析）→ 文本（全文计数）。
 
 本机 pylsp 未装（S99 起如实报 detected=false），因此默认路径即解析级——测试

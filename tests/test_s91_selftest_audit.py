@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S91 selftest 机器对账契约测试：VERSION_TAG / SKILLS_DOCS 两个对账器。
 
 近期 #2 兑现（84034eb 教训工具化 + S88 手工补契约声明的教训工具化）：
@@ -7,11 +6,7 @@
 - SKILLS_DOCS：skills/*.md ↔ registry 工具名（零命中文件 = dead，在册外
   域前缀名 = stale）；真实仓库回归门：文档必须与注册表对齐。
 """
-import os
 import subprocess
-from pathlib import Path
-
-import pytest
 
 import server  # noqa: E402
 

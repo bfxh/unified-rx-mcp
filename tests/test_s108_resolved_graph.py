@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
 """S108 dep_graph(resolved=true) 契约：语法级解析边接入 + 旧形状零破坏 + 显式降级。
 
 解析语义由 rust/tests/nameres_test.rs 锁定（相对导入/别名/子模块/外部/未找到）；
 本文件守 Python 侧：注册面、旧形状不变、exe 缺失如实入 resolved.error。
 """
-import json
-import os
 
 import pytest
 

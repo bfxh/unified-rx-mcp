@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tests/test_bevy.py —— Bevy 专项规则测试（用户：引擎重点优化 Bevy）。"""
 import os
 import sys

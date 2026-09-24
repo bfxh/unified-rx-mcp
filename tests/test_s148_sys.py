@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S148 契约：sys 域（混合架构调度）——拓扑分级 / 线程视图 / steer 授权与实效。
 
 设计口径：
@@ -13,7 +12,6 @@
 import os
 import subprocess
 import sys
-import time
 
 import pytest
 

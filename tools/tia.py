@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/tia.py —— 测试影响分析（S104）：状态与选择逻辑（纯函数 + 进程内状态）。
 
 - 状态：root -> {"snapshot": {相对路径: 指纹}, "deps": {nodeid: [相对路径]}}，

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S144 契约：间接注入立场（EXTERNAL-ALIGNMENT B3）+ annotations 上线修复。
 
 四锁：

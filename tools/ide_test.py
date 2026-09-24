@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_test.py —— 统一测试入口（R2）：pytest / cargo test / go test。
 
 一条命令 → per-test 结构化结果 + 失败帧（解析器复用 ide_debug，不另造轮子）。
@@ -25,11 +24,11 @@ from tools.ide_debug import _parse_pytest, _parse_rust_panic
 _RE_PYTEST_SUM = re.compile(
     r"(?:=\+\s*)?(?:(\d+) failed)?(?:.*?(\d+) passed)?(?:.*?(\d+) skipped)?"
     r"(?:.*?(\d+) error)?\s*(?:in\s+[\d.]+s)?\s*(?:=\+\s*)?$")
-_RE_PYTEST_FAILED_LINE = re.compile(r"^(?:FAILED|ERROR)\s+(\S+)(?:\s+-\s+(.*))?$", re.M)
-_RE_CARGO_TEST_LINE = re.compile(r"^test\s+(\S+)\s+\.\.\.\s+(ok|FAILED|ignored)\s*$", re.M)
+_RE_PYTEST_FAILED_LINE = re.compile(r"^(?:FAILED|ERROR)\s+(\S+)(?:\s+-\s+(.*))?$", re.MULTILINE)
+_RE_CARGO_TEST_LINE = re.compile(r"^test\s+(\S+)\s+\.\.\.\s+(ok|FAILED|ignored)\s*$", re.MULTILINE)
 _RE_CARGO_RESULT = re.compile(
     r"test result:\s*(\w+)\.\s*(\d+) passed; (\d+) failed; (\d+) ignored")
-_RE_GO_TEST_LINE = re.compile(r"^--- (PASS|FAIL|SKIP): (\S+)", re.M)
+_RE_GO_TEST_LINE = re.compile(r"^--- (PASS|FAIL|SKIP): (\S+)", re.MULTILINE)
 
 
 def _which_py():

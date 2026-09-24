@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_read.py —— 结构化读取（S66 立面 / S92 薄壳化）：ide_outline / ide_read_symbol。
 
 S92 起整体转调 rx-ide.exe（唯一实现在 rust/src/ide.rs）：四语言符号行匹配器

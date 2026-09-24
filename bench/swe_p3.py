@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """swe_p3.py —— P3 外锚首期：SWE-bench Verified 抽样对比协议。
 
 与标准 SWE-bench 的偏离（如实声明，见 spec/EVAL.md P3）：
@@ -37,9 +36,10 @@ sys.path.insert(0, HERE)
 # S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——被测工具已过沙盒门，
 # 裸 shell 下 fail-closed 会干扰测量。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
-import ab_run as AB            # noqa: E402  复用 chat/usage/exec_tool/registry
-import registry                # noqa: E402
-import tools                   # noqa: F401,E402
+import ab_run as AB  # noqa: E402  # 复用 chat/usage/exec_tool/registry
+
+import registry  # noqa: E402
+import tools  # noqa: F401,E402
 
 WORK = os.path.join(os.environ.get("TEMP", "."), "opencode", "swe")
 PARQUET = os.path.join(WORK, "verified.parquet")
@@ -106,8 +106,7 @@ def fetch(parquet_exists_ok=True):
         final += [{"instance_id": x[0], "repo": x[1], "base_commit": x[2],
                    "issue": x[3], "gold_patch": x[4]} for x in take]
     with open(SAMPLE, "w", encoding="utf-8") as f:
-        for d in final:
-            f.write(json.dumps(d, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(d, ensure_ascii=False) + "\n" for d in final)
     print(f"[OK] {len(final)} 条抽样（新增 {len(final)-len(old)}）"
           f" -> {os.path.relpath(SAMPLE, ROOT)}", flush=True)
     clone_all([(d["instance_id"], d["repo"], d["base_commit"]) for d in final])
@@ -196,11 +195,11 @@ def clone_all(picked=None, workers=4):
 _DSML = r"\uff5c+"                  # DeepSeek 特殊 token 分隔符：全角竖线 ×1~2（实跑两种都出现）
 _RE_DSML_INVOKE = re.compile(
     rf'<{_DSML}DSML{_DSML}invoke\s+name="([^"]+)"\s*>(.*?)</{_DSML}DSML{_DSML}invoke>',
-    re.S)
+    re.DOTALL)
 _RE_DSML_PARAM = re.compile(
     rf'<{_DSML}DSML{_DSML}parameter\s+name="([^"]+)"\s+string="(true|false)"[^>]*>'
-    rf'(.*?)</{_DSML}DSML{_DSML}parameter>', re.S)
-_RE_DIFF_FENCE = re.compile(r"```diff\s*\n(.*?)```", re.S)
+    rf'(.*?)</{_DSML}DSML{_DSML}parameter>', re.DOTALL)
+_RE_DIFF_FENCE = re.compile(r"```diff\s*\n(.*?)```", re.DOTALL)
 
 
 def safe_join(root, path):
@@ -271,11 +270,11 @@ def patch_check(root, patch):
     return False, "", err
 
 
-_SR_RE = re.compile(r"```sr\s*\n(.*?)```", re.S)
-_SR_PATH = re.compile(r"^\s*path:\s*(\S+)\s*$", re.M)
+_SR_RE = re.compile(r"```sr\s*\n(.*?)```", re.DOTALL)
+_SR_PATH = re.compile(r"^\s*path:\s*(\S+)\s*$", re.MULTILINE)
 _SR_BODY = re.compile(
     r"^<{5,}\s*SEARCH\s*\n(.*?)\n^={5,}\s*\n(.*?)\n^>{5,}\s*REPLACE\s*$",
-    re.S | re.M)
+    re.DOTALL | re.MULTILINE)
 
 
 def arm_prompt(instance):
@@ -407,7 +406,7 @@ def _tool_rounds(msgs, ch, model, tools_schema, trace, mech, max_rounds):
     tin = tout = 0
     answer = ""
     for rnd in range(max_rounds):
-        active = tools_schema if tools_schema else None   # A/B 臂各带各自的工具面
+        active = tools_schema or None   # A/B 臂各带各自的工具面
         resp = AB.chat(ch, model, msgs, tools_schema=active)
         i, o = AB.usage_of(resp)
         tin += i
@@ -460,12 +459,12 @@ def _tool_rounds(msgs, ch, model, tools_schema, trace, mech, max_rounds):
 
 def _path_candidates(root, text):
     """答案文本里的候选相对路径（`path:` 行优先，其次疑似文件名的 token）。"""
-    pths = re.findall(r"^\s*path:\s*(\S+)\s*$", text or "", re.M)
+    pths = re.findall(r"^\s*path:\s*(\S+)\s*$", text or "", re.MULTILINE)
     pths += re.findall(r"[A-Za-z0-9_./\\-]+\.[A-Za-z0-9]{1,5}", text or "")
     out = []
     for p in pths:
         p = p.replace("\\", "/").lstrip("/").strip(".,`;*\"'()[]")
-        if p in out or len(p) > 200 or "/" in p and p.startswith("/"):
+        if p in out or len(p) > 200 or ("/" in p and p.startswith("/")):
             continue
         if safe_join(root, p) and os.path.isfile(safe_join(root, p)):
             out.append(p)

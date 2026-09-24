@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S78 验收：S73 深扫重放（spec/VULN-HUNTING.md P1-a 的污点引擎验收题）。
 
 重放对象：修复前快照 git 395e4cd（S73 修复提交 846280b 的父提交），

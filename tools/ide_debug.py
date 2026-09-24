@@ -1,22 +1,22 @@
-# -*- coding: utf-8 -*-
 """tools/ide_debug.py —— 调试/断点面（S48 拆分）。"""
+import json
 import os
 import re
-import json
-import tempfile
-import subprocess
 import shutil
+import subprocess
+import tempfile
 
 from registry import tool
-from tools.ide_common import _RE_PY_FRAME, _RE_PY_LAST
 from tools.fs import _resolve as _fs_resolve
+from tools.ide_common import _RE_PY_FRAME, _RE_PY_LAST
+
 _RE_RUST_PANIC = re.compile(r"panicked at\s+(?:'([^']*)',\s*)?([^\s:]+):(\d+):(\d+)")
 
 _RE_RUST_FRAME = re.compile(r"^\s+at\s+.+?:(\d+):(\d+)")
 
-_RE_PYTEST_FAILED = re.compile(r"^(?:FAILED|ERROR)\s+([\w/\\.:,\[\]\-]+)", re.M)
+_RE_PYTEST_FAILED = re.compile(r"^(?:FAILED|ERROR)\s+([\w/\\.:,\[\]\-]+)", re.MULTILINE)
 
-_RE_PYTEST_SHORT_ID = re.compile(r"^_{5,}\s+(\S+)\s+_+$", re.M)
+_RE_PYTEST_SHORT_ID = re.compile(r"^_{5,}\s+(\S+)\s+_+$", re.MULTILINE)
 
 def _parse_pytest(text):
     """pytest 失败摘要：FAILED/ERROR 行 + E 断言行（S34：修复轮的高频信号）。"""
@@ -28,7 +28,7 @@ def _parse_pytest(text):
                if re.match(r"^E\s+\S", ln)][:8]
     return failed, asserts
 
-_RE_JAVA_FRAME = re.compile(r"^\s+at\s+([\w$.]+)\(([\w./]+\.java):(\d+)\)", re.M)
+_RE_JAVA_FRAME = re.compile(r"^\s+at\s+([\w$.]+)\(([\w./]+\.java):(\d+)\)", re.MULTILINE)
 
 _RE_JAVA_LAST = re.compile(
     r'(?:Exception in thread "[^"]*"\s+)?'

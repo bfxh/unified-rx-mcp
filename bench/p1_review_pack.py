@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """p1_review_pack.py —— 人工标注评审包：候选行（评审者自己的超集 grep）± 上下文。"""
 import os
 import re

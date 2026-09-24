@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """p1_score.py —— P1 首测：bug_scan 在标注库上的 P/R。
 
 定义（诚实口径）：

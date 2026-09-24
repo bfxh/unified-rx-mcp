@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/filescan.py —— 文件扫描（S115）：签名 + 熵启发式 + 哈希 + 异或层枚举。
 
 **定位如实**：签名/启发式扫描器，**不是杀毒软件**——不做行为分析、不做沙箱、
@@ -13,21 +12,21 @@
   最优，无进程启动开销）→ CPU 参考（<128KB，C 速度 translate+find）。
 - 签名匹配与哈希留在 CPU（bytes.find / hashlib 更快，实测数据在 spec/GPU.md §二）。
 """
+import ctypes
 import hashlib
 import json
+import math
 import os
 import struct
 import subprocess
 
 from registry import tool
 from tools import gpu
-from tools.fs import _resolve as _fs_resolve
 from tools.filewalk import TOOLCHAIN_SKIP_DIRS, iter_files
+from tools.fs import _resolve as _fs_resolve
+
 # S130：GPU kernel 就近迁移到本域（见文件尾）——运行时助手自 gpu 引入
 from tools.gpu import _check, _cl, _ensure_ctx, _program, _read_buf, _set_arg
-
-import ctypes
-import math
 
 _MAX_FILE_BYTES = 256 * 1024 * 1024        # 单文件上限（超过跳过并如实报）
 # AV 业界标准测试串（EICAR）——可验证"签名匹配确实工作"，不含真实恶意样本

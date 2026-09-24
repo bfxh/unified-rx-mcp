@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/neardupes.py —— 近似重复/同族文件聚类（S117）：bottom-k MinHash 指纹 + Jaccard。
 
 用途：重复代码分堆、样本同族归并、大目录里找"几乎一样"的文件。
@@ -16,6 +15,7 @@ S118 规模化：两两比较从 O(n²) 全对降为**精确候选剪枝**（倒
 口径：**近似**——bottom-k MinHash + Jaccard 阈值，不是逐字节 diff；阈值越高越严。
 直方图余弦对高熵数据无区分力（随机文件也 0.98），故不用（实测入 spec/GPU.md §二）。
 """
+import ctypes
 import json
 import math
 import os
@@ -24,12 +24,11 @@ import subprocess
 
 from registry import tool
 from tools import gpu
-from tools.fs import _resolve as _fs_resolve
 from tools.filewalk import TOOLCHAIN_SKIP_DIRS, iter_files
+from tools.fs import _resolve as _fs_resolve
+
 # S130：GPU kernel 就近迁移到本域（见文件尾）——运行时助手自 gpu 引入
 from tools.gpu import _check, _cl, _ensure_ctx, _program, _read_buf, _set_arg
-
-import ctypes
 
 _RX_SCAN_EXE_NAME = "rx-scan.exe"
 

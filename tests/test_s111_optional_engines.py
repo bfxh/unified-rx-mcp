@@ -1,17 +1,14 @@
-# -*- coding: utf-8 -*-
 """S111/S112 可选引擎契约：ast-grep 薄壳（校验/探测/清晰报错）+ SCIP 索引消费。
 
 ast-grep 未装时验证"清晰报错 + 安装提示"；SCIP 用**合成索引**（手写 protobuf
 编码）验证解析正确性——不依赖外部索引器产物。
 """
-import os
 import shutil
 
 import pytest
 
 import registry
 import tools  # noqa: F401
-
 
 # ---------- S111 ast_grep ----------
 

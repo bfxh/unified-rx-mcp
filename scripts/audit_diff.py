@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Mimosa 复审差量器（S138）：两份 report.md 的发现标题集差量。
 
 用法：python scripts/audit_diff.py <old_report.md> <new_report.md> [--allow-added]
@@ -13,7 +12,7 @@ import sys
 
 def heads(path):
     with open(path, encoding="utf-8") as f:
-        return {m.strip() for m in re.findall(r"^### (.+)$", f.read(), re.M)}
+        return {m.strip() for m in re.findall(r"^### (.+)$", f.read(), re.MULTILINE)}
 
 
 def main(argv):

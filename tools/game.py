@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
 """tools/game.py —— 游戏域（2 工具）：game_check / blender_verify
 
 P3 增强（2026-08-24）：blender_verify 补 Umi-OCR 读界面文字（HTTP API 或 CLI）。
 """
+import json
 import os
 import re
-import json
 import subprocess
-import urllib.request
 import urllib.error
+import urllib.request
 
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
@@ -99,7 +98,7 @@ def game_check(path, action="check"):
     key_bindings = []
     for fp in files[:60]:
         try:
-            with open(fp, "r", encoding="utf-8", errors="replace") as f:
+            with open(fp, encoding="utf-8", errors="replace") as f:
                 src = f.read()
         except OSError:
             continue

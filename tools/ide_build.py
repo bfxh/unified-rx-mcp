@@ -2,20 +2,19 @@
 
 import json
 import os
-
-import re
-
+import shutil
 import subprocess
 
-import shutil
-
 from registry import tool
-
 from tools.fs import _resolve as _fs_resolve
+from tools.ide_common import (
+    _RE_PY_FRAME,
+    _SKIP_DIRS,
+    _parse_cargo_short,
+    _parse_gcc,
+    _parse_go_build,
+)
 
-from tools.ide_common import (_SKIP_DIRS, _parse_cargo_short,
-                              _parse_go_build, _RE_PY_FRAME,
-                              _parse_gcc)
 
 def _build_fingerprint(root):
     """参与构建的源文件指纹（mtime+size）——诊断缓存失效判定。"""

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S144 契约：任务级工具评测（EXTERNAL-ALIGNMENT B2）。
 
 三锁：

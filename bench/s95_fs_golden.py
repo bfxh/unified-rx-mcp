@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """s95_fs_golden —— S95 fs 读面回迁的 golden master 捕获（节奏第 2 步：对照实验）。
 
 回迁前用现行 exe 薄壳（registry.call → rx-fs.exe）把场景矩阵输出捕获到
@@ -35,7 +34,7 @@ except Exception:
     pass
 
 import registry  # noqa: E402
-import tools  # noqa: E402,F401  注册 57 工具（回迁前 fs 薄壳仍走 exe）
+import tools  # noqa: E402,F401  # 注册 57 工具（回迁前 fs 薄壳仍走 exe）
 
 FIXTURE = os.path.join(_ROOT, "tests", "fixtures", "s95_fs_golden.json")
 
@@ -51,7 +50,7 @@ CORPUS_FILES = (
     (("cr.txt",), b"a\rb"),
     (("notail.txt",), b"no trailing newline"),
     (("mixed.txt",), b"a\r\nb\rc\nd"),
-    (("uni.txt",), "你好世界".encode("utf-8")),
+    (("uni.txt",), "你好世界".encode()),
     (("bin.bin",), b"\xff\xfe\x00abc\x80\x80"),
     (("trunc.txt",), b"\xe4\xbd"),
     (("cont.bin",), b"\x80\x80\x81"),
@@ -59,7 +58,7 @@ CORPUS_FILES = (
     (("empty.txt",), b""),
     (("exact1mb.bin",), b"a" * 1_000_000),
     (("over1mb.bin",), b"a" * 1_000_001),
-    (("带 空格.txt",), "内容".encode("utf-8")),
+    (("带 空格.txt",), "内容".encode()),
     (("a", "lv0.txt"), b"0"),
     (("a", "b", "lv1.txt"), b"1"),
     (("a", "b", "c", "lv2.txt"), b"2"),

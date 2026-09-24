@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S133：attack_cruise 巡航契约（编排既有攻击面工具 + verdict + 失败项不吞）。"""
 import os
 import sys

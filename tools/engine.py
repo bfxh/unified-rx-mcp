@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/engine.py —— 开源引擎适配域（2 工具）：engine_status / engine_query
 
 接入策略（单点接开源最强，不自研轮子）：
@@ -10,8 +9,8 @@
 codegraph CLI 实测（2026-08-24，VoxelForge）：
   init 3s / 69 文件 → 1571 节点 / 4412 边；query 亚毫秒；中文语义命中 docstring。
 """
-import os
 import json
+import os
 import subprocess
 
 from registry import tool
@@ -42,7 +41,7 @@ def _probe_codegraph():
         pj = os.path.join(CODEGRAPH_RT, "package.json")
         if os.path.exists(pj):
             try:
-                with open(pj, "r", encoding="utf-8", errors="replace") as f:
+                with open(pj, encoding="utf-8", errors="replace") as f:
                     d = json.load(f)
                 info["name"] = d.get("name")
                 info["version"] = d.get("version")
@@ -128,8 +127,9 @@ def engine_query(query, root, limit=10):
             except subprocess.TimeoutExpired:
                 pass
     # 2. 降级 BM25（S3-B2：降级发协议日志，宿主可见）
-    from .search import code_search
     from registry import notify
+
+    from .search import code_search
     # S11：降级必须给原因——否则调用方不知道是"没索引"还是"运行时缺失"
     reason = ("无 .codegraph 索引" if not os.path.exists(os.path.join(root or "", ".codegraph"))
               else "codegraph 运行时未检出/查询无命中/超时")

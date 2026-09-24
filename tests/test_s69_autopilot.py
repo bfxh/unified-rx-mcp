@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S69：开发目录自动驾驶回归钉。
 
 - discover_projects 只认带项目标记的一层目录

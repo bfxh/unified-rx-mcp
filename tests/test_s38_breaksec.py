@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S38：java/go 断点后端注入防护 + rust 诚实报错。"""
 import os
 import sys

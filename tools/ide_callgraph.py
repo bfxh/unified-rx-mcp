@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_callgraph.py —— S125：真调用图（ide 域）
 
 口径（spec/CALLGRAPH.md）：

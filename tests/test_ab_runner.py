@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
 """L3 A/B runner 离线回归：语料契约 / verdict 解析与校验 / 幻觉率 / judge 返回类型。"""
-import json
 import os
 import sys
 
@@ -12,9 +10,9 @@ sys.path.insert(0, os.path.join(ROOT, "bench"))
 sys.path.insert(0, ROOT)
 
 import ab_run  # noqa: E402
+
 import registry  # noqa: E402
 import tools  # noqa: F401,E402
-
 
 # ---------- 语料契约 ----------
 

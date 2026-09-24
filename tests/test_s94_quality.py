@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S94 质量体检测试：exe 版本对账机器（--version 门 × selftest EXE_TAG）+
 版本锁步静态守卫 + bench 脚本纯函数抽测。
 
@@ -103,9 +102,9 @@ def test_version_lockstep_server_equals_cargo_toml():
     教训延伸：不只 serverInfo，exe 注入版本也必须同步，漂移机器抓）。"""
     with open(os.path.join(_ROOT, "rust", "Cargo.toml"),
               encoding="utf-8") as f:
-        m = re.search(r'^version = "([^"]+)"', f.read(), re.M)
+        m = re.search(r'^version = "([^"]+)"', f.read(), re.MULTILINE)
     assert m, "Cargo.toml 缺 [package].version"
-    assert server.SERVER_VERSION == m.group(1)
+    assert m.group(1) == server.SERVER_VERSION
 
 
 # ---- bench/s94_perf.py 纯函数抽测（不做机器相关断言） ----

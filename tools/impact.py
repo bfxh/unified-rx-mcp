@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/impact.py —— ide_impact 影响面（S129 自 tools/lsp.py 平移并加档）。
 
 四档降级链（engine 字段如实标注，引用面 ≠ 调用面分层不混）：
@@ -37,7 +36,7 @@ def _ident_at(fp, line, col):
     """文本级兜底的符号来源：取 file:line:col 处的标识符（列优先，列越界取行内
     首个标识符）。返回 None = 该处没有可用符号。"""
     try:
-        with open(fp, "r", encoding="utf-8", errors="replace") as f:
+        with open(fp, encoding="utf-8", errors="replace") as f:
             lines = f.read().split("\n")
     except OSError:
         return None
@@ -142,8 +141,8 @@ def _call_impact(real, sym, def_line):
     （同名函数调用边会合并——note 里如实写）。不可用（exe 缺失/报错）→ None。
     """
     try:
-        from tools.scan import _rx_scan_exe
         from tools.ide_callgraph import _rx_callgraph
+        from tools.scan import _rx_scan_exe
         if _rx_scan_exe() is None:
             return None
     except Exception:

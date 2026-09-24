@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """S88 回归：scan/search/game/ops 读取面沙盒钳制（S73 纪律补全）+ junction 逃逸回归。
 
 S88 三路排查（Mimosa 副本深扫 + attack 域五件套 + 人工精读）实锤：scan 域
@@ -16,11 +15,11 @@ import pytest
 
 from registry import call as rx_call
 from tools import astscan as astscan_tools
+from tools import game as game_tools
 from tools import guard as guard_tools
+from tools import ops as ops_tools
 from tools import scan as scan_tools
 from tools import search as search_tools
-from tools import game as game_tools
-from tools import ops as ops_tools
 
 # conftest 沙盒 = 仓库根 + %TEMP%\unified-rx-pytest；C:\Windows 恒在沙盒外
 OUTSIDE = r"C:\Windows"

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/gpu.py —— GPU 计算运行时与选路（S114；S130 拆分：kernel 就近迁移）。
 
 S130 拆分（CONSOLIDATION §三 P1 gpu）：本文件收敛为**运行时**——OpenCL 加载/

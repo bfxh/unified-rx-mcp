@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/attack.py —— 攻击域（S7 默认化）：把"主动攻击找缺陷"从一次性动作变成常驻工具面。
 
 设计依据（用户规则）：健康只是入场券——tests 全绿只覆盖已写用例；
@@ -16,6 +15,7 @@ import os
 
 import registry  # 显式导入：path_probe 依赖此处的 registry.call（不要用延迟属性）
 from registry import tool
+
 from . import fs as fs_tools  # 复用沙盒解析
 
 # 各语言可扫描扩展名（复用 scan 域映射思路，保持独立防循环依赖）
@@ -24,7 +24,7 @@ _CODE_EXTS = {".py", ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".gd",
               ".java", ".kt", ".php", ".rb", ".swift"}
 
 # Windows 保留设备名（CON/NUL/...）与非法字符集
-_WIN_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {f"{c}{i}" for c in "COM LPT".split() for i in range(1, 10)}
+_WIN_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {f"{c}{i}" for c in ["COM", "LPT"] for i in range(1, 10)}
 _WIN_BAD_CHARS = set('<>:"|?*')
 
 
@@ -48,7 +48,8 @@ def input_fuzz(tool_name, base_args, fuzz_field):
     - 必须 ok:False 或 result 正常 → PASS
     - 进程崩溃不可能出现（registry 隔离），但噪音结果（如 total>0 的空查询）= FAIL
     """
-    from registry import call as rx_call, _TOOLS
+    from registry import _TOOLS
+    from registry import call as rx_call
     if tool_name not in _TOOLS:
         return {"error": f"未知工具: {tool_name}"}
     payloads = [
@@ -126,7 +127,8 @@ def path_probe():
        },
        "required": ["tool_name", "base_args", "fuzz_field"]})
 def big_input(tool_name, base_args, fuzz_field):
-    from registry import call as rx_call, _TOOLS
+    from registry import _TOOLS
+    from registry import call as rx_call
     if tool_name not in _TOOLS:
         return {"error": f"未知工具: {tool_name}"}
     huge = "vehicle " * 120000          # ~1MB
@@ -253,7 +255,8 @@ def auth_gate_sweep():
     漏拒绝用 registry.call(name, {}) 端到端验证——授权检查先于 handler 执行，
     零副作用；manifest"高权限"段（S75 动态生成）与实际挂门清单必须一致。
     """
-    from registry import call as rx_call, _TOOLS, list_tools
+    from registry import _TOOLS, list_tools
+    from registry import call as rx_call
     declared = {}
     for t in list_tools():
         schema = t["inputSchema"]

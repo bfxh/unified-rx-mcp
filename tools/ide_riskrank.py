@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tools/ide_riskrank.py —— ide_risk_rank 风险榜（S129，CONSOLIDATION §四 P1-A）。
 
 把 SCAN-POLICY「上帝对象拆分大于测试」变成**自动排序**：高扇入 × 无测试的
@@ -22,11 +21,11 @@ import os
 import time
 
 from registry import tool
-from tools.fs import _resolve as _fs_resolve
-from tools.scan import _rx_scan_exe
-from tools.ide_callgraph import _rx_callgraph
-from tools.filewalk import SCAN_WALK_SKIP, iter_files
 from tools.code_review import test_candidates
+from tools.filewalk import SCAN_WALK_SKIP, iter_files
+from tools.fs import _resolve as _fs_resolve
+from tools.ide_callgraph import _rx_callgraph
+from tools.scan import _rx_scan_exe
 
 # 测试文件判定（默认不计入榜单——它们不是拆分对象）
 _RISK_EXTRA_SKIP = ("venv", ".venv", ".pytest_cache")
@@ -58,7 +57,7 @@ def _has_test(root, rel, repo_files):
     stem = os.path.splitext(os.path.basename(rel))[0]
     if ext == ".rs":
         try:
-            with open(full, "r", encoding="utf-8", errors="replace") as f:
+            with open(full, encoding="utf-8", errors="replace") as f:
                 return "#[cfg(test)]" in f.read()
         except OSError:
             return None

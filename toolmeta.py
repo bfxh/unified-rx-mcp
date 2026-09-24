@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """工具面向宿主的展示元数据（S143，兑现 EXTERNAL-ALIGNMENT A1）。
 
 `annotations.title`：MCP 规范 2025-03-26（我们钉的版本）起的 Tool.annotations
