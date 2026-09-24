@@ -594,8 +594,13 @@
   "max_fn_lines": 68,
   "max_type_members": 0
  },
+ "scripts/lint_gate.py": {
+  "file_lines": 153,
+  "max_fn_lines": 41,
+  "max_type_members": 0
+ },
  "scripts/local_gate.py": {
-  "file_lines": 155,
+  "file_lines": 157,
   "max_fn_lines": 56,
   "max_type_members": 0
  },
@@ -945,8 +950,8 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 148,
-  "max_fn_lines": 18,
+  "file_lines": 172,
+  "max_fn_lines": 19,
   "max_type_members": 0
  },
  "tests/test_s148_sys.py": {

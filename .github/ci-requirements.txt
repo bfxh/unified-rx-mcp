@@ -3,3 +3,4 @@ python-lsp-server
 jedi
 pycodestyle
 pyflakes
+ruff==0.16.2

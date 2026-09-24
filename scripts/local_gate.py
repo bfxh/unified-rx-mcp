@@ -62,6 +62,8 @@ STEPS = [
      "上帝对象（文件/函数/类型规模棘轮：只准减；可移植到别的仓）"),
     ("dupe-gate",   [PY, "-X", "utf8", "scripts/dupe_gate.py"], "fast",
      "重复代码（同类代码新增即红；复用 rx-scan sketch 指纹）"),
+    ("lint-gate",   [PY, "-X", "utf8", "scripts/lint_gate.py"], "fast",
+     "Python 静态门（ruff 逐规则棘轮：只准减；规则集在 ruff.toml）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),
     ("stress",      [PY, "-X", "utf8", "bench/stress_run.py", "--tier", "full"], "full",
      "高压语料（错误形状/成功形状/路由/溢出；并发档需独占锁，单独跑）"),

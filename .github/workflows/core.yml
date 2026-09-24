@@ -152,6 +152,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r .github/ci-requirements.txt
 
+      # S171：Python 静态门（ruff）。规则集明示在仓内 ruff.toml；逐规则棘轮（只准减），
+      # ruff 版本钉在 .github/ci-requirements.txt（工具缺失 → 门 FAIL，不静默降级）。
+      # **必须排在上面那条安装步之后**——本 job 前半段步骤不装 pytest 系依赖，ruff 也没有。
+      - name: Lint gate（Python 静态分析——逐规则棘轮，只准减）
+        run: python -X utf8 scripts/lint_gate.py
+
       - name: Bench dry-run gates (语料/双臂配置契约)
         run: |
           python -X utf8 bench/replay_ab.py --dry-run

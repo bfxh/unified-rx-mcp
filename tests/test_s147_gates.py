@@ -9,8 +9,11 @@
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
+
+import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
@@ -106,6 +109,27 @@ def test_dupe_gate_catches_new_duplicates(tmp_path):
     cp = _py("dupe_gate.py", "--root", str(tmp_path))
     assert cp.returncode == 1, "重复文件没判红——假门\n" + cp.stdout
     assert "新增重复对" in cp.stdout, cp.stdout
+
+
+def test_lint_gate_catches_new_rule_hits(tmp_path):
+    """金丝雀（S171）：Python 静态门是**逐规则棘轮**——涨一条就红，且认得出是哪条规则。
+
+    自带临时根 + 自写 ruff.toml（不受仓内/机器级配置影响）；先记基线（记着那条 F821），
+    再加一处同样的违规 ⇒ 必须 exit 1 且打印规则号。**顺序反了会假绿**，所以锁进测试。
+    """
+    if not (shutil.which("ruff") or shutil.which("ruff.exe")):
+        pytest.skip("本机没有 ruff：门会 FAIL（不静默），但这条金丝雀无法验证")
+    (tmp_path / "ruff.toml").write_text(
+        'target-version = "py310"\n[lint]\nselect = ["F"]\n', encoding="utf-8")
+    (tmp_path / "a.py").write_text("def f():\n    return undefined_name\n",
+                                   encoding="utf-8")
+    cp0 = _py("lint_gate.py", "--root", str(tmp_path), "--write-baseline")
+    assert cp0.returncode == 0, cp0.stdout + cp0.stderr
+    (tmp_path / "b.py").write_text("def g():\n    return other_missing\n",
+                                   encoding="utf-8")
+    cp = _py("lint_gate.py", "--root", str(tmp_path))
+    assert cp.returncode == 1, "新增 F821 没判红——静态门是假门\n" + cp.stdout
+    assert "F821" in cp.stdout, cp.stdout
 
 
 def test_god_gate_fn_hard_threshold_is_a_real_gate(tmp_path):
