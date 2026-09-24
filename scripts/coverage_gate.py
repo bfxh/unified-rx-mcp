@@ -44,11 +44,30 @@ def measure() -> float:
     try:
         data = json.loads(p.stdout)
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"llvm-cov 输出不是 JSON（{e}）") from e
-    lp = (data.get("totals") or {}).get("line_percent")
-    if not isinstance(lp, (int, float)):
-        raise RuntimeError("llvm-cov 输出缺 totals.line_percent")
+        raise RuntimeError(f"llvm-cov 输出不是 JSON（{e}）：{p.stdout[:200]}") from e
+    lp = _extract_line_percent(data)
+    if lp is None:
+        raise RuntimeError(f"llvm-cov 输出缺行覆盖率字段（形状见下）：{p.stdout[:200]}")
     return float(lp)
+
+
+def _extract_line_percent(data):
+    """兼容两种输出形状：① llvm-cov export（`data[0].totals.lines.percent`，CI 实测）；
+    ② 扁平 `totals.line_percent`。找不到返回 None。"""
+    totals = data.get("totals") if isinstance(data, dict) else None
+    if isinstance(totals, dict):
+        lp = totals.get("line_percent")
+        if isinstance(lp, (int, float)):
+            return lp
+        lines = totals.get("lines")
+        if isinstance(lines, dict) and isinstance(lines.get("percent"), (int, float)):
+            return lines["percent"]
+    for chunk in (data.get("data") or []) if isinstance(data, dict) else []:
+        t = chunk.get("totals") or {}
+        lines = t.get("lines") or {}
+        if isinstance(lines.get("percent"), (int, float)):
+            return lines["percent"]
+    return None
 
 
 def load_baseline() -> float | None:
