@@ -29,12 +29,18 @@ extend-exclude = [
 [lint]
 select = [
   "F", "E4", "E7", "E9",
-  "B", "C4", "DTZ", "FURB", "I", "PERF", "PIE", "RET", "RUF", "SIM", "UP",
+  "B", "BLE", "C4", "C901", "DTZ", "FURB", "I", "PERF", "PIE", "RET", "RUF", "SIM", "UP",
 ]
 ignore = [
   "RUF001", "RUF002", "RUF003",   # 中文注释/字符串不是"歧义 Unicode"
   "UP031",                        # %-格式化：CLI 输出沿用 printf 口径，动了要重签金样
 ]
-# 代码里 `# noqa: X` 点了名、但**故意不入门**的规则：登记为"外部规则"，
+# S171 第二批补入（先量后改）：
+# · **BLE（blind-except）**：裸 `except Exception` —— 入册前 68 处（另有 ~26 处已在代码里
+#   显式 `# noqa: BLE001 说明`，本仓风格就是"宽捕获必须写理由"）。入册后那些 noqa 变成
+#   **有效指令**（RUF100 随之下降），存量 68 处进基线棘轮 ⇒ 新增裸捕获会被拦。
+# · **C901（complex-structure，mccabe 默认 max-complexity=10）**：复杂度是**另一维**
+#   （god 门只管函数长度）；入册时 61 处，同样进棘轮。
+# 代码里 `# noqa: X` 点了名、但**故意不入门**的规则仍登记为"外部规则"，
 # 否则 RUF100 把它们当"未用 noqa"，一修就把人工说明（"为什么这里必须这样写"）删掉。
-external = ["BLE001", "PLC0415", "E501"]
+external = ["PLC0415", "E501"]
