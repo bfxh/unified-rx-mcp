@@ -4,6 +4,10 @@
 但此前只有人读、没有门。本脚本解析 Cargo.toml 的依赖段，出现任何条目即红
 （[dev-dependencies] / [build-dependencies] 同拦——保持零第三方）。
 
+**想新引依赖或外接组件的，先过 `spec/LIBRARY-POLICY.md`**：三问（理念契合 / 版本前沿 /
+token 账）+ **第 4 问「90 天维护线」**（上游最后提交 >90 天且无维护者回应 ⇒ 只吸收其
+思路/算法/判据，不引依赖）+ §二 的"能力探测薄壳"合法形态。
+
 用法：python -X utf8 scripts/deps_lock.py
 """
 import sys
