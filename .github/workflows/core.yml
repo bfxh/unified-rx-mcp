@@ -166,6 +166,18 @@ jobs:
       - name: Typos gate（拼写——零容忍）
         run: python -X utf8 scripts/typos_gate.py
 
+      # S172：凭据泄漏门·业界规则库（gitleaks 8.30.1，钉版下载）——补自家 secrets 门的
+      # 通用熵/提供商规则面；夹具豁免在 .gitleaks.toml（每条写理由）。本地优先：
+      # 本机走 /c/vxl-wl-tools 同版二进制。
+      - name: Install gitleaks 8.30.1（钉版）
+        shell: pwsh
+        run: |
+          curl.exe -sL -o ${{ runner.temp }}/gl.zip https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_windows_x64.zip
+          Expand-Archive ${{ runner.temp }}/gl.zip -DestinationPath ${{ runner.temp }}/gl -Force
+          Add-Content $env:GITHUB_PATH ${{ runner.temp }}/gl
+      - name: Gitleaks gate（凭据泄漏——业界规则库，零容忍）
+        run: python -X utf8 scripts/gitleaks_gate.py
+
       # 以下两步原在 pytest job（会随矩阵+分片跑 4 遍）；它们是契约/评测基线，挪进本 job 跑一次。
       # S163 实锤：tool-evals 的 edit_and_test 任务是"改测试由红转绿"，**要用 pytest 跑测试**——
       # 该依赖原由 pytest job 的 LSP 安装步提供，挪步时漏了 ⇒ 首跑 CI 红（err=1 REGRESS）。
@@ -355,3 +367,18 @@ jobs:
           Write-Host "已拷 $((Get-ChildItem $dst\*.exe).Count) 个 exe → $dst"
       - name: Stress corpus run（full 档：错误形状/成功形状/路由/溢出）
         run: python -X utf8 bench/stress_run.py --tier full
+
+  # ── 跨平台适配第一腿（S173，用户：不同系统/不同版本的适配）：
+  # Rust 侧跨平台是干净的（零依赖 + std），linux 腿验证"没有意外依赖 Windows 特性"。
+  # Python 侧的跨平台腿后续加（tests 里有 Windows 路径假设，要先梳理）。
+  cross-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # 凭据不落盘
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名
+      - name: cargo test（linux）
+        run: cargo test --manifest-path rust/Cargo.toml
+      - name: cargo build --release（linux 产物可构建）
+        run: cargo build --release --manifest-path rust/Cargo.toml

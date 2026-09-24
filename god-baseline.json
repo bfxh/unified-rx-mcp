@@ -589,6 +589,11 @@
   "max_fn_lines": 55,
   "max_type_members": 0
  },
+ "scripts/gitleaks_gate.py": {
+  "file_lines": 85,
+  "max_fn_lines": 45,
+  "max_type_members": 0
+ },
  "scripts/god_diff.py": {
   "file_lines": 62,
   "max_fn_lines": 30,
@@ -605,7 +610,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 172,
+  "file_lines": 174,
   "max_fn_lines": 67,
   "max_type_members": 0
  },
@@ -980,7 +985,7 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 211,
+  "file_lines": 231,
   "max_fn_lines": 19,
   "max_type_members": 0
  },

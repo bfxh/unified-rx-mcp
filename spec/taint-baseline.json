@@ -50,6 +50,24 @@
    "why": "S172 覆盖率门：以**固定 argv** 调 `cargo llvm-cov --json --summary-only`（shell=False，无字符串拼接；工具链可经 UNIFIED_RX_COV_TOOLCHAIN 显式指定，仍操作者本地信任面）。与 lint_gate/type_gate/perf_gate 同族（S172 人工确认）"
   },
   {
+   "file": "scripts/gitleaks_gate.py",
+   "sink": ".read_text",
+   "count": 1,
+   "why": "S172 凭据泄漏门：① subprocess.run 以固定 argv 调 gitleaks（shell=False，钉版 8.30.1）；② read_text 读**自己写到 TEMP 的 JSON 报告**（仓外路径）；③ unlink 删同一份临时报告。与 lint/type/typos 各门同族（S172 人工确认）"
+  },
+  {
+   "file": "scripts/gitleaks_gate.py",
+   "sink": ".unlink",
+   "count": 1,
+   "why": "S172 凭据泄漏门：① subprocess.run 以固定 argv 调 gitleaks（shell=False，钉版 8.30.1）；② read_text 读**自己写到 TEMP 的 JSON 报告**（仓外路径）；③ unlink 删同一份临时报告。与 lint/type/typos 各门同族（S172 人工确认）"
+  },
+  {
+   "file": "scripts/gitleaks_gate.py",
+   "sink": "subprocess.run",
+   "count": 2,
+   "why": "S172 凭据泄漏门：① subprocess.run 以固定 argv 调 gitleaks（shell=False，钉版 8.30.1）；② read_text 读**自己写到 TEMP 的 JSON 报告**（仓外路径）；③ unlink 删同一份临时报告。与 lint/type/typos 各门同族（S172 人工确认）"
+  },
+  {
    "file": "scripts/local_gate.py",
    "sink": ".write_text",
    "count": 1,

@@ -66,6 +66,8 @@ STEPS = [
      "Python 类型门（mypy 默认档零容忍：产品面 0 error）"),
     ("typos-gate",  [PY, "-X", "utf8", "scripts/typos_gate.py"], "fast",
      "拼写门（typos 零容忍；豁免/排除见 _typos.toml）"),
+    ("gitleaks-gate", [PY, "-X", "utf8", "scripts/gitleaks_gate.py"], "fast",
+     "凭据泄漏门（gitleaks 业界规则库，零容忍；豁免见 .gitleaks.toml）"),
     ("coverage-gate", [PY, "-X", "utf8", "scripts/coverage_gate.py"], "coverage",
      "Rust 覆盖率棘轮（llvm-cov 只准升；本机测不了——见 UNIFIED_RX_COVERAGE_GATES=1）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),

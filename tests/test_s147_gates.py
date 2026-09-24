@@ -150,6 +150,26 @@ def test_typos_gate_catches_misspelling(tmp_path):
     assert cp2.returncode == 0, cp2.stdout + cp2.stderr
 
 
+def test_gitleaks_gate_catches_planted_key(tmp_path):
+    """金丝雀（S172）：凭据泄漏门是**真门**——植入一个假"live"形状 key 必须判红，删掉回绿。
+
+    （真门验收在临时根做：仓内自身由 .gitleaks.toml 豁免夹具，恒绿是设计内。）
+    """
+    if not (shutil.which("gitleaks") or os.path.isfile(r"C:\vxl-wl-tools\gitleaks.exe")):
+        pytest.skip("本机没有 gitleaks：门会 FAIL（不静默），但这条金丝雀无法验证")
+    # 碎片拼接双保险：变量名与值都在运行时成形——本测试文件在自家门与 Mimosa 的扫描面里，
+    # 任何"凭据赋值"的静态形状都会被拦/被扫（S172 又验一次夹具纪律）。
+    name = "API_" + "KEY"
+    val = "AKIA" + "X7YQ2VZ9WB3CD1EF"      # gitleaks aws 规则：确定性形状匹配（非熵规则）
+    bad = tmp_path / "fake.py"
+    bad.write_text(f'{name} = "{val}"\n', encoding="utf-8")
+    cp = _py("gitleaks_gate.py", "--root", str(tmp_path))
+    assert cp.returncode == 1, "植入 key 没判红——假门\n" + cp.stdout
+    bad.write_text(f'{name} = "not-a-secret"\n', encoding="utf-8")
+    cp2 = _py("gitleaks_gate.py", "--root", str(tmp_path))
+    assert cp2.returncode == 0, cp2.stdout + cp2.stderr
+
+
 def test_lint_gate_catches_new_rule_hits(tmp_path):
     """金丝雀（S171）：Python 静态门是**逐规则棘轮**——涨一条就红，且认得出是哪条规则。
 

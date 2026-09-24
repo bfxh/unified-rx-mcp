@@ -1,0 +1,22 @@
+# .gitleaks.toml —— gitleaks 配置（S172；scripts/gitleaks_gate.py 消费）。
+# 原则与自家 secrets 门（scripts/secrets_history / tests 夹具豁免）同款：
+# **默认规则全开（useDefault），只豁免"夹具植入的假凭据"与编译产物，每条写理由**。
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "测试夹具的假凭据 / 编译产物 / 审计文档引用样本（都不是真泄漏）"
+paths = [
+  '''tests[/\\]__pycache__''',                      # .pyc：源码夹具常量的编译产物
+  '''tests[/\\]test_appaudit\.py''',                # 夹具：SK/GH/AWS 假密钥（断言检测用）
+  '''tests[/\\]test_s44_review\.py''',              # 夹具：同上
+  '''docs[/\\]AUDIT-.*\.md''',                      # 审计报告引用的检测样本（记录即内容）
+  '''tests[/\\]test_rxide\.py''',                   # 历史夹具（占位符 sk-1234567890；文件已删）
+  '''tests[/\\]test_unified_rx\.py''',              # 历史夹具（假 token；文件已删）
+  '''rxide[/\\]''',                                 # 已移除的 vendor 前端（monaco 压缩码误报）
+]
+regexes = [
+  '''sk-1234567890''',                              # 全仓占位符（无真实 key 形状）
+  '''ghpX_1234567890''',                            # 同上
+]
