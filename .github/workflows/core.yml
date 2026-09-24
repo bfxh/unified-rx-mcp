@@ -373,6 +373,11 @@ jobs:
   # Python 侧的跨平台腿后续加（tests 里有 Windows 路径假设，要先梳理）。
   cross-linux:
     runs-on: ubuntu-latest
+    # 实测首跑（S173）：ubuntu runner 的 LD_LIBRARY_PATH 带空条目 ⇒ rustup 代理
+    # "failed to join paths from $LD_LIBRARY_PATH together"（rc=101）——清空即过。
+    # 这正是跨平台腿的价值：环境差异只有真跑了才看得见。
+    env:
+      LD_LIBRARY_PATH: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
