@@ -54,5 +54,11 @@ pub mod server;
 pub mod sha256;
 pub mod sketch;
 pub mod xorscan;
+// S173：sysinfo 是 Windows 专属域（advapi32/kernel32/user32 FFI——跨平台腿实锤 linux
+// 链接失败）；非 Windows 用同签名占位模块，运行时如实报 unsupported（能力探测哲学）。
+#[cfg(windows)]
+pub mod sysinfo;
+#[cfg(not(windows))]
+#[path = "sysinfo_stub.rs"]
 pub mod sysinfo;
 pub mod taint;

@@ -178,7 +178,12 @@ def main(argv):
     if not rows:
         sys.exit("PERF-GATE SKIP: 没有任何 exe 可测（先 cargo build --release）")
     cores = os.cpu_count() or 1
-    print(f"PERF-GATE 语料={n} 文件 逻辑核={cores}（各例判据上限见行尾）")
+    # S173：CI runner 的边界档抖动（实测 0.958/0.964 贴着 0.95 假红——共享 runner 的
+    # CPU 竞争落在"并行确实更快、但快不到 5%"的噪声带）。GITHUB_ACTIONS 下给判据
+    # 加 0.03 裕量：拦的是真回归（并行显著慢于串行），不拦 runner 噪声；本地判据不变。
+    ci_slack = 0.03 if os.environ.get("GITHUB_ACTIONS") == "1" else 0.0
+    print(f"PERF-GATE 语料={n} 文件 逻辑核={cores}（各例判据上限见行尾）"
+          + ("；CI 裕量 +0.03" if ci_slack else ""))
     # 核数自适应（S160）：≤2 核的 runner 上并行收益有限 → 只要求"不慢于串行"，
     # 不苛求加速比（否则 CI 小机器上假红）
     if cores >= 8:
@@ -201,7 +206,7 @@ def main(argv):
             flag = " RC!"
         elif r["too_small"]:
             flag = f" SIZE-SKIP(工作量<{MIN_WORK_MS:.0f}ms，不判)"
-        elif lim and r["ratio"] > lim:
+        elif lim and r["ratio"] > lim + ci_slack:
             bad.append(f"{r['label']}: 并行/串行={r['ratio']} > {lim}"
                        f"（{'并行未生效？' if not small_machine else '比串行还慢'}）")
             flag = " SLOW!"

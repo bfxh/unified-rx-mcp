@@ -310,7 +310,7 @@
   "max_type_members": 5
  },
  "rust/src/lib.rs": {
-  "file_lines": 59,
+  "file_lines": 65,
   "max_fn_lines": 0,
   "max_type_members": 0
  },
@@ -433,6 +433,11 @@
   "file_lines": 982,
   "max_fn_lines": 104,
   "max_type_members": 10
+ },
+ "rust/src/sysinfo_stub.rs": {
+  "file_lines": 59,
+  "max_fn_lines": 8,
+  "max_type_members": 6
  },
  "rust/src/taint.rs": {
   "file_lines": 259,
@@ -630,8 +635,8 @@
   "max_type_members": 0
  },
  "scripts/perf_gate.py": {
-  "file_lines": 229,
-  "max_fn_lines": 47,
+  "file_lines": 234,
+  "max_fn_lines": 52,
   "max_type_members": 0
  },
  "scripts/plugin_cost.py": {
