@@ -395,7 +395,7 @@
   "max_type_members": 3
  },
  "rust/src/scan.rs": {
-  "file_lines": 942,
+  "file_lines": 945,
   "max_fn_lines": 93,
   "max_type_members": 3
  },

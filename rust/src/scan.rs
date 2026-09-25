@@ -133,10 +133,13 @@ fn walk_dir(dir: &Path, st: &mut Walk) {
     }
 }
 
+// S173：分隔符平台化（与 astscan::sep 同款）——linux 上 `\` 是合法文件名字符，
+// 硬编码拼接会让 read 全落空（cross-linux 实锤 6 场景）。
 pub(crate) fn join_name(dir: &Path, name: &str) -> String {
+    let c = if cfg!(windows) { '\\' } else { '/' };
     let mut s = dir.to_string_lossy().into_owned();
     if !s.ends_with('\\') && !s.ends_with('/') {
-        s.push('\\');
+        s.push(c);
     }
     s.push_str(name);
     s
