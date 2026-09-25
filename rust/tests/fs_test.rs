@@ -92,6 +92,7 @@ fn whitelist_allows_inside_denies_outside() {
 }
 
 #[test]
+#[cfg(windows)] // S173：穿越串用反斜杠（Windows 语义；linux 上 ..\ 是合法文件名）
 fn traversal_escape_denied() {
     let t = TempDir::new("trav");
     let outside = TempDir::new("trav-out");
@@ -192,6 +193,7 @@ fn read_dir_and_missing_give_not_a_file() {
 // ---------- fs_list 行为 ----------
 
 #[test]
+#[cfg(windows)] // S173：测试树用反斜杠相对路径（Windows 口径）
 fn list_sorted_with_depth_clamp() {
     let t = TempDir::new("list");
     write_rel(t.path(), "b\\sub\\3.txt", "3");

@@ -385,8 +385,8 @@ jobs:
     #    crlf_python_lines_preserved / js_masking_calls_and_templates /
     #    secret_literal_masked_shape / dir_quota_caps_and_single_file_bypasses
     #    （linux 上掩码/规则产出为空——需在 linux 环境复现后修，别盲改）。
-    #    拆完即去掉 continue-on-error，此腿转正式门。
-    continue-on-error: true
+    #    ①②③ 均已修（sysinfo cfg 门控 / target-dir env 覆盖 / 路径分隔符平台化），
+    #    linux 测试全绿 ⇒ 撤 continue-on-error，此腿转**正式阻塞门**（S173 完成）。
     # ⭐ 必须覆盖 target-dir：仓库根 .cargo/config.toml 的 [build] target-dir 是**本机
     # 绝对路径**（S78 中文路径 workaround，注释写明 CI 靠 env 覆盖）——linux 上 rustup
     # 拿它拼 LD_LIBRARY_PATH ⇒ "path segment contains separator `:`"（两跑实锤：清空/

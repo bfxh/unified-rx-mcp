@@ -500,7 +500,7 @@
   "max_type_members": 2
  },
  "rust/tests/fs_test.rs": {
-  "file_lines": 365,
+  "file_lines": 367,
   "max_fn_lines": 41,
   "max_type_members": 2
  },
