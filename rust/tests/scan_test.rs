@@ -217,7 +217,9 @@ fn loc_traceback_and_context_window() {
     let hits = get_arr(&out, "hits");
     assert_eq!(hits.len(), 1);
     let h = &hits[0];
-    assert!(get_str(h, "file").ends_with("src\\app.py"));
+    // file 字段=解析后真实路径：Windows 报反斜杠原文，linux 报 `/` 形态（S173 平台化）
+    let want_tail = if cfg!(windows) { "src\\app.py" } else { "src/app.py" };
+    assert!(get_str(h, "file").ends_with(want_tail));
     assert_eq!(get_i128(h, "line"), 5);
     assert_eq!(get_str(h, "how"), "traceback 精确");
     // _line_ctx(radius=2)：2 前行 + 命中行 + 2 后行

@@ -652,6 +652,17 @@ const FILE_EXTS: [&str; 13] = [
 
 const SYMBOL_KWS: [&str; 5] = ["NameError", "AttributeError", "KeyError", "ImportError", "Error"];
 
+/// S173：候选→walked 路径的 endswith 匹配，**分隔符归一**——Windows 机器的
+/// traceback（`src\app.py`）在 linux 上也要能定位到 `src/app.py`（跨平台腿实锤场景）。
+/// Windows 保持原样（逐字节口径不变）。
+fn ends_with_path(fp: &str, candidate: &str) -> bool {
+    if cfg!(windows) {
+        fp.ends_with(candidate)
+    } else {
+        fp.replace('\\', "/").ends_with(&candidate.replace('\\', "/"))
+    }
+}
+
 pub fn bug_locate(root: &str, error_text: &str) -> Value {
     if !Path::new(root).is_dir() {
         return err_obj(&format!("root 不是目录: {}", root));
@@ -681,7 +692,7 @@ pub fn bug_locate(root: &str, error_text: &str) -> Value {
             // 候选名由标识符字符组成（无分隔符）→ 恒非绝对路径，直接 endswith 搜
             let mut fpath: Option<String> = None;
             for fp in &files {
-                if fp.ends_with(&c) {
+                if ends_with_path(fp, &c) {
                     fpath = Some(fp.clone());
                     break;
                 }
