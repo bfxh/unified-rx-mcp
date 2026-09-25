@@ -631,6 +631,11 @@ fn ide_walk(dir: &Path, st: &mut IdeWalk) {
             files.push(name);
         }
     }
+    // S173：每层枚举**排序**（与 astscan::walk_dir 的 by_upcase 同款）——
+    // 枚举序是文件系统相关的（NTFS 碰巧名序 / linux readdir 任意序），而 quota
+    // 截断在走两层时生效 ⇒ 不排序则"前 N 个"吃任意子集（s93_rename_cap_200 实锤）。
+    files.sort();
+    dirs.sort_by(|a, b| a.1.cmp(&b.1));
     for name in &files {
         ide_push_file(dir, name, st);
     }

@@ -300,7 +300,7 @@
   "max_type_members": 0
  },
  "rust/src/ide.rs": {
-  "file_lines": 821,
+  "file_lines": 826,
   "max_fn_lines": 73,
   "max_type_members": 3
  },
