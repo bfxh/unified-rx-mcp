@@ -34,6 +34,8 @@ for h in res["hits"]:
     rel = str(h["file"]).replace("\\", "/")
     if rel == "tests" or rel.startswith("tests/") or "/tests/" in rel:
         continue
+    if ".urx-hist" in rel:   # secrets-history 门的临时 diff dump（纯临时态，含金丝雀假密钥）
+        continue
     if h["severity"] in ("critical", "high"):
         bad.append(h)
 

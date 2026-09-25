@@ -102,7 +102,7 @@ def main() -> int:
     # P5 工作树里指向仓库外的软链接
     real_root = os.path.realpath(ROOT)
     for dirpath, dirnames, filenames in os.walk(ROOT):
-        dirnames[:] = [d for d in dirnames if d != ".git"]
+        dirnames[:] = [d for d in dirnames if d != ".git" and not d.startswith(".urx-hist")]
         for name in filenames + dirnames:
             q = os.path.join(dirpath, name)
             if os.path.islink(q):

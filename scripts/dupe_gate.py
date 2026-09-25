@@ -46,7 +46,7 @@ def _exe():
 def collect(root: pathlib.Path):
     out = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
+        dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS and not d.startswith(".urx-hist")]
         for fn in filenames:
             if not fn.endswith(EXTS):
                 continue

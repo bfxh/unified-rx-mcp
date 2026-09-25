@@ -580,7 +580,7 @@
   "max_type_members": 0
  },
  "scripts/ci_secrets_gate.py": {
-  "file_lines": 48,
+  "file_lines": 50,
   "max_fn_lines": 0,
   "max_type_members": 0
  },

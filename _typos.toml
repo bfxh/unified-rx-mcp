@@ -6,6 +6,7 @@ extend-exclude = [
   "bench/results",             # 跑批产物（SWE 语料里的 np.arange 等是代码原文）
   "bench/manual_snaps",        # 合成语料（故意写坏）
   "bench/manual_review_pack.txt",  # 生成的评审包
+  ".urx-hist*",                # secrets-history 门的临时 diff dump（纯临时态）
 ]
 
 [default.extend-words]
