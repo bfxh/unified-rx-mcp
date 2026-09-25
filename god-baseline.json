@@ -1280,8 +1280,8 @@
   "max_type_members": 2
  },
  "tests/test_v2.py": {
-  "file_lines": 410,
-  "max_fn_lines": 19,
+  "file_lines": 418,
+  "max_fn_lines": 23,
   "max_type_members": 0
  },
  "tests/test_vuln_hunt.py": {

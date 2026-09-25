@@ -310,19 +310,27 @@ def test_small_results_untouched():
 
 
 # ── S3-B2/B3：logging 通知 + 取消登记 ───────────────
-def test_registry_notifier_hook():
-    """notify() 走注入出口；未注入时静默不抛。"""
+def test_registry_notifier_hook(tmp_path):
+    """notify() 走注入出口；未注入时静默不抛。
+
+    S173 更新：本仓已建 .codegraph 索引（engine_query 走语义引擎、不降级）⇒
+    降级场景改用**无索引的临时根**触发——契约不变：降级时必须发 BM25 通知。
+    """
     import registry as reg
     got = []
     reg.set_notifier(lambda level, msg: got.append((level, msg)))
     try:
         from tools.engine import engine_query  # noqa: F401  # 触发注册
+        # 无 .codegraph 索引的临时根 ⇒ 必走 BM25 降级（并 notify）
+        noidx = tmp_path / "noidx"
+        noidx.mkdir()
+        (noidx / "a.py").write_text("x = 1\n", encoding="utf-8")
         registry.call("engine_query", {"query": "sandbox roots",
-                                       "root": os.path.dirname(os.path.dirname(os.path.abspath(__file__)))})
+                                       "root": str(noidx)})
         assert any("BM25" in m for _, m in got), f"降级应发通知: {got}"
     finally:
         reg.set_notifier(None)
-    # 未注入：不应抛
+    # 未注入：不应抛（用已索引的仓根——走语义引擎，无降级也无通知，仅验证不抛）
     registry.call("engine_query", {"query": "sandbox roots",
                                    "root": os.path.dirname(os.path.dirname(os.path.abspath(__file__)))})
 
