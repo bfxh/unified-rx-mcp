@@ -60,6 +60,12 @@ STEPS = [
      "上帝对象（文件/函数/类型规模棘轮：只准减；可移植到别的仓）"),
     ("dupe-gate",   [PY, "-X", "utf8", "scripts/dupe_gate.py"], "fast",
      "重复代码（同类代码新增即红；复用 rx-scan sketch 指纹）"),
+    ("stdout-gate", [PY, "-X", "utf8", "scripts/stdout_gate.py"], "fast",
+     "stdout 协议面（MCP stdio 上的 print：手动跑正常、接真 client 才炸）"),
+    ("nest-gate",   [PY, "-X", "utf8", "scripts/nest_gate.py"], "fast",
+     "嵌套深度 >4 / >8（箭头代码；与 C901 复杂度互补）"),
+    ("args-gate",   [PY, "-X", "utf8", "scripts/args_gate.py"], "fast",
+     "函数形参 >7（ruff 有意不收 PLR0913，本门独立补上）"),
     ("lint-gate",   [PY, "-X", "utf8", "scripts/lint_gate.py"], "fast",
      "Python 静态门（ruff 逐规则棘轮：只准减；规则集在 ruff.toml）"),
     ("type-gate",   [PY, "-X", "utf8", "scripts/type_gate.py"], "fast",
@@ -73,6 +79,10 @@ STEPS = [
     ("coverage-gate", [PY, "-X", "utf8", "scripts/coverage_gate.py"], "coverage",
      "Rust 覆盖率棘轮（llvm-cov 只准升；本机测不了——见 UNIFIED_RX_COVERAGE_GATES=1）"),
     ("pytest",      [PY, "-m", "pytest", "tests/", "-q"], "full", "全量测试"),
+    # 归 full：逐门注入 ⇒ 每道门跑两遍（约 1–2 分钟），放进 pre-commit 会把每次提交拖慢；
+    # CI 的 core.yml 显式跑它，pre-push（全门）也会跑。
+    ("gate-probe",  [PY, "-X", "utf8", "scripts/gate_probe.py"], "full",
+     "门是真门（逐门注入最小违规，不红 = 空门）"),
     ("stress",      [PY, "-X", "utf8", "bench/stress_run.py", "--tier", "full"], "full",
      "高压语料（错误形状/成功形状/路由/溢出；并发档需独占锁，单独跑）"),
     ("cargo-test",  [CARGO, "test", "--manifest-path", "rust/Cargo.toml"], "full", "Rust 测试"),

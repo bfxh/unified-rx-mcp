@@ -15,6 +15,7 @@ paths = [
   '''tests[/\\]test_rxide\.py''',                   # 历史夹具（占位符 sk-1234567890；文件已删）
   '''tests[/\\]test_unified_rx\.py''',              # 历史夹具（假 token；文件已删）
   '''rxide[/\\]''',                                 # 已移除的 vendor 前端（monaco 压缩码误报）
+  '''\\.urx-hist[^/\\]*''',                        # secrets-history 门的临时 diff dump（含金丝雀假密钥，纯临时态）
 ]
 regexes = [
   '''sk-1234567890''',                              # 全仓占位符（无真实 key 形状）

@@ -24,6 +24,7 @@ extend-exclude = [
   "bench/results",        # 跑批结果
   "spec",
   "docs",
+  ".urx-hist*",           # secrets-history 门的临时 diff dump（纯临时态，不应被 lint）
 ]
 
 [lint]

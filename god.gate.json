@@ -16,7 +16,8 @@
     "**/node_modules/**",
     "**/target/**",
     "**/__pycache__/**",
-    "**/.git/**"
+    "**/.git/**",
+    "**/.urx-hist*/**"
   ],
   "baseline": "god-baseline.json"
 }

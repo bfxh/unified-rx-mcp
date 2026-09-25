@@ -24,7 +24,7 @@ import registry  # noqa: E402
 import tools  # noqa: E402,F401
 
 BASELINE = Path(ROOT) / "spec" / "taint-baseline.json"   # pathlib 字面量组件
-EXCLUDE_PREFIX = "bench/"
+EXCLUDE_PREFIX = ("bench/", ".urx-hist")  # .urx-hist = secrets-history 门的临时 diff dump（纯临时态）
 
 
 def norm(p):
@@ -42,7 +42,7 @@ def current_counts():
         if f.get("kind") != "definite":
             continue
         fp = norm(f["file"])
-        if fp.startswith(EXCLUDE_PREFIX):
+        if any(fp.startswith(p) for p in EXCLUDE_PREFIX):
             continue
         total_def += 1
         key = f"{fp}\t{f['sink']}"

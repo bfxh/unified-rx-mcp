@@ -14,5 +14,9 @@ __pycache__/
 
 tools/results/
 
+# unified-rx-mcp 自身的历史 diff 临时 dump（secrets-history 门生成，正常 finally 删；
+# Windows 上偶因文件被占用残留——纯临时态，不应进仓库也不应被门扫到）
+.urx-hist*/
+
 # Rust 构建产物
 rust/target/

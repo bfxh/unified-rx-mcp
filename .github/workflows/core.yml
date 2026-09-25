@@ -137,6 +137,28 @@ jobs:
       - name: Dupe gate（重复代码——新增即红）
         run: python -X utf8 scripts/dupe_gate.py
 
+      # MCP 走 JSON-RPC over stdio ⇒ stdout 就是协议通道。工具实现里一句 print 就会把非协议
+      # 字节写进这条流；手动跑永远正常（没人监听 stdout），只有接真 client 才炸 ⇒ 测试抓不到。
+      # 豁免 scripts/（命令行工具打印是本分）与 server.py 的 selftest 子命令（CLI 模式）。
+      - name: Stdout gate（协议面 print——棘轮只准减）
+        run: python -X utf8 scripts/stdout_gate.py
+
+      # 复杂度（ruff C901）数的是"分支多少"，这一门数"分支套几层"——同样 10 个分支，
+      # 平铺成卫语句与套五层，改一处要记住的上下文差一个量级。ruff 有意不收 PL 子集，
+      # god 门只管函数长度 ⇒ 这一维此前没人管。
+      - name: Nest gate（嵌套深度 >4 / >8——棘轮只准减）
+        run: python -X utf8 scripts/nest_gate.py
+
+      # 形参一多，相邻的同类型参数随时能被对调而编译器不吭声。ruff 有意不收 PLR0913，
+      # 这里用独立一门补上，按棘轮走、不进 ruff 规则集（免得和既有取舍打架）。
+      - name: Args gate（函数形参 >7——棘轮只准减）
+        run: python -X utf8 scripts/args_gate.py
+
+      # 门多了就会有失效的那几道，而失效的门不会让任何测试变红、CI 还挂着绿勾。
+      # 这道给每道门注入一次最小违规，它必须转红（静态自检查不出"门是不是空的"）。
+      - name: Gate probe（门是真门——逐门注入验证）
+        run: python -X utf8 scripts/gate_probe.py
+
       # 这两道原在 pytest job 里（随之在矩阵两腿各跑一遍）；它们是快档门 → 收进本 job。
       - name: Perf gate（S160：同机并行/串行比值——不依赖 runner 绝对速度）
         run: python -X utf8 scripts/perf_gate.py
