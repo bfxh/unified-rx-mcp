@@ -549,6 +549,11 @@
   "max_fn_lines": 44,
   "max_type_members": 0
  },
+ "scripts/args_gate.py": {
+  "file_lines": 55,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
  "scripts/attack_gate.py": {
   "file_lines": 32,
   "max_fn_lines": 0,
@@ -594,6 +599,16 @@
   "max_fn_lines": 55,
   "max_type_members": 0
  },
+ "scripts/gate_common.py": {
+  "file_lines": 124,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "scripts/gate_probe.py": {
+  "file_lines": 238,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
  "scripts/gitleaks_gate.py": {
   "file_lines": 85,
   "max_fn_lines": 45,
@@ -615,7 +630,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 176,
+  "file_lines": 186,
   "max_fn_lines": 67,
   "max_type_members": 0
  },
@@ -628,6 +643,11 @@
   "file_lines": 154,
   "max_fn_lines": 81,
   "max_type_members": 3
+ },
+ "scripts/nest_gate.py": {
+  "file_lines": 89,
+  "max_fn_lines": 25,
+  "max_type_members": 0
  },
  "scripts/path_gate.py": {
   "file_lines": 125,
@@ -652,6 +672,11 @@
  "scripts/secrets_history.py": {
   "file_lines": 188,
   "max_fn_lines": 53,
+  "max_type_members": 0
+ },
+ "scripts/stdout_gate.py": {
+  "file_lines": 68,
+  "max_fn_lines": 19,
   "max_type_members": 0
  },
  "scripts/taint_gate.py": {
@@ -990,7 +1015,7 @@
   "max_type_members": 0
  },
  "tests/test_s145_gates.py": {
-  "file_lines": 116,
+  "file_lines": 117,
   "max_fn_lines": 15,
   "max_type_members": 0
  },
