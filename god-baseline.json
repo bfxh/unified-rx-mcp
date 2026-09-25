@@ -995,8 +995,8 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 260,
-  "max_fn_lines": 27,
+  "file_lines": 262,
+  "max_fn_lines": 29,
   "max_type_members": 0
  },
  "tests/test_s148_sys.py": {

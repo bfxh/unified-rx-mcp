@@ -183,6 +183,7 @@ def test_quality_pact_gate_perf_needs_evidence(tmp_path):
                        check=True)
 
     _git("init", "-q")
+    # CI 的 push checkout 是 detached HEAD ⇒ --amend 会 128（实测）——全用顺序提交
     _git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty",
          "-q", "-m", "docs: 基线提交")      # 先有基线，HEAD~1 才存在
     _git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty",
@@ -190,11 +191,12 @@ def test_quality_pact_gate_perf_needs_evidence(tmp_path):
     cp = _py("quality_pact_gate.py", "--root", str(r), "--range", "HEAD~1..HEAD")
     out = cp.stdout + cp.stderr
     assert cp.returncode == 1 and "EVIDENCE" in out, out
-    _git("commit", "--allow-empty", "-q", "--amend",
-         "-m", "perf(x): 加速 X", "-m", "EVIDENCE: 对拍一致（sha256 6/6）")
+    _git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty",
+         "-q", "-m", "perf(x): 加速 Y", "-m", "EVIDENCE: 对拍一致（sha256 6/6）")
     cp2 = _py("quality_pact_gate.py", "--root", str(r), "--range", "HEAD~1..HEAD")
     assert cp2.returncode == 0, cp2.stdout + cp2.stderr
-    _git("commit", "--allow-empty", "-q", "-m", "docs: 与速度无关")
+    _git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty",
+         "-q", "-m", "docs: 与速度无关")
     cp3 = _py("quality_pact_gate.py", "--root", str(r), "--range", "HEAD~1..HEAD")
     assert cp3.returncode == 0, cp3.stdout + cp3.stderr
 
