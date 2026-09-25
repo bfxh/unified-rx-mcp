@@ -396,6 +396,58 @@ def set_agent(name) -> None:
     _AGENT_NAME = str(name)[:60] if name else None
 
 
+# ── S173：智能体边界门控（按身份的 deny 档）────────────────────
+# 配置 = env UNIFIED_RX_AGENT_BOUNDARIES 或 ~/.unified-rx/agent-boundaries.json：
+# {"agents": {"<agent 名>": {"deny": ["工具名"...], "reason": "..."}, "*": {...}}}
+# 匹配：精确名优先，"*" 兜底。**边界是身份层**：在授权门之前生效——
+# 授权确认（__authorized: true）不能越过边界（身份说什么可以做，授权只是现场确认）。
+# 无配置文件 ⇒ 全放行（向后兼容，如实无门）。
+_BOUNDARY_CACHE: dict = {"mtime": None, "agents": None}
+
+
+def _boundary_path() -> str:
+    return (os.environ.get("UNIFIED_RX_AGENT_BOUNDARIES")
+            or os.path.join(os.path.expanduser("~"), ".unified-rx",
+                            "agent-boundaries.json"))
+
+
+def _load_boundaries():
+    """读边界配置（mtime 缓存：文件没变不重读）。不存在/坏文件 ⇒ None（如实无门）。"""
+    path = _boundary_path()
+    if not os.path.isfile(path):
+        return None
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return None
+    if _BOUNDARY_CACHE["mtime"] == mtime and _BOUNDARY_CACHE["agents"] is not None:
+        return _BOUNDARY_CACHE["agents"]
+    try:
+        with open(path, encoding="utf-8") as f:
+            doc = json.loads(f.read())
+        agents = doc.get("agents") if isinstance(doc, dict) else None
+    except (OSError, ValueError):
+        return None
+    if not isinstance(agents, dict):
+        return None
+    _BOUNDARY_CACHE.update(mtime=mtime, agents=agents)
+    return agents
+
+
+def _boundary_denied(tool_name: str):
+    """命中 deny 返回配置里的 reason；未命中/无配置返回 None。"""
+    agents = _load_boundaries()
+    if not agents:
+        return None
+    rule = agents.get(_AGENT_NAME) or agents.get("*")
+    if not rule:
+        return None
+    deny = rule.get("deny") or []
+    if tool_name in deny:
+        return str(rule.get("reason") or "无理由登记（配置缺 reason）")
+    return None
+
+
 def _record_stats(tool_name, duration_ms):
     """工具调用打点（usage_stats 的数据源）。
 
@@ -543,6 +595,14 @@ def call(name, args):
             f"该工具所属域「{g}」未启用（渐进披露）：先调 profile_enable "
             f'开启（需 __authorized: true），或宿主设 UNIFIED_RX_PROFILE=all')}
     entry = _TOOLS[name]
+    # S173：智能体边界（身份层）——在授权门之前。授权不能越过边界：
+    # 身份决定"能不能用"，授权只是"现场确认"。
+    denied = _boundary_denied(name)
+    if denied:
+        _record_stats(name, 0.0)
+        return {"ok": False, "error": _aci_hint(
+            f"BoundaryError: 智能体「{_AGENT_NAME or 'unattributed'}」被边界配置"
+            f"拒绝调用 {name}（{denied}）；调整 agent-boundaries.json 或换身份")}
     a = dict(args or {})
     if entry.get("requires_auth") and a.get("__authorized") is not True:
         return {"ok": False, "error": "PermissionError: 写/执行操作需要授权：参数加 __authorized: true 确认后重试"}

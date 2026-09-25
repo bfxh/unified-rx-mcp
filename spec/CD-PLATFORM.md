@@ -19,7 +19,7 @@
 | P1 | **查询效率提级（Rust 重写第一批）**——先量（semantic/search/resolve 基准入 cli-bench 形状），再落**跨请求解析缓存**（此前判定的设计级改动：PyNode → Arc+Sync 或 Rust 侧 AST），保逐字节输出 | 🔜 |
 | P2 | 多版本矩阵扩（Python 3.12/3.13 腿；Rust stable/1.85+ 最低版本线）；aarch64（linux-arm runner 或 qemu）；**显卡矩阵**（OpenCL 探测位已有：CI 无 GPU ⇒ 能力探测降级即"如实报"，GPU 实测留给本机/gpu runner） | 🔜 |
 | P2 | 黑客工具后续：osv-scanner v2.6（扫 ci-requirements 依赖漏洞——本仓零依赖，扫的是测试依赖面）、semgrep（结构化安全规则，Python 重，评估）、nuclei/zap（网络面，本地 target-only） | 🔜 |
-| P2 | **智能体边界治理**（用户后期想法）：其他智能体在本项目可做/不可做的边界声明 + 机器强制（授权门已有：requires_auth/manual_gate/path_gate——扩成"按智能体身份的边界档"，依赖 S172 的 agent 归因） | 🔜 设计先行 |
+| P2 | **智能体边界治理**（用户后期想法）：~~设计先行~~ ⇒ ✅ **已落地（S173 末）**：`registry._boundary_denied`（身份层 deny 档，先于授权门——授权不能越过边界）+ 配置 `~/.unified-rx/agent-boundaries.json`（或 `UNIFIED_RX_AGENT_BOUNDARIES`），mtime 热重载、坏 JSON fail-open 如实无门、mtime 秒级粒度有缓存失效兜底；金丝雀 5 条（deny 红 / 授权不可越 / 其他 agent 不受影响 / 无配置全放行 / 坏 JSON+修好生效）。**加 deny 配置即门，不加 = 行为不变** | ✅ 本轮 |
 
 ## 二、CD 标准提级（吸收大型项目形态）
 

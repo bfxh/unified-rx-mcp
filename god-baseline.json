@@ -165,8 +165,8 @@
   "max_type_members": 0
  },
  "registry.py": {
-  "file_lines": 658,
-  "max_fn_lines": 109,
+  "file_lines": 718,
+  "max_fn_lines": 117,
   "max_type_members": 0
  },
  "rust/src/appaudit.rs": {
@@ -702,6 +702,11 @@
  "tests/test_ab_runner.py": {
   "file_lines": 136,
   "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_agent_boundary.py": {
+  "file_lines": 113,
+  "max_fn_lines": 18,
   "max_type_members": 0
  },
  "tests/test_appaudit.py": {
