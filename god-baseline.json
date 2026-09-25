@@ -1470,7 +1470,7 @@
   "max_type_members": 0
  },
  "tools/lsp.py": {
-  "file_lines": 513,
+  "file_lines": 516,
   "max_fn_lines": 36,
   "max_type_members": 15
  },

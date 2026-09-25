@@ -398,7 +398,10 @@ def _locate(lang, fp, line, col):
     return sess, uri, pos
 
 
-_TRANSIENT_ERR = ("content modified", "file not found", "timed out")
+# S173：+ "no entry found for key"——rust-analyzer 冷索引期 salsa 内部 panic
+# （CI 实锤：references 首查命中，退避重试可过；非产品错误）
+_TRANSIENT_ERR = ("content modified", "file not found", "timed out",
+                  "no entry found for key")
 
 
 def _call_ready(sess, method, params, waits=(1.0, 2.0, 3.0, 5.0, 8.0)):
