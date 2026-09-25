@@ -98,6 +98,12 @@
    "why": "性能门清理上轮语料（S160）：只作用于固定的 TEMP 语料根目录，硬编码路径、非外部输入。"
   },
   {
+   "file": "scripts/quality_pact_gate.py",
+   "sink": "subprocess.run",
+   "count": 1,
+   "why": "S173 质量-速度契约门：以固定 argv 调 git log（shell=False，无字符串拼接；读的是提交信息元数据，不进 shell/exec/eval）。与 lint/type/typos 各门同族（S173 人工确认）"
+  },
+  {
    "file": "scripts/type_gate.py",
    "sink": "subprocess.run",
    "count": 1,

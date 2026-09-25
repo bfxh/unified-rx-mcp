@@ -12,6 +12,11 @@ import re
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CORE = os.path.join(ROOT, ".github", "workflows", "core.yml")
 SCAN = os.path.join(ROOT, ".github", "workflows", "scan.yml")
+# S173：钉版锁扩到**全部 workflow**——新文件（health/release/codeql）自动纳入机器锁，
+# 不再依赖手维护清单（首版漏了 health/release，靠"加门四处同步"纪律补上）。
+WORKFLOWS = [os.path.join(ROOT, ".github", "workflows", f)
+             for f in sorted(os.listdir(os.path.join(ROOT, ".github", "workflows")))
+             if f.endswith((".yml", ".yaml"))]
 
 # 唯一具名例外：它的 ref **就是工具链名**（stable/nightly），没有固定 SHA 语义——
 # 钉 SHA 等于钉错东西。理由同时写在两个 workflow 的行内注释里（互相引用）。
@@ -32,7 +37,7 @@ def test_every_uses_is_sha_pinned_or_named_exempt():
 
     这条不是一次性编辑的备忘，而是防漂移的机器锁：谁把某一行写回 `@v4`，这里就红。
     """
-    for path in (CORE, SCAN):
+    for path in WORKFLOWS:
         for lineno, line in enumerate(_read(path).splitlines(), 1):
             m = _USES.match(line)
             if not m:

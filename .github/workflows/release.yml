@@ -1,0 +1,123 @@
+name: release
+
+# S173：CD —— 发布流水线（CD-PLATFORM §二）。tag 推送（v*）或手动触发：
+#   多平台构建（windows-x64 / linux-x64）→ SHA256SUMS → GitHub Release（pre-release 通道）。
+# 供应链纪律：全部 uses 钉 SHA；产物带校验和；版本与 server.py 版本锁步（不匹配即红）；
+#   ${{ }} 一律经 env 进 shell（模板注入面清零——zizmor 实锤）。
+# GitHub 是"本地优先"的唯一例外面（托管产物）——构建全在 runner，签发全在流程内。
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 2.76.0，与 server.py 锁步校验）'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.run_id }}   # run_id 唯一 ⇒ 无注入面；release 无需去重
+  cancel-in-progress: false
+
+jobs:
+  version-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # 凭据不落盘（发布流程同样适用）
+      - name: 版本锁步校验（tag/workflow_dispatch 输入 == server.py 版本）
+        env:
+          WANT: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          SRV=$(python -c "import re;s=open('server.py',encoding='utf-8').read();print(re.search(r'SERVER_VERSION = \"([^\"]+)\"',s).group(1))")
+          WANT=${WANT#v}
+          echo "server.py=$SRV  want=$WANT"
+          [ "$SRV" = "$WANT" ] || { echo "版本不锁步：server.py=$SRV vs $WANT"; exit 1; }
+
+  build-windows:
+    runs-on: windows-latest
+    needs: version-lock
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # 凭据不落盘（发布流程同样适用）
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名
+      - name: Build（release，11 个 exe）
+        shell: pwsh
+        run: cargo build --release --manifest-path rust/Cargo.toml
+      - name: Collect + SHA256
+        shell: pwsh
+        env:
+          TAGVER: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          $ver = $env:TAGVER.TrimStart('v')
+          $dir = "dist/unified-rx-$ver-windows-x64"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Copy-Item rust/target/release/*.exe $dir
+          Get-ChildItem $dir | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)" | Add-Content "$dir/SHA256SUMS.txt"
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-x64
+          path: dist/unified-rx-*-windows-x64
+          if-no-files-found: error
+          include-hidden-files: false   # zizmor artipacked：凭据不进 artifact
+
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: version-lock
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # 凭据不落盘（发布流程同样适用）
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名
+      - name: Build（release）
+        run: cargo build --release --manifest-path rust/Cargo.toml
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/rx-target
+      - name: Collect + SHA256
+        run: |
+          VER="${TAGVER#v}"
+          DIR="dist/unified-rx-$VER-linux-x64"
+          mkdir -p "$DIR"
+          find "$CARGO_TARGET_DIR/release" -maxdepth 1 -type f -executable -exec cp {} "$DIR/" \;
+          (cd "$DIR" && sha256sum * > SHA256SUMS.txt)
+        env:
+          TAGVER: ${{ github.event.inputs.version || github.ref_name }}
+          CARGO_TARGET_DIR: ${{ runner.temp }}/rx-target
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-x64
+          path: dist/unified-rx-*-linux-x64
+          if-no-files-found: error
+          include-hidden-files: false   # zizmor artipacked
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux]
+    permissions:
+      contents: write           # 创建 Release（唯一写权限面，收到本 job）
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: dist
+      - name: Create GitHub Release（pre-release 通道：冒烟过再转正）
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAGVER: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          VER=${TAGVER#v}
+          gh release create "v$VER" dist/*/SHA256SUMS.txt \
+            --title "unified-rx v$VER" \
+            --notes "自动发布（S173 CD 流水线）。产物带 SHA256SUMS；先当 pre-release 冒烟，转正由人工确认。" \
+            --prerelease
+          # 各平台目录整体打包成单个 artifact 附加（exe/binary 直取不便时）
+          tar -czf "unified-rx-$VER-windows-x64.tar.gz" -C dist "unified-rx-$VER-windows-x64"
+          tar -czf "unified-rx-$VER-linux-x64.tar.gz" -C dist "unified-rx-$VER-linux-x64"
+          gh release upload "v$VER" "unified-rx-$VER-windows-x64.tar.gz" "unified-rx-$VER-linux-x64.tar.gz"

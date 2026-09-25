@@ -178,6 +178,11 @@ jobs:
       - name: Gitleaks gate（凭据泄漏——业界规则库，零容忍）
         run: python -X utf8 scripts/gitleaks_gate.py
 
+      # S173：质量-速度契约门——perf 提交必须带 EVIDENCE 行（对拍一致/行为变更+理由/
+      # 基础设施 三选一，见 spec/CD-PLATFORM.md §三）。提速不得是质量的债务转移。
+      - name: Quality pact gate（perf 提交必须带 EVIDENCE）
+        run: python -X utf8 scripts/quality_pact_gate.py
+
       # 以下两步原在 pytest job（会随矩阵+分片跑 4 遍）；它们是契约/评测基线，挪进本 job 跑一次。
       # S163 实锤：tool-evals 的 edit_and_test 任务是"改测试由红转绿"，**要用 pytest 跑测试**——
       # 该依赖原由 pytest job 的 LSP 安装步提供，挪步时漏了 ⇒ 首跑 CI 红（err=1 REGRESS）。

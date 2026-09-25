@@ -1,0 +1,63 @@
+name: health
+
+# S173：持续健康运行（CD-PLATFORM §四）——每日轻量体检：真 stdio 握手 + exe/版本对账 +
+# 凭据面 + 输出金标准。区别于 core.yml（push/PR 才跑）：这是"没人推代码的日子也每天量"。
+# 连续失败自动开 issue（GitHub 是唯一出口——本地优先纪律的例外侧）。
+
+on:
+  schedule:
+    - cron: '47 2 * * *'   # 每日 02:47 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write            # 失败自动开 issue（去重后）
+
+concurrency:
+  group: health-${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # 凭据不落盘
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r .github/ci-requirements.txt
+      - name: Install gitleaks 8.30.1（钉版）
+        shell: pwsh
+        run: |
+          curl.exe -sL -o ${{ runner.temp }}/gl.zip https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_windows_x64.zip
+          Expand-Archive ${{ runner.temp }}/gl.zip -DestinationPath ${{ runner.temp }}/gl -Force
+          Add-Content $env:GITHUB_PATH ${{ runner.temp }}/gl
+      - name: Build Rust acceleration（健康体检要真 exe）
+        shell: pwsh
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'rx-rs-target'
+          cargo build --release --manifest-path rust/Cargo.toml
+      # 健康签名（快速四件）：exe/版本对账 + 真握手 + 输出金标准 + 凭据面
+      - name: Health check（selftest + 真握手 + 金标准 + 凭据）
+        run: |
+          python -X utf8 scripts/local_gate.py --fast --only selftest,mcp-surface,cli-golden,gitleaks-gate
+      - name: Open issue on failure（连续失败可见；去重）
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          $existing = gh issue list --state open --search "health job 失败 in:title" --json number | ConvertFrom-Json
+          if ($existing.Count -eq 0) {
+            gh issue create --title "health job 失败（$(Get-Date -Format yyyy-MM-dd)）" `
+              --body "每日健康体检失败。运行：$env:RUN_URL。先看最近一次成功与本次的 diff；连续失败说明环境或产品在漂移。"
+          } else {
+            Write-Host "已有开放 issue #$($existing[0].number)，不重复开"
+          }

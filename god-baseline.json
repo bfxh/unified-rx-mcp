@@ -615,7 +615,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 174,
+  "file_lines": 176,
   "max_fn_lines": 67,
   "max_type_members": 0
  },
@@ -642,6 +642,11 @@
  "scripts/plugin_cost.py": {
   "file_lines": 103,
   "max_fn_lines": 59,
+  "max_type_members": 0
+ },
+ "scripts/quality_pact_gate.py": {
+  "file_lines": 109,
+  "max_fn_lines": 50,
   "max_type_members": 0
  },
  "scripts/secrets_history.py": {
@@ -910,7 +915,7 @@
   "max_type_members": 0
  },
  "tests/test_s124_ci_assets.py": {
-  "file_lines": 119,
+  "file_lines": 124,
   "max_fn_lines": 23,
   "max_type_members": 0
  },
@@ -990,8 +995,8 @@
   "max_type_members": 0
  },
  "tests/test_s147_gates.py": {
-  "file_lines": 231,
-  "max_fn_lines": 19,
+  "file_lines": 260,
+  "max_fn_lines": 27,
   "max_type_members": 0
  },
  "tests/test_s148_sys.py": {

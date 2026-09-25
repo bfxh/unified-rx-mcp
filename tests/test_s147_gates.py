@@ -170,6 +170,35 @@ def test_gitleaks_gate_catches_planted_key(tmp_path):
     assert cp2.returncode == 0, cp2.stdout + cp2.stderr
 
 
+def test_quality_pact_gate_perf_needs_evidence(tmp_path):
+    """金丝雀（S173）：质量-速度契约——perf 提交必须带 EVIDENCE 行，非 perf 不约束。
+
+    真门验收：临时 git 仓三提交（perf 无证据 ⇒ 红 / perf 带 EVIDENCE ⇒ 绿 / 非 perf ⇒ 绿）。
+    """
+    r = tmp_path / "repo"
+    r.mkdir()
+
+    def _git(*a):
+        subprocess.run(["git", *a], cwd=str(r), capture_output=True, text=True,
+                       check=True)
+
+    _git("init", "-q")
+    _git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty",
+         "-q", "-m", "docs: 基线提交")      # 先有基线，HEAD~1 才存在
+    _git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty",
+         "-q", "-m", "perf(x): 加速 X", "-m", "旧 body 不带证据")
+    cp = _py("quality_pact_gate.py", "--root", str(r), "--range", "HEAD~1..HEAD")
+    out = cp.stdout + cp.stderr
+    assert cp.returncode == 1 and "EVIDENCE" in out, out
+    _git("commit", "--allow-empty", "-q", "--amend",
+         "-m", "perf(x): 加速 X", "-m", "EVIDENCE: 对拍一致（sha256 6/6）")
+    cp2 = _py("quality_pact_gate.py", "--root", str(r), "--range", "HEAD~1..HEAD")
+    assert cp2.returncode == 0, cp2.stdout + cp2.stderr
+    _git("commit", "--allow-empty", "-q", "-m", "docs: 与速度无关")
+    cp3 = _py("quality_pact_gate.py", "--root", str(r), "--range", "HEAD~1..HEAD")
+    assert cp3.returncode == 0, cp3.stdout + cp3.stderr
+
+
 def test_lint_gate_catches_new_rule_hits(tmp_path):
     """金丝雀（S171）：Python 静态门是**逐规则棘轮**——涨一条就红，且认得出是哪条规则。
 
