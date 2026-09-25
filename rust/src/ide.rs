@@ -651,6 +651,10 @@ fn ide_walk(dir: &Path, st: &mut IdeWalk) {
 pub(crate) fn iter_files_ide(root: &Path, max_files: i64) -> Vec<String> {
     let mut st = IdeWalk { out: Vec::new(), count: 0, max: max_files };
     ide_walk(root, &mut st);
+    // S173：**排序必须在 quota 截断之前**——枚举序是文件系统相关的（NTFS 碰巧名序，
+    // linux readdir 任意序），先截断会吃任意子集（s93_rename_cap_200 在 linux 实锤：
+    // plan[199] 不是 c200）。排序后截断 ⇒ 名字序前 N 个，平台无关。
+    st.out.sort();
     st.out
 }
 
