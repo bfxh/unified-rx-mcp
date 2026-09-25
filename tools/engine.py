@@ -9,9 +9,11 @@
 codegraph CLI 实测（2026-08-24，VoxelForge）：
   init 3s / 69 文件 → 1571 节点 / 4412 边；query 亚毫秒；中文语义命中 docstring。
 """
+import contextlib
 import json
 import os
 import subprocess
+import time
 
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
@@ -78,6 +80,26 @@ def engine_status():
     }
 
 
+_CG_LAST_SYNC = [0.0]          # 进程内节流：长驻 server 上 60s 最多 sync 一次
+
+
+def _cg_maybe_sync(root: str) -> None:
+    """S173：索引**自动保鲜**——engine_query 前节流 sync（实测 0.5s/次）。
+
+    没有这步，建过索引的项目改码后 engine_query 会拿**陈旧索引**（质量回退）；
+    BM25 降级反而"新鲜"⇒ 旧索引比无索引更危险。节流 60s + 失败静默（查询照跑，
+    最坏情况=本次用上一次索引）。`UNIFIED_RX_CG_AUTOSYNC=0` 关闭。
+    """
+    if os.environ.get("UNIFIED_RX_CG_AUTOSYNC") == "0":
+        return
+    now = time.time()
+    if now - _CG_LAST_SYNC[0] < 60:
+        return
+    _CG_LAST_SYNC[0] = now
+    with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+        _cg_run(["sync", "-p", root], 60)   # 同步失败不影响查询（用现有索引）
+
+
 @tool("engine_query", "语义查询：优先 codegraph，降级 BM25", "engine",
       {"type": "object",
        "properties": {
@@ -98,6 +120,7 @@ def engine_query(query, root, limit=10):
         # 项目需已 init（.codegraph 目录存在）
         has_index = os.path.exists(os.path.join(root, ".codegraph"))
         if has_index:
+            _cg_maybe_sync(root)       # S173：索引自动保鲜（节流 60s，失败静默）
             try:
                 rc, out, err = _cg_run(["query", query, "-p", root, "-l", str(limit), "-j"], 60)
                 if rc == 0 and out.strip():
