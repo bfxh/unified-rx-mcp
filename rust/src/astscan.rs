@@ -55,10 +55,20 @@ fn splitext_ext(name: &str) -> String {
     }
 }
 
+/// S173：路径分隔符平台化——Windows 保持 `\`（金样/逐字节口径不变），其他 OS 用 `/`。
+/// 硬编码 `\` 在 linux 是"文件名的一部分"（合法字符）⇒ 跨平台腿实锤 5 场景 0 结果。
+fn sep() -> char {
+    if cfg!(windows) {
+        '\\'
+    } else {
+        '/'
+    }
+}
+
 fn join_name(dir: &Path, name: &str) -> String {
     let mut s = dir.to_string_lossy().into_owned();
     if !s.ends_with('\\') && !s.ends_with('/') {
-        s.push('\\');
+        s.push(sep());
     }
     s.push_str(name);
     s
@@ -163,19 +173,20 @@ fn relpath(fp: &str, base: &str) -> String {
     if f == b {
         return ".".into();
     }
-    let bp = format!("{}\\", b);
+    let sep = sep();
+    let bp = format!("{}{}", b, sep);
     if f.starts_with(&bp) {
         return f[bp.len()..].to_string();
     }
-    let fs: Vec<&str> = f.split('\\').collect();
-    let bs: Vec<&str> = b.split('\\').collect();
+    let fs: Vec<&str> = f.split(['\\', '/']).collect();
+    let bs: Vec<&str> = b.split(['\\', '/']).collect();
     let mut k = 0;
     while k < fs.len() && k < bs.len() && fs[k].eq_ignore_ascii_case(bs[k]) {
         k += 1;
     }
     let mut out: Vec<String> = vec!["..".into(); bs.len() - k];
     out.extend(fs[k..].iter().map(|x| x.to_string()));
-    out.join("\\")
+    out.join(&sep.to_string())
 }
 
 fn py_dirname(p: &str) -> String {
@@ -440,6 +451,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(windows)] // S173：这段锁的是 Windows 反斜杠口径（分隔符已平台化）
     fn relpath_suffix_and_dot() {
         assert_eq!(relpath("D:\\x\\a\\b.py", "D:\\x"), "a\\b.py");
         assert_eq!(relpath("D:\\x\\b.py", "D:\\x\\b.py"), ".");
