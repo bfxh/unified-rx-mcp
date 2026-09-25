@@ -781,6 +781,10 @@ pub fn ide_rename(
             plan.push((fp, src.matches(symbol).count() as i128));
         }
     }
+    // S173：plan 按路径**确定性排序**——ide_walk 的枚举序是文件系统相关的
+    // （NTFS 碰巧按名序，linux readdir 任意序 ⇒ 同输入不同 plan，跨平台腿实锤）。
+    // 行为变化=产品修正：输出从"碰巧有序"变成"保证有序"（Windows 上实际次序不变）。
+    plan.sort_by(|a, b| a.0.cmp(&b.0));
     let total_occ: i128 = plan.iter().map(|(_, n)| *n).sum();
     Ok(Value::Obj(vec![
         ("symbol".into(), Value::Str(symbol.into())),
