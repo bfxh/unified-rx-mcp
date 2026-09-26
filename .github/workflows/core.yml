@@ -108,7 +108,7 @@ jobs:
       - name: Path gate（S162：符号链接/文件名卫生/≤1MB/越界写/软链接逃逸——与 key 门并列）
         run: python -X utf8 scripts/path_gate.py
 
-      - name: Deps-lock gate（S147：rust 依赖段恒空红线机器化）
+      - name: Deps-lock gate（S147 加严：Cargo 恒空 / CI 依赖登记+钉版 / workflow 钉 sha）
         run: python -X utf8 scripts/deps_lock.py
 
       - name: Selftest hard gate（对账行从"提示"升为"退出码"）

@@ -43,7 +43,7 @@ STEPS = [
     ("self-attack", [PY, "-X", "utf8", "scripts/attack_gate.py"], "fast", "自攻门（巡航 clean）"),
     ("data-flow",   [PY, "-X", "utf8", "scripts/taint_gate.py"], "fast", "数据流门（taint 基线）"),
     ("secrets-history", [PY, "-X", "utf8", "scripts/secrets_history.py"], "fast", "历史 diff 明文红线"),
-    ("deps-lock",   [PY, "-X", "utf8", "scripts/deps_lock.py"], "fast", "依赖红线（Cargo 恒空）"),
+    ("deps-lock",   [PY, "-X", "utf8", "scripts/deps_lock.py"], "fast", "依赖/供应链红线（Cargo 恒空 / CI 依赖登记+钉版 / workflow 钉 sha）"),
     ("audit-freshness", [PY, "-X", "utf8", "scripts/audit_ledger.py"], "fast", "审计时效/账本对账"),
     ("toolface",    [PY, "-X", "utf8", "scripts/toolface_budget.py"], "fast", "工具面体量软帽"),
     ("tool-evals",  [PY, "-X", "utf8", "bench/tool_evals.py", "--check"], "fast", "任务级评测基线"),

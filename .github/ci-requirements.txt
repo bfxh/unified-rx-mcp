@@ -1,7 +1,7 @@
-pytest
-python-lsp-server
-jedi
-pyflakes
+pytest==9.1.1
+python-lsp-server==1.15.0
+jedi  # 浮动：理由见 LIBRARY-POLICY §六①（2026-09-24 实测否证钉小版本）
+pyflakes==4.0.0
 ruff==0.16.8
 mypy==2.3.1
 typos==1.50.2

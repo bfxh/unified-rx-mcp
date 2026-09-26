@@ -585,7 +585,7 @@
   "max_type_members": 0
  },
  "scripts/deps_lock.py": {
-  "file_lines": 49,
+  "file_lines": 109,
   "max_fn_lines": 11,
   "max_type_members": 0
  },

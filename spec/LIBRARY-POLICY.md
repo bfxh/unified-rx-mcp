@@ -60,6 +60,8 @@ ast-grep、OpenCL 运行时、codegraph、ruff/mypy/pyflakes、cargo/go/javac/gc
 
 ## 四、操作化（每次设计新能力时的动作）
 
+> **依赖/供应链红线（机器化，S147 加严）**：① `rust/Cargo.toml` 依赖段恒空；② `.github/ci-requirements.txt` 的包必须在本清单 §六登记，且默认 `==` 钉版（浮动须同行写 `# 浮动：理由见 LIBRARY-POLICY §六①`）；③ workflow 的 `uses:` 必须钉 40 位 sha 或写 `zizmor: ignore[unpinned-uses] <理由>`。判据在 `scripts/deps_lock.py`，CI（core.yml）与本地门各跑一次。
+
 1. 列 2–3 个候选（含**当前版本**的前沿方案），各写一行"理念一句话"；
 2. 过三问 + 红线优先序，**写下选择与理由**（入了本次改动说明/ROUNDLOG）；
 3. 接入形态默认**薄壳**（探测→调用→解析→如实降级），不把库焊进核心；
@@ -94,6 +96,7 @@ ast-grep、OpenCL 运行时、codegraph、ruff/mypy/pyflakes、cargo/go/javac/gc
   --no-cache` → 未装回退 **pyflakes**（文本行解析）→ 都没有进 skipped →
   版本姿势：ruff 是本类**前沿首选**（Rust 实现快 + JSON 稳定输出）。
 - **mypy**（类型面，独立）→ 同通道；缓存钉 TEMP；未装如实报。
+- **typos（typos-cli）** → `typos_gate` 拼写门 → 版本姿势：CI 钉版安装（`.github/ci-requirements.txt`），拼写词典由 `_typos.toml` 自映射维护（每条豁免都要写理由）。
 - **ast-grep**（结构搜索 `$VAR`）→ `ast_grep` 薄壳 → 未装清晰报错给安装提示 →
   版本姿势：模式即代码的现代结构化搜索（优于纯正则的升级路径）。
 - **rust clippy**（随工具链）→ `ide_diagnostics`/`ide_build` lint → `cargo`
