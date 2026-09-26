@@ -30,6 +30,7 @@ TOOL_TITLES = {
     "secrets_hunt": "密钥泄漏扫描",
     "cargo_audit": "Rust 依赖安全审计",
     "cargo_machete": "Rust 未使用依赖检测",
+    "cargo_semver_checks": "Rust API 兼容检查",
     "vuln_knowledge": "漏洞知识库",
     "ast_grep": "结构搜索",
     # ide 域
