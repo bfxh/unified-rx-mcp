@@ -15,7 +15,7 @@
 |---|---|---|---|
 | fs | [fs.md](fs.md) | 4 | 沙盒 _fs_resolve，空 roots=全拒；读面纯 Python（S95） |
 | search | [search.md](search.md) | 3 | BM25 文件级 + tf-idf 符号级 + repo_map 个人化 PageRank，均非嵌入 |
-| scan | [scan.md](scan.md) | 13 | 正则+AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B；含知识库与可选引擎 |
+| scan | [scan.md](scan.md) | 14 | 正则+AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B；含知识库与可选引擎 |
 | ide | [ide.md](ide.md) | 23 | LSP 仅 2 语言（缺失如实报 + impact 文本降级，S99）；build/debug/break 走真实工具链；S125 调用图（nameres 同引擎）；S129 impact 调用面 + 风险榜；lsp 客户端/动作/影响面三分 |
 | guard | [guard.md](guard.md) | 4 | 路径真值校验，非语义理解；读取过沙盒（S97） |
 | meta | [meta.md](meta.md) | 3 |

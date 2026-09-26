@@ -129,3 +129,22 @@
   越界返回 `{"error": "路径越界（沙盒外）：…"}` 且**不给分**（旧版越界路径会把
   子扫错误吞成 0 问题、返回假满分，已修）（S73 纪律补全）；S136 组归位 ops→scan
   （评分=三路扫描语义）
+
+### installer_scan —— 伪造安装包扫描（纯 stdlib + ctypes，非 Windows 退化为启发式层）
+
+抓"假安装包"：下载来的 setup.exe 双击前过三层证据，判定四档
+（signed-trusted / suspicious / likely-fake / metadata-only）+ 逐条证据：
+
+1. **数字签名**（Windows；ctypes 直调 wintrust/crypt32，零依赖）：WinVerifyTrust
+   （GENERIC_VERIFY_V2，UI_NONE）→ 未签名 / 签后文件被改（BAD_DIGEST）/ 吊销 /
+   过期 / 不可信根；CryptQueryObject → CryptMsgGetParam → CertGetNameStringW
+   取签名者显示名。
+2. **PE 版本资源**（version.dll FFI）：CompanyName / ProductName /
+   FileVersion / OriginalFilename——自称知名厂商却拿不出有效签名 = 伪造典型形态。
+3. **文件名与来源启发式**：破解/激活/keygen 类关键词、双扩展名（invoice.pdf.exe）、
+   MOTW（Zone.Identifier，ZoneId=3 = 来自网络）。
+
+诚实边界：静态启发非保证——签名无法验证内容无害，verdict 是线索不是结论，
+安装前人工确认；签名者与厂商名比对是弱信号（OEM/代工会出现真实不一致）；
+非 Windows 无签名/版本资源层。已知厂商清单在 `_KNOWN_VENDORS`，可自行扩充。
+与 file_scan 互补：file_scan 的"签名"是用户自定义字面量/哈希匹配，两者无重叠。

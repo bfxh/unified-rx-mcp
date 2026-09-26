@@ -13,6 +13,7 @@ extend-exclude = [
 "ACI" = "ACI"         # S105 域名概念（Agent Context Insights 提示族；test_s105 在册）
 "aci" = "aci"         # 同上（小写标识符 _aci_trunc 等）
 "ND" = "ND"           # OpenCL API：clEnqueueNDRangeKernel
+"Struc" = "Struc"  # Windows VS_FIXEDFILEINFO 官方字段 dwStrucVersion（installer_scan；typos 驼峰分词后命中 Struc）
 "clen" = "clen"       # OpenCL 内核形参（crib length，xor_crib_scan）
 "ba" = "ba"           # ab_run 的 A/B 双臂聚合变量（ba/bb = arm A/B）
 "rotat" = "rotat"     # ROUNDLOG 历史日志里的截词（非真实词，历史不改写）

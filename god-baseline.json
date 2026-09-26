@@ -1300,12 +1300,12 @@
   "max_type_members": 0
  },
  "toolmeta.py": {
-  "file_lines": 141,
+  "file_lines": 142,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
  "tools/__init__.py": {
-  "file_lines": 87,
+  "file_lines": 89,
   "max_fn_lines": 0,
   "max_type_members": 0
  },

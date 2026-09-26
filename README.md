@@ -8,7 +8,7 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.76.0（S160）**：80 工具 / 14 域（core 档 54 件）；**CI 审核再加两道硬门**——
+**当前 v2.76.0（S160）**：81 工具 / 14 域（core 档 54 件）；**CI 审核再加两道硬门**——
 ①**性能门**（`scripts/perf_gate.py`）：判据 = **同机并行 vs 串行比值**（7 处并行度
 收敛到 `rust/src/par.rs`，`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）——扣进程启动基线、
 工作量 <8ms 不判、per-case 上限、≤2 核只判不倒退；实测比率 0.44–0.66（五例）。
@@ -65,19 +65,19 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **80 个组合工具 / 14 域**（core 档 54 件） |
+| 工具面 | 183（注入面 200+） | **81 个组合工具 / 14 域**（core 档 54 件） |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（14 域 · 80 工具）
+## 工具面（14 域 · 81 工具）
 
 | 域 | 工具 |
 |---|---|
 | 📁 fs (4) | `fs_read` `fs_write` `fs_stat` `fs_list` — 沙盒 fail-closed；读面纯 Python（S95 回迁，golden oracle 锁等价），写面 rx-fs.exe |
-| 🐛 scan (13) | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` `project_health`（S136 自 ops 归位：评分=三路扫描语义）`ast_scan` `code_review` `vuln_knowledge` `ast_grep` `file_scan` `near_dupes` `secrets_hunt`（S123：凭据泄漏扫描，掩码输出） — 正则 + AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
+| 🐛 scan (14) | `bug_scan` `std_check` `ui_check` `bug_locate` `project_scan` `project_health`（S136 自 ops 归位：评分=三路扫描语义）`ast_scan` `code_review` `vuln_knowledge` `ast_grep` `file_scan` `near_dupes` `secrets_hunt`（S123：凭据泄漏扫描，掩码输出）`installer_scan`（伪造安装包：Authenticode 签名 + PE 版本资源 + 文件名/MOTW 启发式，三档判定） — 正则 + AST-lite，非编译器语义；覆盖矩阵见 VULN-HUNTING 附录 B |
 | 📐 metrics (3) | `code_coverage` `dep_graph` `module_stability` — 代码质量度量（S136 自 scan 域归位：模块 metrics.py 与组轴对齐；代码模式扫描仍属 scan） |
 | 🖥️ sys (6) | `sys_topology`（P/E 核分级：EfficiencyClass 双 API 交叉，非混合平台如实报 uniform）`sys_threads`（线程优先级/理想核/CPU 集）`sys_steer`（**需授权**：render=关键线程→P 核 / background=后台→E 核，CPU Set 软定向 + EcoQoS，`hard` 走硬亲和并标代价）`sys_devices`（显示适配器，同类显示口去重）`sys_procs`（进程清单，按名找目标）`sys_privilege`（**需授权**：开 SeDebugPrivilege，跨进程改线程前置） |
 | 🛠️ ide (23) | `ide_outline` `ide_read_symbol` `locate_edit` `code_context` `ide_edit_multi` `ide_batch_edit` `ide_rename` `ide_lsp` `ide_impact` `ide_diagnostics` `ide_build` `ide_test` `ide_debug` `ide_break` `ide_doctor` `ide_multi_check` `ide_vscode` `ide_auto_report` `ide_health_trend` `scip_refs` `ide_dead_code`（S123：死符号可达性）`ide_callgraph`（S125：真调用图）`ide_risk_rank`（S129：风险榜——高扇入×无测试排序） |

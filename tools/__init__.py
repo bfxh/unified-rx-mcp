@@ -31,6 +31,7 @@ from . import (
     ide_test,  # noqa: F401,E402  # R2：统一测试入口（pytest/cargo/go → per-test 结果）
     ide_vscode,  # noqa: F401,E402  # S68：VS Code 后手入口（open/diff）
     impact,  # noqa: F401,E402  # S129：ide_impact 影响面（自 lsp.py 拆出 + 调用面档）
+    installerscan,  # 伪造安装包扫描（Authenticode/版本资源/启发式；__all__ 已导出，无需 noqa）
     learn,  # noqa: F401,E402
     lsp,  # noqa: F401,E402  # S17：真 LSP 客户端（rust-analyzer/pylsp）
     lsp_actions,  # noqa: F401,E402  # S129：ide_lsp 动作分发（自 lsp.py 拆出）
@@ -71,6 +72,7 @@ __all__ = [
     "ide_test",
     "ide_vscode",
     "impact",
+    "installerscan",
     "learn",
     "lsp",
     "lsp_actions",
