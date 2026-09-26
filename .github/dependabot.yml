@@ -1,0 +1,10 @@
+# 本仓零运行时依赖（纯 stdlib），无 cargo/pip 升级面；依赖面只有 CI 里的 actions。
+# 依赖更新自成 PR（spec/PR-DISCIPLINE.md），Dependabot 每周一提，单独 review / 回滚。
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
