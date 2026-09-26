@@ -40,3 +40,14 @@
 rust_taint_scan 同为「Rust 项目安全检查」族，且 core 首屏裁剪面不收低频审计
 （渐进披露）。实测：本仓 rust/（零依赖）→ 0 漏洞 0 警告 exit 0；本机 TLS
 拦截环境下 advisory DB 手动克隆 + `--stale` 实测可用。
+
+### cargo_machete —— Rust 未使用依赖检测（cargo-machete 薄壳，执行类需授权）
+
+**cargo-machete --format json** 的能力探测薄壳：workspace 递归找出「声明了
+但代码里没用到」的依赖，逐条（package + 所在 Cargo.toml）。执行外部子进程
+⇒ `requires_auth`。能力探测：缺失如实 `available=false` + 安装 hint
+（cargo install cargo-machete --locked），装好即自动可用。诚实边界：
+字符串搜索非编译器语义——宏里用的依赖可能误报（上游同款声明），删依赖前
+人工确认。与 cargo_audit 互补：那个管「已用依赖里的已知漏洞」，这个管
+「根本没用的依赖」——依赖卫生的两半。实测：scratch 项目故意留 serde →
+逐条命中；本仓 rust/（零依赖）→ clean。
