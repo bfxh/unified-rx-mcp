@@ -122,7 +122,7 @@ def test_scan_no_longer_hosts_review_domain():
 # ---------- 3. 注册面契约 ----------
 
 def test_registry_surface_unchanged():
-    assert registry.tool_count() == 82
+    assert registry.tool_count() == 83
     entry = registry._TOOLS["code_review"]
     assert entry["handler"].__module__ == "tools.code_review"
     assert entry["group"] == "scan"

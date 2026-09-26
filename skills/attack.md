@@ -51,3 +51,15 @@ rust_taint_scan 同为「Rust 项目安全检查」族，且 core 首屏裁剪�
 人工确认。与 cargo_audit 互补：那个管「已用依赖里的已知漏洞」，这个管
 「根本没用的依赖」——依赖卫生的两半。实测：scratch 项目故意留 serde →
 逐条命中；本仓 rust/（零依赖）→ clean。
+
+### cargo_semver_checks —— Rust API 兼容性检查（cargo-semver-checks 薄壳，执行类需授权）
+
+对比 git baseline（tag/分支/rev）与当前工作区的公开 API，逐条破坏性变更
+（lint/标题）+ Summary 判定需要 major / minor 跳档。执行外部子进程并生成
+rustdoc（较慢，默认 timeout 900s）⇒ `requires_auth`。能力探测：缺失如实
+`available=false` + 安装 hint。baseline_rev 走安全字符集校验（list 形式
+argv 本就无 shell，此为防御纵深）。诚实边界：只看 rustdoc 可见的公开 API
+结构变化，行为变化不归它管；项目需能编译。与 cargo_audit（漏洞）/
+cargo_machete（未使用依赖）组成 attack 域的 Rust 项目检查三件套。实测：
+scratch 仓 v0.1.0 tag 后给 pub fn 加参数 → function_parameter_count_changed
++ required_bump=major 逐条命中（3.3s）。
