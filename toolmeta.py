@@ -28,6 +28,7 @@ TOOL_TITLES = {
     "file_scan": "文件签名与熵扫描",
     "near_dupes": "近似重复聚类",
     "secrets_hunt": "密钥泄漏扫描",
+    "cargo_audit": "Rust 依赖安全审计",
     "vuln_knowledge": "漏洞知识库",
     "ast_grep": "结构搜索",
     # ide 域

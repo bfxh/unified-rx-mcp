@@ -21,7 +21,7 @@
 | meta | [meta.md](meta.md) | 3 |
 | metrics | [metrics.md](metrics.md) | 3 | S136 组轴归位（模块 metrics.py 与组对齐）：覆盖率/依赖图/稳定性 | local_run 需 __authorized；S122 熔断状态/复位 |
 | ops | [ops.md](ops.md) | 7 | stats.jsonl 打点 + S141 会话烧量 + S149 渐进披露（profile_status/profile_enable） |
-| attack | [attack.md](attack.md) | 6 | 自写对抗，非 hypothesis |
+| attack | [attack.md](attack.md) | 7 | 自写对抗，非 hypothesis |
 | appaudit | [appaudit.md](appaudit.md) | 3 | Electron asar 解包审计 |
 | engine | [engine.md](engine.md) | 2 | 引擎桥接 |
 | game | [game.md](game.md) | 2 | Blender/游戏资产校验 |

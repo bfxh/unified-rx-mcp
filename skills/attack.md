@@ -27,3 +27,16 @@
   `big=false` 跳大输入。输出统一报告：gates/passive/fuzz/big + **failures/errors
   全量列出不吞** + verdict（clean/issues）。档位（HARDENING §七）：纯自审不挂门；
   增补挂门靶时其模糊调用得「授权拒绝」= PASS-reject 属合法判定。
+
+### cargo_audit —— Rust 依赖安全审计（RustSec 薄壳，执行类需授权）
+
+经 **cargo-audit --json** 的能力探测薄壳：RustSec 官方 advisory 库逐条漏洞
+（id/package/版本/title/patched）+ unmaintained 等警告摘要。执行外部子进程
+⇒ `requires_auth`（与 ide_build/ide_diag 同款纪律）。能力探测：cargo-audit
+缺失如实 `available=false` + 安装 hint（cargo install cargo-audit --locked），
+装好即自动可用。`stale=true` 跳过 DB 更新（离线环境；DB 可手动克隆到
+~/.cargo/advisory-db）。诚实边界：只覆盖 Cargo.lock 依赖树，DB 时效由上游管，
+本工具不做修复——升级/换 crate 是人的决策。放 attack 域的理由：与
+rust_taint_scan 同为「Rust 项目安全检查」族，且 core 首屏裁剪面不收低频审计
+（渐进披露）。实测：本仓 rust/（零依赖）→ 0 漏洞 0 警告 exit 0；本机 TLS
+拦截环境下 advisory DB 手动克隆 + `--stale` 实测可用。

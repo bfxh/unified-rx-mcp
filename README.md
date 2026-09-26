@@ -8,7 +8,7 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 
-**当前 v2.76.0（S160）**：80 工具 / 14 域（core 档 54 件）；**CI 审核再加两道硬门**——
+**当前 v2.76.0（S160）**：81 工具 / 14 域（core 档 54 件）；**CI 审核再加两道硬门**——
 ①**性能门**（`scripts/perf_gate.py`）：判据 = **同机并行 vs 串行比值**（7 处并行度
 收敛到 `rust/src/par.rs`，`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）——扣进程启动基线、
 工作量 <8ms 不判、per-case 上限、≤2 核只判不倒退；实测比率 0.44–0.66（五例）。
@@ -65,14 +65,14 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 
 | | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **80 个组合工具 / 14 域**（core 档 54 件） |
+| 工具面 | 183（注入面 200+） | **81 个组合工具 / 14 域**（core 档 54 件） |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（14 域 · 80 工具）
+## 工具面（14 域 · 81 工具）
 
 | 域 | 工具 |
 |---|---|
@@ -87,7 +87,7 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 | ⚙️ ops (5) | `backup` `scan_log` `usage_stats` `session_burn`（S141：会话烧量监测）`lesson_stats` |
 | 🎮 game (2) | `game_check` `blender_verify` |
 | 🚀 engine (2) | `engine_status` `engine_query` |
-| 🕵️ attack (6) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航） — 自攻面常驻 |
+| 🕵️ attack (7) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航）`cargo_audit`（Rust 依赖安全审计：RustSec 薄壳，需授权） — 自攻面常驻 |
 | 🧬 appaudit (3) | `app_audit` `app_clone` `app_clean` |
 | 🧰 meta (3) | `local_run` `process` `gpu_status` — 授权门控 / GPU 遥测 |
 
