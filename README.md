@@ -7,7 +7,7 @@
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）·
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
-
+> 协作纪律：**一个 PR 一个功能**——过程发现的问题另开 PR 引用出处，依赖变更自成 PR 引用需求方，不搭车、不捆包（[spec/PR-DISCIPLINE.md](spec/PR-DISCIPLINE.md)）
 **当前 v2.76.0（S160）**：80 工具 / 14 域（core 档 54 件）；**CI 审核再加两道硬门**——
 ①**性能门**（`scripts/perf_gate.py`）：判据 = **同机并行 vs 串行比值**（7 处并行度
 收敛到 `rust/src/par.rs`，`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）——扣进程启动基线、
